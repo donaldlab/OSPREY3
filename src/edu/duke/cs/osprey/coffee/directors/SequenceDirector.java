@@ -56,7 +56,7 @@ public class SequenceDirector implements Coffee.Director {
 			while (true) {
 
 				// process nodes for a little bit
-				// within the first 5 minutes of computation, use smaller batches, but gradually grow to 1 min batches
+				// within the first 5 minutes of computation, use quicker batches, but gradually grow to 1 min batches
 				long nodesTimeMs = Math.max(500L, (long)(Math.min(stopwatch.getTimeM()/5.0, 1.0)*60_000));
 				var foundNodes = processor.processFor(directions, nodesTimeMs, TimeUnit.MILLISECONDS);
 				if (!foundNodes) {
@@ -132,11 +132,14 @@ public class SequenceDirector implements Coffee.Director {
 					// TODO: show node processing speeds?
 
 					// are we there yet?
-					if (g.size() <= gWidthMax) {
+					if (gWidth <= gWidthMax) {
 						break;
 					}
 				}
 			}
+
+			// state complete, clear the nodes
+			processor.nodedb.clear(state.index);
 		}
 
 		// all done, stop the computation

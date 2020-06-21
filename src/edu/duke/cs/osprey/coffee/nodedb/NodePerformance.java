@@ -11,7 +11,7 @@ import java.util.Deque;
 public class NodePerformance {
 
 	public static final long InitialNs = 100_000L; // start with 100 us per node operation
-	public static final int HistorySize = /* TEMP 100; */ 5;
+	public static final int HistorySize = 100;
 
 	private static final BigExp zero = new BigExp(0.0, 0);
 	private static final BigExp one = new BigExp(1.0, 0);
@@ -107,5 +107,9 @@ public class NodePerformance {
 		score.div(type.avgNs);
 		score.normalize(true);
 		return score;
+	}
+
+	public BigExp score(NodeIndex.Node node) {
+		return score(node.statei, node.conf, node.zSumUpper);
 	}
 }

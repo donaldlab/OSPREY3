@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.coffee;
 
+import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 import static edu.duke.cs.osprey.TestBase.*;
 import static edu.duke.cs.osprey.tools.Log.log;
@@ -36,7 +37,7 @@ import java.util.stream.IntStream;
 
 public class TestCoffee {
 
-	private static final Parallelism twoCpus = Parallelism.makeCpu(2);
+	private static final Parallelism oneCpu = Parallelism.makeCpu(1);
 	private static final Parallelism allCpus = Parallelism.makeCpu(Parallelism.getMaxNumCPUs());
 
 	private static final double freeEnergyEpsilon = 1e-6;
@@ -210,7 +211,9 @@ public class TestCoffee {
 			// check the free energies
 			if (cluster.nodeId == 0) {
 				for (var state : confSpace.states) {
-					assertThat(state.name, director.getFreeEnergy(state), isAbsoluteBound(freeEnergies[state.index], freeEnergyEpsilon));
+					var g = director.getFreeEnergy(state);
+					assertThat(state.name, g, isAbsoluteBound(freeEnergies[state.index], freeEnergyEpsilon));
+					assertThat(state.name, g.size(), lessThanOrEqualTo(precision));
 				}
 			}
 		});
@@ -261,6 +264,8 @@ public class TestCoffee {
 		seqFreeEnergy(
 			TestCoffee.affinity_6ov7_1mut6flex(),
 			seqSpace -> seqSpace.makeWildTypeSequence(),
+			// TODO: these numbers are from GPU calculations, which differ enough from
+			//  the CPU calculations used in this test to be noticeable at 0.1 precision
 			new double[] { -1380.512795, -145.154178, -1190.413094 },
 			bytes, precision, numMembers, parallelism
 		);
@@ -307,51 +312,57 @@ public class TestCoffee {
 
 	// the basic test
 	@Test public void seqFreeEnergy_affinity_6ov7_1mut2flex_wt_01_1x1_1m() {
-		seqFreeEnergy_affinity_6ov7_1mut2flex_wt(1024*1024, 0.1, 1, twoCpus);
+		seqFreeEnergy_affinity_6ov7_1mut2flex_wt(1024*1024, 0.1, 1, oneCpu);
 	}
 
 	// vary precision
 	@Test public void seqFreeEnergy_affinity_6ov7_1mut2flex_wt_001_1x1_1m() {
-		seqFreeEnergy_affinity_6ov7_1mut2flex_wt(1024*1024, 0.01, 1, twoCpus);
+		seqFreeEnergy_affinity_6ov7_1mut2flex_wt(1024*1024, 0.01, 1, oneCpu);
 	}
 	@Test public void seqFreeEnergy_affinity_6ov7_1mut2flex_wt_0001_1x1_1m() {
-		seqFreeEnergy_affinity_6ov7_1mut2flex_wt(1024*1024, 0.001, 1, twoCpus);
+		seqFreeEnergy_affinity_6ov7_1mut2flex_wt(1024*1024, 0.001, 1, oneCpu);
 	}
 	@Test public void seqFreeEnergy_affinity_6ov7_1mut2flex_wt_0_1x1_1m() {
-		seqFreeEnergy_affinity_6ov7_1mut2flex_wt(1024*1024, 0.0001, 1, twoCpus);
+		seqFreeEnergy_affinity_6ov7_1mut2flex_wt(1024*1024, 0.0001, 1, oneCpu);
 	}
 
 	// vary sequence
 	@Test public void seqFreeEnergy_affinity_6ov7_1mut2flex_ala_01_1x1_1m() {
-		seqFreeEnergy_affinity_6ov7_1mut2flex_ala(1024*1024, 0.1, 1, twoCpus);
+		seqFreeEnergy_affinity_6ov7_1mut2flex_ala(1024*1024, 0.1, 1, oneCpu);
 	}
 	@Test public void seqFreeEnergy_affinity_6ov7_1mut2flex_asn_01_1x1_1m() {
-		seqFreeEnergy_affinity_6ov7_1mut2flex_asn(1024*1024, 0.1, 1, twoCpus);
+		seqFreeEnergy_affinity_6ov7_1mut2flex_asn(1024*1024, 0.1, 1, oneCpu);
 	}
 
 	// vary cluster members/parallelism
-	@Test public void seqFreeEnergy_affinity_6ov7_1mut2flex_wt_01_2x2_1m() {
-		seqFreeEnergy_affinity_6ov7_1mut2flex_wt(1024*1024, 0.1, 2, twoCpus);
+	@Test public void seqFreeEnergy_affinity_6ov7_1mut2flex_wt_01_1x2_1m() {
+		seqFreeEnergy_affinity_6ov7_1mut2flex_wt(1024*1024, 0.1, 1, Parallelism.makeCpu(2));
 	}
 	@Test public void seqFreeEnergy_affinity_6ov7_1mut2flex_wt_01_1x4_1m() {
 		seqFreeEnergy_affinity_6ov7_1mut2flex_wt(1024*1024, 0.1, 1, Parallelism.makeCpu(4));
 	}
+	@Test public void seqFreeEnergy_affinity_6ov7_1mut2flex_wt_01_2x1_1m() {
+		seqFreeEnergy_affinity_6ov7_1mut2flex_wt(1024*1024, 0.1, 2, oneCpu);
+	}
+	@Test public void seqFreeEnergy_affinity_6ov7_1mut2flex_wt_01_2x2_1m() {
+		seqFreeEnergy_affinity_6ov7_1mut2flex_wt(1024*1024, 0.1, 2, Parallelism.makeCpu(2));
+	}
 
 	// vary the memory
-	@Test public void seqFreeEnergy_affinity_6ov7_1mut2flex_wt_01_1x1_256k() {
-		seqFreeEnergy_affinity_6ov7_1mut2flex_wt(256*1024, 0, 1, twoCpus);
+	@Test public void seqFreeEnergy_affinity_6ov7_1mut2flex_wt_0_1x1_256k() {
+		seqFreeEnergy_affinity_6ov7_1mut2flex_wt(256*1024, 0, 1, oneCpu);
 	}
-	@Test public void seqFreeEnergy_affinity_6ov7_1mut2flex_wt_01_1x1_96k() { // min possible bytes, still enough space for perfect precision
-		seqFreeEnergy_affinity_6ov7_1mut2flex_wt(96*1024, 0, 1, twoCpus);
+	@Test public void seqFreeEnergy_affinity_6ov7_1mut2flex_wt_0_1x1_96k() { // min possible bytes, still enough space for perfect precision
+		seqFreeEnergy_affinity_6ov7_1mut2flex_wt(96*1024, 0, 1, oneCpu);
 	}
 
 
 	// SMALL CONF SPACE
 
 	// the basic test
-	@Test public void seqFreeEnergy_affinity_6ov7_1mut6flex_wt_01_1x1_1m() {
-		// TEMP
-		seqFreeEnergy_affinity_6ov7_1mut6flex_wt(1024*1024, 0.1, 1, twoCpus);
-		//seqFreeEnergy_affinity_6ov7_1mut6flex_wt(96*1024, 0.1, 1, allCpus);
+	// TODO: this test takes 4 minutes to run with loose bounds! (on my laptop) too slow?
+	//  and 2.5 minutes with the tighter bounds
+	@Test public void seqFreeEnergy_affinity_6ov7_1mut6flex_wt_01_1x4_1m() {
+		seqFreeEnergy_affinity_6ov7_1mut6flex_wt(1024*1024, 1.0, 1, allCpus);
 	}
 }

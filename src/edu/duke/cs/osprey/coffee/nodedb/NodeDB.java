@@ -4,15 +4,16 @@ import com.hazelcast.cluster.Address;
 import edu.duke.cs.osprey.coffee.ClusterMember;
 import edu.duke.cs.osprey.coffee.Serializers;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
-import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.tools.BigExp;
 
 import java.io.File;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -136,10 +137,19 @@ public class NodeDB implements AutoCloseable {
 		tasks.waitForFinish();
 	}
 
-	private <T> T threadGet(TaskExecutor.Task<T> task) {
+	private <T> T threadGet(Supplier<T> task) {
+
 		var ref = new AtomicReference<T>(null);
-		tasks.submit(task, ref::set);
-		tasks.waitForFinish();
+		var finished = new AtomicBoolean(false);
+
+		threadExec(() -> {
+			ref.set(task.get());
+			finished.set(true);
+		});
+
+		if (!finished.get()) {
+			throw new RuntimeException("Internal thread didn't return a value.");
+		}
 		return ref.get();
 	}
 
@@ -212,6 +222,21 @@ public class NodeDB implements AutoCloseable {
 
 	public long size(int statei) {
 		return indices[statei].size();
+	}
+
+	/**
+	 * Remove all the nodes from the given state
+	 */
+	public void clear(int statei) {
+
+		// propagate to neighbors
+		member.sendToOthers(() -> new ClearOperation(statei));
+
+		clearLocal(statei);
+	}
+
+	public void clearLocal(int statei) {
+		threadExec(() -> indices[statei].clear());
 	}
 
 	/**

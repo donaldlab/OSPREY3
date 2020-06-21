@@ -11,10 +11,15 @@ import edu.duke.cs.osprey.tools.BigExp;
 import org.junit.Test;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
+import java.util.Comparator;
+import java.util.List;
 import java.util.Random;
+import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 
 public class TestNodeDB {
@@ -112,6 +117,106 @@ public class TestNodeDB {
 	}
 
 	@Test
+	public void addLotsLocalRemoveAll_1x1() {
+
+		MultiStateConfSpace confSpace = TestCoffee.affinity_2RL0_7mut();
+		withMemNodeDB(confSpace, MiB, nodedb -> {
+
+			var state = confSpace.states.get(0);
+
+			// count dropped nodes
+			var numDropped = new AtomicLong(0);
+			nodedb.dropHandler = nodes -> numDropped.addAndGet(nodes.count());
+
+			long numNodes = 10_000L;
+			TreeSet<NodeIndex.Node> sortedNodes = new TreeSet<>(Comparator.comparing(node -> node.score));
+
+			// add a bunch of random nodes
+			Random rand = new Random(12345);
+			for (long i=0; i<numNodes; i++) {
+				var node = new NodeIndex.Node(
+					state.index,
+					Conf.make(state.confSpace),
+					new BigExp(rand.nextDouble(), rand.nextInt()),
+					new BigExp(rand.nextDouble(), rand.nextInt())
+				);
+				nodedb.addLocal(node);
+				sortedNodes.add(node);
+			}
+
+			assertThat(numDropped.get(), is(0L));
+
+			// remove all the nodes, check the scores
+			assertThat(nodedb.size(state.index), is(numNodes));
+			for (int i=0; i<numNodes; i++) {
+				assertThat("" + i, nodedb.removeHigh(state.index).score, is(sortedNodes.pollLast().score));
+			}
+		});
+	}
+
+	@Test
+	public void addLotsLocalRemoveAll_1x2() {
+
+		MultiStateConfSpace confSpace = TestCoffee.affinity_2RL0_7mut();
+		withMemNodeDB(confSpace, MiB, nodedb -> {
+
+			var state = confSpace.states.get(0);
+
+			// count dropped nodes
+			var numDropped = new AtomicLong(0);
+			nodedb.dropHandler = nodes -> numDropped.addAndGet(nodes.count());
+
+			long numNodes = 10_000L;
+			int numThreads = 2;
+			long numThreadNodes = numNodes/numThreads;
+			Comparator<NodeIndex.Node> comparator = Comparator.comparing(node -> node.score);
+			List<TreeSet<NodeIndex.Node>> sortedNodes = IntStream.range(0, numThreads)
+				.mapToObj(i -> new TreeSet<>(comparator))
+				.collect(Collectors.toList());
+
+			// add a bunch of random nodes in different threads
+			List<Thread> threads = IntStream.range(0, numThreads)
+				.mapToObj(t -> new Thread(() -> {
+					Random rand = new Random(12345 * (t + 1));
+					var sort = sortedNodes.get(t);
+					for (long i=0; i<numThreadNodes; i++) {
+						var node = new NodeIndex.Node(
+							state.index,
+							Conf.make(state.confSpace),
+							new BigExp(rand.nextDouble(), rand.nextInt()),
+							new BigExp(rand.nextDouble(), rand.nextInt())
+						);
+						nodedb.addLocal(node);
+						sort.add(node);
+					}
+				}))
+				.collect(Collectors.toList());
+			threads.forEach(t -> t.start());
+			threads.forEach(t -> {
+				try {
+					t.join();
+				} catch (InterruptedException ex) {
+					throw new RuntimeException(ex);
+				}
+			});
+
+			// combine the sorted nodes
+			var allSortedNodes = sortedNodes.get(0);
+			for (int t=1; t<numThreads; t++) {
+				allSortedNodes.addAll(sortedNodes.get(t));
+			}
+
+			assertThat(numDropped.get(), is(0L));
+
+			// remove all the nodes, check the scores
+			assertThat(nodedb.size(state.index), is(numNodes));
+			for (int i=0; i<numNodes; i++) {
+				assertThat("" + i, nodedb.removeHigh(state.index).score, is(allSortedNodes.pollLast().score));
+			}
+		});
+	}
+
+	@Test
 	public void addLocalRemoveHigh() {
 
 		MultiStateConfSpace confSpace = TestCoffee.affinity_2RL0_7mut();
@@ -177,6 +282,10 @@ public class TestNodeDB {
 
 			// wait for the node add to finish
 			nodedb.member.barrier(10, TimeUnit.SECONDS);
+			if (nodedb.member.id() != 0) {
+				nodedb.member.waitForOperationsQuiet(1, TimeUnit.SECONDS, 5, TimeUnit.SECONDS);
+			}
+			nodedb.member.barrier(10, TimeUnit.SECONDS);
 
 			// no one should have much free space left
 			assertThat(nodedb.member.name, nodedb.freeSpaceLocal(state.index), lessThan(nodedb.nodesPerBlock(state.index)));
@@ -209,6 +318,7 @@ public class TestNodeDB {
 
 			// wait for the node add to finish
 			nodedb.member.barrier(10, TimeUnit.SECONDS);
+			nodedb.member.waitForOperationsQuiet(1, TimeUnit.SECONDS, 5, TimeUnit.SECONDS);
 
 			// no one should have much free space left
 			assertThat(nodedb.freeSpaceLocal(state.index), lessThan(nodedb.nodesPerBlock(state.index)));

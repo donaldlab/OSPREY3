@@ -279,4 +279,13 @@ public class FixedIndex<S extends Comparable<S>, T extends FixedIndex.Indexable<
 			}
 		}
 	}
+
+	public void clear() {
+
+		for (var block : packedBlocks) {
+			store.freeBlock(block.id);
+		}
+		packedBlocks.clear();
+		size = 0;
+	}
 }

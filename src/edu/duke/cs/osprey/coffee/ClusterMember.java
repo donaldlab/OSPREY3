@@ -261,18 +261,47 @@ public class ClusterMember implements AutoCloseable {
 
 	public void waitForOperation(long operationNum, long timeout, TimeUnit timeUnit) {
 
-		long startNs = System.nanoTime();
-		long stopNs = startNs + timeUnit.toNanos(timeout);
+		long stopNs = System.nanoTime() + timeUnit.toNanos(timeout);
+		while (System.nanoTime() < stopNs) {
 
-		while (finishedOperations() < operationNum) {
-
-			// operation not done yet, stop waiting?
-			if (System.nanoTime() >= stopNs) {
-				throwTimeout("timed out waiting for operations to finish");
+			// are we done yet?
+			if (finishedOperations() >= operationNum) {
+				return;
 			}
 
-			// keep waiting
+			// nope, keep waiting
 			ThreadTools.sleep(50);
 		}
+
+		throwTimeout("timed out waiting for operations to finish");
+	}
+
+	public void waitForOperationsQuiet(long quiet, TimeUnit quietUnit, long timeout, TimeUnit timeoutUnit) {
+
+		long lastOps = finishedOperations();
+		long quietNs = quietUnit.toNanos(quiet);
+		long quietStopNs = System.nanoTime() + quietNs;
+
+		long stopNs = System.nanoTime() + timeoutUnit.toNanos(timeout);
+		while (System.nanoTime() < stopNs) {
+
+			// track changes in ops
+			long ops = finishedOperations();
+			if (ops != lastOps) {
+				lastOps = ops;
+				quietStopNs = System.nanoTime() + quietNs;
+			} else {
+
+				// are we done yet?
+				if (System.nanoTime() >= quietStopNs) {
+					return;
+				}
+			}
+
+			// nope, keep waiting
+			ThreadTools.sleep(50);
+		}
+
+		throwTimeout("timed out waiting for operations to quiet");
 	}
 }

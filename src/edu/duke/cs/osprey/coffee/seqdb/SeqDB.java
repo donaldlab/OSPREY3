@@ -74,45 +74,43 @@ public class SeqDB implements AutoCloseable {
 		return new Batch(this);
 	}
 
-	void commitBatch(SaveOperation op) {
-		// TODO: NEXTTIME: fix the concurrency issues, not sure what's going wrong yet
-		synchronized (this) {
+	// commits occur from multiple threads simultaneously, so this should be synchronized
+	synchronized void commitBatch(SaveOperation op) {
 
-			for (var sum : op.sequencedSums) {
+		for (var sum : op.sequencedSums) {
 
-				// convert the sum to a SeqInfo
-				SeqInfo seqInfo = new SeqInfo(confSpace);
-				System.arraycopy(sum.statezs, 0, seqInfo.statezs, 0, confSpace.sequencedStates.size());
+			// convert the sum to a SeqInfo
+			SeqInfo seqInfo = new SeqInfo(confSpace);
+			System.arraycopy(sum.statezs, 0, seqInfo.statezs, 0, confSpace.sequencedStates.size());
 
-				// combine with the old sums if needed
-				SeqInfo oldSeqInfo = sequencedSums.get(sum.seq);
-				if (oldSeqInfo != null) {
-					for (MultiStateConfSpace.State state : confSpace.sequencedStates) {
-						var statez = sum.statezs[state.sequencedIndex];
-						combineSums(statez, oldSeqInfo.statezs[state.sequencedIndex]);
-						fixRoundoffError(statez);
-					}
-				}
-
-				sequencedSums.put(sum.seq, seqInfo);
-			}
-
-			for (var sum : op.unsequencedSums) {
-
-				var statez = sum.statez;
-
-				// combine with the old sum if needed
-				var statezOld = unsequencedSums.get(sum.unsequencedIndex);
-				if (statezOld != null) {
-					combineSums(statez, statezOld);
+			// combine with the old sums if needed
+			SeqInfo oldSeqInfo = sequencedSums.get(sum.seq);
+			if (oldSeqInfo != null) {
+				for (MultiStateConfSpace.State state : confSpace.sequencedStates) {
+					var statez = sum.statezs[state.sequencedIndex];
+					combineSums(statez, oldSeqInfo.statezs[state.sequencedIndex]);
 					fixRoundoffError(statez);
 				}
-
-				unsequencedSums.put(sum.unsequencedIndex, statez);
 			}
 
-			db.commit();
+			sequencedSums.put(sum.seq, seqInfo);
 		}
+
+		for (var sum : op.unsequencedSums) {
+
+			var statez = sum.statez;
+
+			// combine with the old sum if needed
+			var statezOld = unsequencedSums.get(sum.unsequencedIndex);
+			if (statezOld != null) {
+				combineSums(statez, statezOld);
+				fixRoundoffError(statez);
+			}
+
+			unsequencedSums.put(sum.unsequencedIndex, statez);
+		}
+
+		db.commit();
 	}
 
 	private void combineSums(StateZ statez, StateZ statezOld) {

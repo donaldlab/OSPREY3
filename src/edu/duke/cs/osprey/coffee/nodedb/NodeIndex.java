@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.coffee.nodedb;
 
 import edu.duke.cs.osprey.coffee.Serializers;
+import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.tools.BigExp;
 
@@ -27,6 +28,11 @@ public class NodeIndex {
 			this.score = score;
 		}
 
+		/** re-score a node */
+		public Node(Node other, BigExp score) {
+			this(other.statei, other.conf, other.zSumUpper, score);
+		}
+
 		@Override
 		public BigExp score() {
 			return score;
@@ -47,6 +53,10 @@ public class NodeIndex {
 		@Override
 		public String toString() {
 			return String.format("Node[%d,%s,%s,%s]", statei, Arrays.toString(conf), zSumUpper, score);
+		}
+
+		public boolean isLeaf() {
+			return Conf.isCompletelyAssigned(conf);
 		}
 	}
 
@@ -94,5 +104,9 @@ public class NodeIndex {
 
 	public Deque<Node> dropped() {
 		return index.dropped;
+	}
+
+	public void clear() {
+		index.clear();
 	}
 }
