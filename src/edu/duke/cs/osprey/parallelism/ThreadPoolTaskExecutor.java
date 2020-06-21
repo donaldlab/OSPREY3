@@ -89,29 +89,33 @@ public class ThreadPoolTaskExecutor extends ConcurrentTaskExecutor implements Ga
 	@Override
 	public <T> void submit(Task<T> task, TaskListener<T> listener) {
 
-		boolean wasAdded = false;
-		while (!wasAdded) {
+		// synchronize task submission, so multiple threads can use task executors safely
+		synchronized (this) {
 
-			checkException();
+			boolean wasAdded = false;
+			while (!wasAdded) {
 
-			wasAdded = threads.submit(400, TimeUnit.MILLISECONDS, () -> {
-				try {
+				checkException();
 
-					// run the task
-					T result = runTask(task);
+				wasAdded = threads.submit(400, TimeUnit.MILLISECONDS, () -> {
+					try {
 
-					// send the result to the listener thread
-					threads.submitToListener(() -> {
-						taskSuccess(task, listener, result);
-					});
+						// run the task
+						T result = runTask(task);
 
-				} catch (Throwable t) {
-					taskFailure(task, listener, t);
-				}
-			});
+						// send the result to the listener thread
+						threads.submitToListener(() -> {
+							taskSuccess(task, listener, result);
+						});
+
+					} catch (Throwable t) {
+						taskFailure(task, listener, t);
+					}
+				});
+			}
+
+			// the task was started successfully, hooray!
+			startedTask();
 		}
-
-		// the task was started successfully, hooray!
-		startedTask();
 	}
 }
