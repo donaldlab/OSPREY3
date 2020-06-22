@@ -127,11 +127,11 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
 
     @Override
     public Result makeResult() {
-        multiSequenceSHARKStarBound.lowerReduction_ConfUpperBound = multiSequenceSHARKStarBound.rootNode.getLowerBound(sequence)
-                .subtract(multiSequenceSHARKStarBound.startLowerBound).subtract(multiSequenceSHARKStarBound.lowerReduction_FullMin);
+        //multiSequenceSHARKStarBound.lowerReduction_ConfUpperBound = multiSequenceSHARKStarBound.rootNode.getLowerBound(sequence)
+                //.subtract(multiSequenceSHARKStarBound.startLowerBound).subtract(multiSequenceSHARKStarBound.lowerReduction_FullMin);
         // Calculate the lower bound z reductions from conf upper bounds, since we don't explicitly record these
-        multiSequenceSHARKStarBound.upperReduction_ConfLowerBound = multiSequenceSHARKStarBound.startUpperBound.subtract(multiSequenceSHARKStarBound.rootNode.getUpperBound(sequence))
-                .subtract(multiSequenceSHARKStarBound.upperReduction_FullMin).subtract(multiSequenceSHARKStarBound.upperReduction_PartialMin);
+        //multiSequenceSHARKStarBound.upperReduction_ConfLowerBound = multiSequenceSHARKStarBound.startUpperBound.subtract(multiSequenceSHARKStarBound.rootNode.getUpperBound(sequence))
+                //.subtract(multiSequenceSHARKStarBound.upperReduction_FullMin).subtract(multiSequenceSHARKStarBound.upperReduction_PartialMin);
 
         Result result = new Result(getStatus(), getValues(), getNumConfsEvaluated());
         /*

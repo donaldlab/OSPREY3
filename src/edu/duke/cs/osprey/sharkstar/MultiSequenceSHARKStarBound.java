@@ -341,40 +341,49 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     }
 
     private void computeFringeForSequence(SingleSequenceSHARKStarBound bound, MultiSequenceSHARKStarNode curNode) {
-        Node confNode = curNode.getConfSearchNode();
+        // Fix issue where next design position may not be defined
         RCs rcs = bound.seqRCs;
+        Node confNode = curNode.getConfSearchNode();
         try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
             ScoreContext context = checkout.get();
             confNode.index(context.index);
-
-            double confCorrection = correctionMatrix.confE(confNode.assignments);
-            double gscore = context.partialConfLowerBoundScorer.calc(context.index, rcs);
-            double hscore = context.lowerBoundScorer.calc(context.index, rcs);
-            double confLowerBound = confNode.getPartialConfLowerBound() + context.lowerBoundScorer.calc(context.index, rcs);
-            double confUpperBound = confNode.getPartialConfUpperBound() + context.upperBoundScorer.calc(context.index, rcs);
-            String historyString = String.format("%s: previous lower bound %f, g score %f, hscore %f, f score %f corrected score %f, from %s",
-                    confNode.confToString(), curNode.getConfLowerBound(bound.sequence), gscore, hscore, gscore+hscore, confCorrection, getStackTrace());
-            curNode.setBoundsFromConfLowerAndUpperWithHistory(confLowerBound, confUpperBound, bound.sequence, historyString);
-            if(curNode.getChildren(null).isEmpty())
-                correctionMatrix.setHigherOrder(curNode.toTuple(), confNode.getPartialConfLowerBound()
-                        - minimizingEmat.confE(confNode.assignments));
-            if(curNode.nextDesignPosition == null && curNode.level < confSpace.positions.size()) {
+            if (curNode.nextDesignPosition == null && curNode.level < confSpace.positions.size()) {
                 curNode.nextDesignPosition = confSpace.positions.get(order.getNextPos(context.index, rcs));
             }
-            /*
-            if(bound.sequence.countMutations() < 1 && !curNode.hasChildren(bound.sequence) && curNode.getChildren(null).size() > 0) {
-                System.out.println("Gotta be careful here.");
-                printTree(bound.sequence, rootNode);
-                computeFringeForSequence(bound, curNode);
-            }
-             */
-            if(curNode.getOrMakeChildren(bound.sequence).isEmpty())
-                bound.fringeNodes.add(curNode);
-            else
-                for(MultiSequenceSHARKStarNode child: curNode.getOrMakeChildren(bound.sequence))
-                    computeFringeForSequence(bound, child);
         }
-        //curNode.updateSubtreeBounds(bound.sequence);
+        // Get the children
+        List<MultiSequenceSHARKStarNode> children = curNode.getOrMakeChildren(bound.sequence);
+        // If we are at a leaf, score the node
+        if(children.isEmpty()){
+            try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+                ScoreContext context = checkout.get();
+                confNode.index(context.index);
+
+                double confCorrection = correctionMatrix.confE(confNode.assignments);
+                double gscore = context.partialConfLowerBoundScorer.calc(context.index, rcs);
+                double hscore = context.lowerBoundScorer.calc(context.index, rcs);
+                double confLowerBound = confNode.getPartialConfLowerBound() + context.lowerBoundScorer.calc(context.index, rcs);
+                double confUpperBound = confNode.getPartialConfUpperBound() + context.upperBoundScorer.calc(context.index, rcs);
+                String historyString = String.format("%s: previous lower bound %f, g score %f, hscore %f, f score %f corrected score %f, from %s",
+                        confNode.confToString(), curNode.getConfLowerBound(bound.sequence), gscore, hscore, gscore + hscore, confCorrection, getStackTrace());
+                curNode.setBoundsFromConfLowerAndUpperWithHistory(confLowerBound, confUpperBound, bound.sequence, historyString);
+                if (curNode.getChildren(null).isEmpty())
+                    correctionMatrix.setHigherOrder(curNode.toTuple(), confNode.getPartialConfLowerBound()
+                            - minimizingEmat.confE(confNode.assignments));
+        /*
+        if(bound.sequence.countMutations() < 1 && !curNode.hasChildren(bound.sequence) && curNode.getChildren(null).size() > 0) {
+            System.out.println("Gotta be careful here.");
+            printTree(bound.sequence, rootNode);
+            computeFringeForSequence(bound, curNode);
+        }
+         */
+            }
+
+            bound.fringeNodes.add(curNode);
+        }
+        else
+            for(MultiSequenceSHARKStarNode child: children)
+                computeFringeForSequence(bound, child);
     }
 
     /**
