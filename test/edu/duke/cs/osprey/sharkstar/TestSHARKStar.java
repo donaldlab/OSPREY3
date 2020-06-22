@@ -256,7 +256,8 @@ public class TestSHARKStar {
 		    switch(lineType) {
 				case "mol":
 					String pdbName = parts[1].substring(parts[1].lastIndexOf('/')+1, parts[1].length()-1);
-					Molecule mol = PDBIO.readFile(parts[1].replace("\"",""));
+					String replaced = parts[1].replace("/usr/project/dlab/Users/gth/projects/osprey_test_suite/pdb","examples/python.KStar");
+					Molecule mol = PDBIO.readFile(replaced.replace("\"",""));
 					strandBuilderMap.put("strand0", new Strand.Builder(mol).setTemplateLibrary(templateLib));
 					strandBuilderMap.put("strand1", new Strand.Builder(mol).setTemplateLibrary(templateLib));
 					break;
@@ -647,8 +648,16 @@ public class TestSHARKStar {
 	public void test4wem() {
 		try {
 			ConfSpaces confSpaces = loadFromCFS("test-resources/4wem_B_5res_2.014E+07.cfs");
-			//runBBSHARKStar(confSpaces, 0.9999);
-			runBBKStar(confSpaces, 3, 0.99999999999, null, 5, true);
+			//TestBBKStar.Results results = runBBKStar(confSpaces, 3, 0.99999999999, null, 5, false);
+			TestBBKStar.Results results = runBBKStar(confSpaces, 3, 0.99999999999, null, 5, true);
+			for(KStar.ScoredSequence seq : results.sequences){
+			    System.out.println(String.format("Result for %s: [%2.3e, %2.3e]",
+						seq.sequence,
+						seq.score.lowerBound.doubleValue(),
+						seq.score.upperBound.doubleValue()
+						));
+
+			}
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}
@@ -1582,5 +1591,27 @@ public class TestSHARKStar {
 		}
 	}
 
+	@Test
+	public void test2rl0Smaller() {
+		try {
+			ConfSpaces confSpaces = loadFromCFS("test-resources/2rl0_D_6res_6.366E+06.cfs");
+			runBBSHARKStar(confSpaces, 0.9999);
+			//runBBKStar(confSpaces, 5, 0.99, null, 5, true);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+
+	}
+	@Test
+	public void test2rl0Small() {
+		try {
+			ConfSpaces confSpaces = loadFromCFS("test-resources/2rl0_D_4res_1.488E+07.cfs");
+			runBBSHARKStar(confSpaces, 0.9999);
+			//runBBKStar(confSpaces, 5, 0.99, null, 5, true);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+
+	}
 
 }

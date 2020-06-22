@@ -1430,5 +1430,25 @@ public class TestMARKStar {
 		}
 	}
 
+	@Test
+	public void test2rl0Smaller() {
+		try {
+			ConfSpaces confSpaces = loadFromCFS("test-resources/2rl0_D_6res_6.366E+06.cfs");
+			runMARKStar(confSpaces, 0.9999);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+
+	}
+	@Test
+	public void test2rl0Small() {
+		try {
+			ConfSpaces confSpaces = loadFromCFS("test-resources/2rl0_D_4res_1.488E+07.cfs");
+			runMARKStar(confSpaces, 0.9999);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+
+	}
 
 }
