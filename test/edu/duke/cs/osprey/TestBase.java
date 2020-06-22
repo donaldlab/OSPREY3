@@ -733,6 +733,50 @@ public class TestBase {
 		return new DoubleBoundsMatchingDoubleBounds(EpsilonApplier.doubleBoundsRelative(epsilon), expected);
 	}
 
+	private static class DoubleBoundsIntersectsDoubleBounds extends BaseMatcher<DoubleBounds> {
+
+		private EpsilonApplier<DoubleBounds> epsilonApplier;
+		private DoubleBounds expected;
+
+		public DoubleBoundsIntersectsDoubleBounds(EpsilonApplier<DoubleBounds> epsilonApplier, DoubleBounds expected) {
+			this.epsilonApplier = epsilonApplier;
+			this.expected = expected;
+		}
+
+		@Override
+		public boolean matches(Object obj) {
+			DoubleBounds observed = (DoubleBounds)obj;
+			return observed.isValid() && epsilonApplier.apply(observed).intersects(expected);
+		}
+
+		@Override
+		public void describeTo(Description desc) {
+			desc.appendText("intersects ").appendValue(expected)
+				.appendText(" " + epsilonApplier.term() + " within epsilon ").appendValue(epsilonApplier.epsilon);
+		}
+
+		@Override
+		public void describeMismatch(Object obj, Description desc) {
+			DoubleBounds observed = (DoubleBounds)obj;
+			if (!observed.isValid()) {
+				desc.appendValue(observed).appendText(" is not a valid bound");
+			} else {
+				if (!epsilonApplier.apply(observed).contains(expected)) {
+					desc.appendValue(observed)
+						.appendText(" (with epsilon: ")
+						.appendValue(epsilonApplier.apply(observed))
+						.appendText(") does not intersect " + epsilonApplier.term() + " within epsilon");
+				}
+			}
+		}
+	}
+	public static Matcher<DoubleBounds> intersectsAbsolutely(DoubleBounds expected, double epsilon) {
+		return new DoubleBoundsIntersectsDoubleBounds(EpsilonApplier.doubleBoundsAbsolute(epsilon), expected);
+	}
+	public static Matcher<DoubleBounds> intersectsRelatively(DoubleBounds expected, double epsilon) {
+		return new DoubleBoundsIntersectsDoubleBounds(EpsilonApplier.doubleBoundsRelative(epsilon), expected);
+	}
+
 
 	private static class DoubleMatchingDoubleBounds extends BaseMatcher<Double> {
 
