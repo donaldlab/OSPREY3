@@ -130,6 +130,8 @@ public class SequenceDirector implements Coffee.Director {
 						stopwatch.getTime(2)
 					);
 					// TODO: show node processing speeds?
+					// TODO: this makes quite a bit of log spam, hide behind a flag, default = off
+					directions.member.log("%s", processor.stateInfos[state.index].energyBoundStats.toString());
 
 					// are we there yet?
 					if (gWidth <= gWidthMax) {

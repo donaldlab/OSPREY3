@@ -2,18 +2,13 @@ package edu.duke.cs.osprey.coffee;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.SeqSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
-import edu.duke.cs.osprey.confspace.compiled.PosInter;
-import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.tools.BigExp;
 
 import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 
@@ -24,12 +19,11 @@ public class StateInfo {
 
 	public final ConfSpace confSpace;
 	public final ClusterZMatrix zmat;
+	public final EnergyBoundStats energyBoundStats;
+	public final int[] posPermutation;
 
 	private final int[][] typesByConfByPos;
 	private final int[] numTypesByPos;
-	private final int[] posPermutation;
-	// TODO: who should use the permutation?
-
 
 	public StateInfo(Coffee.StateConfig config, BoltzmannCalculator bcalc) {
 
@@ -38,25 +32,7 @@ public class StateInfo {
 
 		confSpace = (ConfSpace)config.state.confSpace;
 		zmat = new ClusterZMatrix(config.ecalc, config.posInterGen, bcalc);
-
-		// calculate all the conf types by conf and pos
-		typesByConfByPos = new int[confSpace.numPos()][];
-		numTypesByPos = new int[confSpace.numPos()];
-		for (int posi=0; posi<confSpace.numPos(); posi++) {
-
-			typesByConfByPos[posi] = new int[confSpace.numConf(posi)];
-			SeqSpace.Position seqPos = confSpace.seqSpace.getPosition(confSpace.name(posi));
-			if (seqPos != null) {
-				numTypesByPos[posi] = seqPos.resTypes.size();
-				for (int confi=0; confi<confSpace.numConf(posi); confi++) {
-					SeqSpace.ResType rt = seqPos.getResTypeOrThrow(confSpace.confType(posi, confi));
-					typesByConfByPos[posi][confi] = rt.index;
-				}
-			} else {
-				numTypesByPos[posi] = 0;
-				Arrays.fill(typesByConfByPos[posi], Sequence.Unassigned);
-			}
-		}
+		energyBoundStats = new EnergyBoundStats();
 
 		// sort positions so multi-sequence layers are first
 		posPermutation = IntStream.range(0, confSpace.numPos())
@@ -85,6 +61,25 @@ public class StateInfo {
 			})
 			.mapToInt(i -> i)
 			.toArray();
+
+		// calculate all the conf types by conf and pos
+		typesByConfByPos = new int[confSpace.numPos()][];
+		numTypesByPos = new int[confSpace.numPos()];
+		for (int posi=0; posi<confSpace.numPos(); posi++) {
+
+			typesByConfByPos[posi] = new int[confSpace.numConf(posi)];
+			SeqSpace.Position seqPos = confSpace.seqSpace.getPosition(confSpace.name(posi));
+			if (seqPos != null) {
+				numTypesByPos[posi] = seqPos.resTypes.size();
+				for (int confi=0; confi<confSpace.numConf(posi); confi++) {
+					SeqSpace.ResType rt = seqPos.getResTypeOrThrow(confSpace.confType(posi, confi));
+					typesByConfByPos[posi][confi] = rt.index;
+				}
+			} else {
+				numTypesByPos[posi] = 0;
+				Arrays.fill(typesByConfByPos[posi], Sequence.Unassigned);
+			}
+		}
 	}
 
 	private double calcOrderHeuristic(int posi) {
@@ -215,35 +210,5 @@ public class StateInfo {
 		}
 
 		return z;
-	}
-
-	public BigExp zPath(ConfIndex index) {
-		return zPath(Conf.make(index));
-	}
-
-	public BigExp zPath(int[] conf) {
-
-		if (!Conf.isCompletelyAssigned(conf)) {
-			throw new IllegalArgumentException("not a full conf");
-		}
-
-		List<PosInter> inters = config.posInterGen.all(confSpace, conf);
-		double e = config.ecalc.minimizeEnergy(conf, inters);
-		return new BigExp(bcalc.calcPrecise(e));
-	}
-
-	public List<BigExp> zPaths(List<int[]> confs) {
-
-		// convert confs to minimization jobs
-		var jobs = confs.stream()
-			.map(conf -> new ConfEnergyCalculator.MinimizationJob(conf, config.posInterGen.all(confSpace, conf)))
-			.collect(Collectors.toList());
-
-		config.ecalc.minimizeEnergies(jobs);
-
-		// calculate the free energies
-		return jobs.stream()
-			.map(job -> new BigExp(bcalc.calcPrecise(job.energy)))
-			.collect(Collectors.toList());
 	}
 }

@@ -7,6 +7,7 @@ import edu.duke.cs.osprey.coffee.nodedb.NodeIndex;
 import edu.duke.cs.osprey.coffee.seqdb.SeqDB;
 import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.Sequence;
+import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.ThreadTools;
 import edu.duke.cs.osprey.tools.BigExp;
@@ -68,7 +69,6 @@ public class NodeProcessor {
 	public final NodeDB nodedb;
 	public final StateInfo[] stateInfos;
 
-	private final List<int[]> posPermutations;
 	private final List<MinimizationQueue> minimizationQueues;
 
 	public NodeProcessor(TaskExecutor tasks, SeqDB seqdb, NodeDB nodedb, StateInfo[] stateInfos) {
@@ -77,17 +77,6 @@ public class NodeProcessor {
 		this.seqdb = seqdb;
 		this.nodedb = nodedb;
 		this.stateInfos = stateInfos;
-
-		// pick an ordering of the positions that speeds things up
-		// for now, sequence positions at the top is a good heuristic
-		// TODO: within seq/conf strata, high branch factor at the top?
-		posPermutations = Arrays.stream(stateInfos)
-			.map(stateInfo -> Arrays.stream(stateInfo.confSpace.positions)
-				.sorted(Comparator.comparing(pos -> !pos.hasMutations))
-				.mapToInt(pos -> pos.index)
-				.toArray()
-			)
-			.collect(Collectors.toList());
 
 		// set up the minimization queues
 		minimizationQueues = Arrays.stream(stateInfos)
@@ -249,19 +238,31 @@ public class NodeProcessor {
 		// collect timing info for the minimizations
 		Stopwatch stopwatch = new Stopwatch().start();
 
-		// actually do the minimizations
-		var zs = stateInfo.zPaths(nodes.stream()
-			.map(node -> node.conf)
-			.collect(Collectors.toList()));
+		// minimize the conformations
+		var jobs = nodes.stream()
+			.map(node -> {
+				var inters = stateInfo.config.posInterGen.all(stateInfo.confSpace, node.conf);
+				return new ConfEnergyCalculator.MinimizationJob(node.conf, inters);
+			})
+			.collect(Collectors.toList());
+		stateInfo.config.ecalc.minimizeEnergies(jobs);
 
-		// update seqdb
+		// update stats on energy bounds
+		for (int i=0; i<nodes.size(); i++) {
+			double bound = stateInfo.bcalc.freeEnergyPrecise(nodes.get(i).zSumUpper);
+			double energy = jobs.get(i).energy;
+			stateInfo.energyBoundStats.add(bound, energy);
+		}
+
+		// update seqdb with boltzmann-weighted energies
 		var seqdbBatch = seqdb.batch();
 		for (int i=0; i<nodes.size(); i++) {
 			var n = nodes.get(i);
+			var z = stateInfo.bcalc.calcPrecise(jobs.get(i).energy);
 			seqdbBatch.addZConf(
 				stateInfo.config.state,
 				makeSeq(n.statei, n.conf),
-				zs.get(i),
+				z,
 				n.zSumUpper
 			);
 		}
@@ -313,7 +314,7 @@ public class NodeProcessor {
 		var reduction = new BigExp(nodeInfo.node.zSumUpper);
 
 		// pick the next position to expand, according to the position permutation
-		int posi = posPermutations.get(statei)[confIndex.numDefined];
+		int posi = stateInfo.posPermutation[confIndex.numDefined];
 
 		// expand the node at the picked position
 		for (int confi : nodeInfo.tree.get(posi)) {

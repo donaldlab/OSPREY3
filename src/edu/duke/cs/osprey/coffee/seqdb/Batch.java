@@ -4,7 +4,9 @@ import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.tools.BigExp;
 import edu.duke.cs.osprey.tools.Log;
+import edu.duke.cs.osprey.tools.MathTools;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -55,9 +57,9 @@ public class Batch {
 		isEmpty = false;
 	}
 
-	public void addZConf(MultiStateConfSpace.State state, Sequence seq, BigExp zConf, BigExp zSumUpper) {
+	public void addZConf(MultiStateConfSpace.State state, Sequence seq, BigDecimal zConf, BigExp zSumUpper) {
 
-		if (!zConf.isFinite() || !zSumUpper.isFinite()) {
+		if (!MathTools.isFinite(zConf) || !zSumUpper.isFinite()) {
 			throw new IllegalArgumentException("Z must be finite: " + zConf + ", " + zSumUpper);
 		}
 

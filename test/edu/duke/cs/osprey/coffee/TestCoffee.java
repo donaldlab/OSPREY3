@@ -14,10 +14,7 @@ import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
 import edu.duke.cs.osprey.confspace.compiled.TestConfSpace;
 import edu.duke.cs.osprey.ematrix.compiled.EmatCalculator;
-import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
-import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculatorAdapter;
-import edu.duke.cs.osprey.energy.compiled.CudaConfEnergyCalculator;
-import edu.duke.cs.osprey.energy.compiled.PosInterGen;
+import edu.duke.cs.osprey.energy.compiled.*;
 import edu.duke.cs.osprey.gpu.Structs;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.parallelism.Cluster;
@@ -103,12 +100,7 @@ public class TestCoffee {
 		}
 	}
 
-	private static Coffee makeCoffee(MultiStateConfSpace confSpace, Cluster cluster, Parallelism parallelism, long bytes) {
-
-		// looser bounds makes the zmat calculation much faster, and the overall computation faster for small conf spaces
-		var posInterDist = PosInterDist.DesmetEtAl1992;
-		//var posInterDist = PosInterDist.TighterBounds;
-
+	private static Coffee makeCoffee(MultiStateConfSpace confSpace, PosInterDist posInterDist, Cluster cluster, Parallelism parallelism, long bytes) {
 		return new Coffee.Builder(confSpace)
 			.setCluster(cluster)
 			.setParallelism(parallelism)
@@ -160,31 +152,36 @@ public class TestCoffee {
 
 				// batch confs together for speed
 				var batchSize = stateInfo.config.ecalc.maxBatchSize();
-				Consumer<List<int[]>> submitBatch = confBatch -> {
+				Consumer<List<ConfEnergyCalculator.MinimizationJob>> submitBatch = jobs -> {
 					tasks.submit(
-						() -> stateInfo.zPaths(confBatch),
-						zs -> {
-							for (var z : zs) {
-								bigMath.add(z);
+						() -> {
+							stateInfo.config.ecalc.minimizeEnergies(jobs);
+							return 42;
+						},
+						answer -> {
+							for (var job : jobs) {
+								bigMath.add(stateInfo.bcalc.calcPrecise(job.energy));
 							}
-							progress.incrementProgress(zs.size());
+							progress.incrementProgress(jobs.size());
 						}
 					);
 				};
 
 				// fill the batches and process them
-				var confBatch = new ArrayList<int[]>(batchSize);
+				var jobs = new ArrayList<ConfEnergyCalculator.MinimizationJob>(batchSize);
 				for (var confList : allConfs) {
-					confBatch.add(confList.stream()
+					int[] conf = confList.stream()
 						.mapToInt(i -> i)
-						.toArray());
-					if (confBatch.size() == batchSize) {
-						submitBatch.accept(confBatch);
-						confBatch = new ArrayList<>();
+						.toArray();
+					var inters = stateInfo.config.posInterGen.all(stateInfo.confSpace, conf);
+					jobs.add(new ConfEnergyCalculator.MinimizationJob(conf, inters));
+					if (jobs.size() == batchSize) {
+						submitBatch.accept(jobs);
+						jobs = new ArrayList<>();
 					}
 				}
-				if (confBatch.size() > 0) {
-					submitBatch.accept(confBatch);
+				if (jobs.size() > 0) {
+					submitBatch.accept(jobs);
 				}
 				tasks.waitForFinish();
 
@@ -260,11 +257,11 @@ public class TestCoffee {
 	}
 
 
-	private void seqFreeEnergy(MultiStateConfSpace confSpace, Function<SeqSpace,Sequence> seqFunc, double[] freeEnergies, long bytes, double precision, int numMembers, Parallelism parallelism) {
+	private void seqFreeEnergy(MultiStateConfSpace confSpace, Function<SeqSpace,Sequence> seqFunc, PosInterDist posInterDist, double[] freeEnergies, long bytes, double precision, int numMembers, Parallelism parallelism) {
 		withPseudoCluster(numMembers, cluster -> {
 
 			// get the sequence
-			Coffee coffee = makeCoffee(confSpace, cluster, parallelism, bytes);
+			Coffee coffee = makeCoffee(confSpace, posInterDist, cluster, parallelism, bytes);
 			Sequence seq = seqFunc.apply(coffee.confSpace.seqSpace);
 
 			// run COFFEE
@@ -282,11 +279,11 @@ public class TestCoffee {
 		});
 	}
 
-	private void seqFreeEnergy(MultiStateConfSpace confSpace, Function<SeqSpace,Sequence> seqFunc, DoubleBounds[] freeEnergies, long bytes, double precision, int numMembers, Parallelism parallelism) {
+	private void seqFreeEnergy(MultiStateConfSpace confSpace, Function<SeqSpace,Sequence> seqFunc, PosInterDist posInterDist, DoubleBounds[] freeEnergies, long bytes, double precision, int numMembers, Parallelism parallelism) {
 		withPseudoCluster(numMembers, cluster -> {
 
 			// get the sequence
-			Coffee coffee = makeCoffee(confSpace, cluster, parallelism, bytes);
+			Coffee coffee = makeCoffee(confSpace, posInterDist, cluster, parallelism, bytes);
 			Sequence seq = seqFunc.apply(coffee.confSpace.seqSpace);
 
 			// run COFFEE
@@ -309,6 +306,7 @@ public class TestCoffee {
 		seqFreeEnergy(
 			TestCoffee.affinity_6ov7_1mut2flex(),
 			seqSpace -> seqSpace.makeWildTypeSequence(),
+			PosInterDist.DesmetEtAl1992,
 			new double[] { -1377.127950, -144.199934, -1187.667391 },
 			bytes, precision, numMembers, parallelism
 		);
@@ -317,6 +315,7 @@ public class TestCoffee {
 		seqFreeEnergy(
 			TestCoffee.affinity_6ov7_1mut2flex(),
 			seqSpace -> seqSpace.makeWildTypeSequence().set("6 GLN", "ALA"),
+			PosInterDist.DesmetEtAl1992,
 			new double[] { -1363.561940, -132.431356, -1187.667391 },
 			bytes, precision, numMembers, parallelism
 		);
@@ -325,13 +324,14 @@ public class TestCoffee {
 		seqFreeEnergy(
 			TestCoffee.affinity_6ov7_1mut2flex(),
 			seqSpace -> seqSpace.makeWildTypeSequence().set("6 GLN", "ASN"),
+			PosInterDist.DesmetEtAl1992,
 			new double[] { -1375.773406, -143.920583, -1187.667391 },
 			bytes, precision, numMembers, parallelism
 		);
 	}
 	private static void bruteForce_affinity_6ov7_1mut2flex(Parallelism parallelism) {
 		bruteForceAll(
-			makeCoffee(TestCoffee.affinity_6ov7_1mut2flex(), null, parallelism, 0),
+			makeCoffee(TestCoffee.affinity_6ov7_1mut2flex(), PosInterDist.DesmetEtAl1992, null, parallelism, 0),
 			TestCoffee::bruteForceFreeEnergies
 		);
 		//sequence [6 GLN=gln]
@@ -352,6 +352,7 @@ public class TestCoffee {
 		seqFreeEnergy(
 			TestCoffee.affinity_6ov7_1mut6flex(),
 			seqSpace -> seqSpace.makeWildTypeSequence(),
+			PosInterDist.TighterBounds, // tighter bounds here cuts the runtime in half!
 			new DoubleBounds[] {
 				new DoubleBounds(-1380.529388,-1380.523437),
 				new DoubleBounds(-145.154147,-145.149392),
@@ -364,6 +365,7 @@ public class TestCoffee {
 		seqFreeEnergy(
 			TestCoffee.affinity_6ov7_1mut6flex(),
 			seqSpace -> seqSpace.makeWildTypeSequence().set("6 GLN", "ALA"),
+			PosInterDist.TighterBounds,
 			new DoubleBounds[] {
 				new DoubleBounds(-1366.734330,-1366.728415),
 				new DoubleBounds(-133.531642,-133.531642),
@@ -376,6 +378,7 @@ public class TestCoffee {
 		seqFreeEnergy(
 			TestCoffee.affinity_6ov7_1mut6flex(),
 			seqSpace -> seqSpace.makeWildTypeSequence().set("6 GLN", "ASN"),
+			PosInterDist.TighterBounds,
 			new DoubleBounds[] {
 				new DoubleBounds(-1378.941423,-1378.935472),
 				new DoubleBounds(-145.208390,-145.204453),
@@ -386,8 +389,7 @@ public class TestCoffee {
 	}
 	private static void bruteForce_affinity_6ov7_1mut6flex(Parallelism parallelism) {
 		bruteForceAll(
-			makeCoffee(TestCoffee.affinity_6ov7_1mut6flex(), null, parallelism, 0),
-			//TestCoffee::bruteForceFreeEnergies
+			makeCoffee(TestCoffee.affinity_6ov7_1mut6flex(), PosInterDist.TighterBounds, null, parallelism, 0),
 			TestCoffee::gradientDescentFreeEnergies
 		);
 		// GPU results
@@ -475,8 +477,6 @@ public class TestCoffee {
 	// SMALL CONF SPACE
 
 	// the basic test
-	// TODO: this test takes 5 minutes to run with loose bounds! (on my laptop) too slow?
-	//  and 2.5 minutes with the tighter bounds
 	@Test public void seqFreeEnergy_affinity_6ov7_1mut6flex_wt_01_1x4_1m() {
 		seqFreeEnergy_affinity_6ov7_1mut6flex_wt(1024*1024, 1.0, 1, allCpus);
 	}
