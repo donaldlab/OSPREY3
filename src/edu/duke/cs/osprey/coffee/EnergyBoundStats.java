@@ -47,21 +47,22 @@ public class EnergyBoundStats {
 		sum = sum.add(BigDecimal.valueOf(gap));
 	}
 
-	@Override
-	public String toString() {
+	public long count() {
+		return count;
+	}
 
-		if (count <= 0) {
-			return "Energy bound gap statistics: none";
-		}
+	public double meanGap() {
+		return sum.doubleValue()/count;
+	}
+
+	public String histogram() {
 
 		// compute some summary statistics
 		double[] percents = Arrays.stream(buckets)
 			.mapToDouble(bucket -> 100.0*bucket/count)
 			.toArray();
-		double mean = sum.doubleValue()/count;
 
 		var buf = new StringBuilder();
-		buf.append(String.format("Energy bound gap statistics:   count %d   mean %.4f\n", count, mean));
 		for (int i=0; i<buckets.length; i++) {
 			if (i < boundaries.length) {
 				buf.append(String.format(" < %5.1f: %9d  %5.1f%%", boundaries[i], buckets[i], percents[i]));
@@ -75,5 +76,18 @@ public class EnergyBoundStats {
 			}
 		}
 		return buf.toString();
+	}
+
+	@Override
+	public String toString() {
+
+		String details;
+		if (count <= 0) {
+			details = "none";
+		} else {
+			details = String.format("count %d   mean %.4f\n%s", count, meanGap(), histogram());
+		}
+
+		return String.format("Energy bound gap statistics: %s", details);
 	}
 }

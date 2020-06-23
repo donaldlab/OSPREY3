@@ -7,6 +7,7 @@ import edu.duke.cs.osprey.coffee.nodedb.NodeIndex;
 import edu.duke.cs.osprey.coffee.seqdb.SeqDB;
 import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.Sequence;
+import edu.duke.cs.osprey.confspace.compiled.PosInter;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.ThreadTools;
@@ -68,15 +69,17 @@ public class NodeProcessor {
 	public final SeqDB seqdb;
 	public final NodeDB nodedb;
 	public final StateInfo[] stateInfos;
+	public final boolean includeStaticStatic;
 
 	private final List<MinimizationQueue> minimizationQueues;
 
-	public NodeProcessor(TaskExecutor tasks, SeqDB seqdb, NodeDB nodedb, StateInfo[] stateInfos) {
+	public NodeProcessor(TaskExecutor tasks, SeqDB seqdb, NodeDB nodedb, StateInfo[] stateInfos, boolean includeStaticStatic) {
 
 		this.tasks = tasks;
 		this.seqdb = seqdb;
 		this.nodedb = nodedb;
 		this.stateInfos = stateInfos;
+		this.includeStaticStatic = includeStaticStatic;
 
 		// set up the minimization queues
 		minimizationQueues = Arrays.stream(stateInfos)
@@ -241,7 +244,12 @@ public class NodeProcessor {
 		// minimize the conformations
 		var jobs = nodes.stream()
 			.map(node -> {
-				var inters = stateInfo.config.posInterGen.all(stateInfo.confSpace, node.conf);
+				List<PosInter> inters;
+				if (includeStaticStatic) {
+					inters = stateInfo.config.posInterGen.all(stateInfo.confSpace, node.conf);
+				} else {
+					inters = stateInfo.config.posInterGen.dynamic(stateInfo.confSpace, node.conf);
+				}
 				return new ConfEnergyCalculator.MinimizationJob(node.conf, inters);
 			})
 			.collect(Collectors.toList());

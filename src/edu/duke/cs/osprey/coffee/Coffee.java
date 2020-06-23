@@ -42,6 +42,7 @@ public class Coffee {
 		private long nodedbMemBytes = 2*1024*1024; // 2 MiB
 		private File seqdbFile = null;
 		private MathContext seqdbMathContext = new MathContext(128, RoundingMode.HALF_UP);
+		private boolean includeStaticStatic = true;
 
 		public Builder(MultiStateConfSpace confSpace) {
 			this.confSpace = confSpace;
@@ -93,6 +94,11 @@ public class Coffee {
 			return this;
 		}
 
+		public Builder setStaticStatic(boolean val) {
+			includeStaticStatic = val;
+			return this;
+		}
+
 		public Coffee build() {
 
 			// check the state configs
@@ -110,7 +116,11 @@ public class Coffee {
 				parallelism = Parallelism.makeCpu(2);
 			}
 
-			return new Coffee(confSpace, stateConfigs, cluster, parallelism, nodedbFile, nodedbFileBytes, nodedbMemBytes, seqdbFile, seqdbMathContext);
+			return new Coffee(
+				confSpace, stateConfigs, cluster, parallelism,
+				nodedbFile, nodedbFileBytes, nodedbMemBytes,
+				seqdbFile, seqdbMathContext, includeStaticStatic
+			);
 		}
 	}
 
@@ -168,13 +178,14 @@ public class Coffee {
 	public final long dbMemBytes;
 	public final File seqdbFile;
 	public final MathContext seqdbMathContext;
+	public final boolean includeStaticStatic;
 
 	public final StateInfo[] infos;
 
 	public final MathContext mathContext = BigExp.mathContext;
 	public final BoltzmannCalculator bcalc = new BoltzmannCalculator(mathContext);
 
-	private Coffee(MultiStateConfSpace confSpace, StateConfig[] stateConfigs, Cluster cluster, Parallelism parallelism, File dbFile, long dbFileBytes, long dbMemBytes, File seqdbFile, MathContext seqdbMathContext) {
+	private Coffee(MultiStateConfSpace confSpace, StateConfig[] stateConfigs, Cluster cluster, Parallelism parallelism, File dbFile, long dbFileBytes, long dbMemBytes, File seqdbFile, MathContext seqdbMathContext, boolean includeStaticStatic) {
 		this.confSpace = confSpace;
 		this.stateConfigs = stateConfigs;
 		this.cluster = cluster;
@@ -184,6 +195,7 @@ public class Coffee {
 		this.dbMemBytes = dbMemBytes;
 		this.seqdbFile = seqdbFile;
 		this.seqdbMathContext = seqdbMathContext;
+		this.includeStaticStatic = includeStaticStatic;
 		infos = Arrays.stream(stateConfigs)
 			.map(config -> new StateInfo(config, bcalc))
 			.toArray(StateInfo[]::new);
@@ -203,7 +215,7 @@ public class Coffee {
 				// pre-compute the Z matrices
 				for (var info : infos) {
 					member.log0("computing Z matrix for state: %s", info.config.state.name);
-					info.zmat.compute(member, tasks);
+					info.zmat.compute(member, tasks, includeStaticStatic);
 				}
 
 				// open the sequence database
@@ -217,7 +229,7 @@ public class Coffee {
 					) {
 
 						// init the node processor, and report dropped nodes to the sequence database
-						var nodeProcessor = new NodeProcessor(tasks, seqdb, nodedb, infos);
+						var nodeProcessor = new NodeProcessor(tasks, seqdb, nodedb, infos, includeStaticStatic);
 						nodedb.dropHandler = nodeProcessor::handleDrops;
 
 						// wait for all members to initialize the directions

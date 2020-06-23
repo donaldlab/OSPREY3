@@ -30,13 +30,11 @@ public class TestConfSpace {
 		public final SimpleConfSpace complex;
 		public final SimpleConfSpace chainA;
 		public final SimpleConfSpace chainB;
-		public final ForcefieldParams ffparams;
 
-		public AffinityClassic(SimpleConfSpace complex, SimpleConfSpace chainA, SimpleConfSpace chainB, ForcefieldParams ffparams) {
+		public AffinityClassic(SimpleConfSpace complex, SimpleConfSpace chainA, SimpleConfSpace chainB) {
 			this.complex = complex;
 			this.chainA = chainA;
 			this.chainB = chainB;
-			this.ffparams = ffparams;
 		}
 
 		public int[] makeConfComplexWt() {
@@ -89,13 +87,10 @@ public class TestConfSpace {
 
 		public static AffinityClassic makeClassic() {
 
-			// configure the forcefield
-			ForcefieldParams ffparams = new ForcefieldParams();
-
 			Molecule mol = PDBIO.readResource("/2RL0.min.reduce.pdb");
 
 			// make sure all strands share the same template library
-			ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(ffparams.forcefld)
+			ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(ForcefieldParams.Forcefield.AMBER)
 				.clearTemplateCoords()
 				.addTemplateCoords(FileTools.readResource("/config/template_coords_v2.txt"))
 				// add a special template so we don't delete the un-protonated terminal residues
@@ -179,8 +174,7 @@ public class TestConfSpace {
 					.build(),
 				new SimpleConfSpace.Builder()
 					.addStrand(chainG)
-					.build(),
-				ffparams
+					.build()
 			);
 		}
 

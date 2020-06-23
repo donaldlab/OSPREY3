@@ -59,14 +59,19 @@ public class ClusterZMatrix {
 		return new BigExp(bcalc.calcPrecise(energy));
 	}
 
-	public void compute(ClusterMember member, TaskExecutor tasks) {
+	public void compute(ClusterMember member, TaskExecutor tasks, boolean includeStaticStatic) {
 
-		computeStaticStatic(member, tasks);
+		computeStaticStatic(member, tasks, includeStaticStatic);
 		computeSingles(member, tasks);
 		computePairs(member, tasks);
 	}
 
-	private void computeStaticStatic(ClusterMember member, TaskExecutor tasks) {
+	private void computeStaticStatic(ClusterMember member, TaskExecutor tasks, boolean includeStaticStatic) {
+
+		if (!includeStaticStatic) {
+			zmat.staticStatic = new BigExp(1.0, 0);
+			return;
+		}
 
 		// make a replicated map, so hazelcast will sync everything to all members for us
 		member.log0("computing static-static ...");

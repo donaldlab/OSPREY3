@@ -90,7 +90,7 @@ public class Benchmark {
 
 	@Override
 	public String toString() {
-		return String.format("finished %d ops in %s @ %.2f ops/s",
+		return String.format("finished %9d ops in %9s @ %12.2f ops/s",
 			numOps,
 			stopwatch.getTime(2),
 			opsPerSecond
