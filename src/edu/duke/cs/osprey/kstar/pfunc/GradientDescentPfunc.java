@@ -215,6 +215,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfDB, Parti
 	private ConfSearch energyConfs = null;
 
 	private static BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
+	private boolean usePreciseBcalc = true;
 
 	private Status status = null;
 	private Values values = null;
@@ -262,11 +263,21 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfDB, Parti
 		return instanceId;
 	}
 
+	/**
+	 * If true, uses BoltzmannCalculator.calcPrecise() instead of BoltzmannCalculator.calc().
+	 * The "precise" version of the function has more precision,
+	 * and much much better performance on inputs with higher magnitude (eg, -100, -1000).
+	 * Generally, this results in significantly faster performance for pfunc calculations.
+	 */
+	public void setPreciseBcalc(boolean val) {
+		usePreciseBcalc = val;
+	}
+
 	@Override
 	public void putTaskContexts(TaskExecutor.ContextGroup contexts) {
 		// TODO: how to support conf tables correctly, when the energies are distributed across the cluster?
-		contexts.putContext(instanceIdOrThrow(), EnergyTask.class, new EnergyTask.Context(ecalc, bcalc, confDB));
-		contexts.putContext(instanceIdOrThrow(), ScoreTask.class, new ScoreTask.Context(bcalc));
+		contexts.putContext(instanceIdOrThrow(), EnergyTask.class, new EnergyTask.Context(ecalc, bcalc, usePreciseBcalc, confDB));
+		contexts.putContext(instanceIdOrThrow(), ScoreTask.class, new ScoreTask.Context(bcalc, usePreciseBcalc));
 	}
 
 	@Override
@@ -516,11 +527,13 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfDB, Parti
 
 			ConfEnergyCalculator confEcalc;
 			BoltzmannCalculator bcalc;
+			boolean usePreciseBcalc;
 			ConfDB confDB;
 
-			public Context(ConfEnergyCalculator confEcalc, BoltzmannCalculator bcalc, ConfDB confDB) {
+			public Context(ConfEnergyCalculator confEcalc, BoltzmannCalculator bcalc, boolean usePreciseBcalc, ConfDB confDB) {
 				this.confEcalc = confEcalc;
 				this.bcalc = bcalc;
+				this.usePreciseBcalc = usePreciseBcalc;
 				this.confDB = confDB;
 			}
 
@@ -529,6 +542,14 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfDB, Parti
 					return null;
 				}
 				return confDB.get(key);
+			}
+
+			public BigDecimal bcalc(double e) {
+				if (usePreciseBcalc) {
+					return bcalc.calcPrecise(e);
+				} else {
+					return bcalc.calc(e);
+				}
 			}
 		}
 
@@ -549,8 +570,8 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfDB, Parti
 			Result result = new Result();
 			result.stopwatch = stopwatch;
 			result.econf = ctx.confEcalc.calcEnergy(conf, ctx.confTable(confDBKey));
-			result.scoreWeight = ctx.bcalc.calc(result.econf.getScore());
-			result.energyWeight = ctx.bcalc.calc(result.econf.getEnergy());
+			result.scoreWeight = ctx.bcalc(result.econf.getScore());
+			result.energyWeight = ctx.bcalc(result.econf.getEnergy());
 			return result;
 		}
 	}
@@ -566,9 +587,19 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfDB, Parti
 		static class Context {
 
 			BoltzmannCalculator bcalc;
+			boolean usePreciseBcalc;
 
-			public Context(BoltzmannCalculator bcalc) {
+			public Context(BoltzmannCalculator bcalc, boolean usePreciseBcalc) {
 				this.bcalc = bcalc;
+				this.usePreciseBcalc = usePreciseBcalc;
+			}
+
+			public BigDecimal bcalc(double e) {
+				if (usePreciseBcalc) {
+					return bcalc.calcPrecise(e);
+				} else {
+					return bcalc.calc(e);
+				}
 			}
 		}
 
@@ -588,7 +619,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfDB, Parti
 			Result result = new Result();
 			result.stopwatch = stopwatch;
 			for (double score : scores) {
-				result.scoreWeights.add(ctx.bcalc.calc(score));
+				result.scoreWeights.add(ctx.bcalc(score));
 				result.scores.add(score);
 			}
 
