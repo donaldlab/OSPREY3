@@ -43,6 +43,8 @@ public class Coffee {
 		private File seqdbFile = null;
 		private MathContext seqdbMathContext = new MathContext(128, RoundingMode.HALF_UP);
 		private boolean includeStaticStatic = true;
+		private BoltzmannCalculator.Conditions conditions = BoltzmannCalculator.Conditions.Classic; // don't rock the boat
+		// TODO: experiment if other conditions better correlate with experimental results?
 
 		public Builder(MultiStateConfSpace confSpace) {
 			this.confSpace = confSpace;
@@ -99,6 +101,16 @@ public class Coffee {
 			return this;
 		}
 
+		public Builder setConditions(BoltzmannCalculator.Conditions val) {
+			conditions = val;
+			return this;
+		}
+
+		public Builder setTemp(double val) {
+			conditions = new BoltzmannCalculator.Conditions(val);
+			return this;
+		}
+
 		public Coffee build() {
 
 			// check the state configs
@@ -119,7 +131,7 @@ public class Coffee {
 			return new Coffee(
 				confSpace, stateConfigs, cluster, parallelism,
 				nodedbFile, nodedbFileBytes, nodedbMemBytes,
-				seqdbFile, seqdbMathContext, includeStaticStatic
+				seqdbFile, seqdbMathContext, includeStaticStatic, conditions
 			);
 		}
 	}
@@ -179,13 +191,14 @@ public class Coffee {
 	public final File seqdbFile;
 	public final MathContext seqdbMathContext;
 	public final boolean includeStaticStatic;
-
-	public final StateInfo[] infos;
+	public final BoltzmannCalculator.Conditions conditions;
 
 	public final MathContext mathContext = BigExp.mathContext;
-	public final BoltzmannCalculator bcalc = new BoltzmannCalculator(mathContext);
+	public final BoltzmannCalculator bcalc;
+	public final StateInfo[] infos;
 
-	private Coffee(MultiStateConfSpace confSpace, StateConfig[] stateConfigs, Cluster cluster, Parallelism parallelism, File dbFile, long dbFileBytes, long dbMemBytes, File seqdbFile, MathContext seqdbMathContext, boolean includeStaticStatic) {
+	private Coffee(MultiStateConfSpace confSpace, StateConfig[] stateConfigs, Cluster cluster, Parallelism parallelism, File dbFile, long dbFileBytes, long dbMemBytes, File seqdbFile, MathContext seqdbMathContext, boolean includeStaticStatic, BoltzmannCalculator.Conditions conditions) {
+
 		this.confSpace = confSpace;
 		this.stateConfigs = stateConfigs;
 		this.cluster = cluster;
@@ -196,6 +209,9 @@ public class Coffee {
 		this.seqdbFile = seqdbFile;
 		this.seqdbMathContext = seqdbMathContext;
 		this.includeStaticStatic = includeStaticStatic;
+		this.conditions = conditions;
+
+		bcalc = new BoltzmannCalculator(mathContext, conditions);
 		infos = Arrays.stream(stateConfigs)
 			.map(config -> new StateInfo(config, bcalc))
 			.toArray(StateInfo[]::new);

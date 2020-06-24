@@ -118,7 +118,7 @@ public class TestKStar {
 						.setTraditional()
 						.build(),
 					rcs.getNumConformations()
-				);
+				).setPreciseBcalc(true);
 			}
 
 			// run K*

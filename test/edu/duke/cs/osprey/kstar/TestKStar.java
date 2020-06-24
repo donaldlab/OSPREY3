@@ -380,6 +380,7 @@ public class TestKStar {
 		// TODO: check atom counts and positions are the same?
 	}
 
+	// TODO: this test is taking forever!! what happened? some kind of performance regression?
 	@Test
 	public void test2RL0() {
 

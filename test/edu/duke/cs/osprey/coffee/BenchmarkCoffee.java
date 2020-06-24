@@ -21,6 +21,7 @@ import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculatorAdapter;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
@@ -65,26 +66,26 @@ public class BenchmarkCoffee {
 		// single-threaded benchmarks
 
 		benchmark("GD     classic   noSS", () -> gradientDescent(complexClassic, seqClassic, oneCpu, bounds, noStaticStatic, epsilon));
-		//[28    4     0     28    13    28    10   ] scores:   20579, confs: 262, score: -126.800794, energy: -120.704369, bounds:[   94.681678,   95.174802] (log10p1), delta:0.678726, time:    1.52 m, heapMem:4.6% of 1.9 GiB, extMem:0 B
-		//GD     classic   noSS   emat   20008 ms ( 20.01 s)   pfunc   91476 ms (  1.52 m)   G [-129.9658,-129.2924]  w =  0.6734
+		//Total Z upper bound reduction through minimizations: 4.322064e+96
+		//GD     classic   noSS   emat   17396 ms ( 17.40 s)   pfunc   77321 ms (  1.29 m)   G [-129.9658,-129.2924]  w =  0.6734
 
-		benchmark("GD     compiled  noSS", () -> gradientDescent(complexCompiled, seqCompiled, oneCpu, bounds, noStaticStatic, epsilon));
-		//[14    40    28    37    28    13    13   ] scores:   19469, confs: 168, score: -101.009497, energy:  -99.118078, bounds:[   75.762014,   76.253304] (log10p1), delta:0.677366, time:   48.90 s, heapMem:4.8% of 1.9 GiB, extMem:0 B
-		//GD     compiled  noSS   emat   11748 ms ( 11.75 s)   pfunc   48934 ms ( 48.93 s)   G [-104.1276,-103.4567]  w =  0.6709
-		// compiled is 1.86x faster than classic! =D
+		//benchmark("GD     compiled  noSS", () -> gradientDescent(complexCompiled, seqCompiled, oneCpu, bounds, noStaticStatic, epsilon));
+		//[14    40    28    37    28    13    13   ] scores:   18634, confs: 168, score: -101.009497, energy:  -99.118078, bounds:[   75.762014,   76.253323] (log10p1), delta:0.677380, time:   37.06 s, heapMem:3.5% of 1.9 GiB, extMem:0 B
+		//GD     compiled  noSS   emat    9717 ms (  9.72 s)   pfunc   37045 ms ( 37.05 s)   G [-104.1276,-103.4567]  w =  0.6709
+		// compiled is 2.09x faster than classic! =D
 
-		benchmark("GD     compiled yesSS", () -> gradientDescent(complexCompiled, seqCompiled, oneCpu, bounds, yesStaticStatic, epsilon));
-		//[14    40    28    37    28    13    13   ] scores:   19821, confs: 168, score:-1557.832821, energy:-1555.941402, bounds:[ 1142.603182, 1143.094467] (log10p1), delta:0.677362, time:   47.09 s, heapMem:5.0% of 1.9 GiB, extMem:0 B
-		//GD     compiled yesSS   emat   13296 ms ( 13.30 s)   pfunc   47085 ms ( 47.09 s)   G [-1560.9509,-1560.2800]  w =  0.6709
+		//benchmark("GD     compiled yesSS", () -> gradientDescent(complexCompiled, seqCompiled, oneCpu, bounds, yesStaticStatic, epsilon));
+		//[14    40    5     42    28    13    13   ] scores:   17994, confs: 167, score:-1557.838995, energy:-1553.935900, bounds:[ 1142.602893, 1143.096674] (log10p1), delta:0.679211, time:   36.57 s, heapMem:3.5% of 1.9 GiB, extMem:0 B
+		//GD     compiled yesSS   emat    9490 ms (  9.49 s)   pfunc   36588 ms ( 36.59 s)   G [-1560.9539,-1560.2796]  w =  0.6743
 
-		benchmark("COFFEE compiled  noSS", () -> coffee(complexCompiled, seqCompiled, oneCpu, bounds, noStaticStatic, gWidthMax));
-		//COFFEE-0: 	G [-104.102,-103.452]   width 0.649504 of 0.000000   confs       257   avgap 2.80   nodedb  25.8%   rr Infinity   time 1.20 m
-		//COFFEE compiled  noSS   emat   25818 ms ( 25.82 s)   pfunc   72077 ms (  1.20 m)   G [-104.1015,-103.4520]  w =  0.6495
-		// COFFEE is 0.68x faster than gradient-descent! ;_;
+		//benchmark("COFFEE compiled  noSS", () -> coffee(complexCompiled, seqCompiled, oneCpu, bounds, noStaticStatic, gWidthMax));
+		//COFFEE-0: 	G [-104.119,-103.456]   width 0.663883 of 0.000000   confs       224   avgap 2.78   nodedb  22.7%   rr Infinity   time 50.08 s
+		//COFFEE compiled  noSS   emat   17954 ms ( 17.95 s)   pfunc   50080 ms ( 50.08 s)   G [-104.1195,-103.4556]  w =  0.6639
+		// COFFEE is 0.74x faster than gradient-descent! ;_;
 
-		benchmark("COFFEE compiled yesSS", () -> coffee(complexCompiled, seqCompiled, oneCpu, bounds, yesStaticStatic, gWidthMax));
-		//COFFEE-0: 	G [-1560.942,-1560.274]   width 0.668469 of 0.000000   confs       246   avgap 2.73   nodedb  26.6%   rr Infinity   time 1.33 m
-		//COFFEE compiled yesSS   emat   18489 ms ( 18.49 s)   pfunc   79949 ms (  1.33 m)   G [-1560.9421,-1560.2736]  w =  0.6685
+		//benchmark("COFFEE compiled yesSS", () -> coffee(complexCompiled, seqCompiled, oneCpu, bounds, yesStaticStatic, gWidthMax));
+		//COFFEE-0: 	G [-1560.929,-1560.271]   width 0.658356 of 0.000000   confs       258   avgap 2.82   nodedb  25.8%   rr Infinity   time 58.46 s
+		//COFFEE compiled yesSS   emat   18845 ms ( 18.85 s)   pfunc   58459 ms ( 58.46 s)   G [-1560.9294,-1560.2710]  w =  0.6584
 
 		// TODO: NEXTTIME: scale up, GPUs
 		// TODO: NEXTTIME: scale out
@@ -227,6 +228,8 @@ public class BenchmarkCoffee {
 		Coffee coffee = new Coffee.Builder(msConfSpace)
 			.setParallelism(parallelism)
 			.setStaticStatic(includeStaticStatic)
+			//.setConditions(BoltzmannCalculator.Conditions.Body)
+			//.setConditions(BoltzmannCalculator.Conditions.Room)
 			.configEachState(config -> {
 				config.ecalc = new CPUConfEnergyCalculator(confSpace);
 				config.posInterGen = new PosInterGen(bounds.posInterDist, null);

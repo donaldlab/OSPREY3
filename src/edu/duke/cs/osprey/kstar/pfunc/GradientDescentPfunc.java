@@ -269,8 +269,9 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfDB, Parti
 	 * and much much better performance on inputs with higher magnitude (eg, -100, -1000).
 	 * Generally, this results in significantly faster performance for pfunc calculations.
 	 */
-	public void setPreciseBcalc(boolean val) {
+	public GradientDescentPfunc setPreciseBcalc(boolean val) {
 		usePreciseBcalc = val;
+		return this;
 	}
 
 	@Override

@@ -36,7 +36,6 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 
 import ch.obermuhlner.math.big.BigDecimalMath;
-import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import edu.duke.cs.osprey.tools.BigExp;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.tools.MathTools;
@@ -48,26 +47,74 @@ import static edu.duke.cs.osprey.tools.Log.log;
 
 public class BoltzmannCalculator {
 
-	public static double constRT = PoissonBoltzmannEnergy.constRT;
+	public static final double RClassic = 1.9891/1000.0;
+	public static final double RPrecise = 1.98720425864083e-3; // from wikipedia
+
+	public static final double TAlmostFrozen = 275; // about 35.33 F
+	public static final double TRoom = 298.15; // exactly 25 C, 77 F
+	public static final double TBody = 310; // about 98.33 F
+	public static final double TClassic = TRoom;
+
+	public static class Conditions {
+
+		/** gas constant, in kcal/K/mol */
+		public final double R;
+
+		/** temperature in Kelvins */
+		public final double T;
+
+		public Conditions(double R, double T) {
+			this.R = R;
+			this.T = T;
+		}
+
+		public Conditions(double T) {
+			this(RPrecise, T);
+		}
+
+		/** The time-tested consitions used in Osprey versions of years past */
+		public static final Conditions Classic = new Conditions(RClassic, TClassic);
+
+		public static final Conditions AlmostFrozen = new Conditions(TAlmostFrozen);
+		public static final Conditions Room = new Conditions(TRoom);
+		public static final Conditions Body = new Conditions(TBody);
+	}
 
 	public final MathContext mathContext;
 	public final ExpFunction e;
 
+	public final double R;
+
+	public final double T;
+
+	private final double RT;
+
 	public BoltzmannCalculator(MathContext mathContext) {
+		this(mathContext, RClassic, TClassic);
+	}
+
+	public BoltzmannCalculator(MathContext mathContext, double R, double T) {
 		this.mathContext = mathContext;
 		this.e = new ExpFunction(mathContext);
+		this.R = R;
+		this.T = T;
+		this.RT = R*T;
+	}
+
+	public BoltzmannCalculator(MathContext mathContext, Conditions conditions) {
+		this(mathContext, conditions.R, conditions.T);
 	}
 	
 	public BigDecimal calc(double energy) {
-		return e.exp(-energy/constRT);
+		return e.exp(-energy/RT);
 	}
 
 	public double freeEnergy(BigDecimal z) {
-		return -constRT*e.log(z).doubleValue();
+		return -RT*e.log(z).doubleValue();
 	}
 
 	public BigDecimal calcPrecise(double e) {
-		return exp(-e/constRT);
+		return exp(-e/RT);
 	}
 
 	public BigDecimal exp(double e) {
@@ -101,7 +148,7 @@ public class BoltzmannCalculator {
 	}
 
 	public double freeEnergyPrecise(BigDecimal z) {
-		return -constRT*ln(z);
+		return -RT*ln(z);
 	}
 
 	public double freeEnergyPrecise(BigExp z) {

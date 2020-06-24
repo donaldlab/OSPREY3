@@ -122,7 +122,7 @@ public class TestBBKStar {
 					info.confSearchFactoryMinimized.make(rcs),
 					info.confSearchFactoryMinimized.make(rcs),
 					rcs.getNumConformations()
-				);
+				).setPreciseBcalc(true);
 			}
 
 			// run K*
