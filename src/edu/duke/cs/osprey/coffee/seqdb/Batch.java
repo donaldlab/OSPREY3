@@ -1,5 +1,7 @@
 package edu.duke.cs.osprey.coffee.seqdb;
 
+import edu.duke.cs.osprey.confspace.Conf;
+import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.tools.BigExp;
@@ -47,7 +49,7 @@ public class Batch {
 			// get the batch sum, or empty
 			var statez = unsequencedSums.get(state.unsequencedIndex);
 			if (statez == null) {
-				statez = StateZ.makeZero();
+				statez = StateZ.makeZero(state.index);
 			}
 
 			f.accept(statez);
@@ -57,10 +59,17 @@ public class Batch {
 		isEmpty = false;
 	}
 
-	public void addZConf(MultiStateConfSpace.State state, Sequence seq, BigDecimal zConf, BigExp zSumUpper) {
+	public void addZConf(MultiStateConfSpace.State state, Sequence seq, BigDecimal zConf, BigExp zSumUpper, ConfSearch.EnergiedConf econf) {
 
 		if (!MathTools.isFinite(zConf) || !zSumUpper.isFinite()) {
 			throw new IllegalArgumentException("Z must be finite: " + zConf + ", " + zSumUpper);
+		}
+
+		if (econf.getAssignments().length != state.confSpace.numPos()) {
+			throw new IllegalArgumentException(String.format("conformation %s doesn't match conf space for state: %s",
+				Conf.toString(econf.getAssignments()),
+				state.name
+			));
 		}
 
 		update(state, seq, statez -> {
@@ -73,6 +82,7 @@ public class Batch {
 				.add(zConf)
 				.sub(zSumUpper)
 				.get();
+			statez.keepBestConfs(econf, seqdb.numBestConfs);
 		});
 	}
 

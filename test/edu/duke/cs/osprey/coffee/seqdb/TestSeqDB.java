@@ -6,6 +6,7 @@ import static org.junit.Assert.*;
 import com.google.common.collect.Iterators;
 import edu.duke.cs.osprey.coffee.ClusterMember;
 import edu.duke.cs.osprey.coffee.TestCoffee;
+import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.tools.BigExp;
@@ -15,8 +16,6 @@ import org.junit.Test;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
-import java.math.RoundingMode;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
@@ -30,8 +29,6 @@ public class TestSeqDB {
 		SLF4JBridgeHandler.install();
 	}
 
-	private static final MathContext mathContext = new MathContext(16, RoundingMode.HALF_UP);
-	private static final BigDecimalBounds emptySum = BigDecimalBounds.makeZero();
 	private static final BigDecimalBounds unknownBound = new BigDecimalBounds(BigDecimal.ZERO, MathTools.BigPositiveInfinity);
 
 	private static void withSeqDB(MultiStateConfSpace confSpace, Consumer<SeqDB> block) {
@@ -43,7 +40,10 @@ public class TestSeqDB {
 			try (var member = new ClusterMember(cluster)) {
 
 				// make the sequence database
-				try (var seqdb = new SeqDB(confSpace, mathContext, null, member)) {
+				try (var seqdb = new SeqDB.Builder(confSpace, member)
+					.setNumBestConfs(10)
+					.build()
+				) {
 
 					// wait for all the database instances to be ready
 					member.barrier(1, TimeUnit.MINUTES);
@@ -167,9 +167,9 @@ public class TestSeqDB {
 
 			// wait for the save to finish
 			if (seqdb.member.isDirector()) {
-				seqdb.member.waitForOperation(ops + 1, 2, TimeUnit.SECONDS);
+				seqdb.member.waitForOperation(ops + 1, 5, TimeUnit.SECONDS);
 			}
-			seqdb.member.barrier(2, TimeUnit.SECONDS);
+			seqdb.member.barrier(10, TimeUnit.SECONDS);
 
 			if (seqdb.member.isDirector()) {
 
@@ -182,6 +182,166 @@ public class TestSeqDB {
 				assertThat(seqdb.getSums(seq).get(complex).zSumDropped, is(BigDecimal.ZERO));
 				assertThat(seqdb.getSums(seq).get(design).zSumDropped, is(BigDecimal.ZERO));
 				assertThat(seqdb.getSum(target).zSumDropped, is(BigDecimal.ZERO));
+			}
+
+			seqdb.member.barrier(2, TimeUnit.SECONDS);
+		});
+	}
+
+	@Test
+	public void addConfsLocal() {
+
+		MultiStateConfSpace confSpace = TestCoffee.affinity_6ov7_1mut2flex();
+		MultiStateConfSpace.State complex = confSpace.getState("complex");
+		MultiStateConfSpace.State design = confSpace.getState("design");
+		MultiStateConfSpace.State target = confSpace.getState("target");
+
+		assertThat(complex.confSpace.numPos(), is(3));
+		assertThat(design.confSpace.numPos(), is(1));
+		assertThat(target.confSpace.numPos(), is(2));
+
+		withSeqDB(confSpace, seqdb -> {
+
+			var confComplex = new ConfSearch.EnergiedConf(new int[] { 1, 2, 3 }, -4.0, -3.0);
+			var confDesign = new ConfSearch.EnergiedConf(new int[] { 1 }, -6.0, -5.0);
+			var confTarget = new ConfSearch.EnergiedConf(new int[] { 1, 2 }, -8.0, -7.0);
+
+			// add one value for each state
+			var batch = seqdb.batch();
+			Sequence seq = confSpace.seqSpace.makeUnassignedSequence();
+			batch.addZConf(complex, seq, new BigDecimal("3.0"), new BigExp(0.0), confComplex);
+			batch.addZConf(design, seq, new BigDecimal("5.0"), new BigExp(0.0), confDesign);
+			batch.addZConf(target, null, new BigDecimal("7.0"), new BigExp(0.0), confTarget);
+			batch.save();
+
+			// all values should have been added
+			assertThat(seqdb.getSums(seq).get(complex).zSumBounds, is(new BigDecimalBounds(3.0, 3.0)));
+			assertThat(seqdb.getSums(seq).get(design).zSumBounds, is(new BigDecimalBounds(5.0, 5.0)));
+			assertThat(seqdb.getSum(target).zSumBounds, is(new BigDecimalBounds(7.0, 7.0)));
+
+			// nothing should have been dropped
+			assertThat(seqdb.getSums(seq).get(complex).zSumDropped, is(BigDecimal.ZERO));
+			assertThat(seqdb.getSums(seq).get(design).zSumDropped, is(BigDecimal.ZERO));
+			assertThat(seqdb.getSum(target).zSumDropped, is(BigDecimal.ZERO));
+
+			// check best confs
+			assertThat(seqdb.getBestConfs(complex, seq), contains(confComplex));
+			assertThat(seqdb.getBestConfs(design, seq), contains(confDesign));
+			assertThat(seqdb.getBestConfs(target), contains(confTarget));
+		});
+	}
+
+	@Test
+	public void addAddConfsLocal() {
+
+		MultiStateConfSpace confSpace = TestCoffee.affinity_6ov7_1mut2flex();
+		MultiStateConfSpace.State complex = confSpace.getState("complex");
+		MultiStateConfSpace.State design = confSpace.getState("design");
+		MultiStateConfSpace.State target = confSpace.getState("target");
+
+		assertThat(complex.confSpace.numPos(), is(3));
+		assertThat(design.confSpace.numPos(), is(1));
+		assertThat(target.confSpace.numPos(), is(2));
+
+		withSeqDB(confSpace, seqdb -> {
+
+			Sequence seq = confSpace.seqSpace.makeUnassignedSequence();
+			ConfSearch.EnergiedConf[] confComplex = {
+				new ConfSearch.EnergiedConf(new int[] { 1, 2, 3 }, -4.0, -3.0),
+				new ConfSearch.EnergiedConf(new int[] { 1, 2, 0 }, -6.0, -5.0)
+			};
+			ConfSearch.EnergiedConf[] confDesign = {
+				new ConfSearch.EnergiedConf(new int[] { 1 }, -6.0, -5.0),
+				new ConfSearch.EnergiedConf(new int[] { 0 }, -8.0, -7.0)
+			};
+			ConfSearch.EnergiedConf[] confTarget = {
+				new ConfSearch.EnergiedConf(new int[] { 1, 2 }, -8.0, -7.0),
+				new ConfSearch.EnergiedConf(new int[] { 1, 0 }, -10.0, -9.0)
+			};
+
+			// add one value for each state
+			var batch = seqdb.batch();
+			batch.addZConf(complex, seq, new BigDecimal("3.0"), new BigExp(0.0), confComplex[0]);
+			batch.addZConf(design, seq, new BigDecimal("5.0"), new BigExp(0.0), confDesign[0]);
+			batch.addZConf(target, null, new BigDecimal("7.0"), new BigExp(0.0), confTarget[0]);
+			batch.save();
+
+			// add one value for each state
+			batch = seqdb.batch();
+			batch.addZConf(complex, seq, new BigDecimal("1.0"), new BigExp(0.0), confComplex[1]);
+			batch.addZConf(design, seq, new BigDecimal("2.0"), new BigExp(0.0), confDesign[1]);
+			batch.addZConf(target, null, new BigDecimal("3.0"), new BigExp(0.0), confTarget[1]);
+			batch.save();
+
+			// all values should have been added
+			assertThat(seqdb.getSums(seq).get(complex).zSumBounds, is(new BigDecimalBounds(4.0, 4.0)));
+			assertThat(seqdb.getSums(seq).get(design).zSumBounds, is(new BigDecimalBounds(7.0, 7.0)));
+			assertThat(seqdb.getSum(target).zSumBounds, is(new BigDecimalBounds(10.0, 10.0)));
+
+			// nothing should have been dropped
+			assertThat(seqdb.getSums(seq).get(complex).zSumDropped, is(BigDecimal.ZERO));
+			assertThat(seqdb.getSums(seq).get(design).zSumDropped, is(BigDecimal.ZERO));
+			assertThat(seqdb.getSum(target).zSumDropped, is(BigDecimal.ZERO));
+
+			// check best confs
+			assertThat(seqdb.getBestConfs(complex, seq), contains(confComplex[1], confComplex[0]));
+			assertThat(seqdb.getBestConfs(design, seq), contains(confDesign[1], confDesign[0]));
+			assertThat(seqdb.getBestConfs(target), contains(confTarget[1], confTarget[0]));
+		});
+	}
+
+	@Test
+	public void addConfsRemote() {
+
+		MultiStateConfSpace confSpace = TestCoffee.affinity_6ov7_1mut2flex();
+		MultiStateConfSpace.State complex = confSpace.getState("complex");
+		MultiStateConfSpace.State design = confSpace.getState("design");
+		MultiStateConfSpace.State target = confSpace.getState("target");
+
+		assertThat(complex.confSpace.numPos(), is(3));
+		assertThat(design.confSpace.numPos(), is(1));
+		assertThat(target.confSpace.numPos(), is(2));
+
+		withSeqDBs(confSpace, 2, seqdb -> {
+
+			Sequence seq = confSpace.seqSpace.makeUnassignedSequence();
+			var confComplex = new ConfSearch.EnergiedConf(new int[] { 1, 2, 3 }, -4.0, -3.0);
+			var confDesign = new ConfSearch.EnergiedConf(new int[] { 1 }, -6.0, -5.0);
+			var confTarget = new ConfSearch.EnergiedConf(new int[] { 1, 2 }, -8.0, -7.0);
+
+			long ops = seqdb.member.finishedOperations();
+
+			if (!seqdb.member.isDirector()) {
+				// add one value for each state
+				var batch = seqdb.batch();
+				batch.addZConf(complex, seq, new BigDecimal("3.0"), new BigExp(0.0), confComplex);
+				batch.addZConf(design, seq, new BigDecimal("5.0"), new BigExp(0.0), confDesign);
+				batch.addZConf(target, null, new BigDecimal("7.0"), new BigExp(0.0), confTarget);
+				batch.save();
+			}
+
+			// wait for the save to finish
+			if (seqdb.member.isDirector()) {
+				seqdb.member.waitForOperation(ops + 1, 5, TimeUnit.SECONDS);
+			}
+			seqdb.member.barrier(10, TimeUnit.SECONDS);
+
+			if (seqdb.member.isDirector()) {
+
+				// all values should have been added
+				assertThat(seqdb.getSums(seq).get(complex).zSumBounds, is(new BigDecimalBounds(3.0, 3.0)));
+				assertThat(seqdb.getSums(seq).get(design).zSumBounds, is(new BigDecimalBounds(5.0, 5.0)));
+				assertThat(seqdb.getSum(target).zSumBounds, is(new BigDecimalBounds(7.0, 7.0)));
+
+				// nothing should have been dropped
+				assertThat(seqdb.getSums(seq).get(complex).zSumDropped, is(BigDecimal.ZERO));
+				assertThat(seqdb.getSums(seq).get(design).zSumDropped, is(BigDecimal.ZERO));
+				assertThat(seqdb.getSum(target).zSumDropped, is(BigDecimal.ZERO));
+
+				// check best confs
+				assertThat(seqdb.getBestConfs(complex, seq), contains(confComplex));
+				assertThat(seqdb.getBestConfs(design, seq), contains(confDesign));
+				assertThat(seqdb.getBestConfs(target), contains(confTarget));
 			}
 
 			seqdb.member.barrier(2, TimeUnit.SECONDS);
@@ -314,9 +474,9 @@ public class TestSeqDB {
 
 			// wait for the save to finish
 			if (seqdb.member.isDirector()) {
-				seqdb.member.waitForOperation(ops + 1, 2, TimeUnit.SECONDS);
+				seqdb.member.waitForOperation(ops + 1, 5, TimeUnit.SECONDS);
 			}
-			seqdb.member.barrier(2, TimeUnit.SECONDS);
+			seqdb.member.barrier(10, TimeUnit.SECONDS);
 
 			if (seqdb.member.isDirector()) {
 

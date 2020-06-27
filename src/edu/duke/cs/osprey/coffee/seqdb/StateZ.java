@@ -1,50 +1,69 @@
 package edu.duke.cs.osprey.coffee.seqdb;
 
-import edu.duke.cs.osprey.tools.HashCalculator;
+import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.tools.Log;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 
 import java.math.BigDecimal;
+import java.util.*;
 
 
 public class StateZ {
 
+	public final int statei;
+
 	public BigDecimalBounds zSumBounds;
 	public BigDecimal zSumDropped;
+	public final TreeSet<ConfSearch.EnergiedConf> bestConfs;
 
-	public StateZ(BigDecimalBounds zSumBounds, BigDecimal zSumDropped) {
+	public StateZ(int statei, BigDecimalBounds zSumBounds, BigDecimal zSumDropped) {
+
+		this.statei = statei;
+
 		this.zSumBounds = zSumBounds;
 		this.zSumDropped = zSumDropped;
+
+		bestConfs = new TreeSet<>(Comparator.comparing(econf -> econf.getEnergy()));
 	}
 
-	public static StateZ makeUnknown() {
+	public static StateZ makeUnknown(int statei) {
 		return new StateZ(
+			statei,
 			new BigDecimalBounds(BigDecimal.ZERO, MathTools.BigPositiveInfinity),
 			BigDecimal.ZERO
 		);
 	}
 
-	public static StateZ makeZero() {
+	public static StateZ makeZero(int statei) {
 		return new StateZ(
+			statei,
 			BigDecimalBounds.makeZero(),
 			BigDecimal.ZERO
 		);
 	}
 
-	@Override
-	public int hashCode() {
-		return HashCalculator.combineObjHashes(zSumBounds, zSumDropped);
-	}
+	public void keepBestConfs(ConfSearch.EnergiedConf econf, int num) {
 
-	@Override
-	public boolean equals(Object other) {
-		return other instanceof StateZ && equals((StateZ)other);
-	}
+		// NOTE: confs are sorted by energy, so last is the highest energy
 
-	public boolean equals(StateZ other) {
-		return this.zSumBounds.equals(other.zSumBounds)
-			&& this.zSumDropped.equals(other.zSumDropped);
+		// if we're not tracking best confs, ignore it
+		if (num <= 0) {
+			return;
+		}
+
+		// if we're full and the new conf isn't better than the worst conf we have already, ignore it
+		if (bestConfs.size() == num && bestConfs.comparator().compare(econf, bestConfs.last()) >= 0) {
+			return;
+		}
+
+		// otherwise, add it
+		bestConfs.add(econf);
+
+		// but don't exceed the limit
+		while (bestConfs.size() > num) {
+			bestConfs.pollLast();
+		}
 	}
 
 	@Override

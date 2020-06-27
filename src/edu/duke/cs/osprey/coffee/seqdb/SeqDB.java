@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.coffee.seqdb;
 
 import edu.duke.cs.osprey.coffee.ClusterMember;
 import edu.duke.cs.osprey.coffee.Serializers;
+import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.tools.*;
@@ -9,28 +10,65 @@ import org.mapdb.*;
 
 import java.io.File;
 import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.*;
 
 
 public class SeqDB implements AutoCloseable {
 
+	public static class Builder {
+
+		public final MultiStateConfSpace confSpace;
+		public final ClusterMember member;
+
+		private MathContext mathContext = new MathContext(16, RoundingMode.HALF_UP);
+		private File file = null;
+		private int numBestConfs = 0;
+
+		public Builder(MultiStateConfSpace confSpace, ClusterMember member) {
+			this.confSpace = confSpace;
+			this.member = member;
+		}
+
+		public Builder setMathContext(MathContext val) {
+			this.mathContext = val;
+			return this;
+		}
+
+		public Builder setFile(File val) {
+			file = val;
+			return this;
+		}
+
+		public Builder setNumBestConfs(int val) {
+			numBestConfs = val;
+			return this;
+		}
+
+		public SeqDB build() {
+			return new SeqDB(confSpace, member, mathContext, file, numBestConfs);
+		}
+	}
+
 	public static final String ServiceName = "seqdb";
 
 	public final MultiStateConfSpace confSpace;
+	public final ClusterMember member;
 	public final MathContext mathContext;
 	public final File file;
-	public final ClusterMember member;
+	public final int numBestConfs;
 
-	final DB db;
-	final HTreeMap<int[],SeqInfo> sequencedSums;
-	final HTreeMap<Integer,StateZ> unsequencedSums;
+	private final DB db;
+	private final HTreeMap<int[],SeqInfo> sequencedSums;
+	private final HTreeMap<Integer,StateZ> unsequencedSums;
 
-	public SeqDB(MultiStateConfSpace confSpace, MathContext mathContext, File file, ClusterMember member) {
+	private SeqDB(MultiStateConfSpace confSpace, ClusterMember member, MathContext mathContext, File file, int numBestConfs) {
 
 		this.confSpace = confSpace;
+		this.member = member;
 		this.mathContext = mathContext;
 		this.file = file;
-		this.member = member;
+		this.numBestConfs = numBestConfs;
 
 		// open the DB, but only on the driver member
 		if (member.isDirector()) {
@@ -53,7 +91,7 @@ public class SeqDB implements AutoCloseable {
 
 			unsequencedSums = db.hashMap("unsequenced-sums")
 				.keySerializer(Serializer.INTEGER)
-				.valueSerializer(Serializers.mapdbStateZ)
+				.valueSerializer(Serializers.mapdbStateZ(confSpace))
 				.createOrOpen();
 
 		} else {
@@ -84,12 +122,14 @@ public class SeqDB implements AutoCloseable {
 			System.arraycopy(sum.statezs, 0, seqInfo.statezs, 0, confSpace.sequencedStates.size());
 
 			// combine with the old sums if needed
-			SeqInfo oldSeqInfo = sequencedSums.get(sum.seq);
-			if (oldSeqInfo != null) {
+			SeqInfo seqInfoOld = sequencedSums.get(sum.seq);
+			if (seqInfoOld != null) {
 				for (MultiStateConfSpace.State state : confSpace.sequencedStates) {
 					var statez = sum.statezs[state.sequencedIndex];
-					combineSums(statez, oldSeqInfo.statezs[state.sequencedIndex]);
+					var statezOld = seqInfoOld.statezs[state.sequencedIndex];
+					combineSums(statez, statezOld);
 					fixRoundoffError(statez);
+					combineBestConfs(statez, statezOld);
 				}
 			}
 
@@ -99,15 +139,17 @@ public class SeqDB implements AutoCloseable {
 		for (var sum : op.unsequencedSums) {
 
 			var statez = sum.statez;
+			int unsequencedIndex = confSpace.states.get(statez.statei).unsequencedIndex;
 
 			// combine with the old sum if needed
-			var statezOld = unsequencedSums.get(sum.unsequencedIndex);
+			var statezOld = unsequencedSums.get(unsequencedIndex);
 			if (statezOld != null) {
 				combineSums(statez, statezOld);
 				fixRoundoffError(statez);
+				combineBestConfs(statez, statezOld);
 			}
 
-			unsequencedSums.put(sum.unsequencedIndex, statez);
+			unsequencedSums.put(unsequencedIndex, statez);
 		}
 
 		db.commit();
@@ -133,6 +175,12 @@ public class SeqDB implements AutoCloseable {
 		if (!statez.zSumBounds.isValid()) {
 			// TODO: throw an Exception if the error is bigger than what we'd expect from roundoff?
 			statez.zSumBounds.upper = statez.zSumBounds.lower;
+		}
+	}
+
+	private void combineBestConfs(StateZ statez, StateZ statezOld) {
+		for (var econf : statezOld.bestConfs) {
+			statez.keepBestConfs(econf, numBestConfs);
 		}
 	}
 
@@ -175,7 +223,7 @@ public class SeqDB implements AutoCloseable {
 		}
 
 		// otherwise, return unknown
-		return StateZ.makeUnknown();
+		return StateZ.makeUnknown(state.index);
 	}
 
 	/**
@@ -321,6 +369,35 @@ public class SeqDB implements AutoCloseable {
 				}
 			}
 		}
+	}
+
+	public List<ConfSearch.EnergiedConf> getBestConfs(MultiStateConfSpace.State state, Sequence seq) {
+
+		if (state.sequencedIndex < 0) {
+			throw new IllegalArgumentException("state " + state.name + " must be sequenced");
+		}
+
+		var seqInfo = sequencedSums.get(seq.rtIndices);
+		if (seqInfo == null) {
+			return Collections.emptyList();
+		}
+		var statez = seqInfo.statezs[state.sequencedIndex];
+
+		return new ArrayList<>(statez.bestConfs);
+	}
+
+	public List<ConfSearch.EnergiedConf> getBestConfs(MultiStateConfSpace.State state) {
+
+		if (state.unsequencedIndex < 0) {
+			throw new IllegalArgumentException("state " + state.name + " must be unsequenced");
+		}
+
+		var statez = unsequencedSums.get(state.unsequencedIndex);
+		if (statez == null) {
+			return Collections.emptyList();
+		}
+
+		return new ArrayList<>(statez.bestConfs);
 	}
 
 	public String dump() {

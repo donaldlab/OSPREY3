@@ -25,11 +25,9 @@ public class SaveOperation extends Operation {
 
 	public static class UnsequencedSum {
 
-		public final int unsequencedIndex;
 		public final StateZ statez;
 
-		public UnsequencedSum(int unsequencedIndex, StateZ statez) {
-			this.unsequencedIndex = unsequencedIndex;
+		public UnsequencedSum(StateZ statez) {
 			this.statez = statez;
 		}
 	}
@@ -57,12 +55,8 @@ public class SaveOperation extends Operation {
 			})
 			.toArray(SequencedSum[]::new);
 
-		unsequencedSums = batch.unsequencedSums.entrySet().stream()
-			.map(entry -> {
-				int unsequencedIndex = entry.getKey();
-				StateZ statez = entry.getValue();
-				return new UnsequencedSum(unsequencedIndex, statez);
-			})
+		unsequencedSums = batch.unsequencedSums.values().stream()
+			.map(statez -> new UnsequencedSum(statez))
 			.toArray(UnsequencedSum[]::new);
 	}
 

@@ -171,6 +171,13 @@ public class Coffee {
 	public interface Director {
 
 		/**
+		 * Return the number of best conformations to track for each state and sequence.
+		 */
+		default int numBestConfs() {
+			return 0;
+		}
+
+		/**
 		 * Prepare all the databases and cluster members for computation.
 		 */
 		void init(Directions directions, NodeProcessor processor);
@@ -235,7 +242,12 @@ public class Coffee {
 				}
 
 				// open the sequence database
-				try (SeqDB seqdb = new SeqDB(confSpace, seqdbMathContext, seqdbFile, member)) {
+				try (SeqDB seqdb = new SeqDB.Builder(confSpace, member)
+					.setMathContext(seqdbMathContext)
+					.setFile(seqdbFile)
+					.setNumBestConfs(director.numBestConfs())
+					.build()
+				) {
 
 					// open the node database
 					try (var nodedb = new NodeDB.Builder(confSpace, member)

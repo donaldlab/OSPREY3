@@ -17,16 +17,16 @@ public class SeqInfo {
 
 	public static SeqInfo makeUnknown(MultiStateConfSpace confSpace) {
 		var info = new SeqInfo(confSpace);
-		for (int i = 0; i<info.statezs.length; i++) {
-			info.statezs[i] = StateZ.makeUnknown();
+		for (var state : confSpace.sequencedStates) {
+			info.statezs[state.sequencedIndex] = StateZ.makeUnknown(state.index);
 		}
 		return info;
 	}
 
 	public static SeqInfo makeZero(MultiStateConfSpace confSpace) {
 		var info = new SeqInfo(confSpace);
-		for (int i = 0; i<info.statezs.length; i++) {
-			info.statezs[i] = StateZ.makeZero();
+		for (var state : confSpace.sequencedStates) {
+			info.statezs[state.sequencedIndex] = StateZ.makeZero(state.index);
 		}
 		return info;
 	}

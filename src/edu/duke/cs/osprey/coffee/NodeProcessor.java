@@ -6,8 +6,11 @@ import edu.duke.cs.osprey.coffee.nodedb.NodeDB;
 import edu.duke.cs.osprey.coffee.nodedb.NodeIndex;
 import edu.duke.cs.osprey.coffee.seqdb.SeqDB;
 import edu.duke.cs.osprey.confspace.Conf;
+import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
+import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.ThreadTools;
@@ -243,35 +246,32 @@ public class NodeProcessor {
 
 		// minimize the conformations
 		var jobs = nodes.stream()
-			.map(node -> {
-				List<PosInter> inters;
-				if (includeStaticStatic) {
-					inters = stateInfo.config.posInterGen.all(stateInfo.confSpace, node.conf);
-				} else {
-					inters = stateInfo.config.posInterGen.dynamic(stateInfo.confSpace, node.conf);
-				}
-				return new ConfEnergyCalculator.MinimizationJob(node.conf, inters);
-			})
+			.map(node -> new ConfEnergyCalculator.MinimizationJob(node.conf, makeInters(stateInfo, node.conf)))
 			.collect(Collectors.toList());
 		stateInfo.config.ecalc.minimizeEnergies(jobs);
 
+		// compute the bound energies for each conf
+		double[] bounds = nodes.stream()
+			.mapToDouble(node -> stateInfo.bcalc.freeEnergyPrecise(node.zSumUpper))
+			.toArray();
+
 		// update stats on energy bounds
 		for (int i=0; i<nodes.size(); i++) {
-			double bound = stateInfo.bcalc.freeEnergyPrecise(nodes.get(i).zSumUpper);
-			double energy = jobs.get(i).energy;
-			stateInfo.energyBoundStats.add(bound, energy);
+			stateInfo.energyBoundStats.add(bounds[i], jobs.get(i).energy);
 		}
 
 		// update seqdb with boltzmann-weighted energies
 		var seqdbBatch = seqdb.batch();
 		for (int i=0; i<nodes.size(); i++) {
 			var n = nodes.get(i);
-			var z = stateInfo.bcalc.calcPrecise(jobs.get(i).energy);
+			var e = jobs.get(i).energy;
+			var z = stateInfo.bcalc.calcPrecise(e);
 			seqdbBatch.addZConf(
 				stateInfo.config.state,
 				makeSeq(n.statei, n.conf),
 				z,
-				n.zSumUpper
+				n.zSumUpper,
+				new ConfSearch.EnergiedConf(n.conf, bounds[i], e)
 			);
 		}
 		seqdbBatch.save();
@@ -298,6 +298,40 @@ public class NodeProcessor {
 		}
 
 		return nodes;
+	}
+
+	private List<PosInter> makeInters(StateInfo stateInfo, int[] conf) {
+		if (includeStaticStatic) {
+			return stateInfo.config.posInterGen.all(stateInfo.confSpace, conf);
+		} else {
+			return stateInfo.config.posInterGen.dynamic(stateInfo.confSpace, conf);
+		}
+	}
+
+	public List<ConfEnergyCalculator.EnergiedCoords> minimizeCoords(int statei, List<int[]> confs) {
+
+		var stateInfo = stateInfos[statei];
+
+		var energiedCoords = confs.stream()
+			.map(conf -> (ConfEnergyCalculator.EnergiedCoords)null)
+			.collect(Collectors.toList());
+
+		for (int i=0; i<confs.size(); i++) {
+			final int fi = i;
+			tasks.submit(
+				() -> {
+					int[] conf = confs.get(fi);
+					var inters = makeInters(stateInfo, conf);
+					energiedCoords.set(fi, stateInfo.config.ecalc.minimize(conf, inters));
+					return 42;
+				},
+				answer -> {}
+			);
+		}
+
+		tasks.waitForFinish();
+
+		return energiedCoords;
 	}
 
 	private void expand(NodeInfo nodeInfo) {

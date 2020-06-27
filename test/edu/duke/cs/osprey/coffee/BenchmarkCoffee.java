@@ -21,7 +21,6 @@ import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculatorAdapter;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
@@ -236,11 +235,19 @@ public class BenchmarkCoffee {
 			})
 			.build();
 
-		var director = new PfuncDirector(msConfSpace, state, msConfSpace.seqSpace.makeWildTypeSequence(), gWidthMax, PfuncDirector.Timing.Precise);
+		var director = new PfuncDirector.Builder(msConfSpace, state, msConfSpace.seqSpace.makeWildTypeSequence())
+			.setGWidthMax(gWidthMax)
+			.setTiming(PfuncDirector.Timing.Precise)
+			.build();
 
 		var result = new Result();
 		result.ematStopwatch = new Stopwatch().start();
 		coffee.run(new Coffee.Director() {
+
+			@Override
+			public int numBestConfs() {
+				return director.numBestConfs();
+			}
 
 			@Override
 			public void init(Directions directions, NodeProcessor processor) {

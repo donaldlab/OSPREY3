@@ -8,13 +8,76 @@ import edu.duke.cs.osprey.coffee.directions.Directions;
 import edu.duke.cs.osprey.coffee.seqdb.StateZ;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
+import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
+import java.io.File;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 
 public class PfuncDirector implements Coffee.Director {
+
+	// my kingdom for default-able arguments!
+
+	public static class Builder {
+
+		public final MultiStateConfSpace confSpace;
+		public final MultiStateConfSpace.State state;
+		public final Sequence seq;
+
+		private double gWidthMax = 1.0;
+		private Timing timing = Timing.Efficient;
+		private int ensembleSize = 0;
+		private File ensembleFile = null;
+		private long ensembleUpdate = 30;
+		private TimeUnit ensembleUpdateUnit = TimeUnit.SECONDS;
+
+		public Builder(MultiStateConfSpace confSpace, MultiStateConfSpace.State state, Sequence seq) {
+			this.confSpace = confSpace;
+			this.state = state;
+			this.seq = seq;
+		}
+
+		/**
+		 * Sets the largest precision desired for free energy calculations.
+		 * Resulting free energy values may be more precise than this maximum value.
+		 * If the computation is stopped early, the free energy values may be less precise than this value.
+		 */
+		public Builder setGWidthMax(double val) {
+			gWidthMax = val;
+			return this;
+		}
+
+		public Builder setTiming(Timing val) {
+			timing = val;
+			return this;
+		}
+
+		/**
+		 * Tracks the K lowest-energy conformations and periodically writes out an ensemble PDB file.
+		 */
+		public Builder setEnsembleTracking(int size, File file) {
+			ensembleSize = size;
+			ensembleFile = file;
+			return this;
+		}
+
+		/**
+		 * Sets the minimum interval for writing the next lowest-energy ensemble PDB file.
+		 */
+		public Builder setEnsembleMinUpdate(long update, TimeUnit updateUnit) {
+			ensembleUpdate = update;
+			ensembleUpdateUnit = updateUnit;
+			return this;
+		}
+
+		public PfuncDirector build() {
+			return new PfuncDirector(confSpace, state, seq, gWidthMax, timing, ensembleSize, ensembleFile, ensembleUpdate, ensembleUpdateUnit);
+		}
+	}
 
 	public enum Timing {
 
@@ -48,6 +111,10 @@ public class PfuncDirector implements Coffee.Director {
 	public final Sequence seq;
 	public final double gWidthMax;
 	public final Timing timing;
+	public final int ensembleSize;
+	public final File ensembleFile;
+	public final long ensembleUpdate;
+	public final TimeUnit ensembleUpdateUnit;
 
 	public boolean showBoundStats = false;
 
@@ -55,12 +122,21 @@ public class PfuncDirector implements Coffee.Director {
 
 	private DoubleBounds freeEnergy;
 
-	public PfuncDirector(MultiStateConfSpace confSpace, MultiStateConfSpace.State state, Sequence seq, double gWidthMax, Timing timing) {
+	private PfuncDirector(MultiStateConfSpace confSpace, MultiStateConfSpace.State state, Sequence seq, double gWidthMax, Timing timing, int ensembleSize, File ensembleFile, long ensembleUpdate, TimeUnit ensembleUpdateUnit) {
 		this.confSpace = confSpace;
 		this.state = state;
 		this.seq = seq;
 		this.gWidthMax = gWidthMax;
 		this.timing = timing;
+		this.ensembleSize = ensembleSize;
+		this.ensembleFile = ensembleFile;
+		this.ensembleUpdate = ensembleUpdate;
+		this.ensembleUpdateUnit = ensembleUpdateUnit;
+	}
+
+	@Override
+	public int numBestConfs() {
+		return ensembleSize;
 	}
 
 	@Override
@@ -89,6 +165,8 @@ public class PfuncDirector implements Coffee.Director {
 
 		directions.member.log("Processing state %s", state.name);
 		Stopwatch stopwatch = new Stopwatch().start();
+
+		long lastEnsembleNs = stopwatch.getTimeNs();
 
 		// process the state until the free energy is precise enough
 		while (true) {
@@ -171,12 +249,21 @@ public class PfuncDirector implements Coffee.Director {
 					directions.member.log("%s", processor.stateInfos[state.index].energyBoundStats.toString());
 				}
 
+				// should we save an ensemble now?
+				if (ensembleUpdate > 0 && stopwatch.getTimeNs() >= lastEnsembleNs + ensembleUpdateUnit.toNanos(ensembleUpdate)) {
+					saveEnsemble(directions, processor);
+					lastEnsembleNs = stopwatch.getTimeNs();
+				}
+
 				// are we there yet?
 				if (gWidth <= gWidthMax) {
 					break;
 				}
 			}
 		}
+
+		// save the final ensemble at the end
+		saveEnsemble(directions, processor);
 
 		return gcalc.calc(getStateZ(processor, state).zSumBounds);
 	}
@@ -191,5 +278,34 @@ public class PfuncDirector implements Coffee.Director {
 
 	public DoubleBounds getFreeEnergy() {
 		return freeEnergy;
+	}
+
+	private void saveEnsemble(Directions directions, NodeProcessor processor) {
+
+		// skip if ensemble saving is disabled
+		if (ensembleFile == null) {
+			return;
+		}
+
+		// get the confs
+		List<int[]> bestConfs = processor.seqdb.getBestConfs(state, seq).stream()
+			.map(econf -> econf.getAssignments())
+			.collect(Collectors.toList());
+
+		// minimize them
+		var energiedCoords = processor.minimizeCoords(state.index, bestConfs);
+
+		// write the PDB file
+		String comment = String.format("Ensemble of %d conformations for:\n\t   State  %s\n\tSequence  [%s]",
+			energiedCoords.size(), state.name, seq.toString(Sequence.Renderer.AssignmentMutations)
+		);
+		PDBIO.writeFileEcoords(energiedCoords, ensembleFile, comment);
+
+		directions.member.log("Saved ensemble of %s conformations energies in [%.2f,%.2f] to %s",
+			energiedCoords.size(),
+			energiedCoords.stream().mapToDouble(e -> e.energy).min().orElse(Double.NaN),
+			energiedCoords.stream().mapToDouble(e -> e.energy).max().orElse(Double.NaN),
+			ensembleFile.getAbsolutePath()
+		);
 	}
 }

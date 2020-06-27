@@ -39,6 +39,7 @@ import java.util.stream.Collectors;
 
 import edu.duke.cs.osprey.control.Main;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
+import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.tools.HashCalculator;
 import edu.duke.cs.osprey.tools.VectorAlgebra;
 import org.apache.commons.lang3.text.WordUtils;
@@ -656,10 +657,7 @@ public class PDBIO {
 		}
 	}
 
-	/**
-	 * Writes an ensemble of structures into a single PDB file
-	 */
-	public static String write(List<EnergyCalculator.EnergiedParametricMolecule> epmols, String comment) {
+	public static String write(List<Molecule> mols, List<Double> energies, String comment) {
 
 		StringBuilder buf = new StringBuilder();
 
@@ -675,15 +673,15 @@ public class PDBIO {
 			buf.append(comment);
 			buf.append("\n");
 		}
-		for (EnergyCalculator.EnergiedParametricMolecule epmol : epmols) {
-			buf.append(String.format("REMARK   3 ENERGY  : %.6f\n", epmol.energy));
+		for (double energy : energies) {
+			buf.append(String.format("REMARK   3 ENERGY  : %.6f\n", energy));
 		}
 		buf.append("REMARK   3\n");
 
 		int modelNum = 1;
-		for (EnergyCalculator.EnergiedParametricMolecule epmol : epmols) {
+		for (Molecule mol : mols) {
 			buf.append(String.format("MODEL %4d\n", modelNum++));
-			appendMol(buf, epmol.pmol.mol, false, false);
+			appendMol(buf, mol, false, false);
 			buf.append("ENDMDL\n");
 		}
 
@@ -692,11 +690,41 @@ public class PDBIO {
 		return buf.toString();
 	}
 
+	/**
+	 * Writes an ensemble of structures into a single PDB file
+	 */
+	public static String write(List<EnergyCalculator.EnergiedParametricMolecule> epmols, String comment) {
+		return write(
+			epmols.stream().map(epmol -> epmol.pmol.mol).collect(Collectors.toList()),
+			epmols.stream().map(epmol -> epmol.energy).collect(Collectors.toList()),
+			comment
+		);
+	}
+
 	public static void writeFile(List<EnergyCalculator.EnergiedParametricMolecule> epmols, String path, String comment) {
 		writeFile(epmols, new File(path), comment);
 	}
 
 	public static void writeFile(List<EnergyCalculator.EnergiedParametricMolecule> epmols, File file, String comment) {
 		FileTools.writeFile(write(epmols, comment), file);
+	}
+
+	/**
+	 * Writes an ensemble of structures into a single PDB file
+	 */
+	public static String writeEcoords(List<ConfEnergyCalculator.EnergiedCoords> ecoords, String comment) {
+		return write(
+			ecoords.stream().map(ecoord -> ecoord.coords.toMol()).collect(Collectors.toList()),
+			ecoords.stream().map(ecoord -> ecoord.energy).collect(Collectors.toList()),
+			comment
+		);
+	}
+
+	public static void writeFileEcoords(List<ConfEnergyCalculator.EnergiedCoords> ecoords, String path, String comment) {
+		writeFileEcoords(ecoords, new File(path), comment);
+	}
+
+	public static void writeFileEcoords(List<ConfEnergyCalculator.EnergiedCoords> ecoords, File file, String comment) {
+		FileTools.writeFile(writeEcoords(ecoords, comment), file);
 	}
 }
