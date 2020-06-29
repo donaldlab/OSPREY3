@@ -29,7 +29,12 @@ public class EnergyBoundStats {
 	private long count = 0;
 	private BigDecimal sum = BigDecimal.ZERO;
 
-	public void add(double lowerBound, double energy) {
+	public synchronized void add(double lowerBound, double energy) {
+
+		// ignore stats for incredibly tiny values that have been approximated as +inf
+		if (lowerBound == Double.POSITIVE_INFINITY || energy == Double.POSITIVE_INFINITY) {
+			return;
+		}
 
 		// compute the signed energy gap
 		double gap = energy - lowerBound;
@@ -47,11 +52,11 @@ public class EnergyBoundStats {
 		sum = sum.add(BigDecimal.valueOf(gap));
 	}
 
-	public long count() {
+	public synchronized long count() {
 		return count;
 	}
 
-	public double meanGap() {
+	public synchronized double meanGap() {
 		return sum.doubleValue()/count;
 	}
 

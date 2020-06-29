@@ -7,10 +7,8 @@ import edu.duke.cs.osprey.coffee.nodedb.NodeIndex;
 import edu.duke.cs.osprey.coffee.seqdb.SeqDB;
 import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
-import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.ThreadTools;
@@ -118,6 +116,7 @@ public class NodeProcessor {
 				default -> ThreadTools.sleep(100, TimeUnit.MILLISECONDS);
 			}
 		}
+		tasks.waitForFinish();
 
 		// flush any minimization batches
 		for (var stateInfo : stateInfos) {
@@ -130,7 +129,6 @@ public class NodeProcessor {
 				);
 			}
 		}
-
 		tasks.waitForFinish();
 
 		return foundNodes;
@@ -139,7 +137,8 @@ public class NodeProcessor {
 	public enum Result {
 
 		GotNode(true),
-		NoInfo(false),
+		NoState(false),
+		NoTree(false),
 		NoNode(false);
 
 		public final boolean gotNode;
@@ -179,13 +178,13 @@ public class NodeProcessor {
 		// get the currently focused state
 		int statei = directions.getFocusedStatei();
 		if (statei < 0) {
-			return new NodeInfo(Result.NoInfo);
+			return new NodeInfo(Result.NoState);
 		}
 
 		// get the tree for this state
 		RCs tree = directions.getTree(statei);
 		if (tree == null) {
-			return new NodeInfo(Result.NoInfo);
+			return new NodeInfo(Result.NoTree);
 		}
 
 		// get the next node from that state

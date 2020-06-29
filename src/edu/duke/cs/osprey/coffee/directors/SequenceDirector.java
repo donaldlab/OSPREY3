@@ -42,6 +42,9 @@ public class SequenceDirector implements Coffee.Director {
 		// process all the states to the desired precision
 		for (var state : confSpace.states) {
 
+			// tell the cluster to focus on this state
+			directions.focus(state.index);
+
 			// calc the pfunc
 			var pfunc = new PfuncDirector.Builder(confSpace, state, seq)
 				.setGWidthMax(gWidthMax)

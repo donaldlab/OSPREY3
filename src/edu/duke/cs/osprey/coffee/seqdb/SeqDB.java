@@ -128,7 +128,6 @@ public class SeqDB implements AutoCloseable {
 					var statez = sum.statezs[state.sequencedIndex];
 					var statezOld = seqInfoOld.statezs[state.sequencedIndex];
 					combineSums(statez, statezOld);
-					fixRoundoffError(statez);
 					combineBestConfs(statez, statezOld);
 				}
 			}
@@ -145,7 +144,6 @@ public class SeqDB implements AutoCloseable {
 			var statezOld = unsequencedSums.get(unsequencedIndex);
 			if (statezOld != null) {
 				combineSums(statez, statezOld);
-				fixRoundoffError(statez);
 				combineBestConfs(statez, statezOld);
 			}
 
@@ -168,14 +166,6 @@ public class SeqDB implements AutoCloseable {
 			.set(statez.zSumDropped)
 			.add(statezOld.zSumDropped)
 			.get();
-	}
-
-	private void fixRoundoffError(StateZ statez) {
-		// trust the lower bound more, since it's based on minimizations
-		if (!statez.zSumBounds.isValid()) {
-			// TODO: throw an Exception if the error is bigger than what we'd expect from roundoff?
-			statez.zSumBounds.upper = statez.zSumBounds.lower;
-		}
 	}
 
 	private void combineBestConfs(StateZ statez, StateZ statezOld) {
@@ -407,21 +397,21 @@ public class SeqDB implements AutoCloseable {
 		StringBuilder buf = new StringBuilder();
 		buf.append("Unsequenced");
 		for (MultiStateConfSpace.State state : confSpace.unsequencedStates) {
-			var statez = getUnsequenced(state);
-			buf.append(String.format("\n%10s  gBounds=%s  dropped=%s",
+			var statez = getSum(state);
+			buf.append(String.format("\n%10s  zSum=%s  dropped=%s",
 				state.name,
 				Log.formatBigEngineering(statez.zSumBounds),
 				Log.formatBigEngineering(statez.zSumDropped)
 			));
 		}
 		buf.append("\nSequenced");
-		for (Map.Entry<Sequence,SeqInfo> entry : getSequenced()) {
+		for (Map.Entry<Sequence,SeqInfo> entry : getSums()) {
 			Sequence seq = entry.getKey();
 			SeqInfo seqInfo = entry.getValue();
 			buf.append(String.format("\n[%s]", seq));
 			for (MultiStateConfSpace.State state : confSpace.sequencedStates) {
 				var statez = seqInfo.get(state);
-				buf.append(String.format("\n%10s  gBounds=%s dropped=%s",
+				buf.append(String.format("\n%10s  zSum=%s dropped=%s",
 					state.name,
 					Log.formatBigEngineering(statez.zSumBounds),
 					Log.formatBigEngineering(statez.zSumDropped)

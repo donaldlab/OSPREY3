@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.coffee.seqdb;
 
+import static edu.duke.cs.osprey.TestBase.*;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
@@ -16,8 +17,12 @@ import org.junit.Test;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 
 public class TestSeqDB {
@@ -522,4 +527,75 @@ public class TestSeqDB {
 			assertThat(seqdb.getSum(target).zSumDropped, is(MathTools.biggen(14.0)));
 		});
 	}
+
+	private void addLotsLocal(int numThreads) {
+
+		MultiStateConfSpace confSpace = TestCoffee.affinity_6ov7_1mut2flex();
+
+		withSeqDB(confSpace, seqdb -> {
+
+			var state = confSpace.states.get(0);
+			Sequence seq = confSpace.seqSpace.makeUnassignedSequence();
+
+			// generate a bunch of random values
+			var rand = new Random(12345);
+			List<BigExp> allValues = IntStream.range(0, 1_000_000)
+				.mapToObj(i -> new BigExp(rand.nextDouble(), rand.nextInt(100)))
+				.collect(Collectors.toList());
+
+			// add them up
+			var bm = seqdb.bigMath()
+				.set(0.0);
+			for (var val : allValues) {
+				bm.add(val);
+			}
+			var sum = bm.get();
+
+			// add the values from a bunch of threads
+			List<Thread> threads = IntStream.range(0, numThreads)
+				.mapToObj(t -> new Thread(() -> {
+
+					Batch batch = null;
+					int batchSize = 0;
+
+					// add a slice of the values to the db, in small batches
+					int size = MathTools.divUp(allValues.size(), numThreads);
+					int start = t*size;
+					int stop = Math.min(start + size, allValues.size());
+					for (var val : allValues.subList(start, stop)) {
+
+						if (batch == null) {
+							batch = seqdb.batch();
+						}
+
+						batch.addZSumUpper(state, seq, val);
+
+						batchSize++;
+						if (batchSize == 10) {
+							batch.save();
+							batch = null;
+							batchSize = 0;
+						}
+					}
+					if (batch != null) {
+						batch.save();
+					}
+				}))
+				.collect(Collectors.toList());
+			threads.forEach(t -> t.start());
+			threads.forEach(t -> {
+				try {
+					t.join();
+				} catch (InterruptedException ex) {
+					throw new RuntimeException(ex);
+				}
+			});
+
+			// check the sum
+			assertThat(seqdb.getSums(seq).get(state).zSumBounds.upper, isRelatively(sum, 1e-6));
+		});
+	}
+	@Test public void addLotsLocal_1() { addLotsLocal(1); }
+	@Test public void addLotsLocal_2() { addLotsLocal(2); }
+	@Test public void addLotsLocal_4() { addLotsLocal(4); }
 }

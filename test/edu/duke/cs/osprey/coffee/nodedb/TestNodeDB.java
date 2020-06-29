@@ -8,6 +8,7 @@ import edu.duke.cs.osprey.coffee.TestCoffee;
 import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.tools.BigExp;
+import edu.duke.cs.osprey.tools.MathTools;
 import org.junit.Test;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
@@ -20,6 +21,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 
 
 public class TestNodeDB {
@@ -116,11 +118,10 @@ public class TestNodeDB {
 		});
 	}
 
-	@Test
-	public void addLotsLocalRemoveAll_1x1() {
+	private void addLotsLocalRemoveAll(int numThreads) {
 
 		MultiStateConfSpace confSpace = TestCoffee.affinity_2RL0_7mut();
-		withMemNodeDB(confSpace, MiB, nodedb -> {
+		withMemNodeDB(confSpace, 10*MiB, nodedb -> {
 
 			var state = confSpace.states.get(0);
 
@@ -128,66 +129,32 @@ public class TestNodeDB {
 			var numDropped = new AtomicLong(0);
 			nodedb.dropHandler = nodes -> numDropped.addAndGet(nodes.count());
 
-			long numNodes = 10_000L;
-			TreeSet<NodeIndex.Node> sortedNodes = new TreeSet<>(Comparator.comparing(node -> node.score));
-
-			// add a bunch of random nodes
-			Random rand = new Random(12345);
-			for (long i=0; i<numNodes; i++) {
-				var node = new NodeIndex.Node(
+			// generate a bunch of random nodes
+			var rand = new Random(12345);
+			List<NodeIndex.Node> allNodes = LongStream.range(0, 100_000L)
+				.mapToObj(i -> new NodeIndex.Node(
 					state.index,
 					Conf.make(state.confSpace),
 					new BigExp(rand.nextDouble(), rand.nextInt()),
 					new BigExp(rand.nextDouble(), rand.nextInt())
-				);
-				nodedb.addLocal(node);
-				sortedNodes.add(node);
-			}
-
-			assertThat(numDropped.get(), is(0L));
-
-			// remove all the nodes, check the scores
-			assertThat(nodedb.size(state.index), is(numNodes));
-			for (int i=0; i<numNodes; i++) {
-				assertThat("" + i, nodedb.removeHigh(state.index).score, is(sortedNodes.pollLast().score));
-			}
-		});
-	}
-
-	@Test
-	public void addLotsLocalRemoveAll_1x2() {
-
-		MultiStateConfSpace confSpace = TestCoffee.affinity_2RL0_7mut();
-		withMemNodeDB(confSpace, MiB, nodedb -> {
-
-			var state = confSpace.states.get(0);
-
-			// count dropped nodes
-			var numDropped = new AtomicLong(0);
-			nodedb.dropHandler = nodes -> numDropped.addAndGet(nodes.count());
-
-			long numNodes = 10_000L;
-			int numThreads = 2;
-			long numThreadNodes = numNodes/numThreads;
-			Comparator<NodeIndex.Node> comparator = Comparator.comparing(node -> node.score);
-			List<TreeSet<NodeIndex.Node>> sortedNodes = IntStream.range(0, numThreads)
-				.mapToObj(i -> new TreeSet<>(comparator))
+				))
 				.collect(Collectors.toList());
 
-			// add a bunch of random nodes in different threads
+			// sort them
+			Comparator<NodeIndex.Node> comparator = Comparator.comparing(node -> node.score);
+			var sortedNodes = new TreeSet<>(comparator);
+			sortedNodes.addAll(allNodes);
+
+			// add the nodes from a bunch of threads
 			List<Thread> threads = IntStream.range(0, numThreads)
 				.mapToObj(t -> new Thread(() -> {
-					Random rand = new Random(12345 * (t + 1));
-					var sort = sortedNodes.get(t);
-					for (long i=0; i<numThreadNodes; i++) {
-						var node = new NodeIndex.Node(
-							state.index,
-							Conf.make(state.confSpace),
-							new BigExp(rand.nextDouble(), rand.nextInt()),
-							new BigExp(rand.nextDouble(), rand.nextInt())
-						);
+
+					// add a slice of the nodes to the db
+					int size = MathTools.divUp(allNodes.size(), numThreads);
+					int start = t*size;
+					int stop = Math.min(start + size, allNodes.size());
+					for (var node : allNodes.subList(start, stop)) {
 						nodedb.addLocal(node);
-						sort.add(node);
 					}
 				}))
 				.collect(Collectors.toList());
@@ -200,21 +167,18 @@ public class TestNodeDB {
 				}
 			});
 
-			// combine the sorted nodes
-			var allSortedNodes = sortedNodes.get(0);
-			for (int t=1; t<numThreads; t++) {
-				allSortedNodes.addAll(sortedNodes.get(t));
-			}
-
 			assertThat(numDropped.get(), is(0L));
 
 			// remove all the nodes, check the scores
-			assertThat(nodedb.size(state.index), is(numNodes));
-			for (int i=0; i<numNodes; i++) {
-				assertThat("" + i, nodedb.removeHigh(state.index).score, is(allSortedNodes.pollLast().score));
+			assertThat(nodedb.size(state.index), is((long)allNodes.size()));
+			for (int i=0; i<allNodes.size(); i++) {
+				assertThat("" + i, nodedb.removeHigh(state.index).score, is(sortedNodes.pollLast().score));
 			}
 		});
 	}
+	@Test public void addLotsLocalRemoveAll_1() { addLotsLocalRemoveAll(1); }
+	@Test public void addLotsLocalRemoveAll_2() { addLotsLocalRemoveAll(2); }
+	@Test public void addLotsLocalRemoveAll_4() { addLotsLocalRemoveAll(4); }
 
 	@Test
 	public void addLocalRemoveHigh() {

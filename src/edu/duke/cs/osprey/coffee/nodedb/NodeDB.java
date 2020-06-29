@@ -4,16 +4,13 @@ import com.hazelcast.cluster.Address;
 import edu.duke.cs.osprey.coffee.ClusterMember;
 import edu.duke.cs.osprey.coffee.Serializers;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
-import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
+import edu.duke.cs.osprey.parallelism.BottleneckThread;
 import edu.duke.cs.osprey.tools.BigExp;
 
 import java.io.File;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -119,39 +116,13 @@ public class NodeDB implements AutoCloseable {
 
 	public final NodePerformance perf;
 
-	private final ThreadPoolTaskExecutor tasks;
+	private final BottleneckThread thread;
+
 	private Map<Address,Neighbor> neighbors;
 	private BlockStore store;
 	private NodeIndex[] indices;
 
 	private long lastBroadcastNs = 0;
-
-	private void threadExec(Runnable task) {
-		tasks.submit(
-			() -> {
-				task.run();
-				return 42;
-			},
-			answer -> {}
-		);
-		tasks.waitForFinish();
-	}
-
-	private <T> T threadGet(Supplier<T> task) {
-
-		var ref = new AtomicReference<T>(null);
-		var finished = new AtomicBoolean(false);
-
-		threadExec(() -> {
-			ref.set(task.get());
-			finished.set(true);
-		});
-
-		if (!finished.get()) {
-			throw new RuntimeException("Internal thread didn't return a value.");
-		}
-		return ref.get();
-	}
 
 	private NodeDB(MultiStateConfSpace confSpace, ClusterMember member, File file, long fileBytes, long memBytes, long broadcastNs) {
 
@@ -172,10 +143,9 @@ public class NodeDB implements AutoCloseable {
 
 		// the node indices aren't thread-safe, and can only be accessed by their creating thread
 		// so make a thread to handle all the accesses
-		tasks = new ThreadPoolTaskExecutor();
-		tasks.start(1);
+		thread = new BottleneckThread("NodeDB");
 
-		threadExec(() -> {
+		thread.exec(() -> {
 
 			// allocate the block store
 			store = new BlockStore(null, memBytes);
@@ -214,10 +184,8 @@ public class NodeDB implements AutoCloseable {
 
 	@Override
 	public void close() {
-		threadExec(() ->
-			store.close()
-		);
-		tasks.close();
+		thread.exec(() -> store.close());
+		thread.close();
 	}
 
 	public long size(int statei) {
@@ -236,14 +204,14 @@ public class NodeDB implements AutoCloseable {
 	}
 
 	public void clearLocal(int statei) {
-		threadExec(() -> indices[statei].clear());
+		thread.exec(() -> indices[statei].clear());
 	}
 
 	/**
 	 * Add the node to the local store
 	 */
 	public void addLocal(NodeIndex.Node node) {
-		threadExec(() -> addLocalOnThread(node));
+		thread.exec(() -> addLocalOnThread(node));
 	}
 
 	private void addLocalOnThread(NodeIndex.Node node) {
@@ -315,7 +283,7 @@ public class NodeDB implements AutoCloseable {
 	}
 
 	public void receiveBroadcast(Address src, long[] freeSpaces, BigExp[] maxScores, long usedBytes, long totalBytes) {
-		threadExec(() ->
+		thread.exec(() ->
 			getNeighbor(src).broadcasted(freeSpaces, maxScores, usedBytes, totalBytes)
 		);
 	}
@@ -325,7 +293,7 @@ public class NodeDB implements AutoCloseable {
 	}
 
 	public NodeIndex.Node removeHighestLocal(int statei) {
-		return threadGet(() -> {
+		return thread.get(() -> {
 
 			var index = indices[statei];
 			NodeIndex.Node node = index.removeHighest();
@@ -344,7 +312,7 @@ public class NodeDB implements AutoCloseable {
 	 * but it should be pretty high.
 	 */
 	public NodeIndex.Node removeHigh(int statei) {
-		return threadGet(() -> {
+		return thread.get(() -> {
 
 			// find the neighbor with the highest node for this state
 			Neighbor highestNeighbor = neighbors.values().stream()
@@ -388,7 +356,7 @@ public class NodeDB implements AutoCloseable {
 	 * Otherwise, space will be evicted from local storage to make room.
 	 */
 	public void add(NodeIndex.Node node) {
-		threadExec(() -> {
+		thread.exec(() -> {
 
 			// prefer local storage first
 			if (indices[node.statei].freeSpace() > 0) {
@@ -411,7 +379,7 @@ public class NodeDB implements AutoCloseable {
 	}
 
 	public long freeSpaceLocal(int statei) {
-		return threadGet(() ->
+		return thread.get(() ->
 			indices[statei].freeSpace()
 		);
 	}

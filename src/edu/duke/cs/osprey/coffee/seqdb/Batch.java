@@ -79,8 +79,8 @@ public class Batch {
 				.get();
 			statez.zSumBounds.upper = seqdb.bigMath()
 				.set(statez.zSumBounds.upper)
-				.add(zConf)
 				.sub(zSumUpper)
+				.add(zConf)
 				.get();
 			statez.keepBestConfs(econf, seqdb.numBestConfs);
 		});

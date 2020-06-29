@@ -18,6 +18,7 @@ import java.io.File;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.Arrays;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
@@ -120,7 +121,10 @@ public class Coffee {
 
 			// make a single-node cluster if needed
 			if (cluster == null) {
-				cluster = new Cluster("COFFEE", "job", 0, 1);
+				// if no cluster was given, make a random id,
+				// so we (probably) don't try to join with other jobs on this machine, and vice versa
+				int jobId = Math.abs(new Random().nextInt());
+				cluster = new Cluster("COFFEE", "job-" + jobId, 0, 1);
 			}
 
 			// make default parallelism if needed
@@ -326,14 +330,14 @@ public class Coffee {
 			// try to process a node
 			// TEMP
 			//var result = processor.process(directions);
-			var result = NodeProcessor.Result.NoInfo;
+			var result = NodeProcessor.Result.NoState;
 
 			switch (result) {
 
 				// TODO
 
 				// wait a bit and try again
-				case NoInfo -> ThreadTools.sleep(500, TimeUnit.MILLISECONDS);
+				case NoState -> ThreadTools.sleep(500, TimeUnit.MILLISECONDS);
 			}
 		}
 	}
