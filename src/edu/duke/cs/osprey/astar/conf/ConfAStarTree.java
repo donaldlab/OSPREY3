@@ -72,6 +72,10 @@ import org.jetbrains.annotations.NotNull;
 
 public class ConfAStarTree implements ConfSearch {
 
+	public double peekScore() {
+	    return impl.peekScore();
+	}
+
 	public static class Builder {
 		
 		/** The energy matrix to use for pairwise residue conformation energies. */
@@ -466,6 +470,8 @@ public class ConfAStarTree implements ConfSearch {
 	private interface AStarImpl {
 
 		ScoredConf nextConf();
+
+		double peekScore();
 	}
 
 	private class IterativeImpl implements AStarImpl {
@@ -562,6 +568,11 @@ public class ConfAStarTree implements ConfSearch {
 					progress.reportInternalNode(node.getLevel(), node.getGScore(optimizer), node.getHScore(optimizer), queue.size(), numChildren);
 				}
 			}
+		}
+
+		@Override
+		public double peekScore() {
+			return queue.peek().getScore();
 		}
 
 		@NotNull
@@ -758,6 +769,11 @@ public class ConfAStarTree implements ConfSearch {
 				}
 			}
 		}
+
+		@Override
+		public double peekScore() {
+			return queue.peek().getScore();
+		}
 	}
 
 	/**
@@ -897,6 +913,13 @@ public class ConfAStarTree implements ConfSearch {
 				// add the child to the queue
 				q.add(child);
 			}
+		}
+
+		@Override
+		public double peekScore() {
+		    System.err.println("You have reached a hacky edge case.");
+		    System.exit(-1);
+		    return Double.POSITIVE_INFINITY;
 		}
 	}
 }

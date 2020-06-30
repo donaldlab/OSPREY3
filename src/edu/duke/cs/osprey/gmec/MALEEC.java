@@ -141,7 +141,7 @@ public class MALEEC {
 						synchronized (stats) { // don't race the listener thread
 
 							stats.numConfsScored += 1;
-							stats.maxScore = conf.getScore();
+							stats.maxScore = astar.peekScore();
 
 							// write the output ensemble if needed
 							if (stats.needsOutput && nowNs > stats.lastOutputNs + outputIntervalNs) {
