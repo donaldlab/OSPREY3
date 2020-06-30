@@ -22,6 +22,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static edu.duke.cs.osprey.gpu.Structs.*;
+import static edu.duke.cs.osprey.tools.Log.log;
 
 
 public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
@@ -238,7 +239,14 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 				+ " Driver supports CUDA " + versionString.apply(vDriver)
 				+ ", but CUDA " + versionString.apply(vRequired) + " is needed.");
 			case -2: throw new RuntimeException("No CUDA device. Does this machine have an Nvidia GPU?");
-			case Integer.MIN_VALUE: throw new RuntimeException("Unrecognized error: " + vRuntime);
+			case -3: throw new RuntimeException("CUDA failed to initialize");
+			case -4: throw new RuntimeException(
+				"This error indicates that the system was upgraded to run with forward compatibility"
+				+ ", but the visible hardware detected by CUDA does not support this configuration."
+				+ " Refer to the compatibility documentation for the supported hardware matrix or ensure"
+				+ " that only supported hardware is visible during initialization via the CUDA_VISIBLE_DEVICES"
+				+ " environment variable.");
+			case Integer.MIN_VALUE: throw new RuntimeException("Unrecognized error");
 			default: break;
 		}
 	}
@@ -901,7 +909,21 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 	/** get GPU info from the Parallelism instance */
 	public CudaConfEnergyCalculator(ConfSpace confSpace, Precision precision, Parallelism parallelism) {
-		this(confSpace, precision, getGpusInfos().subList(0, parallelism.numGpus));
+		this(confSpace, precision, getGpus(parallelism.numGpus));
+	}
+
+	private static List<GpuInfo> getGpus(int num) {
+
+		var infos = getGpusInfos();
+
+		if (num > infos.size()) {
+			log("WARN: tried to pick %d GPU(s), but only %d GPU(s) were available", num, infos.size());
+			num = infos.size();
+		}
+
+		// TODO: pick the "best" GPUs by some criterion?
+
+		return infos.subList(0, num);
 	}
 
 	/** use just the given GPUs */
@@ -921,6 +943,8 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 	public CudaConfEnergyCalculator(ConfSpace confSpace, Precision precision, List<GpuStreams> gpuStreams, long maxBatchSize) {
 
+		checkSupported();
+
 		if (gpuStreams == null || gpuStreams.isEmpty()) {
 			throw new IllegalArgumentException("0 GPUs selected");
 		}
@@ -929,8 +953,6 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		this.precision = precision;
 		this.gpuStreams = gpuStreams;
 		this.maxBatchSize = maxBatchSize;
-
-		checkSupported();
 
 		// find the forcefield implementation, or die trying
 		EnergyCalculator.Type[] ecalcTypes = Arrays.stream(confSpace.ecalcs)

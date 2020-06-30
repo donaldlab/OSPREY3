@@ -32,11 +32,16 @@ API int cuda_version_driver() {
 API int cuda_version_runtime() {
 	int v;
 	cudaRuntimeGetVersion(&v);
-	switch (cudaGetLastError()) {
+	int err = cudaGetLastError();
+	switch (err) {
 		case cudaSuccess: break;
 		case cudaErrorInsufficientDriver: return -1;
 		case cudaErrorNoDevice: return -2;
-		default: return INT_MIN;
+		case cudaErrorInitializationError: return -3;
+		case cudaErrorCompatNotSupportedOnDevice: return -4;
+		default:
+			std::cout << "Unrecognized CUDA error: " << err << std::endl;
+			return INT_MIN;
 	}
 	return v;
 }
