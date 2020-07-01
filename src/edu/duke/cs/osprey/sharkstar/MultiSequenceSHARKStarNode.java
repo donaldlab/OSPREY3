@@ -580,6 +580,11 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         return Math.abs(confLowerBound - confUpperBound) < 1e-5;
     }
 
+    @Override
+    public String toString(){
+        return confSearchNode.confToString();
+    }
+
     public static class Node implements ConfAStarNode {
 
         private static int Unassigned = -1;

@@ -38,6 +38,8 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.util.*;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.Collectors;
 
 import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStatistics.printTree;
@@ -267,6 +269,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         System.out.println("Full RCs: "+fullRCs);
         System.out.println("Sequence RCs: "+newBound.seqRCs);
         computeFringeForSequence(newBound, this.rootNode);
+        //computeFringeForSequenceParallel(newBound);
+        System.out.println("Fringe has"+newBound.fringeNodes.size());
         //rootNode.updateSubtreeBounds(seq);
         newBound.updateBound();
         if(newBound.getSequenceEpsilon() == 0)
@@ -331,13 +335,70 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     }
 
     private void updatePrecomputedNode(MultiSequenceSHARKStarNode node, int[] permutation, int size) {
+        node.makeNodeCompatibleWithConfSpace(permutation, size, this.fullRCs);
+        node.setNewConfSpace(confSpace);
         if (node.hasChildren(precomputedSequence)) {
             for (MultiSequenceSHARKStarNode child : node.getChildren(precomputedSequence)) {
                 updatePrecomputedNode(child, permutation, size);
             }
+        }else {
+            precomputedFringe.add(node);
         }
-        node.makeNodeCompatibleWithConfSpace(permutation, size, this.fullRCs);
-        node.setNewConfSpace(confSpace);
+    }
+    private void computeFringeForSequenceParallel(SingleSequenceSHARKStarBound bound) {
+        ConcurrentLinkedQueue<MultiSequenceSHARKStarNode> unscoredSeqFringe = new ConcurrentLinkedQueue<>(precomputedFringe);
+        RCs rcs = bound.seqRCs;
+
+        while(!unscoredSeqFringe.isEmpty() || loopTasks.isWorking()){
+            loopTasks.submit(
+                ()->{
+                    MultiSequenceSHARKStarNode node = unscoredSeqFringe.poll();
+                    // If queue is empty, just return
+                    if(node == null)
+                        return null;
+                    // Else, do things
+                    try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+                        ScoreContext context = checkout.get();
+
+                        // Fix issue where nextDesignPosition can be null
+                        if (node.nextDesignPosition == null && node.level < confSpace.positions.size()) {
+                            node.nextDesignPosition = confSpace.positions.get(order.getNextPos(context.index, rcs));
+                        }
+
+                        // Get the children
+                        List<MultiSequenceSHARKStarNode> children = node.getOrMakeChildren(bound.sequence);
+                        // If we are at a leaf, score the node
+                        if(!children.isEmpty()) {
+                            // if there are children, just add them to queue, since we only want the fringe
+                            unscoredSeqFringe.addAll(children);
+                        }else{
+                            // Now we need the confSearchNode
+                            MultiSequenceSHARKStarNode.Node confNode = node.getConfSearchNode();
+                            confNode.index(context.index);
+
+                            double confCorrection = correctionMatrix.confE(confNode.assignments);
+                            double gscore = context.partialConfLowerBoundScorer.calc(context.index, rcs);
+                            double hscore = context.lowerBoundScorer.calc(context.index, rcs);
+                            double confLowerBound = confNode.getPartialConfLowerBound() + context.lowerBoundScorer.calc(context.index, rcs);
+                            double confUpperBound = confNode.getPartialConfUpperBound() + context.upperBoundScorer.calc(context.index, rcs);
+                            String historyString = String.format("%s: previous lower bound %f, g score %f, hscore %f, f score %f corrected score %f, from %s",
+                                    confNode.confToString(), node.getConfLowerBound(bound.sequence), gscore, hscore, gscore + hscore, confCorrection, getStackTrace());
+                            node.setBoundsFromConfLowerAndUpperWithHistory(confLowerBound, confUpperBound, bound.sequence, historyString);
+
+                            if (node.getChildren(null).isEmpty())
+                                correctionMatrix.setHigherOrder(node.toTuple(), confNode.getPartialConfLowerBound()
+                                        - minimizingEmat.confE(confNode.assignments));
+
+                            bound.fringeNodes.add(node);
+                        }
+                    }
+                    return null;
+                },
+                (ignored)->{}
+            );
+        }
+        loopTasks.waitForFinish();
+
     }
 
     private void computeFringeForSequence(SingleSequenceSHARKStarBound bound, MultiSequenceSHARKStarNode curNode) {
