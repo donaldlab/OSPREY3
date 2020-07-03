@@ -268,9 +268,14 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         System.out.println("Creating new pfunc for sequence "+seq);
         System.out.println("Full RCs: "+fullRCs);
         System.out.println("Sequence RCs: "+newBound.seqRCs);
-        computeFringeForSequence(newBound, this.rootNode);
-        //computeFringeForSequenceParallel(newBound);
-        System.out.println("Fringe has"+newBound.fringeNodes.size());
+        //computeFringeForSequence(newBound, this.rootNode);
+        // Compute the fringe in parallel
+        List<MultiSequenceSHARKStarNode> scoredFringe = computeFringeForSequenceParallel(newBound.sequence, newBound.seqRCs);
+        if(scoredFringe.size()==0)
+            scoredFringe.add(this.rootNode);
+        debugPrint(String.format("[Normal fringe # nodes, Parallel fringe # nodes] = [%d, %d]",newBound.fringeNodes.size(), scoredFringe.size()));
+        newBound.fringeNodes.addAll(scoredFringe);
+
         //rootNode.updateSubtreeBounds(seq);
         newBound.updateBound();
         if(newBound.getSequenceEpsilon() == 0)
@@ -345,9 +350,13 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             precomputedFringe.add(node);
         }
     }
-    private void computeFringeForSequenceParallel(SingleSequenceSHARKStarBound bound) {
+    private List<MultiSequenceSHARKStarNode> computeFringeForSequenceParallel(Sequence seq, RCs seqRCs) {
+        List<MultiSequenceSHARKStarNode> scoredSeqFringe = Collections.synchronizedList(new ArrayList<>());
         ConcurrentLinkedQueue<MultiSequenceSHARKStarNode> unscoredSeqFringe = new ConcurrentLinkedQueue<>(precomputedFringe);
-        RCs rcs = bound.seqRCs;
+
+        // Sometimes the precomputedFringe will be empty. It really shouldn't be, but for now just add the root Node if it is
+        if(unscoredSeqFringe.isEmpty())
+            unscoredSeqFringe.add(this.rootNode);
 
         while(!unscoredSeqFringe.isEmpty() || loopTasks.isWorking()){
             loopTasks.submit(
@@ -362,11 +371,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
                         // Fix issue where nextDesignPosition can be null
                         if (node.nextDesignPosition == null && node.level < confSpace.positions.size()) {
-                            node.nextDesignPosition = confSpace.positions.get(order.getNextPos(context.index, rcs));
+                            node.nextDesignPosition = confSpace.positions.get(order.getNextPos(context.index, seqRCs));
                         }
 
                         // Get the children
-                        List<MultiSequenceSHARKStarNode> children = node.getOrMakeChildren(bound.sequence);
+                        List<MultiSequenceSHARKStarNode> children = node.getOrMakeChildren(seq);
                         // If we are at a leaf, score the node
                         if(!children.isEmpty()) {
                             // if there are children, just add them to queue, since we only want the fringe
@@ -377,19 +386,20 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                             confNode.index(context.index);
 
                             double confCorrection = correctionMatrix.confE(confNode.assignments);
-                            double gscore = context.partialConfLowerBoundScorer.calc(context.index, rcs);
-                            double hscore = context.lowerBoundScorer.calc(context.index, rcs);
-                            double confLowerBound = confNode.getPartialConfLowerBound() + context.lowerBoundScorer.calc(context.index, rcs);
-                            double confUpperBound = confNode.getPartialConfUpperBound() + context.upperBoundScorer.calc(context.index, rcs);
+                            double gscore = context.partialConfLowerBoundScorer.calc(context.index, seqRCs);
+                            double hscore = context.lowerBoundScorer.calc(context.index, seqRCs);
+                            double confLowerBound = confNode.getPartialConfLowerBound() + context.lowerBoundScorer.calc(context.index, seqRCs);
+                            double confUpperBound = confNode.getPartialConfUpperBound() + context.upperBoundScorer.calc(context.index, seqRCs);
                             String historyString = String.format("%s: previous lower bound %f, g score %f, hscore %f, f score %f corrected score %f, from %s",
-                                    confNode.confToString(), node.getConfLowerBound(bound.sequence), gscore, hscore, gscore + hscore, confCorrection, getStackTrace());
-                            node.setBoundsFromConfLowerAndUpperWithHistory(confLowerBound, confUpperBound, bound.sequence, historyString);
+                                    confNode.confToString(), node.getConfLowerBound(seq), gscore, hscore, gscore + hscore, confCorrection, getStackTrace());
+                            node.setBoundsFromConfLowerAndUpperWithHistory(confLowerBound, confUpperBound, seq, historyString);
 
                             if (node.getChildren(null).isEmpty())
                                 correctionMatrix.setHigherOrder(node.toTuple(), confNode.getPartialConfLowerBound()
                                         - minimizingEmat.confE(confNode.assignments));
 
-                            bound.fringeNodes.add(node);
+                            //bound.fringeNodes.add(node);
+                            scoredSeqFringe.add(node);
                         }
                     }
                     return null;
@@ -398,6 +408,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             );
         }
         loopTasks.waitForFinish();
+        return scoredSeqFringe;
 
     }
 
