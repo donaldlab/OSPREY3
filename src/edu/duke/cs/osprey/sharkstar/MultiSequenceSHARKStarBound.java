@@ -370,6 +370,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         ScoreContext context = checkout.get();
 
                         // Fix issue where nextDesignPosition can be null
+                        MultiSequenceSHARKStarNode.Node confNode = node.getConfSearchNode();
+                        confNode.index(context.index);
                         if (node.nextDesignPosition == null && node.level < confSpace.positions.size()) {
                             node.nextDesignPosition = confSpace.positions.get(order.getNextPos(context.index, seqRCs));
                         }
@@ -381,10 +383,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                             // if there are children, just add them to queue, since we only want the fringe
                             unscoredSeqFringe.addAll(children);
                         }else{
-                            // Now we need the confSearchNode
-                            MultiSequenceSHARKStarNode.Node confNode = node.getConfSearchNode();
-                            confNode.index(context.index);
-
                             double confCorrection = correctionMatrix.confE(confNode.assignments);
                             double gscore = context.partialConfLowerBoundScorer.calc(context.index, seqRCs);
                             double hscore = context.lowerBoundScorer.calc(context.index, seqRCs);
