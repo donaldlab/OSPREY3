@@ -34,33 +34,46 @@ namespace osprey {
 
 				for (int posi1=0; posi1<conf_space.num_pos; posi1++) {
 					const Pos & pos1 = conf_space.get_pos(posi1);
-					const Conf<T> & pconf1 = conf_space.get_conf(pos1, conf[posi1]);
 
-					// copy the atoms
-					int64_t num_copied = atoms.copy_from_device(conf_space.get_conf_atoms(pconf1), offset);
-					offset += num_copied;
+					int64_t num_copied = 0;
+
+					// is this pos assigned?
+					int32_t confi1 = conf[posi1];
+					if (confi1 >= 0) {
+						const Conf<T> & pconf1 = conf_space.get_conf(pos1, confi1);
+
+						// yup, copy the atoms
+						num_copied = atoms.copy_from_device(conf_space.get_conf_atoms(pconf1), offset);
+						offset += num_copied;
+
+						if (threadIdx.x == 0) {
+
+							// collect the conf internal energies
+							shared_conf_energies[posi1] = pconf1.internal_energy;
+
+							// set the atom pair pointers
+							shared_atom_pairs[conf_space.index_static_pos(posi1)] = conf_space.get_static_pos_pairs(posi1, pconf1.frag_index);
+							shared_atom_pairs[conf_space.index_pos(posi1)] = conf_space.get_pos_pairs(posi1, pconf1.frag_index);
+						}
+
+						for (int posi2=threadIdx.x; posi2<posi1; posi2+=blockDim.x) {
+							const Pos & pos2 = conf_space.get_pos(posi2);
+
+							// is pos2 assigned?
+							int32_t confi2 = conf[posi2];
+							if (confi2 >= 0) {
+								const Conf<T> & pconf2 = conf_space.get_conf(pos2, confi2);
+
+								// yup, get the atom pairs
+								shared_atom_pairs[conf_space.index_pos_pos(posi1, posi2)] = conf_space.get_pos_pos_pairs(posi1, pconf1.frag_index, posi2, pconf2.frag_index);
+							}
+						}
+					}
 
 					// zero out the rest of the space for this pos
 					int64_t atoms_remaining = pos1.max_num_atoms - num_copied;
 					atoms.fill_device(offset, atoms_remaining, Real3<T> { 0.0, 0.0, 0.0 });
 					offset += atoms_remaining;
-
-					if (threadIdx.x == 0) {
-
-						// collect the conf internal energies
-						shared_conf_energies[posi1] = pconf1.internal_energy;
-
-						// set the atom pair pointers
-						shared_atom_pairs[conf_space.index_static_pos(posi1)] = conf_space.get_static_pos_pairs(posi1, pconf1.frag_index);
-						shared_atom_pairs[conf_space.index_pos(posi1)] = conf_space.get_pos_pairs(posi1, pconf1.frag_index);
-					}
-
-					for (int posi2=threadIdx.x; posi2<posi1; posi2+=blockDim.x) {
-						const Pos & pos2 = conf_space.get_pos(posi2);
-						const Conf<T> & pconf2 = conf_space.get_conf(pos2, conf[posi2]);
-
-						shared_atom_pairs[conf_space.index_pos_pos(posi1, posi2)] = conf_space.get_pos_pos_pairs(posi1, pconf1.frag_index, posi2, pconf2.frag_index);
-					}
 				}
 				__syncthreads();
 

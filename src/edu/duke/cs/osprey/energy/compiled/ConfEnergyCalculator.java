@@ -126,14 +126,22 @@ public interface ConfEnergyCalculator extends AutoCloseable {
 	}
 
 	/**
-	 * Builds the appropriate conformation energy calculator based on the desired parallelism.
+	 * Builds the best conformation energy calculator based on the given resources.
 	 */
-	static ConfEnergyCalculator build(ConfSpace confSpace, Parallelism parallelism) {
+	static ConfEnergyCalculator makeBest(ConfSpace confSpace, Parallelism parallelism, Structs.Precision precision) {
+
+		// try GPUs first
 		if (parallelism.numGpus > 0) {
-			// TODO
-			throw new UnsupportedOperationException("GPU energy calculation not implement yet");
-		} else {
-			return new CPUConfEnergyCalculator(confSpace);
+			return new CudaConfEnergyCalculator(confSpace, precision, parallelism);
 		}
+
+		// TODO: prefer intel if the hardware suitably matched?
+
+		// prefer the native ecalc, over the Java one
+		return new NativeConfEnergyCalculator(confSpace, precision);
+	}
+
+	static ConfEnergyCalculator makeBest(ConfSpace confSpace, Parallelism parallelism) {
+		return makeBest(confSpace, parallelism, Structs.Precision.Float64);
 	}
 }

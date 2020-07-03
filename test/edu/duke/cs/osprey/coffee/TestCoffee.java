@@ -15,7 +15,6 @@ import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
 import edu.duke.cs.osprey.confspace.compiled.TestConfSpace;
 import edu.duke.cs.osprey.ematrix.compiled.EmatCalculator;
 import edu.duke.cs.osprey.energy.compiled.*;
-import edu.duke.cs.osprey.gpu.Structs;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.Parallelism;
@@ -105,13 +104,7 @@ public class TestCoffee {
 			.setCluster(cluster)
 			.setParallelism(parallelism)
 			.setNodeDBMem(bytes)
-			.configEachState(config -> {
-				var stateConfSpace = (ConfSpace)config.state.confSpace;
-				if (parallelism.numGpus > 0) {
-					config.ecalc = new CudaConfEnergyCalculator(stateConfSpace, Structs.Precision.Float64, parallelism);
-				} else {
-					config.ecalc = new CPUConfEnergyCalculator(stateConfSpace);
-				}
+			.configEachState((config, ecalc) -> {
 				config.posInterGen = new PosInterGen(posInterDist, null);
 			})
 			.build();
@@ -150,49 +143,48 @@ public class TestCoffee {
 				var bigMath = new BigMath(coffee.mathContext).set(0);
 				var progress = new Progress(rcs.getNumConformations().longValueExact());
 
-				// batch confs together for speed
-				var batchSize = stateInfo.config.ecalc.maxBatchSize();
-				Consumer<List<ConfEnergyCalculator.MinimizationJob>> submitBatch = jobs -> {
-					tasks.submit(
-						() -> {
-							stateInfo.config.ecalc.minimizeEnergies(jobs);
-							return 42;
-						},
-						answer -> {
-							for (var job : jobs) {
-								bigMath.add(stateInfo.bcalc.calcPrecise(job.energy));
-							}
-							progress.incrementProgress(jobs.size());
-						}
-					);
-				};
+				// make the energy calculator
+				try (var ecalc = ConfEnergyCalculator.makeBest(stateInfo.config.confSpace, coffee.parallelism)) {
+					var batchSize = ecalc.maxBatchSize();
 
-				// fill the batches and process them
-				var jobs = new ArrayList<ConfEnergyCalculator.MinimizationJob>(batchSize);
-				for (var confList : allConfs) {
-					int[] conf = confList.stream()
-						.mapToInt(i -> i)
-						.toArray();
-					var inters = stateInfo.config.posInterGen.all(stateInfo.confSpace, conf);
-					jobs.add(new ConfEnergyCalculator.MinimizationJob(conf, inters));
-					if (jobs.size() == batchSize) {
-						submitBatch.accept(jobs);
-						jobs = new ArrayList<>();
+					// batch confs together for speed
+					Consumer<List<ConfEnergyCalculator.MinimizationJob>> submitBatch = jobs -> {
+						tasks.submit(
+							() -> {
+								ecalc.minimizeEnergies(jobs);
+								return 42;
+							},
+							answer -> {
+								for (var job : jobs) {
+									bigMath.add(stateInfo.bcalc.calcPrecise(job.energy));
+								}
+								progress.incrementProgress(jobs.size());
+							}
+						);
+					};
+
+					// fill the batches and process them
+					var jobs = new ArrayList<ConfEnergyCalculator.MinimizationJob>(batchSize);
+					for (var confList : allConfs) {
+						int[] conf = confList.stream()
+							.mapToInt(i -> i)
+							.toArray();
+						var inters = stateInfo.config.posInterGen.all(stateInfo.config.confSpace, conf);
+						jobs.add(new ConfEnergyCalculator.MinimizationJob(conf, inters));
+						if (jobs.size() == batchSize) {
+							submitBatch.accept(jobs);
+							jobs = new ArrayList<>();
+						}
 					}
+					if (jobs.size() > 0) {
+						submitBatch.accept(jobs);
+					}
+					tasks.waitForFinish();
 				}
-				if (jobs.size() > 0) {
-					submitBatch.accept(jobs);
-				}
-				tasks.waitForFinish();
 
 				// finally, calculate the free energy
 				double g = gcalc.calc(bigMath.get());
 				log("\tstate %s = %f", state.name, g);
-
-				// HACKHACK: release the gpu streams if needed
-				if (stateInfo.config.ecalc instanceof CudaConfEnergyCalculator) {
-					((CudaConfEnergyCalculator)stateInfo.config.ecalc).recycleStreams();
-				}
 			}
 		}
 	}
@@ -215,7 +207,7 @@ public class TestCoffee {
 					var posInterDist = PosInterDist.TighterBounds;
 
 					// compute an emat
-					var ecalc = new CPUConfEnergyCalculator(stateInfo.confSpace);
+					var ecalc = new CPUConfEnergyCalculator(stateInfo.config.confSpace);
 					var emat = new EmatCalculator.Builder(ecalc)
 						.setPosInterDist(posInterDist)
 						.setIncludeStaticStatic(true)
@@ -227,7 +219,7 @@ public class TestCoffee {
 						.setPosInterDist(posInterDist)
 						.setIncludeStaticStatic(true)
 						.build();
-					var rcs = seq.makeRCs(stateInfo.confSpace);
+					var rcs = seq.makeRCs(stateInfo.config.confSpace);
 					var pfunc = new GradientDescentPfunc(
 						confEcalc,
 						new ConfAStarTree.Builder(emat, rcs)

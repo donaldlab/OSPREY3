@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.coffee;
 
 import com.hazelcast.replicatedmap.ReplicatedMap;
 import edu.duke.cs.osprey.confspace.TupleMatrixGeneric;
+import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
@@ -22,7 +23,7 @@ import java.util.stream.Collectors;
  */
 public class ClusterZMatrix {
 
-	public final ConfEnergyCalculator ecalc;
+	public final ConfSpace confSpace;
 	public final PosInterGen posInterGen;
 	public final BoltzmannCalculator bcalc;
 
@@ -34,7 +35,7 @@ public class ClusterZMatrix {
 		BigExp staticStatic;
 
 		private ZMat() {
-			super(ecalc.confSpace());
+			super(confSpace);
 		}
 
 		int numSingles() {
@@ -46,9 +47,9 @@ public class ClusterZMatrix {
 		}
 	}
 
-	public ClusterZMatrix(ConfEnergyCalculator ecalc, PosInterGen posInterGen, BoltzmannCalculator bcalc) {
+	public ClusterZMatrix(ConfSpace confSpace, PosInterGen posInterGen, BoltzmannCalculator bcalc) {
 
-		this.ecalc = ecalc;
+		this.confSpace = confSpace;
 		this.posInterGen = posInterGen;
 		this.bcalc = bcalc;
 
@@ -59,14 +60,14 @@ public class ClusterZMatrix {
 		return new BigExp(bcalc.calcPrecise(energy));
 	}
 
-	public void compute(ClusterMember member, TaskExecutor tasks, boolean includeStaticStatic) {
+	public void compute(ClusterMember member, TaskExecutor tasks, boolean includeStaticStatic, ConfEnergyCalculator ecalc) {
 
-		computeStaticStatic(member, tasks, includeStaticStatic);
-		computeSingles(member, tasks);
-		computePairs(member, tasks);
+		computeStaticStatic(member, tasks, includeStaticStatic, ecalc);
+		computeSingles(member, tasks, ecalc);
+		computePairs(member, tasks, ecalc);
 	}
 
-	private void computeStaticStatic(ClusterMember member, TaskExecutor tasks, boolean includeStaticStatic) {
+	private void computeStaticStatic(ClusterMember member, TaskExecutor tasks, boolean includeStaticStatic, ConfEnergyCalculator ecalc) {
 
 		if (!includeStaticStatic) {
 			zmat.staticStatic = new BigExp(1.0, 0);
@@ -81,9 +82,9 @@ public class ClusterZMatrix {
 
 		// only one energy to compute, so do it on member 0
 		if (member.id() == 0) {
-			Batch batch = new Batch();
+			Batch batch = new Batch(ecalc.maxBatchSize());
 			batch.addStaticStatic(0);
-			batch.submit(tasks, map, null);
+			batch.submit(tasks, map, null, ecalc);
 			tasks.waitForFinish();
 		}
 
@@ -102,7 +103,7 @@ public class ClusterZMatrix {
 		member.log0("static-static finished");
 	}
 	
-	private void computeSingles(ClusterMember member, TaskExecutor tasks) {
+	private void computeSingles(ClusterMember member, TaskExecutor tasks, ConfEnergyCalculator ecalc) {
 
 		// make a replicated map, so hazelcast will sync everything to all members for us
 		member.log0("computing %d singles ...", zmat.numSingles());
@@ -119,22 +120,22 @@ public class ClusterZMatrix {
 		}
 
 		// statically partition the workload among the members
-		Batch batch = new Batch();
+		Batch batch = new Batch(ecalc.maxBatchSize());
 		int index = 0;
 		for (int posi=0; posi<ecalc.confSpace().numPos(); posi++) {
 			for (int confi=0; confi<ecalc.confSpace().numConf(posi); confi++) {
 				if (range.contains(index)) {
 					batch.addSingle(index, posi, confi);
 					if (batch.isFull()) {
-						batch.submit(tasks, map, progress);
-						batch = new Batch();
+						batch.submit(tasks, map, progress, ecalc);
+						batch = new Batch(ecalc.maxBatchSize());
 					}
 				}
 				index += 1;
 			}
 		}
 		if (!batch.isEmpty()) {
-			batch.submit(tasks, map, progress);
+			batch.submit(tasks, map, progress, ecalc);
 		}
 		tasks.waitForFinish();
 
@@ -159,7 +160,7 @@ public class ClusterZMatrix {
 		member.log0("singles finished");
 	}
 
-	private void computePairs(ClusterMember member, TaskExecutor tasks) {
+	private void computePairs(ClusterMember member, TaskExecutor tasks, ConfEnergyCalculator ecalc) {
 
 		// make a replicated map, so hazelcast will sync everything to all members for us
 		member.log0("computing %d pairs ...", zmat.numPairs());
@@ -175,7 +176,7 @@ public class ClusterZMatrix {
 		}
 
 		// statically partition the workload among the members
-		Batch batch = new Batch();
+		Batch batch = new Batch(ecalc.maxBatchSize());
 		int index = 0;
 		for (int posi1=0; posi1<ecalc.confSpace().numPos(); posi1++) {
 			for (int posi2=0; posi2<posi1; posi2++) {
@@ -184,8 +185,8 @@ public class ClusterZMatrix {
 						if (range.contains(index)) {
 							batch.addPair(index, posi1, confi1, posi2, confi2);
 							if (batch.isFull()) {
-								batch.submit(tasks, map, progress);
-								batch = new Batch();
+								batch.submit(tasks, map, progress, ecalc);
+								batch = new Batch(ecalc.maxBatchSize());
 							}
 						}
 						index += 1;
@@ -194,7 +195,7 @@ public class ClusterZMatrix {
 			}
 		}
 		if (!batch.isEmpty()) {
-			batch.submit(tasks, map, progress);
+			batch.submit(tasks, map, progress, ecalc);
 		}
 		tasks.waitForFinish();
 
@@ -250,8 +251,8 @@ public class ClusterZMatrix {
 		final List<Integer> indices;
 		final List<ConfEnergyCalculator.MinimizationJob> jobs;
 
-		Batch() {
-			capacity = ecalc.maxBatchSize();
+		Batch(int capacity) {
+			this.capacity = capacity;
 			indices = new ArrayList<>(capacity);
 			jobs = new ArrayList<>(capacity);
 		}
@@ -259,7 +260,7 @@ public class ClusterZMatrix {
 		void addStaticStatic(int index) {
 			indices.add(index);
 			jobs.add(new ConfEnergyCalculator.MinimizationJob(
-				ecalc.confSpace().assign(),
+				confSpace.assign(),
 				posInterGen.staticStatic()
 			));
 		}
@@ -267,16 +268,16 @@ public class ClusterZMatrix {
 		void addSingle(int index, int posi, int confi) {
 			indices.add(index);
 			jobs.add(new ConfEnergyCalculator.MinimizationJob(
-				ecalc.confSpace().assign(posi, confi),
-				posInterGen.single(ecalc.confSpace(), posi, confi)
+				confSpace.assign(posi, confi),
+				posInterGen.single(confSpace, posi, confi)
 			));
 		}
 
 		void addPair(int index, int posi1, int confi1, int posi2, int confi2) {
 			indices.add(index);
 			jobs.add(new ConfEnergyCalculator.MinimizationJob(
-				ecalc.confSpace().assign(posi1, confi1, posi2, confi2),
-				posInterGen.pair(ecalc.confSpace(), posi1, confi1, posi2, confi2)
+				confSpace.assign(posi1, confi1, posi2, confi2),
+				posInterGen.pair(confSpace, posi1, confi1, posi2, confi2)
 			));
 		}
 
@@ -292,7 +293,7 @@ public class ClusterZMatrix {
 			return size() == capacity;
 		}
 
-		void submit(TaskExecutor tasks, Map<Integer,BigExp> map, Progress progress) {
+		void submit(TaskExecutor tasks, Map<Integer,BigExp> map, Progress progress, ConfEnergyCalculator ecalc) {
 			assert (!isEmpty());
 			tasks.submit(
 				() -> {
@@ -329,7 +330,7 @@ public class ClusterZMatrix {
 	public BigExp pairUpper(int posi1, int confi1, int posi2) {
 		// TODO: cache these values
 		BigExp max = null;
-		for (int confi2=1; confi2<ecalc.confSpace().numConf(posi2); confi2++) {
+		for (int confi2=1; confi2<confSpace.numConf(posi2); confi2++) {
 			BigExp z = zmat.getPairwise(posi1, confi1, posi2, confi2);
 			if (max == null || z.greaterThan(max)) {
 				max = z;

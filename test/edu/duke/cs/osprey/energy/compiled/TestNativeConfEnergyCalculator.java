@@ -23,6 +23,7 @@ public class TestNativeConfEnergyCalculator {
 
 	private static final ConfSpace confSpace_2RL0 = TestConfSpace.Design2RL0Interface7Mut.makeCompiled().complex;
 	private static final int[][] confs_2RL0 = {
+		// full conformations
 		{ 0, 0, 0, 0, 0, 0, 0 },
 		{ 1, 0, 0, 0, 0, 0, 0 },
 		{ 0, 1, 0, 0, 0, 0, 0 },
@@ -30,7 +31,16 @@ public class TestNativeConfEnergyCalculator {
 		{ 0, 0, 0, 1, 0, 0, 0 },
 		{ 0, 0, 0, 0, 1, 0, 0 },
 		{ 0, 0, 0, 0, 0, 1, 0 },
-		{ 0, 0, 0, 0, 0, 0, 1 }
+		{ 0, 0, 0, 0, 0, 0, 1 },
+		// no assignments
+		{ -1, -1, -1, -1, -1, -1, -1 },
+		// partial assignments
+		{ 0, -1, -1, -1, -1, -1, -1 },
+		{ 0, 0, -1, -1, -1, -1, -1 },
+		{ 0, 0, 0, -1, -1, -1, -1 },
+		{ 0, 0, 0, 0, -1, -1, -1 },
+		{ 0, 0, 0, 0, 0, -1, -1 },
+		{ 0, 0, 0, 0, 0, 0, -1 }
 	};
 	private static final double[] calcEnergy_all_2RL0 = {
 		2199.44093411,
@@ -40,7 +50,14 @@ public class TestNativeConfEnergyCalculator {
 		749133.92904943,
 		2241.54003600,
 		2179.54796288,
-		2171.14773794
+		2171.14773794,
+		-1456.82332401,
+		-1462.23330457,
+		-1436.56711552,
+		-1444.30456665,
+		2166.86260702,
+		2162.91402230,
+		2179.35366839
 	};
 	private static final double[] minimize_all_2RL0 = {
 		-1359.27208010,
@@ -50,7 +67,14 @@ public class TestNativeConfEnergyCalculator {
 		14471.08373607,
 		-1348.55609879,
 		-1364.70178141,
-		-1360.70959143
+		-1360.70959143,
+		-1456.82332401,
+		-1462.23330457,
+		-1447.62657956,
+		-1455.35974041,
+		-1344.76116367,
+		-1348.71185049,
+		-1352.20687426
 	};
 
 	public static void assertCoords(int[] conf, AssignedCoords exp, CoordsList obs, double maxDist) {
@@ -137,12 +161,10 @@ public class TestNativeConfEnergyCalculator {
 
 	private void calcEnergy_all(ConfEnergyCalculator confEcalc, int[][] confs, double[] energies, double epsilon) {
 
-		// make complete position interactions
-		List<PosInter> inters = PosInterDist.all(confEcalc.confSpace());
-
 		assertThat(energies.length, is(confs.length));
 
 		for (int i=0; i<confs.length; i++) {
+			var inters = PosInterDist.allAssigned(confEcalc.confSpace(), confs[i]);
 			double energy = confEcalc.calcEnergy(confs[i], inters);
 			assertThat("conf " + i, energy, isRelatively(energies[i], epsilon));
 		}
@@ -174,12 +196,10 @@ public class TestNativeConfEnergyCalculator {
 
 	private void calc_all(ConfEnergyCalculator confEcalc, int[][] confs, double[] energies, double epsilon) {
 
-		// make complete position interactions
-		List<PosInter> inters = PosInterDist.all(confEcalc.confSpace());
-
 		assertThat(energies.length, is(confs.length));
 
 		for (int i=0; i<confs.length; i++) {
+			var inters = PosInterDist.allAssigned(confEcalc.confSpace(), confs[i]);
 			ConfEnergyCalculator.EnergiedCoords energiedCoords = confEcalc.calc(confs[i], inters);
 			assertThat("conf " + i, energiedCoords.energy, isRelatively(energies[i], epsilon));
 
@@ -216,12 +236,10 @@ public class TestNativeConfEnergyCalculator {
 
 	private void minimizeEnergy_all(ConfEnergyCalculator confEcalc, int[][] confs, double[] energies, double epsilon) {
 
-		// make complete position interactions
-		List<PosInter> inters = PosInterDist.all(confEcalc.confSpace());
-
 		assertThat(energies.length, is(confs.length));
 
 		for (int i=0; i<confs.length; i++) {
+			var inters = PosInterDist.allAssigned(confEcalc.confSpace(), confs[i]);
 			double energy = confEcalc.minimizeEnergy(confs[i], inters);
 			assertThat("conf " + i, energy, isRelatively(energies[i], epsilon));
 		}
@@ -254,9 +272,6 @@ public class TestNativeConfEnergyCalculator {
 
 	private void minimize_all(ConfEnergyCalculator confEcalc, int[][] confs, double[] energies, double epsilon) {
 
-		// make complete position interactions
-		List<PosInter> inters = PosInterDist.all(confEcalc.confSpace());
-
 		assertThat(energies.length, is(confs.length));
 
 		for (int i=0; i<confs.length; i++) {
@@ -264,6 +279,7 @@ public class TestNativeConfEnergyCalculator {
 
 			AssignedCoords coords = confEcalc.confSpace().makeCoords(conf);
 
+			var inters = PosInterDist.allAssigned(confEcalc.confSpace(), conf);
 			var energiedCoords = confEcalc.minimize(conf, inters);
 
 			// check the energy, obviously
@@ -273,10 +289,11 @@ public class TestNativeConfEnergyCalculator {
 			assertCoords(conf, coords, energiedCoords.coords.coords, 10.0);
 
 			// make sure the final dof values are still in range
+			assertThat(energiedCoords.dofValues.size(), is(coords.dofs.size()));
 			for (int d=0; d<coords.dofs.size(); d++) {
-				assertThat(energiedCoords.dofValues.get(i), isAbsolutelyBounded(new MathTools.DoubleBounds(
-					coords.dofs.get(i).min(),
-					coords.dofs.get(i).max()
+				assertThat(energiedCoords.dofValues.get(d), isAbsolutelyBounded(new MathTools.DoubleBounds(
+					coords.dofs.get(d).min(),
+					coords.dofs.get(d).max()
 				), 1e-4));
 			}
 		}
@@ -309,14 +326,14 @@ public class TestNativeConfEnergyCalculator {
 
 	private void minimizeEnergies_all(ConfEnergyCalculator confEcalc, int[][] confs, double[] energies, double epsilon) {
 
-		// make complete position interactions
-		List<PosInter> inters = PosInterDist.all(confEcalc.confSpace());
-
 		assertThat(energies.length, is(confs.length));
 
 		// make the minimization jobs
 		List<ConfEnergyCalculator.MinimizationJob> jobs = Arrays.stream(confs)
-			.map(conf -> new ConfEnergyCalculator.MinimizationJob(conf, inters))
+			.map(conf -> {
+				var inters = PosInterDist.allAssigned(confEcalc.confSpace(), conf);
+				return new ConfEnergyCalculator.MinimizationJob(conf, inters);
+			})
 			.collect(Collectors.toList());
 
 		confEcalc.minimizeEnergies(jobs);
@@ -357,21 +374,23 @@ public class TestNativeConfEnergyCalculator {
 	}
 
 	private static void dumpEnergiesAll(ConfSpace confSpace, int[][] confs) {
-		dumpEnergies(confSpace, confs, PosInterDist.all(confSpace));
+		dumpEnergies(confSpace, confs);
 	}
 
-	private static void dumpEnergies(ConfSpace confSpace, int[][] confs, List<PosInter> inters) {
+	private static void dumpEnergies(ConfSpace confSpace, int[][] confs) {
 
 		var confEcalc = new CPUConfEnergyCalculator(confSpace);
 
 		log("calcEnergy");
 		for (int[] conf : confs) {
+			var inters = PosInterDist.allAssigned(confSpace, conf);
 			double energy = confEcalc.calcEnergy(conf, inters);
 			log("%16.8f", energy);
 		}
 
 		log("minimizeEnergy");
 		for (int[] conf : confs) {
+			var inters = PosInterDist.allAssigned(confSpace, conf);
 			double energy = confEcalc.minimizeEnergy(conf, inters);
 			log("%16.8f", energy);
 		}

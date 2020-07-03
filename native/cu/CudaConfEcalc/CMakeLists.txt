@@ -13,6 +13,7 @@ configure_file(config.h.in config.h)
 # define the source files to compile
 set(CXXFiles
         confecalc.cu
+        motions.cu
         cuda.cu
         )
 
@@ -25,10 +26,6 @@ set(OspreyBuildPath ${OspreyPath}/build/resources/main/${JnaPlatform})
 
 # tell CMake to write the libs into Osprey's resources dir
 set(LIBRARY_OUTPUT_PATH ${OspreyPath}/resources/${JnaPlatform})
-
-# make a library target
-add_library(CudaConfEcalc SHARED ${CXXFiles})
-target_include_directories(CudaConfEcalc PUBLIC "${PROJECT_BINARY_DIR}")
 
 # set the CUDA options to build for all modern GPU architectures
 # see compatibilty guide:
@@ -45,6 +42,10 @@ set(CMAKE_CUDA_FLAGS "\
         -gencode=arch=compute_75,code=sm_75 \
         -gencode=arch=compute_75,code=compute_75 \
         ")
+
+# make a library target, for calling from osprey
+add_library(CudaConfEcalc SHARED ${CXXFiles} api.cu)
+target_include_directories(CudaConfEcalc PUBLIC "${PROJECT_BINARY_DIR}")
 set_target_properties(CudaConfEcalc PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON
         POSITION_INDEPENDENT_CODE ON
@@ -58,3 +59,11 @@ add_custom_command(
         TARGET CudaConfEcalc_CopyLibs POST_BUILD
         COMMAND cp ${LIBRARY_OUTPUT_PATH}/$<TARGET_FILE_NAME:CudaConfEcalc> ${OspreyBuildPath}
 )
+
+# make an executable target, for running job dumps without osprey
+add_executable(rundump ${CXXFiles} rundump.cu)
+target_include_directories(rundump PUBLIC "${PROJECT_BINARY_DIR}")
+set_target_properties(rundump PROPERTIES
+        CUDA_SEPARABLE_COMPILATION ON
+        POSITION_INDEPENDENT_CODE ON
+        )

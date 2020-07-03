@@ -14,10 +14,17 @@ import jdk.incubator.foreign.MemoryAddress;
 import jdk.incubator.foreign.MemoryHandles;
 import jdk.incubator.foreign.MemorySegment;
 
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -255,6 +262,7 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		double calc(ByteBuffer confBuf, ByteBuffer intersBuf, ByteBuffer coordsBuf, long numAtoms);
 		double minimize(ByteBuffer jobsBuf, ByteBuffer coordsBuf, ByteBuffer dofsBuf);
 		void minimizeBatch(ByteBuffer jobsBuf, ByteBuffer energiesBuf);
+		void dumpJobs(File file, ByteBuffer jobsBuf);
 		long paramsBytes();
 		void writeParams(BufWriter buf);
 		long staticStaticBytes();
@@ -433,28 +441,64 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 		@Override
 		public double calc(ByteBuffer confBuf, ByteBuffer intersBuf, ByteBuffer coordsBuf, long numAtoms) {
-			Stream stream = threadStream.get();
-			return switch (precision) {
-				case Float32 -> NativeLib.calc_amber_eef1_f32(stream.device, stream.stream, stream.pConfSpace, confBuf, intersBuf, coordsBuf, numAtoms);
-				case Float64 -> NativeLib.calc_amber_eef1_f64(stream.device, stream.stream, stream.pConfSpace, confBuf, intersBuf, coordsBuf, numAtoms);
-			};
+			return withStream(stream ->
+				switch (precision) {
+					case Float32 -> (double)NativeLib.calc_amber_eef1_f32(stream.device, stream.stream, stream.pConfSpace, confBuf, intersBuf, coordsBuf, numAtoms);
+					case Float64 -> NativeLib.calc_amber_eef1_f64(stream.device, stream.stream, stream.pConfSpace, confBuf, intersBuf, coordsBuf, numAtoms);
+				}
+			);
 		}
 
 		@Override
 		public double minimize(ByteBuffer jobsBuf, ByteBuffer coordsBuf, ByteBuffer dofsBuf) {
-			Stream stream = threadStream.get();
-			return switch (precision) {
-				case Float32 -> NativeLib.minimize_amber_eef1_f32(stream.device, stream.stream, stream.pConfSpace, confSpaceSizesBuf, jobsBuf, coordsBuf, dofsBuf);
-				case Float64 -> NativeLib.minimize_amber_eef1_f64(stream.device, stream.stream, stream.pConfSpace, confSpaceSizesBuf, jobsBuf, coordsBuf, dofsBuf);
-			};
+			return withStream(stream ->
+				switch (precision) {
+					case Float32 -> (double)NativeLib.minimize_amber_eef1_f32(stream.device, stream.stream, stream.pConfSpace, confSpaceSizesBuf, jobsBuf, coordsBuf, dofsBuf);
+					case Float64 -> NativeLib.minimize_amber_eef1_f64(stream.device, stream.stream, stream.pConfSpace, confSpaceSizesBuf, jobsBuf, coordsBuf, dofsBuf);
+				}
+			);
 		}
 
 		@Override
 		public void minimizeBatch(ByteBuffer jobsBuf, ByteBuffer energiesBuf) {
-			Stream stream = threadStream.get();
-			switch (precision) {
-				case Float32 -> NativeLib.minimize_batch_amber_eef1_f32(stream.device, stream.stream, stream.pConfSpace, confSpaceSizesBuf, jobsBuf, energiesBuf);
-				case Float64 -> NativeLib.minimize_batch_amber_eef1_f64(stream.device, stream.stream, stream.pConfSpace, confSpaceSizesBuf, jobsBuf, energiesBuf);
+			withStream(stream -> {
+				switch (precision) {
+					case Float32 -> NativeLib.minimize_batch_amber_eef1_f32(stream.device, stream.stream, stream.pConfSpace, confSpaceSizesBuf, jobsBuf, energiesBuf);
+					case Float64 -> NativeLib.minimize_batch_amber_eef1_f64(stream.device, stream.stream, stream.pConfSpace, confSpaceSizesBuf, jobsBuf, energiesBuf);
+				}
+			});
+		}
+
+		@Override
+		public void dumpJobs(File file, ByteBuffer jobsBuf) {
+
+			try (var out = new DataOutputStream(new FileOutputStream(dumpJobsTo))) {
+
+				log("dumping jobs ...");
+
+				// write enough stuff to directly call minimize_batch_amber_eef1_fXX() on the C++ side
+				out.writeInt(precision.ordinal());
+				try (var mem = confSpaceMem.acquire()) {
+					writeBuf(out, mem.asByteBuffer());
+				}
+				try (var mem = confSpaceSizesMem.acquire()) {
+					writeBuf(out, mem.asByteBuffer());
+				}
+				writeBuf(out, jobsBuf);
+
+			} catch (IOException ex) {
+				throw new Error("can't dump jobs", ex);
+			}
+		}
+
+		private void writeBuf(DataOutputStream out, ByteBuffer buf)
+		throws IOException {
+
+			out.writeInt(buf.capacity());
+
+			// this will likely be slow, but it's only for debugging, so performance here isn't super important
+			for (int i=0; i<buf.capacity(); i++) {
+				out.writeByte(buf.get(i));
 			}
 		}
 
@@ -746,6 +790,17 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 	public final long maxBatchSize;
 	public final ForcefieldsImpl forcefieldsImpl;
 
+	/**
+	 * Write minimization jobs to the file and throw an error instead of actually minimizing them.
+	 * Useful for debugging GPU kernels without Java's extra complication.
+	 */
+	public CudaConfEnergyCalculator dumpJobsTo(File file) {
+		dumpJobsTo = file;
+		return this;
+	}
+	private File dumpJobsTo = null;
+
+	private final MemorySegment confSpaceMem;
 	private final Map<GpuInfo,Pointer> pConfSpace = new HashMap<>();
 	private final MemorySegment confSpaceSizesMem;
 	private final ByteBuffer confSpaceSizesBuf;
@@ -1048,187 +1103,186 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 		// allocate the buffer for the conf space
 		long bufSize = confSpaceSize + positionsSize + staticCoordsSize + forcefieldSize;
-		try (MemorySegment confSpaceMem = MemorySegment.allocateNative(bufSize)) {
-			BufWriter buf = new BufWriter(confSpaceMem);
+		confSpaceMem = MemorySegment.allocateNative(bufSize);
+		BufWriter buf = new BufWriter(confSpaceMem);
+
+		assert (buf.isAligned(WidestGpuLoad));
+
+		// write the header
+		var confSpaceAddr = buf.place(confSpaceStruct);
+		confSpaceStruct.num_pos.set(confSpaceAddr, confSpace.positions.length);
+		confSpaceStruct.max_num_conf_atoms.set(confSpaceAddr, confSpace.maxNumConfAtoms);
+		confSpaceStruct.max_num_dofs.set(confSpaceAddr, confSpace.maxNumDofs);
+		confSpaceStruct.num_molecule_motions.set(confSpaceAddr, 0);
+		confSpaceStruct.size.set(confSpaceAddr, bufSize);
+		// we'll go back and write the offsets later
+		confSpaceStruct.static_energy.set(confSpaceAddr, Arrays.stream(confSpace.staticEnergies).sum());
+
+		assert (buf.isAligned(WidestGpuLoad));
+
+		// leave space for the position offsets
+		confSpaceStruct.positions_offset.set(confSpaceAddr, buf.pos);
+		var posOffsetsAddr = buf.place(posOffsets, confSpace.positions.length, WidestGpuLoad);
+
+		assert (buf.pos == confSpaceSize);
+		assert (buf.isAligned(WidestGpuLoad));
+
+		// write the positions
+		for (ConfSpace.Pos pos : confSpace.positions) {
 
 			assert (buf.isAligned(WidestGpuLoad));
 
-			// write the header
-			var confSpaceAddr = buf.place(confSpaceStruct);
-			confSpaceStruct.num_pos.set(confSpaceAddr, confSpace.positions.length);
-			confSpaceStruct.max_num_conf_atoms.set(confSpaceAddr, confSpace.maxNumConfAtoms);
-			confSpaceStruct.max_num_dofs.set(confSpaceAddr, confSpace.maxNumDofs);
-			confSpaceStruct.num_molecule_motions.set(confSpaceAddr, 0);
-			confSpaceStruct.size.set(confSpaceAddr, bufSize);
-			// we'll go back and write the offsets later
-			confSpaceStruct.static_energy.set(confSpaceAddr, Arrays.stream(confSpace.staticEnergies).sum());
+			posOffsets.set(posOffsetsAddr, pos.index, buf.pos);
+			var posAddr = buf.place(posStruct);
+			posStruct.num_confs.set(posAddr, pos.confs.length);
+			posStruct.max_num_atoms.set(posAddr, pos.maxNumAtoms);
+			posStruct.num_frags.set(posAddr, pos.numFrags);
 
 			assert (buf.isAligned(WidestGpuLoad));
 
-			// leave space for the position offsets
-			confSpaceStruct.positions_offset.set(confSpaceAddr, buf.pos);
-			var posOffsetsAddr = buf.place(posOffsets, confSpace.positions.length, WidestGpuLoad);
+			// put the conf offsets
+			var confOffsetsAddr = buf.place(confOffsets, pos.confs.length, WidestGpuLoad);
+			// we'll go back and write them later though
 
-			assert (buf.pos == confSpaceSize);
 			assert (buf.isAligned(WidestGpuLoad));
 
-			// write the positions
-			for (ConfSpace.Pos pos : confSpace.positions) {
+			// write the confs
+			for (ConfSpace.Conf conf : pos.confs) {
 
 				assert (buf.isAligned(WidestGpuLoad));
 
-				posOffsets.set(posOffsetsAddr, pos.index, buf.pos);
-				var posAddr = buf.place(posStruct);
-				posStruct.num_confs.set(posAddr, pos.confs.length);
-				posStruct.max_num_atoms.set(posAddr, pos.maxNumAtoms);
-				posStruct.num_frags.set(posAddr, pos.numFrags);
+				confOffsets.set(confOffsetsAddr, conf.index, buf.pos);
+				var confAddr = buf.place(confStruct);
+				confStruct.frag_index.set(confAddr, conf.fragIndex);
+				confStruct.internal_energy.set(confAddr, Arrays.stream(conf.energies).sum());
+				confStruct.num_motions.set(confAddr, conf.motions.length);
 
 				assert (buf.isAligned(WidestGpuLoad));
 
-				// put the conf offsets
-				var confOffsetsAddr = buf.place(confOffsets, pos.confs.length, WidestGpuLoad);
-				// we'll go back and write them later though
+				// write the atoms
+				confStruct.atoms_offset.set(confAddr, buf.pos);
+				var atomsAddr = buf.place(arrayStruct);
+				arrayStruct.size.set(atomsAddr, conf.coords.size);
+				for (int i=0; i<conf.coords.size; i++) {
+					var addr = buf.place(real3Struct);
+					real3Struct.x.set(addr, conf.coords.x(i));
+					real3Struct.y.set(addr, conf.coords.y(i));
+					real3Struct.z.set(addr, conf.coords.z(i));
+				}
+				buf.skipToAlignment(WidestGpuLoad);
 
 				assert (buf.isAligned(WidestGpuLoad));
 
-				// write the confs
-				for (ConfSpace.Conf conf : pos.confs) {
-
-					assert (buf.isAligned(WidestGpuLoad));
-
-					confOffsets.set(confOffsetsAddr, conf.index, buf.pos);
-					var confAddr = buf.place(confStruct);
-					confStruct.frag_index.set(confAddr, conf.fragIndex);
-					confStruct.internal_energy.set(confAddr, Arrays.stream(conf.energies).sum());
-					confStruct.num_motions.set(confAddr, conf.motions.length);
-
-					assert (buf.isAligned(WidestGpuLoad));
-
-					// write the atoms
-					confStruct.atoms_offset.set(confAddr, buf.pos);
-					var atomsAddr = buf.place(arrayStruct);
-					arrayStruct.size.set(atomsAddr, conf.coords.size);
-					for (int i=0; i<conf.coords.size; i++) {
-						var addr = buf.place(real3Struct);
-						real3Struct.x.set(addr, conf.coords.x(i));
-						real3Struct.y.set(addr, conf.coords.y(i));
-						real3Struct.z.set(addr, conf.coords.z(i));
-					}
-					buf.skipToAlignment(WidestGpuLoad);
-
-					assert (buf.isAligned(WidestGpuLoad));
-
-					// write the motions
-					confStruct.motions_offset.set(confAddr, buf.pos);
-					var confMotionOffsetsAddr = buf.place(confMotionOffsets, conf.motions.length, WidestGpuLoad);
-					for (int i=0; i<conf.motions.length; i++) {
-						var motion = conf.motions[i];
-						confMotionOffsets.set(confMotionOffsetsAddr, i, buf.pos);
-						if (motion instanceof DihedralAngle.Description) {
-							writeDihedral((DihedralAngle.Description)motion, pos.index, buf);
-						} else {
-							throw new UnsupportedOperationException(motion.getClass().getName());
-						}
-					}
-
-					assert (buf.isAligned(WidestGpuLoad));
-				}
-			}
-
-			assert (buf.pos == confSpaceSize + positionsSize);
-			assert (buf.isAligned(WidestGpuLoad));
-
-			// write the static atoms
-			confSpaceStruct.static_atoms_offset.set(confSpaceAddr, buf.pos);
-			var arrayAddr = buf.place(arrayStruct);
-			arrayStruct.size.set(arrayAddr, confSpace.staticCoords.size);
-			for (int i=0; i<confSpace.staticCoords.size; i++) {
-				var addr = buf.place(real3Struct);
-				real3Struct.x.set(addr, confSpace.staticCoords.x(i));
-				real3Struct.y.set(addr, confSpace.staticCoords.y(i));
-				real3Struct.z.set(addr, confSpace.staticCoords.z(i));
-			}
-			buf.skipToAlignment(WidestGpuLoad);
-
-			assert (buf.pos == confSpaceSize + positionsSize + staticCoordsSize);
-			assert (buf.isAligned(WidestGpuLoad));
-
-			// write the forcefield params
-			confSpaceStruct.params_offset.set(confSpaceAddr, buf.pos);
-			forcefieldsImpl.writeParams(buf);
-
-			// write the pos pairs
-			confSpaceStruct.pos_pairs_offset.set(confSpaceAddr, buf.pos);
-			var posPairOffsetsAddr = buf.place(posPairOffsets, numPosPairs, WidestGpuLoad);
-
-			assert (buf.isAligned(WidestGpuLoad));
-
-			// write the static-static pair
-			posPairOffsets.set(posPairOffsetsAddr, 0, buf.pos);
-			forcefieldsImpl.writeStaticStatic(buf);
-
-			// write the static-pos pairs
-			for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
-				posPairOffsets.set(posPairOffsetsAddr, 1 + posi1, buf.pos);
-				var fragOffsetsAddr = buf.place(fragOffsets, confSpace.numFrag(posi1), WidestGpuLoad);
-				for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
-					fragOffsets.set(fragOffsetsAddr, fragi1, buf.pos);
-					forcefieldsImpl.writeStaticPos(posi1, fragi1, buf);
-				}
-			}
-
-			buf.skipToAlignment(WidestGpuLoad);
-
-			// write the pos pairs
-			for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
-				posPairOffsets.set(posPairOffsetsAddr, 1 + confSpace.positions.length + posi1, buf.pos);
-				var fragOffsetsAddr = buf.place(fragOffsets, confSpace.numFrag(posi1), WidestGpuLoad);
-				for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
-					fragOffsets.set(fragOffsetsAddr, fragi1, buf.pos);
-					forcefieldsImpl.writePos(posi1, fragi1, buf);
-				}
-			}
-
-			buf.skipToAlignment(WidestGpuLoad);
-
-			// write the pos-pos pairs
-			for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
-				for (int posi2=0; posi2<posi1; posi2++) {
-					posPairOffsets.set(posPairOffsetsAddr, 1 + 2*confSpace.positions.length + posi1*(posi1 - 1)/2 + posi2, buf.pos);
-					var fragOffsetsAddr = buf.place(fragOffsets, confSpace.numFrag(posi1)*confSpace.numFrag(posi2), WidestGpuLoad);
-					for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
-						for (int fragi2=0; fragi2<confSpace.numFrag(posi2); fragi2++) {
-							fragOffsets.set(fragOffsetsAddr, fragi1*confSpace.numFrag(posi2) + fragi2, buf.pos);
-							forcefieldsImpl.writePosPos(posi1, fragi1, posi2, fragi2, buf);
-						}
+				// write the motions
+				confStruct.motions_offset.set(confAddr, buf.pos);
+				var confMotionOffsetsAddr = buf.place(confMotionOffsets, conf.motions.length, WidestGpuLoad);
+				for (int i=0; i<conf.motions.length; i++) {
+					var motion = conf.motions[i];
+					confMotionOffsets.set(confMotionOffsetsAddr, i, buf.pos);
+					if (motion instanceof DihedralAngle.Description) {
+						writeDihedral((DihedralAngle.Description)motion, pos.index, buf);
+					} else {
+						throw new UnsupportedOperationException(motion.getClass().getName());
 					}
 				}
+
+				assert (buf.isAligned(WidestGpuLoad));
 			}
-
-			assert (buf.pos == confSpaceSize + positionsSize + staticCoordsSize + forcefieldSize);
-			buf.skipToAlignment(WidestGpuLoad);
-
-			// make sure we used the whole buffer
-			assert (buf.pos == bufSize) : String.format("%d bytes leftover", bufSize - buf.pos);
-
-			// upload the conf space to the GPU for each device
-			var confSpaceBuf = confSpaceMem.asByteBuffer();
-			for (var it : gpuStreams) {
-				Pointer p = switch (precision) {
-					case Float32 -> NativeLib.alloc_conf_space_f32(it.gpuInfo.id, confSpaceBuf);
-					case Float64 -> NativeLib.alloc_conf_space_f64(it.gpuInfo.id, confSpaceBuf);
-				};
-				pConfSpace.put(it.gpuInfo, p);
-			}
-
-			// make the conf space sizes struct
-			confSpaceSizesMem = MemorySegment.allocateNative(confSpaceSizesStruct.bytes());
-			confSpaceSizesStruct.num_pos.set(confSpaceSizesMem.baseAddress(), confSpace.numPos());
-			confSpaceSizesStruct.max_num_inters.set(confSpaceSizesMem.baseAddress(), numPosPairs);
-			confSpaceSizesStruct.num_atoms.set(confSpaceSizesMem.baseAddress(), confSpace.maxNumConfAtoms);
-			confSpaceSizesStruct.max_num_dofs.set(confSpaceSizesMem.baseAddress(), confSpace.maxNumDofs);
-			confSpaceSizesBuf = confSpaceSizesMem.asByteBuffer();
 		}
+
+		assert (buf.pos == confSpaceSize + positionsSize);
+		assert (buf.isAligned(WidestGpuLoad));
+
+		// write the static atoms
+		confSpaceStruct.static_atoms_offset.set(confSpaceAddr, buf.pos);
+		var arrayAddr = buf.place(arrayStruct);
+		arrayStruct.size.set(arrayAddr, confSpace.staticCoords.size);
+		for (int i=0; i<confSpace.staticCoords.size; i++) {
+			var addr = buf.place(real3Struct);
+			real3Struct.x.set(addr, confSpace.staticCoords.x(i));
+			real3Struct.y.set(addr, confSpace.staticCoords.y(i));
+			real3Struct.z.set(addr, confSpace.staticCoords.z(i));
+		}
+		buf.skipToAlignment(WidestGpuLoad);
+
+		assert (buf.pos == confSpaceSize + positionsSize + staticCoordsSize);
+		assert (buf.isAligned(WidestGpuLoad));
+
+		// write the forcefield params
+		confSpaceStruct.params_offset.set(confSpaceAddr, buf.pos);
+		forcefieldsImpl.writeParams(buf);
+
+		// write the pos pairs
+		confSpaceStruct.pos_pairs_offset.set(confSpaceAddr, buf.pos);
+		var posPairOffsetsAddr = buf.place(posPairOffsets, numPosPairs, WidestGpuLoad);
+
+		assert (buf.isAligned(WidestGpuLoad));
+
+		// write the static-static pair
+		posPairOffsets.set(posPairOffsetsAddr, 0, buf.pos);
+		forcefieldsImpl.writeStaticStatic(buf);
+
+		// write the static-pos pairs
+		for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
+			posPairOffsets.set(posPairOffsetsAddr, 1 + posi1, buf.pos);
+			var fragOffsetsAddr = buf.place(fragOffsets, confSpace.numFrag(posi1), WidestGpuLoad);
+			for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
+				fragOffsets.set(fragOffsetsAddr, fragi1, buf.pos);
+				forcefieldsImpl.writeStaticPos(posi1, fragi1, buf);
+			}
+		}
+
+		buf.skipToAlignment(WidestGpuLoad);
+
+		// write the pos pairs
+		for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
+			posPairOffsets.set(posPairOffsetsAddr, 1 + confSpace.positions.length + posi1, buf.pos);
+			var fragOffsetsAddr = buf.place(fragOffsets, confSpace.numFrag(posi1), WidestGpuLoad);
+			for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
+				fragOffsets.set(fragOffsetsAddr, fragi1, buf.pos);
+				forcefieldsImpl.writePos(posi1, fragi1, buf);
+			}
+		}
+
+		buf.skipToAlignment(WidestGpuLoad);
+
+		// write the pos-pos pairs
+		for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
+			for (int posi2=0; posi2<posi1; posi2++) {
+				posPairOffsets.set(posPairOffsetsAddr, 1 + 2*confSpace.positions.length + posi1*(posi1 - 1)/2 + posi2, buf.pos);
+				var fragOffsetsAddr = buf.place(fragOffsets, confSpace.numFrag(posi1)*confSpace.numFrag(posi2), WidestGpuLoad);
+				for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
+					for (int fragi2=0; fragi2<confSpace.numFrag(posi2); fragi2++) {
+						fragOffsets.set(fragOffsetsAddr, fragi1*confSpace.numFrag(posi2) + fragi2, buf.pos);
+						forcefieldsImpl.writePosPos(posi1, fragi1, posi2, fragi2, buf);
+					}
+				}
+			}
+		}
+
+		assert (buf.pos == confSpaceSize + positionsSize + staticCoordsSize + forcefieldSize);
+		buf.skipToAlignment(WidestGpuLoad);
+
+		// make sure we used the whole buffer
+		assert (buf.pos == bufSize) : String.format("%d bytes leftover", bufSize - buf.pos);
+
+		// upload the conf space to the GPU for each device
+		var confSpaceBuf = confSpaceMem.asByteBuffer();
+		for (var it : gpuStreams) {
+			Pointer p = switch (precision) {
+				case Float32 -> NativeLib.alloc_conf_space_f32(it.gpuInfo.id, confSpaceBuf);
+				case Float64 -> NativeLib.alloc_conf_space_f64(it.gpuInfo.id, confSpaceBuf);
+			};
+			pConfSpace.put(it.gpuInfo, p);
+		}
+
+		// make the conf space sizes struct
+		confSpaceSizesMem = MemorySegment.allocateNative(confSpaceSizesStruct.bytes());
+		confSpaceSizesStruct.num_pos.set(confSpaceSizesMem.baseAddress(), confSpace.numPos());
+		confSpaceSizesStruct.max_num_inters.set(confSpaceSizesMem.baseAddress(), numPosPairs);
+		confSpaceSizesStruct.num_atoms.set(confSpaceSizesMem.baseAddress(), confSpace.maxNumConfAtoms);
+		confSpaceSizesStruct.max_num_dofs.set(confSpaceSizesMem.baseAddress(), confSpace.maxNumDofs);
+		confSpaceSizesBuf = confSpaceSizesMem.asByteBuffer();
 
 		// keep track of how many streams are left to give out
 		class StreamsLeft {
@@ -1278,6 +1332,10 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 			// try the next gpu first next time
 			gpui += 1;
 		}
+
+		// init the stream queue
+		streamQueue = new ArrayBlockingQueue<>(streams.size());
+		streamQueue.addAll(streams);
 	}
 
 	private void writeDihedral(DihedralAngle.Description desc, int posi, BufWriter buf) {
@@ -1335,20 +1393,36 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 	}
 
 	private final List<Stream> streams = new ArrayList<>();
-	private final AtomicInteger streami = new AtomicInteger(0);
-	private final ThreadLocal<Stream> threadStream = ThreadLocal.withInitial(() -> {
+	private final BlockingQueue<Stream> streamQueue;
 
-		// find the next available stream, if any
-		int streami = this.streami.getAndIncrement();
-		if (streami >= streams.size()) {
-			throw new IllegalStateException("exhausted all GPU streams");
+	private <T> T withStream(Function<Stream,T> func) {
+		try {
+
+			// checkout a stream
+			Stream stream = null;
+			while (stream == null) {
+				stream = streamQueue.poll(500, TimeUnit.MILLISECONDS);
+			}
+
+			// use it
+			try {
+				return func.apply(stream);
+			} finally {
+
+				// return the stream
+				streamQueue.add(stream);
+			}
+
+		} catch (InterruptedException ex) {
+			throw new RuntimeException(ex);
 		}
+	}
 
-		return streams.get(streami);
-	});
-
-	public void recycleStreams() {
-		streami.set(0);
+	private void withStream(Consumer<Stream> func) {
+		withStream(stream -> {
+			func.accept(stream);
+			return 42;
+		});
 	}
 
 	@Override
@@ -1360,16 +1434,18 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		for (Stream stream : streams) {
 			stream.close();
 		}
+		confSpaceMem.close();
 	}
 
 	public AssignedCoords assign(int[] conf) {
 		try (var confMem = makeConf(conf)) {
 			try (var coordsMem = makeArray(confSpace.maxNumConfAtoms, real3Struct.bytes())) {
-				Stream stream = threadStream.get();
-				switch (precision) {
-					case Float32 -> NativeLib.assign_f32(stream.device, stream.stream, stream.pConfSpace, confMem.asByteBuffer(), coordsMem.asByteBuffer());
-					case Float64 -> NativeLib.assign_f64(stream.device, stream.stream, stream.pConfSpace, confMem.asByteBuffer(), coordsMem.asByteBuffer());
-				}
+				withStream(stream -> {
+					switch (precision) {
+						case Float32 -> NativeLib.assign_f32(stream.device, stream.stream, stream.pConfSpace, confMem.asByteBuffer(), coordsMem.asByteBuffer());
+						case Float64 -> NativeLib.assign_f64(stream.device, stream.stream, stream.pConfSpace, confMem.asByteBuffer(), coordsMem.asByteBuffer());
+					}
+				});
 				return makeCoords(coordsMem, conf);
 			}
 		}
@@ -1481,6 +1557,12 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		}
 
 		try (var jobsMem = makeMinimizationJobsMem(jobs)) {
+
+			if (dumpJobsTo != null) {
+				forcefieldsImpl.dumpJobs(dumpJobsTo, jobsMem.asByteBuffer());
+				throw new Error("Jobs dumped to: " + dumpJobsTo.getAbsolutePath());
+			}
+
 			try (var energiesMem = makeArray(jobs.size(), precision.bytes)) {
 
 				forcefieldsImpl.minimizeBatch(jobsMem.asByteBuffer(), energiesMem.asByteBuffer());

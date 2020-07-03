@@ -40,6 +40,10 @@ namespace osprey {
 
 			__host__ __device__
 			inline const Conf<T> & get_conf(const Pos & pos, int confi) const {
+
+				// can't get info for unassigned positions
+				assert (confi >= 0);
+
 				// the java side puts the conf offsets right after the Pos struct
 				auto conf_offsets = reinterpret_cast<const int64_t *>(&pos + 1);
 				return *reinterpret_cast<const Conf<T> *>(offset(conf_offsets[confi]));

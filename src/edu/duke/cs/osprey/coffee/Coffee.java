@@ -5,9 +5,13 @@ import edu.duke.cs.osprey.coffee.directions.Directions;
 import edu.duke.cs.osprey.coffee.nodedb.NodeDB;
 import edu.duke.cs.osprey.coffee.nodedb.NodeIndex;
 import edu.duke.cs.osprey.coffee.seqdb.SeqDB;
-import edu.duke.cs.osprey.confspace.*;
+import edu.duke.cs.osprey.confspace.Conf;
+import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
+import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
+import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
+import edu.duke.cs.osprey.gpu.Structs;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.Parallelism;
@@ -20,7 +24,7 @@ import java.math.RoundingMode;
 import java.util.Arrays;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 
 
 /**
@@ -38,6 +42,7 @@ public class Coffee {
 		private final StateConfig[] stateConfigs;
 		private Cluster cluster;
 		private Parallelism parallelism;
+		private Structs.Precision precision = Structs.Precision.Float64;
 		private File nodedbFile = null;
 		private long nodedbFileBytes = 0;
 		private long nodedbMemBytes = 2*1024*1024; // 2 MiB
@@ -52,16 +57,21 @@ public class Coffee {
 			stateConfigs = new StateConfig[confSpace.states.size()];
 		}
 
-		public Builder configState(MultiStateConfSpace.State state, StateConfig config) {
+		public Builder configState(MultiStateConfSpace.State state, BiConsumer<StateConfig,ConfEnergyCalculator> configurator) {
+			StateConfig config = new StateConfig(state);
+			var ecalc = new CPUConfEnergyCalculator(config.confSpace);
+			configurator.accept(config, ecalc);
 			stateConfigs[state.index] = config;
 			return this;
 		}
 
-		public Builder configEachState(Consumer<StateConfig> configurator) {
+		public Builder configState(String stateName, BiConsumer<StateConfig,ConfEnergyCalculator> configurator) {
+			return configState(confSpace.getState(stateName), configurator);
+		}
+
+		public Builder configEachState(BiConsumer<StateConfig,ConfEnergyCalculator> configurator) {
 			for (MultiStateConfSpace.State state : confSpace.states) {
-				StateConfig config = new StateConfig(state);
-				configurator.accept(config);
-				configState(state, config);
+				configState(state, configurator);
 			}
 			return this;
 		}
@@ -73,6 +83,11 @@ public class Coffee {
 
 		public Builder setParallelism(Parallelism val) {
 			parallelism = val;
+			return this;
+		}
+
+		public Builder setPrecision(Structs.Precision val) {
+			precision = val;
 			return this;
 		}
 
@@ -129,11 +144,11 @@ public class Coffee {
 
 			// make default parallelism if needed
 			if (parallelism == null) {
-				parallelism = Parallelism.makeCpu(2);
+				parallelism = Parallelism.makeCpu(1);
 			}
 
 			return new Coffee(
-				confSpace, stateConfigs, cluster, parallelism,
+				confSpace, stateConfigs, cluster, parallelism, precision,
 				nodedbFile, nodedbFileBytes, nodedbMemBytes,
 				seqdbFile, seqdbMathContext, includeStaticStatic, conditions
 			);
@@ -144,18 +159,21 @@ public class Coffee {
 	public static class StateConfig {
 
 		public final MultiStateConfSpace.State state;
+		public final ConfSpace confSpace;
 
-		public ConfEnergyCalculator ecalc;
 		public PosInterGen posInterGen;
 
 		public StateConfig(MultiStateConfSpace.State state) {
+
+			if (!(state.confSpace instanceof ConfSpace)) {
+				throw new IllegalArgumentException("Conformation space must be in the compiled format");
+			}
+
 			this.state = state;
+			this.confSpace = (ConfSpace)state.confSpace;
 		}
 
 		public void check() {
-			if (ecalc == null) {
-				throw new MissingArgumentException("conformation energy calculator (ecalc)", state);
-			}
 			if (posInterGen == null) {
 				throw new MissingArgumentException("position interactions generator (posInterGen)", state);
 			}
@@ -196,6 +214,7 @@ public class Coffee {
 	public final StateConfig[] stateConfigs;
 	public final Cluster cluster;
 	public final Parallelism parallelism;
+	public final Structs.Precision precision;
 	public final File dbFile;
 	public final long dbFileBytes;
 	public final long dbMemBytes;
@@ -208,12 +227,13 @@ public class Coffee {
 	public final BoltzmannCalculator bcalc;
 	public final StateInfo[] infos;
 
-	private Coffee(MultiStateConfSpace confSpace, StateConfig[] stateConfigs, Cluster cluster, Parallelism parallelism, File dbFile, long dbFileBytes, long dbMemBytes, File seqdbFile, MathContext seqdbMathContext, boolean includeStaticStatic, BoltzmannCalculator.Conditions conditions) {
+	private Coffee(MultiStateConfSpace confSpace, StateConfig[] stateConfigs, Cluster cluster, Parallelism parallelism, Structs.Precision precision, File dbFile, long dbFileBytes, long dbMemBytes, File seqdbFile, MathContext seqdbMathContext, boolean includeStaticStatic, BoltzmannCalculator.Conditions conditions) {
 
 		this.confSpace = confSpace;
 		this.stateConfigs = stateConfigs;
 		this.cluster = cluster;
 		this.parallelism = parallelism;
+		this.precision = precision;
 		this.dbFile = dbFile;
 		this.dbFileBytes = dbFileBytes;
 		this.dbMemBytes = dbMemBytes;
@@ -237,14 +257,6 @@ public class Coffee {
 
 			try (var tasks = parallelism.makeTaskExecutor()) {
 
-				// TODO: CPU vs GPU parallelism?
-
-				// pre-compute the Z matrices
-				for (var info : infos) {
-					member.log0("computing Z matrix for state: %s", info.config.state.name);
-					info.zmat.compute(member, tasks, includeStaticStatic);
-				}
-
 				// open the sequence database
 				try (SeqDB seqdb = new SeqDB.Builder(confSpace, member)
 					.setMathContext(seqdbMathContext)
@@ -261,33 +273,43 @@ public class Coffee {
 					) {
 
 						// init the node processor, and report dropped nodes to the sequence database
-						var nodeProcessor = new NodeProcessor(tasks, seqdb, nodedb, infos, includeStaticStatic);
-						nodedb.dropHandler = nodeProcessor::handleDrops;
+						try (var nodeProcessor = new NodeProcessor(tasks, seqdb, nodedb, infos, includeStaticStatic, parallelism, precision)) {
+							nodedb.dropHandler = nodeProcessor::handleDrops;
 
-						// wait for all members to initialize the directions
-						var directions = new Directions(member);
-						member.barrier(5, TimeUnit.MINUTES);
+							// wait for everyone to be ready
+							member.barrier(5, TimeUnit.MINUTES);
 
-						// initialize the computation
-						if (member.isDirector()) {
-							director.init(directions, nodeProcessor);
-							initRootNodes(directions, nodeProcessor);
-						}
+							// pre-compute the Z matrices
+							for (var info : infos) {
+								member.log0("computing Z matrix for state: %s", info.config.state.name);
+								info.zmat.compute(member, tasks, includeStaticStatic, nodeProcessor.ecalcs[info.config.state.index]);
+							}
 
-						// wait for the root nodes calculation to finish
-						// TODO: do we need to configure the init time here for different init procedures?
-						member.barrier(5, TimeUnit.MINUTES);
+							// initialize the directions and wait
+							var directions = new Directions(member);
+							member.barrier(5, TimeUnit.MINUTES);
 
-						// prep complete! now we can start the real computation
-						if (member.isDirector()) {
-							director.direct(directions, nodeProcessor);
-						} else {
-							followDirections(directions, nodeProcessor);
-						}
+							// initialize the computation
+							if (member.isDirector()) {
+								director.init(directions, nodeProcessor);
+								initRootNodes(directions, nodeProcessor);
+							}
 
-						// wait for the computation to finish before cleaning up databases
-						member.barrier(5, TimeUnit.MINUTES);
+							// wait for the root nodes calculation to finish
+							// TODO: do we need to configure the init time here for different init procedures?
+							member.barrier(5, TimeUnit.MINUTES);
 
+							// prep complete! now we can start the real computation
+							if (member.isDirector()) {
+								director.direct(directions, nodeProcessor);
+							} else {
+								followDirections(directions, nodeProcessor);
+							}
+
+							// wait for the computation to finish before cleaning up databases
+							member.barrier(5, TimeUnit.MINUTES);
+
+						} // node processor
 					} // nodedb
 				} // seqdb
 			} // tasks

@@ -61,7 +61,7 @@ public class TestConfEnergyCalculatorAdapter {
 	private void energyMatrixMinimized(Parallelism parallelism) {
 
 		try (TaskExecutor tasks = parallelism.makeTaskExecutor()) {
-			try (ConfEnergyCalculator confEcalc = ConfEnergyCalculator.build(confSpace, parallelism)) {
+			try (ConfEnergyCalculator confEcalc = ConfEnergyCalculator.makeBest(confSpace, parallelism)) {
 
 				// compute the true energy matrix using the new calculator
 				PosInterDist posInterDist = PosInterDist.DesmetEtAl1992;
@@ -213,7 +213,7 @@ public class TestConfEnergyCalculatorAdapter {
 	public void findGMEC(Parallelism parallelism) {
 
 		try (TaskExecutor tasks = parallelism.makeTaskExecutor()) {
-			try (ConfEnergyCalculator confEcalc = ConfEnergyCalculator.build(confSpace, parallelism)) {
+			try (ConfEnergyCalculator confEcalc = ConfEnergyCalculator.makeBest(confSpace, parallelism)) {
 
 				// compute the energy matrix, with reference energies
 				ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc, tasks)
@@ -253,7 +253,7 @@ public class TestConfEnergyCalculatorAdapter {
 	public void calcPfunc(Parallelism parallelism) {
 
 		try (TaskExecutor tasks = parallelism.makeTaskExecutor()) {
-			try (ConfEnergyCalculator confEcalc = ConfEnergyCalculator.build(confSpace, parallelism)) {
+			try (ConfEnergyCalculator confEcalc = ConfEnergyCalculator.makeBest(confSpace, parallelism)) {
 
 				// compute the energy matrix
 				ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc, tasks)

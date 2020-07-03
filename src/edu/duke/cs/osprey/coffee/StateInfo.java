@@ -4,7 +4,6 @@ import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.SeqSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
-import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.tools.BigExp;
 
@@ -17,7 +16,6 @@ public class StateInfo {
 	public final Coffee.StateConfig config;
 	public final BoltzmannCalculator bcalc;
 
-	public final ConfSpace confSpace;
 	public final ClusterZMatrix zmat;
 	public final EnergyBoundStats energyBoundStats;
 	public final int[] posPermutation;
@@ -30,17 +28,16 @@ public class StateInfo {
 		this.config = config;
 		this.bcalc = bcalc;
 
-		confSpace = (ConfSpace)config.state.confSpace;
-		zmat = new ClusterZMatrix(config.ecalc, config.posInterGen, bcalc);
+		zmat = new ClusterZMatrix(config.confSpace, config.posInterGen, bcalc);
 		energyBoundStats = new EnergyBoundStats();
 
 		// sort positions so multi-sequence layers are first
-		posPermutation = IntStream.range(0, confSpace.numPos())
+		posPermutation = IntStream.range(0, config.confSpace.numPos())
 			.boxed()
 			.sorted((a, b) -> {
 
-				boolean amut = confSpace.hasMutations(a);
-				boolean bmut = confSpace.hasMutations(b);
+				boolean amut = config.confSpace.hasMutations(a);
+				boolean bmut = config.confSpace.hasMutations(b);
 
 				// prefer mutable positions first
 				if (amut && !bmut) {
@@ -63,16 +60,16 @@ public class StateInfo {
 			.toArray();
 
 		// calculate all the conf types by conf and pos
-		typesByConfByPos = new int[confSpace.numPos()][];
-		numTypesByPos = new int[confSpace.numPos()];
-		for (int posi=0; posi<confSpace.numPos(); posi++) {
+		typesByConfByPos = new int[config.confSpace.numPos()][];
+		numTypesByPos = new int[config.confSpace.numPos()];
+		for (int posi=0; posi<config.confSpace.numPos(); posi++) {
 
-			typesByConfByPos[posi] = new int[confSpace.numConf(posi)];
-			SeqSpace.Position seqPos = confSpace.seqSpace.getPosition(confSpace.name(posi));
+			typesByConfByPos[posi] = new int[config.confSpace.numConf(posi)];
+			SeqSpace.Position seqPos = config.confSpace.seqSpace.getPosition(config.confSpace.name(posi));
 			if (seqPos != null) {
 				numTypesByPos[posi] = seqPos.resTypes.size();
-				for (int confi=0; confi<confSpace.numConf(posi); confi++) {
-					SeqSpace.ResType rt = seqPos.getResTypeOrThrow(confSpace.confType(posi, confi));
+				for (int confi=0; confi<config.confSpace.numConf(posi); confi++) {
+					SeqSpace.ResType rt = seqPos.getResTypeOrThrow(config.confSpace.confType(posi, confi));
 					typesByConfByPos[posi][confi] = rt.index;
 				}
 			} else {
@@ -89,7 +86,7 @@ public class StateInfo {
 	}
 
 	public ConfIndex makeConfIndex() {
-		ConfIndex index = new ConfIndex(confSpace.numPos());
+		ConfIndex index = new ConfIndex(config.confSpace.numPos());
 		index.updateUndefined();
 		return index;
 	}

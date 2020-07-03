@@ -21,7 +21,7 @@ namespace osprey { namespace fmt {
 		return out.iword(real_width_index);
 	}
 
-	std::ostream & operator << (std::ostream & out, RealFormat fmt) {
+	inline std::ostream & operator << (std::ostream & out, RealFormat fmt) {
 		real_width(out) = fmt.width;
 		out << std::fixed << std::setprecision(fmt.precision);
 		return out;
@@ -43,14 +43,14 @@ namespace osprey { namespace fmt {
 		return out.iword(indents_index);
 	}
 
-	std::ostream & operator << (std::ostream & out, IndentsFormat fmt) {
+	inline std::ostream & operator << (std::ostream & out, IndentsFormat fmt) {
 		indents(out) = fmt.n;
 		return out;
 	}
 
 	struct MakeIndents {};
 	static MakeIndents make_indents;
-	std::ostream & operator << (std::ostream & out, MakeIndents ignored) {
+	inline std::ostream & operator << (std::ostream & out, MakeIndents ignored) {
 		for (int i=0; i<indents(out); i++) {
 			out << "\t";
 		}

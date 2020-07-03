@@ -10,6 +10,8 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
+import edu.duke.cs.osprey.gpu.Structs;
+import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.ThreadTools;
 import edu.duke.cs.osprey.tools.BigExp;
@@ -21,15 +23,15 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 
-public class NodeProcessor {
+public class NodeProcessor implements AutoCloseable {
 
 	private static class MinimizationQueue {
 
 		final int size;
 		final Deque<NodeIndex.Node> queue;
 
-		MinimizationQueue(StateInfo stateInfo) {
-			size = stateInfo.config.ecalc.maxBatchSize();
+		MinimizationQueue(StateInfo stateInfo, int size) {
+			this.size = size;
 			queue = new ArrayDeque<>(size);
 		}
 
@@ -72,9 +74,11 @@ public class NodeProcessor {
 	public final StateInfo[] stateInfos;
 	public final boolean includeStaticStatic;
 
+	public final ConfEnergyCalculator[] ecalcs;
+
 	private final List<MinimizationQueue> minimizationQueues;
 
-	public NodeProcessor(TaskExecutor tasks, SeqDB seqdb, NodeDB nodedb, StateInfo[] stateInfos, boolean includeStaticStatic) {
+	public NodeProcessor(TaskExecutor tasks, SeqDB seqdb, NodeDB nodedb, StateInfo[] stateInfos, boolean includeStaticStatic, Parallelism parallelism, Structs.Precision precision) {
 
 		this.tasks = tasks;
 		this.seqdb = seqdb;
@@ -82,10 +86,22 @@ public class NodeProcessor {
 		this.stateInfos = stateInfos;
 		this.includeStaticStatic = includeStaticStatic;
 
+		// make the energy calculators
+		ecalcs = Arrays.stream(stateInfos)
+			.map(stateInfo -> ConfEnergyCalculator.makeBest(stateInfo.config.confSpace, parallelism, precision))
+			.toArray(ConfEnergyCalculator[]::new);
+
 		// set up the minimization queues
 		minimizationQueues = Arrays.stream(stateInfos)
-			.map(stateInfo -> new MinimizationQueue(stateInfo))
+			.map(stateInfo -> new MinimizationQueue(stateInfo, ecalcs[stateInfo.config.state.index].maxBatchSize()))
 			.collect(Collectors.toList());
+	}
+
+	@Override
+	public void close() {
+		for (var ecalc : ecalcs) {
+			ecalc.close();
+		}
 	}
 
 	private void log(String msg, Object ... args) {
@@ -167,7 +183,7 @@ public class NodeProcessor {
 
 	public Sequence makeSeq(int statei, int[] conf) {
 		if (stateInfos[statei].config.state.isSequenced) {
-			return seqdb.confSpace.seqSpace.makeSequence(stateInfos[statei].confSpace, conf);
+			return seqdb.confSpace.seqSpace.makeSequence(stateInfos[statei].config.confSpace, conf);
 		} else {
 			return null;
 		}
@@ -247,7 +263,7 @@ public class NodeProcessor {
 		var jobs = nodes.stream()
 			.map(node -> new ConfEnergyCalculator.MinimizationJob(node.conf, makeInters(stateInfo, node.conf)))
 			.collect(Collectors.toList());
-		stateInfo.config.ecalc.minimizeEnergies(jobs);
+		ecalcs[statei].minimizeEnergies(jobs);
 
 		// compute the bound energies for each conf
 		double[] bounds = nodes.stream()
@@ -301,9 +317,9 @@ public class NodeProcessor {
 
 	private List<PosInter> makeInters(StateInfo stateInfo, int[] conf) {
 		if (includeStaticStatic) {
-			return stateInfo.config.posInterGen.all(stateInfo.confSpace, conf);
+			return stateInfo.config.posInterGen.all(stateInfo.config.confSpace, conf);
 		} else {
-			return stateInfo.config.posInterGen.dynamic(stateInfo.confSpace, conf);
+			return stateInfo.config.posInterGen.dynamic(stateInfo.config.confSpace, conf);
 		}
 	}
 
@@ -321,7 +337,7 @@ public class NodeProcessor {
 				() -> {
 					int[] conf = confs.get(fi);
 					var inters = makeInters(stateInfo, conf);
-					energiedCoords.set(fi, stateInfo.config.ecalc.minimize(conf, inters));
+					energiedCoords.set(fi, ecalcs[statei].minimize(conf, inters));
 					return 42;
 				},
 				answer -> {}

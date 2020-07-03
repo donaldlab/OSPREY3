@@ -83,23 +83,30 @@ namespace osprey {
 				// make the conf dofs
 				for (int posi=0; posi<assignment.conf_space.num_pos; posi++) {
 					const Pos & pos = assignment.conf_space.get_pos(posi);
-					const Conf<T> & conf = assignment.conf_space.get_conf(pos, assignment.conf[posi]);
-					for (int motioni=0; motioni<conf.num_motions; motioni++) {
 
-						assert (size < assignment.conf_space.max_num_dofs);
+					// is this pos assigned?
+					int32_t confi = assignment.conf[posi];
+					if (confi >= 0) {
 
-						switch (assignment.conf_space.get_conf_motion_id(conf, motioni)) {
+						// yup, make the dofs
+						const Conf<T> & conf = assignment.conf_space.get_conf(pos, confi);
+						for (int motioni=0; motioni<conf.num_motions; motioni++) {
 
-							case motions::Dihedral<T>::Id: {
-								if (threadIdx.x == 0) {
-									auto dihedral = reinterpret_cast<const motions::Dihedral<T> *>(assignment.conf_space.get_conf_motion(conf, motioni));
-									auto dof = reinterpret_cast<motions::DihedralDof<T> *>(get(size));
-									dof->init(dihedral, inters);
-								}
-								size += 1;
-							} break;
+							assert (size < assignment.conf_space.max_num_dofs);
 
-							default: assert(false);
+							switch (assignment.conf_space.get_conf_motion_id(conf, motioni)) {
+
+								case motions::Dihedral<T>::Id: {
+									if (threadIdx.x == 0) {
+										auto dihedral = reinterpret_cast<const motions::Dihedral<T> *>(assignment.conf_space.get_conf_motion(conf, motioni));
+										auto dof = reinterpret_cast<motions::DihedralDof<T> *>(get(size));
+										dof->init(dihedral, inters);
+									}
+									size += 1;
+								} break;
+
+								default: assert(false);
+							}
 						}
 					}
 				}

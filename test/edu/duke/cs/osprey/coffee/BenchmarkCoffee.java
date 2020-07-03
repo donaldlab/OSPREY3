@@ -17,10 +17,11 @@ import edu.duke.cs.osprey.ematrix.compiled.EmatCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyPartition;
-import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculatorAdapter;
+import edu.duke.cs.osprey.energy.compiled.NativeConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.gpu.Structs;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
@@ -50,80 +51,125 @@ public class BenchmarkCoffee {
 		var seqClassic = complexClassic.seqSpace.makeWildTypeSequence();
 		var seqCompiled = complexCompiled.seqSpace.makeWildTypeSequence();
 
-		var oneCpu = Parallelism.makeCpu(1);
-		var allCpus = Parallelism.makeCpu(Parallelism.getMaxNumCPUs());
-
 		var bounds = Bounds.Classic;
 		// var bonuds = Bounds.Tighter;
 
 		var noStaticStatic = false;
 		var yesStaticStatic = true;
 
-		double epsilon = 0.68; // amazingly, also corresponds to roughly a 0.67 width in free energy
-		double gWidthMax = 0.67;
+		//double epsilon = 0.68; // amazingly, also corresponds to roughly a 0.67 width in free energy
+		double epsilon = 0.018; // roughly equivalent to gWidthMax = 0.01
+		//double gWidthMax = 0.67;
+		double gWidthMax = 0.01;
 
-		// benchmarks, on jerry4 (up to 48 threads, 24 cores)
-		var cpus = Parallelism.makeCpu(6);
+		// benchmarks, on jerry4 (up to 48 threads, 24 cores, 4 Titan V GPUs)
+		//var parallelism = Parallelism.makeCpu(1);
+		var parallelism = Parallelism.makeCpu(48);
+		//var parallelism = Parallelism.make(3*4, 4, 64);
 
-		//benchmark("GD     classic   noSS", () -> gradientDescent(complexClassic, seqClassic, cpus, bounds, noStaticStatic, epsilon));
+		//benchmark("GD     classic   noSS", () -> gradientDescent(complexClassic, seqClassic, parallelism, bounds, noStaticStatic, epsilon));
 
 		// 1 thread
 		//[28    4     0     28    13    28    10   ] scores:   16421, confs: 262, score: -126.800794, energy: -120.704369, bounds:[   94.681678,   95.174941] (log10p1), delta:0.678828, time:    1.32 m, heapMem:0.2% of 30.0 GiB, extMem:0 B
 		//GD     classic   noSS   emat   19095 ms ( 19.10 s)   pfunc   79191 ms (  1.32 m)   G [-129.9660,-129.2924]  w =  0.6736
 
-		//benchmark("GD     compiled yesSS", () -> gradientDescent(complexCompiled, seqCompiled, cpus, bounds, yesStaticStatic, epsilon));
-
-		// 1 thread
-		//[14    40    5     42    28    13    13   ] scores:   16658, confs: 167, score:-1557.838995, energy:-1553.935900, bounds:[ 1142.602893, 1143.096744] (log10p1), delta:0.679263, time:   38.90 s, heapMem:0.2% of 30.0 GiB, extMem:0 B
-		//GD     compiled yesSS   emat   11018 ms ( 11.02 s)   pfunc   38952 ms ( 38.95 s)   G [-1560.9540,-1560.2796]  w =  0.6743
-
 		// 2 threads
-		//[28    38    28    39    28    13    9    ] scores:   13754, confs: 169, score:-1557.822975, energy:-1555.779319, bounds:[ 1142.603402, 1143.092819] (log10p1), delta:0.675972, time:   21.11 s, heapMem:0.2% of 30.0 GiB, extMem:0 B
-		//GD     compiled yesSS   emat   10991 ms ( 10.99 s)   pfunc   21030 ms ( 21.03 s)   G [-1560.9486,-1560.2803]  w =  0.6683
+		//[28    13    0     28    9     28    6    ] scores:   19661, confs: 264, score: -126.799888, energy: -123.291188, bounds:[   94.681851,   95.170677] (log10p1), delta:0.675531, time:   41.12 s, heapMem:0.2% of 30.0 GiB, extMem:0 B
+		//GD     classic   noSS   emat   10805 ms ( 10.81 s)   pfunc   41114 ms ( 41.11 s)   G [-129.9602,-129.2927]  w =  0.6675
 
 		// 6 threads
-		//[14    38    28    41    28    13    9    ] scores:   13659, confs: 174, score:-1557.808425, energy:-1555.769220, bounds:[ 1142.604120, 1143.082060] (log10p1), delta:0.667295, time:    7.60 s, heapMem:0.2% of 30.0 GiB, extMem:0 B
-		//GD     compiled yesSS   emat   10883 ms ( 10.88 s)   pfunc    7530 ms (  7.53 s)   G [-1560.9340,-1560.2813]  w =  0.6527
+		//[28    13    13    2     10    28    12   ] scores:   20212, confs: 268, score: -126.773173, energy: -124.492100, bounds:[   94.682038,   95.162465] (log10p1), delta:0.669194, time:   15.15 s, heapMem:0.2% of 30.0 GiB, extMem:0 B
+		//GD     classic   noSS   emat    4287 ms (  4.29 s)   pfunc   15149 ms ( 15.15 s)   G [-129.9490,-129.2929]  w =  0.6560
 
 		// 12 threads
-		//[14    38    28    41    28    13    9    ] scores:   13338, confs: 180, score:-1557.808425, energy:-1555.769220, bounds:[ 1142.604855, 1143.069136] (log10p1), delta:0.656664, time:    4.50 s, heapMem:0.2% of 30.0 GiB, extMem:0 B
-		//GD     compiled yesSS   emat   11087 ms ( 11.09 s)   pfunc    4427 ms (  4.43 s)   G [-1560.9163,-1560.2823]  w =  0.6340
+		//[28    4     13    2     11    28    8    ] scores:   23299, confs: 274, score: -126.731286, energy: -124.574063, bounds:[   94.682310,   95.150630] (log10p1), delta:0.659842, time:    8.25 s, heapMem:0.2% of 30.0 GiB, extMem:0 B
+		//GD     classic   noSS   emat    2988 ms (  2.99 s)   pfunc    8241 ms (  8.24 s)   G [-129.9328,-129.2933]  w =  0.6395
 
 		// 24 threads
-		//[14    36    28    41    28    13    13   ] scores:   16507, confs: 190, score:-1557.750911, energy:-1555.812669, bounds:[ 1142.606579, 1143.047615] (log10p1), delta:0.637788, time:    2.97 s, heapMem:0.2% of 30.0 GiB, extMem:0 B
-		//GD     compiled yesSS   emat   11235 ms ( 11.24 s)   pfunc    2891 ms (  2.89 s)   G [-1560.8869,-1560.2847]  w =  0.6023
+		//[28    4     0     2     11    28    8    ] scores:   23183, confs: 287, score: -126.687537, energy: -124.058369, bounds:[   94.682685,   95.125548] (log10p1), delta:0.639308, time:    5.96 s, heapMem:0.2% of 30.0 GiB, extMem:0 B
+		//GD     classic   noSS   emat    2416 ms (  2.42 s)   pfunc    5954 ms (  5.95 s)   G [-129.8985,-129.2938]  w =  0.6048
 
 		// 48 threads
-		//[14    38    28    39    28    13    9    ] scores:   10956, confs: 216, score:-1557.696283, energy:-1555.650422, bounds:[ 1142.609931, 1142.998349] (log10p1), delta:0.591133, time:    2.98 s, heapMem:0.2% of 30.0 GiB, extMem:0 B
-		//GD     compiled yesSS   emat   11022 ms ( 11.02 s)   pfunc    2901 ms (  2.90 s)   G [-1560.8196,-1560.2892]  w =  0.5304
+		//[28    13    13    2     10    1     43   ] scores:   24442, confs: 311, score: -126.592165, energy: -122.776608, bounds:[   94.683647,   95.082771] (log10p1), delta:0.601089, time:    5.57 s, heapMem:0.2% of 30.0 GiB, extMem:0 B
+		//GD     classic   noSS   emat    2305 ms (  2.31 s)   pfunc    5565 ms (  5.57 s)   G [-129.8401,-129.2951]  w =  0.5450
 
-		benchmark("COFFEE compiled yesSS", () -> coffee(complexCompiled, seqCompiled, cpus, bounds, yesStaticStatic, gWidthMax));
+		benchmark("GD     compiled yesSS", () -> gradientDescent(complexCompiled, seqCompiled, parallelism, bounds, yesStaticStatic, epsilon));
 
 		// 1 thread
-		//COFFEE-0: 	G [-1560.937,-1560.278]   width 0.659032 of 0.000000   confs       254   avgap 2.84   nodedb  26.6%   rr Infinity   time 59.07 s
-		//COFFEE compiled yesSS   emat   24947 ms ( 24.95 s)   pfunc   59074 ms ( 59.07 s)   G [-1560.9373,-1560.2783]  w =  0.6590
+		//[28    38    28    39    28    13    9    ] scores:   12673, confs: 169, score:-1557.822975, energy:-1555.779307, bounds:[ 1142.603402, 1143.093190] (log10p1), delta:0.676249, time:   28.58 s, heapMem:0.2% of 30.0 GiB, extMem:0 B
+		//GD     compiled yesSS   emat    8521 ms (  8.52 s)   pfunc   28465 ms ( 28.47 s)   G [-1560.9492,-1560.2803]  w =  0.6688
 
 		// 2 threads
-		//COFFEE-0: 	G [-1560.935,-1560.276]   width 0.658562 of 0.000000   confs       258   avgap 2.82   nodedb  24.2%   rr Infinity   time 33.01 s
-		//COFFEE compiled yesSS   emat   11634 ms ( 11.63 s)   pfunc   33010 ms ( 33.01 s)   G [-1560.9346,-1560.2761]  w =  0.6586
+		//[14    38    28    41    28    13    9    ] scores:   10563, confs: 171, score:-1557.808425, energy:-1555.769221, bounds:[ 1142.603648, 1143.091199] (log10p1), delta:0.674576, time:   15.19 s, heapMem:0.2% of 30.0 GiB, extMem:0 B
+		//GD     compiled yesSS   emat    8383 ms (  8.38 s)   pfunc   15112 ms ( 15.11 s)   G [-1560.9464,-1560.2807]  w =  0.6658
 
 		// 6 threads
-		//COFFEE-0: 	G [-1560.821,-1560.281]   width 0.539462 of 0.000000   confs       273   avgap 2.73   nodedb  22.7%   rr Infinity   time 14.06 s
-		//COFFEE compiled yesSS   emat    7730 ms (  7.73 s)   pfunc   14058 ms ( 14.06 s)   G [-1560.8206,-1560.2811]  w =  0.5395
+		//[14    38    28    41    28    13    9    ] scores:   11118, confs: 175, score:-1557.808425, energy:-1555.769221, bounds:[ 1142.604324, 1143.081718] (log10p1), delta:0.666876, time:    5.64 s, heapMem:0.2% of 30.0 GiB, extMem:0 B
+		//GD     compiled yesSS   emat    8513 ms (  8.51 s)   pfunc    5568 ms (  5.57 s)   G [-1560.9335,-1560.2816]  w =  0.6519
 
 		// 12 threads
-		//COFFEE-0: 	G [-1560.795,-1560.287]   width 0.507800 of 0.000000   confs       277   avgap 2.72   nodedb  21.1%   rr Infinity   time 7.84 s
-		//COFFEE compiled yesSS   emat    7469 ms (  7.47 s)   pfunc    7842 ms (  7.84 s)   G [-1560.7945,-1560.2867]  w =  0.5078
+		//[14    38    28    41    28    13    9    ] scores:   10639, confs: 180, score:-1557.808425, energy:-1555.769221, bounds:[ 1142.604855, 1143.071699] (log10p1), delta:0.658685, time:    3.21 s, heapMem:0.2% of 30.0 GiB, extMem:0 B
+		//GD     compiled yesSS   emat    8522 ms (  8.52 s)   pfunc    3129 ms (  3.13 s)   G [-1560.9198,-1560.2823]  w =  0.6375
 
 		// 24 threads
-		//COFFEE-0: 	G [-1560.858,-1560.290]   width 0.567334 of 0.000000   confs       226   avgap 2.64   nodedb  18.8%   rr Infinity   time 4.15 s
-		//COFFEE compiled yesSS   emat    7494 ms (  7.49 s)   pfunc    4147 ms (  4.15 s)   G [-1560.8576,-1560.2903]  w =  0.5673
+		//[14    36    28    41    28    13    13   ] scores:   10021, confs: 193, score:-1557.750911, energy:-1555.812669, bounds:[ 1142.606972, 1143.046281] (log10p1), delta:0.636344, time:    2.28 s, heapMem:0.2% of 30.0 GiB, extMem:0 B
+		//GD     compiled yesSS   emat    8438 ms (  8.44 s)   pfunc    2199 ms (  2.20 s)   G [-1560.8851,-1560.2852]  w =  0.5999
 
 		// 48 threads
-		//COFFEE-0: 	G [-1560.680,-1560.297]   width 0.383059 of 0.000000   confs       297   avgap 2.73   nodedb  21.9%   rr Infinity   time 4.23 s
-		//COFFEE compiled yesSS   emat    8059 ms (  8.06 s)   pfunc    4228 ms (  4.23 s)   G [-1560.6802,-1560.2972]  w =  0.3831
+		//[14    38    28    39    28    13    9    ] scores:    8083, confs: 221, score:-1557.696283, energy:-1555.650422, bounds:[ 1142.610232, 1143.004953] (log10p1), delta:0.597024, time:    2.29 s, heapMem:0.2% of 30.0 GiB, extMem:0 B
+		//GD     compiled yesSS   emat    8491 ms (  8.49 s)   pfunc    2217 ms (  2.22 s)   G [-1560.8287,-1560.2897]  w =  0.5390
 
-		// TODO: NEXTTIME: scale up, GPUs
+		// with e <= 0.01
+
+		// 48 threads
+		//[28    38    28    42    15    13    7    ] scores:   55323, confs:1514, score:-1554.136302, energy:-1551.137430, bounds:[ 1142.622923, 1142.630201] (log10p1), delta:0.016618, time:   12.83 s, heapMem:0.2% of 30.0 GiB, extMem:0 B
+		//GD     compiled yesSS   emat    8467 ms (  8.47 s)   pfunc   12756 ms ( 12.76 s)   G [-1560.3169,-1560.3070]  w =  0.0099
+
+
+		//benchmark("COFFEE compiled yesSS", () -> coffee(complexCompiled, seqCompiled, parallelism, bounds, yesStaticStatic, gWidthMax));
+
+		// 1 thread
+		//COFFEE-0: 	G [-1560.934,-1560.277]   width 0.656849 of 0.000000   confs       226   avgap 2.75   nodedb  21.1%   rr Infinity   time 39.02 s
+		//COFFEE compiled yesSS   emat   20914 ms ( 20.91 s)   pfunc   39022 ms ( 39.02 s)   G [-1560.9342,-1560.2773]  w =  0.6568
+
+		// 2 threads
+		//COFFEE-0: 	G [-1560.939,-1560.278]   width 0.660169 of 0.000000   confs       231   avgap 2.75   nodedb  20.3%   rr Infinity   time 21.57 s
+		//COFFEE compiled yesSS   emat   11044 ms ( 11.04 s)   pfunc   21576 ms ( 21.58 s)   G [-1560.9386,-1560.2784]  w =  0.6602
+
+		// 6 threads
+		//COFFEE-0: 	G [-1560.915,-1560.281]   width 0.634783 of 0.000000   confs       231   avgap 2.68   nodedb  18.8%   rr Infinity   time 8.25 s
+		//COFFEE compiled yesSS   emat    7771 ms (  7.77 s)   pfunc    8251 ms (  8.25 s)   G [-1560.9153,-1560.2806]  w =  0.6348
+
+		// 12 threads
+		//COFFEE-0: 	G [-1560.886,-1560.282]   width 0.603408 of 0.000000   confs       245   avgap 2.72   nodedb  19.5%   rr Infinity   time 5.12 s
+		//COFFEE compiled yesSS   emat    7133 ms (  7.13 s)   pfunc    5123 ms (  5.12 s)   G [-1560.8857,-1560.2823]  w =  0.6034
+
+		// 24 threads
+		//COFFEE-0: 	G [-1560.704,-1560.297]   width 0.406967 of 0.000000   confs       294   avgap 2.73   nodedb  20.3%   rr Infinity   time 3.78 s
+		//COFFEE compiled yesSS   emat    7149 ms (  7.15 s)   pfunc    3787 ms (  3.79 s)   G [-1560.7038,-1560.2968]  w =  0.4070
+
+		// 48 threads
+		//COFFEE-0: 	G [-1560.920,-1560.287]   width 0.633140 of 0.000000   confs       210   avgap 2.64   nodedb  18.8%   rr Infinity   time 2.86 s
+		//COFFEE compiled yesSS   emat    8689 ms (  8.69 s)   pfunc    2858 ms (  2.86 s)   G [-1560.9200,-1560.2868]  w =  0.6331
+
+		// 1 GPU
+		//COFFEE-0: 	G [-1560.566,-1560.298]   width 0.267274 of 0.000000   confs       908   avgap 3.00   nodedb  17.2%   rr Infinity   time 2.96 s
+		//COFFEE compiled yesSS   emat    6443 ms (  6.44 s)   pfunc    2964 ms (  2.96 s)   G [-1560.5656,-1560.2983]  w =  0.2673
+
+		// with w <= 0.01
+
+		// 48 threads
+		//COFFEE-0: 	G [-1560.316,-1560.307]   width 0.008698 of 0.000000   confs      1649   avgap 2.93   nodedb  44.5%   rr Infinity   time 15.80 s
+		//COFFEE compiled yesSS   emat    8848 ms (  8.85 s)   pfunc   15804 ms ( 15.80 s)   G [-1560.3157,-1560.3070]  w =  0.0087
+
+		// 1 GPU
+		//COFFEE-0: 	G [-1560.301,-1560.300]   width 0.001530 of 0.000000   confs      3242   avgap 2.93   nodedb  38.3%   rr Infinity   time 9.61 s
+		//COFFEE compiled yesSS   emat   11113 ms ( 11.11 s)   pfunc    9612 ms (  9.61 s)   G [-1560.3012,-1560.2996]  w =  0.0015
+
+		// 4 GPUs
+		//COFFEE-0: 	G [-1560.300,-1560.300]   width 0.000627 of 0.000000   confs      5181   avgap 2.94   nodedb  39.1%   rr Infinity   time 4.63 s
+		//COFFEE compiled yesSS   emat   12829 ms ( 12.83 s)   pfunc    4632 ms (  4.63 s)   G [-1560.3003,-1560.2997]  w =  0.0006
+
 		// TODO: NEXTTIME: scale out
 	}
 
@@ -202,7 +248,7 @@ public class BenchmarkCoffee {
 			tasks.start(parallelism.numThreads);
 
 			// make the energy calculator
-			var ecalc = new CPUConfEnergyCalculator(confSpace);
+			var ecalc = new NativeConfEnergyCalculator(confSpace, Structs.Precision.Float64);
 
 			// compute an emat
 			result.ematStopwatch = new Stopwatch().start();
@@ -266,8 +312,7 @@ public class BenchmarkCoffee {
 			.setStaticStatic(includeStaticStatic)
 			//.setConditions(BoltzmannCalculator.Conditions.Body)
 			//.setConditions(BoltzmannCalculator.Conditions.Room)
-			.configEachState(config -> {
-				config.ecalc = new CPUConfEnergyCalculator(confSpace);
+			.configEachState((config, ecalc) -> {
 				config.posInterGen = new PosInterGen(bounds.posInterDist, null);
 			})
 			.build();

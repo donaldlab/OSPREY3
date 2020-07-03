@@ -58,17 +58,24 @@ namespace osprey {
 				// make the conf dofs
 				for (int posi=0; posi<assignment.conf_space.num_pos; posi++) {
 					const Pos & pos = assignment.conf_space.get_pos(posi);
-					const Conf<T> & conf = assignment.conf_space.get_conf(pos, assignment.conf[posi]);
-					for (int motioni=0; motioni<conf.num_motions; motioni++) {
-						switch (assignment.conf_space.get_conf_motion_id(conf, motioni)) {
 
-							case motions::Dihedral<T>::id: {
-								const motions::Dihedral<T> & dihedral = *reinterpret_cast<const motions::Dihedral<T> *>(assignment.conf_space.get_conf_motion(conf, motioni));
-								dofs[size] = dihedral.make_dof(assignment);
-								size += 1;
-							} break;
+					// is this pos assigned?
+					int32_t confi = assignment.conf[posi];
+					if (confi >= 0) {
+						const Conf<T> & conf = assignment.conf_space.get_conf(pos, confi);
 
-							default: throw std::invalid_argument("unrecognized motion id");
+						// yup, make the dofs
+						for (int motioni=0; motioni<conf.num_motions; motioni++) {
+							switch (assignment.conf_space.get_conf_motion_id(conf, motioni)) {
+
+								case motions::Dihedral<T>::id: {
+									const motions::Dihedral<T> & dihedral = *reinterpret_cast<const motions::Dihedral<T> *>(assignment.conf_space.get_conf_motion(conf, motioni));
+									dofs[size] = dihedral.make_dof(assignment);
+									size += 1;
+								} break;
+
+								default: throw std::invalid_argument("unrecognized motion id");
+							}
 						}
 					}
 				}

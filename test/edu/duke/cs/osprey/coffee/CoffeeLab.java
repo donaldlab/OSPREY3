@@ -1,10 +1,7 @@
 package edu.duke.cs.osprey.coffee;
 
-import edu.duke.cs.osprey.coffee.directors.AffinityDirector;
 import edu.duke.cs.osprey.coffee.directors.SequenceDirector;
-import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
-import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
 import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.Parallelism;
@@ -35,8 +32,7 @@ public class CoffeeLab {
 		Coffee coffee = new Coffee.Builder(confSpace)
 			.setCluster(cluster)
 			.setParallelism(parallelism)
-			.configEachState(config -> {
-				config.ecalc = new CPUConfEnergyCalculator((ConfSpace)config.state.confSpace);
+			.configEachState((config, ecalc) -> {
 				config.posInterGen = new PosInterGen(posInterDist, null);
 			})
 			.build();
