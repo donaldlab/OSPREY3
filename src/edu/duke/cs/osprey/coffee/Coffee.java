@@ -15,6 +15,7 @@ import edu.duke.cs.osprey.gpu.Structs;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.parallelism.ThreadTools;
 import edu.duke.cs.osprey.tools.BigExp;
 
@@ -255,7 +256,8 @@ public class Coffee {
 			member.log0("waiting for cluster to assemble ...");
 			member.barrier(1, TimeUnit.MINUTES);
 
-			try (var tasks = parallelism.makeTaskExecutor()) {
+			try (var tasks = new ThreadPoolTaskExecutor()) {
+				tasks.start(parallelism.numThreads);
 
 				// open the sequence database
 				try (SeqDB seqdb = new SeqDB.Builder(confSpace, member)

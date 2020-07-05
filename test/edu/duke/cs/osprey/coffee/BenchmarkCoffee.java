@@ -44,6 +44,99 @@ public class BenchmarkCoffee {
 		SLF4JBridgeHandler.removeHandlersForRootLogger();
 		SLF4JBridgeHandler.install();
 
+		//vsClassic();
+		//affinity_6ov7_1mut6flex();
+		affinity_6ov7_1mut11flex();
+	}
+
+	private static void affinity_6ov7_1mut11flex() {
+
+		// load a complex state
+		var complex = (ConfSpace)TestCoffee.affinity_6ov7_1mut11flex().getState("complex").confSpace;
+
+		// set some settings
+		var seq = complex.seqSpace().makeWildTypeSequence();
+		var staticStatic = true;
+		var bounds = Bounds.Tighter;
+
+		double gWidthMax = 1.0;
+
+		// benchmarks, on jerry4 (up to 48 threads, 24 cores, 4 Titan V GPUs)
+		var parallelism = Parallelism.makeCpu(48);
+		//var parallelism = Parallelism.make(48, 1, 1);
+		//var parallelism = Parallelism.make(48, 4, 1);
+
+		benchmark("COFFEE", () -> coffee(complex, seq, parallelism, bounds, staticStatic, gWidthMax, 1024));
+
+		// cpus = 48
+		//COFFEE-0: 	G [-1382.334,-1381.336]   width 0.997555 of 0.000000   confs     36078   avgap 4.86   nodedb   9.1%   rr Infinity   time 5.73 m
+		//              COFFEE   emat   12655 ms ( 12.66 s)   pfunc  343652 ms (  5.73 m)   G [-1382.3337,-1381.3362]  w =  0.9976
+		// 105.0 confs/s
+
+		// cpus = 48, gpus = 1
+		//COFFEE-0: 	G [-1382.327,-1381.330]   width 0.996941 of 0.000000   confs     55440   avgap 4.96   nodedb   4.3%   rr Infinity   time 3.21 m
+		//              COFFEE   emat   12629 ms ( 12.63 s)   pfunc  192454 ms (  3.21 m)   G [-1382.3266,-1381.3297]  w =  0.9969
+		// 288.1 confs/s
+
+		// cpus = 48, gpus = 4
+		//COFFEE-0: 	G [-1382.326,-1381.330]   width 0.995903 of 0.000000   confs     59999   avgap 4.96   nodedb   3.9%   rr Infinity   time 1.34 m
+		//              COFFEE   emat   12943 ms ( 12.94 s)   pfunc   80597 ms (  1.34 m)   G [-1382.3261,-1381.3302]  w =  0.9959
+		// 744.4 confs/s
+	}
+
+	private static void affinity_6ov7_1mut6flex() {
+
+		// load a complex state
+		var complex = (ConfSpace)TestCoffee.affinity_6ov7_1mut6flex().getState("complex").confSpace;
+
+		// set some settings
+		var seq = complex.seqSpace().makeWildTypeSequence();
+		var staticStatic = true;
+		var bounds = Bounds.Classic;
+		// TODO: need this?
+		//var bounds = Bounds.Tighter;
+
+		double epsilon = 0.68;
+		double gWidthMax = 0.67; // amazingly corresponds to epsilon ~0.68
+
+		// benchmarks, on jerry4 (up to 48 threads, 24 cores, 4 Titan V GPUs)
+		//var parallelism = Parallelism.makeCpu(4);
+		//var parallelism = Parallelism.makeCpu(48);
+		//var parallelism = Parallelism.make(3, 1, 1);
+		var parallelism = Parallelism.make(3*4, 4, 1);
+
+		benchmark("GrdDsc", () -> gradientDescent(complex, seq, parallelism, bounds, staticStatic, epsilon));
+		benchmark("COFFEE", () -> coffee(complex, seq, parallelism, bounds, staticStatic, gWidthMax, 2));
+
+		// cpus = 4
+		//8     8     0     17    16    4    ] scores:  101383, confs:3418, score:-1376.578351, energy:-1373.434374, bounds:[ 1010.963826, 1011.457663] (log10p1), delta:0.679253, time:    1.75 m, heapMem:0.1% of 30.0 GiB, extMem:0 B
+		//              GrdDsc   emat    2469 ms (  2.47 s)   pfunc  104917 ms (  1.75 m)   G [-1381.1945,-1380.5201]  w =  0.6744
+		//COFFEE-0: 	G [-1381.182,-1380.520]   width 0.662268 of 0.000000   confs      3707   avgap 4.52   nodedb  94.5%   rr Infinity   time 1.96 m
+		//              COFFEE   emat    5594 ms (  5.59 s)   pfunc  117770 ms (  1.96 m)   G [-1381.1824,-1380.5201]  w =  0.6623
+
+		// cpus = 24
+		//[7     8     0     4     11    0    ] scores:  131234, confs:3436, score:-1376.585883, energy:-1370.705288, bounds:[ 1010.963863, 1011.454391] (log10p1), delta:0.676800, time:   24.23 s, heapMem:0.1% of 30.0 GiB, extMem:0 B
+		//              GrdDsc   emat    2252 ms (  2.25 s)   pfunc   24159 ms ( 24.16 s)   G [-1381.1900,-1380.5202]  w =  0.6698
+		//COFFEE-0: 	G [-1381.181,-1380.520]   width 0.660512 of 0.000000   confs      3680   avgap 4.55   nodedb  93.0%   rr Infinity   time 25.05 s
+		//              COFFEE   emat    4764 ms (  4.76 s)   pfunc   25055 ms ( 25.06 s)   G [-1381.1806,-1380.5201]  w =  0.6605
+
+		// cpus = 48
+		//[7     8     0     4     11    0    ] scores:  154288, confs:3459, score:-1376.585883, energy:-1370.705288, bounds:[ 1010.963883, 1011.450285] (log10p1), delta:0.673714, time:   19.99 s, heapMem:0.1% of 30.0 GiB, extMem:0 B
+		//              GrdDsc   emat    2312 ms (  2.31 s)   pfunc   19865 ms ( 19.87 s)   G [-1381.1844,-1380.5202]  w =  0.6642
+		//COFFEE-0: 	G [-1381.144,-1380.520]   width 0.623509 of 0.000000   confs      3775   avgap 4.61   nodedb  87.5%   rr Infinity   time 22.95 s
+		//              COFFEE   emat    5330 ms (  5.33 s)   pfunc   22951 ms ( 22.95 s)   G [-1381.1439,-1380.5204]  w =  0.6235
+
+		// gpus = 1
+		//COFFEE-0: 	G [-1380.944,-1380.513]   width 0.431091 of 0.000000   confs      5376   avgap 4.78   nodedb  46.9%   rr Infinity   time 10.02 s
+		//              COFFEE   emat    9889 ms (  9.89 s)   pfunc   10024 ms ( 10.02 s)   G [-1380.9436,-1380.5125]  w =  0.4311
+
+		// gpus = 4
+		//COFFEE-0: 	G [-1381.090,-1380.511]   width 0.578638 of 0.000000   confs      4106   avgap 4.71   nodedb  51.6%   rr Infinity   time 7.60 s
+		//              COFFEE   emat   11785 ms ( 11.79 s)   pfunc    7607 ms (  7.61 s)   G [-1381.0901,-1380.5114]  w =  0.5786
+	}
+
+	private static void vsClassic() {
+
 		// load a complex state
 		var complexClassic = TestConfSpace.Design2RL0Interface7Mut.makeClassic().complex;
 		var complexCompiled = TestConfSpace.Design2RL0Interface7Mut.makeCompiled().complex;
@@ -126,7 +219,7 @@ public class BenchmarkCoffee {
 		//GD     compiled yesSS   emat    8467 ms (  8.47 s)   pfunc   12756 ms ( 12.76 s)   G [-1560.3169,-1560.3070]  w =  0.0099
 
 
-		//benchmark("COFFEE compiled yesSS", () -> coffee(complexCompiled, seqCompiled, parallelism, bounds, yesStaticStatic, gWidthMax));
+		//benchmark("COFFEE compiled yesSS", () -> coffee(complexCompiled, seqCompiled, parallelism, bounds, yesStaticStatic, gWidthMax, 2));
 
 		// 1 thread
 		//COFFEE-0: 	G [-1560.934,-1560.277]   width 0.656849 of 0.000000   confs       226   avgap 2.75   nodedb  21.1%   rr Infinity   time 39.02 s
@@ -198,6 +291,11 @@ public class BenchmarkCoffee {
 		// run the task
 		var result = task.get();
 
+		// if the benchmark got skipped, don't report anything
+		if (result.ematStopwatch == null || result.pfuncStopwatch == null) {
+			return;
+		}
+
 		log("%20s   emat  %6d ms (%8s)   pfunc  %6d ms (%8s)   G [%9.4f,%9.4f]  w = %7.4f",
 			name,
 			(int)result.ematStopwatch.getTimeMs(), result.ematStopwatch.getTime(2),
@@ -243,6 +341,11 @@ public class BenchmarkCoffee {
 	}
 
 	private static void gradientDescentCompiled(ConfSpace confSpace, Sequence seq, Parallelism parallelism, PosInterDist posInterDist, boolean includeStaticStatic, double epsilon, Result result) {
+
+		if (parallelism.numGpus > 0) {
+			log("GrdDsc isn't configured to handle GPUs well, skipping benchmark");
+			return;
+		}
 
 		try (var tasks = new ThreadPoolTaskExecutor()) {
 			tasks.start(parallelism.numThreads);
@@ -301,7 +404,7 @@ public class BenchmarkCoffee {
 		}
 	}
 
-	private static Result coffee(ConfSpace confSpace, Sequence seq, Parallelism parallelism, Bounds bounds, boolean includeStaticStatic, double gWidthMax) {
+	private static Result coffee(ConfSpace confSpace, Sequence seq, Parallelism parallelism, Bounds bounds, boolean includeStaticStatic, double gWidthMax, int nodesMiB) {
 
 		var msConfSpace = new MultiStateConfSpace.Builder("complex", confSpace)
 			.build();
@@ -312,6 +415,7 @@ public class BenchmarkCoffee {
 			.setStaticStatic(includeStaticStatic)
 			//.setConditions(BoltzmannCalculator.Conditions.Body)
 			//.setConditions(BoltzmannCalculator.Conditions.Room)
+			.setNodeDBMem(nodesMiB*1024*1024)
 			.configEachState((config, ecalc) -> {
 				config.posInterGen = new PosInterGen(bounds.posInterDist, null);
 			})

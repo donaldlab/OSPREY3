@@ -29,6 +29,7 @@ public class ClusterZMatrix {
 
 
 	private final ZMat zmat;
+	private final BigExp[][] optimizationCache;
 
 	private class ZMat extends TupleMatrixGeneric<BigExp> {
 
@@ -45,6 +46,10 @@ public class ClusterZMatrix {
 		int numPairs() {
 			return getNumPairwise();
 		}
+
+		int pairIndex(int posi1, int posi2) {
+			return getPairwiseIndex(posi1, posi2);
+		}
 	}
 
 	public ClusterZMatrix(ConfSpace confSpace, PosInterGen posInterGen, BoltzmannCalculator bcalc) {
@@ -54,6 +59,14 @@ public class ClusterZMatrix {
 		this.bcalc = bcalc;
 
 		zmat = new ZMat();
+
+		// allocate memory for the optimization cache
+		optimizationCache = new BigExp[zmat.numPairs()][];
+		for (int posi1=0; posi1<confSpace.numPos(); posi1++) {
+			for (int posi2=0; posi2<posi1; posi2++) {
+				optimizationCache[zmat.pairIndex(posi1, posi2)] = new BigExp[confSpace.numConf(posi1)];
+			}
+		}
 	}
 
 	private BigExp z(double energy) {
@@ -328,14 +341,24 @@ public class ClusterZMatrix {
 	}
 
 	public BigExp pairUpper(int posi1, int confi1, int posi2) {
-		// TODO: cache these values
-		BigExp max = null;
+
+		// check the cache first
+		int i = zmat.pairIndex(posi1, posi2);
+		BigExp max = optimizationCache[i][confi1];
+		if (max != null) {
+			return max;
+		}
+
+		// cache miss, do the optimization
 		for (int confi2=1; confi2<confSpace.numConf(posi2); confi2++) {
 			BigExp z = zmat.getPairwise(posi1, confi1, posi2, confi2);
 			if (max == null || z.greaterThan(max)) {
 				max = z;
 			}
 		}
+
+		optimizationCache[i][confi1] = max;
+
 		return max;
 	}
 }

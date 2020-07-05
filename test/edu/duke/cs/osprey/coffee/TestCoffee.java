@@ -92,6 +92,22 @@ public class TestCoffee {
 			.build();
 	}
 
+	/**
+	 * A medium peptide inhibitor affinity design
+	 */
+	public static MultiStateConfSpace affinity_6ov7_1mut11flex() {
+		var confSpaces = new TestConfSpace.AffinityCompiled(
+			ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/6ov7.medium.complex.ccsx")),
+			ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/6ov7.medium.design.ccsx")),
+			ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/6ov7.medium.target.ccsx"))
+		);
+		return new MultiStateConfSpace
+			.Builder("complex", confSpaces.complex)
+			.addMutableState("design", confSpaces.chainA)
+			.addUnmutableState("target", confSpaces.chainB)
+			.build();
+	}
+
 	private static void withPseudoCluster(int numMembers, Consumer<Cluster> block) {
 		var exceptions = ClusterMember.launchPseudoCluster(numMembers, block);
 		if (!exceptions.isEmpty()) {

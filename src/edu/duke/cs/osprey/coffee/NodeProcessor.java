@@ -265,6 +265,8 @@ public class NodeProcessor implements AutoCloseable {
 			.collect(Collectors.toList());
 		ecalcs[statei].minimizeEnergies(jobs);
 
+		// TODO: if the GPUs are busy, minimize on the CPU
+
 		// compute the bound energies for each conf
 		double[] bounds = nodes.stream()
 			.mapToDouble(node -> stateInfo.bcalc.freeEnergyPrecise(node.zSumUpper))
