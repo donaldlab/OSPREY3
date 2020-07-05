@@ -178,6 +178,8 @@ public class BenchmarkEnergies {
 		}
 
 		{ // compiled CUDA f32
+			// NOTE: this benchmark is slower than it should be because the CCD minimizer gets unlucky on these inputs
+			// if you tweak the step size for the line search a bit, f32 goes MUCH faster!
 			benchmarkGpus("compiled CUDA f32", bmCompiledCudaf32, bmClassic[0], gpuSizes, threadsPerGpu, batchSize, numWarmups, numRuns,
 				numGpus -> new CudaConfEnergyCalculator(compiled.complex, Structs.Precision.Float32, gpus.subList(0, numGpus)),
 				ecalc -> ecalc.minimizeEnergies(jobs)

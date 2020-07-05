@@ -90,6 +90,8 @@ public class SaveOperation extends Operation {
 	@Override
 	public final void run() {
 		SeqDB seqdb = getService();
-		seqdb.commitBatch(this);
+		synchronized (seqdb) {
+			seqdb.commitBatch(this);
+		}
 	}
 }

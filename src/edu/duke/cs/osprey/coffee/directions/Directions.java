@@ -3,6 +3,10 @@ package edu.duke.cs.osprey.coffee.directions;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.coffee.ClusterMember;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+
 
 public class Directions {
 
@@ -10,9 +14,9 @@ public class Directions {
 
 	public final ClusterMember member;
 
-	private boolean isRunning = true;
-	private int focusedStatei = -1;
-	private RCs[] trees = null;
+	private final AtomicBoolean isRunning = new AtomicBoolean(true);
+	private final AtomicInteger focusedStatei = new AtomicInteger(-1);
+	private final AtomicReference<RCs[]> trees = new AtomicReference<>(null);
 
 	public Directions(ClusterMember member) {
 
@@ -26,15 +30,16 @@ public class Directions {
 	 * Tell all cluster members to stop processing.
 	 */
 	public void stop() {
+		receiveStop();
 		member.sendToOthers(() -> new StopOperation());
 	}
 
 	void receiveStop() {
-		isRunning = false;
+		isRunning.set(false);
 	}
 
 	public boolean isRunning() {
-		return isRunning;
+		return isRunning.get();
 	}
 
 	/**
@@ -46,11 +51,11 @@ public class Directions {
 	}
 
 	void receiveFocus(int statei) {
-		focusedStatei = statei;
+		focusedStatei.set(statei);
 	}
 
 	public int getFocusedStatei() {
-		return focusedStatei;
+		return focusedStatei.get();
 	}
 
 	/**
@@ -62,11 +67,11 @@ public class Directions {
 	}
 
 	void receiveTrees(RCs[] trees) {
-		this.trees = trees;
+		this.trees.set(trees);
 	}
 
 	public RCs getTree(int statei) {
-		return trees[statei];
+		return trees.get()[statei];
 	}
 
 	public RCs getTreeOrThrow(int statei) {

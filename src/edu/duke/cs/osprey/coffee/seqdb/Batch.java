@@ -143,7 +143,9 @@ public class Batch {
 
 		if (seqdb.member.isDirector()) {
 			// save locally
-			seqdb.commitBatch(op);
+			synchronized (seqdb) {
+				seqdb.commitBatch(op);
+			}
 		} else {
 			// relay batch save to the driver member
 			seqdb.member.sendTo(op, seqdb.member.directorAddress());

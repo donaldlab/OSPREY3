@@ -68,7 +68,47 @@ public class NodeProcessor implements AutoCloseable {
 		}
 	}
 
-	public final TaskExecutor tasks;
+	private class NodeThread extends Thread {
+
+		final int id;
+		final Directions directions;
+
+		NodeThread(int id, Directions directions) {
+
+			this.id = id;
+			this.directions = directions;
+
+			setName("Node-" + id);
+			setDaemon(true);
+			start();
+		}
+
+		@Override
+		public void run() {
+			while (directions.isRunning()) {
+
+				// get a node
+				var nodeInfo = getNode(directions);
+				if (!nodeInfo.result.gotNode) {
+					// no nodes, wait a bit and try again
+					ThreadTools.sleep(100, TimeUnit.MILLISECONDS);
+					continue;
+				}
+
+				process(nodeInfo);
+			}
+		}
+
+		public void waitForFinish() {
+			try {
+				join();
+			} catch (InterruptedException ex) {
+				throw new RuntimeException(ex);
+			}
+		}
+	}
+
+	public final TaskExecutor cpuTasks;
 	public final SeqDB seqdb;
 	public final NodeDB nodedb;
 	public final StateInfo[] stateInfos;
@@ -77,10 +117,11 @@ public class NodeProcessor implements AutoCloseable {
 	public final ConfEnergyCalculator[] ecalcs;
 
 	private final List<MinimizationQueue> minimizationQueues;
+	private final List<NodeThread> nodeThreads = new ArrayList<>();
 
-	public NodeProcessor(TaskExecutor tasks, SeqDB seqdb, NodeDB nodedb, StateInfo[] stateInfos, boolean includeStaticStatic, Parallelism parallelism, Structs.Precision precision) {
+	public NodeProcessor(TaskExecutor cpuTasks, SeqDB seqdb, NodeDB nodedb, StateInfo[] stateInfos, boolean includeStaticStatic, Parallelism parallelism, Structs.Precision precision) {
 
-		this.tasks = tasks;
+		this.cpuTasks = cpuTasks;
 		this.seqdb = seqdb;
 		this.nodedb = nodedb;
 		this.stateInfos = stateInfos;
@@ -99,8 +140,20 @@ public class NodeProcessor implements AutoCloseable {
 
 	@Override
 	public void close() {
+
+		// wait for the node threads to finish first
+		for (var t : nodeThreads) {
+			t.waitForFinish();
+		}
+
 		for (var ecalc : ecalcs) {
 			ecalc.close();
+		}
+	}
+
+	public void startNodeThreads(int numThreads, Directions directions) {
+		for (int i=0; i<numThreads; i++) {
+			nodeThreads.add(new NodeThread(i, directions));
 		}
 	}
 
@@ -108,49 +161,15 @@ public class NodeProcessor implements AutoCloseable {
 		nodedb.member.log(msg, args);
 	}
 
-	public boolean processFor(Directions directions, long duration, TimeUnit timeUnit) {
-
-		boolean foundNodes = false;
-
-		// process nodes for the specified duration
-		long stopNs = System.nanoTime() + timeUnit.toNanos(duration);
-		while (System.nanoTime() < stopNs) {
-
-			var nodeInfo = getNode(directions);
-			switch (nodeInfo.result) {
-
-				// process the node in a task
-				case GotNode -> {
-					foundNodes = true;
-					tasks.submit(
-						() -> process(nodeInfo),
-						ignored -> {}
-					);
-				}
-
-				// no nodes, wait a bit and try again
-				default -> ThreadTools.sleep(100, TimeUnit.MILLISECONDS);
-			}
+	private Sequence makeSeq(int statei, int[] conf) {
+		if (stateInfos[statei].config.state.isSequenced) {
+			return seqdb.confSpace.seqSpace.makeSequence(stateInfos[statei].config.confSpace, conf);
+		} else {
+			return null;
 		}
-		tasks.waitForFinish();
-
-		// flush any minimization batches
-		for (var stateInfo : stateInfos) {
-			var statei = stateInfo.config.state.index;
-			var nodes = minimizationQueues.get(statei).flush();
-			if (nodes != null) {
-				tasks.submit(
-					() -> minimize(statei, nodes),
-					ignored -> {}
-				);
-			}
-		}
-		tasks.waitForFinish();
-
-		return foundNodes;
 	}
 
-	public enum Result {
+	private enum Result {
 
 		GotNode(true),
 		NoState(false),
@@ -164,32 +183,24 @@ public class NodeProcessor implements AutoCloseable {
 		}
 	}
 
-	public static class NodeInfo {
+	private static class NodeInfo {
 
-		public final Result result;
-		public final NodeIndex.Node node;
-		public final RCs tree;
+		final Result result;
+		final NodeIndex.Node node;
+		final RCs tree;
 
-		public NodeInfo(Result result, NodeIndex.Node node, RCs tree) {
+		NodeInfo(Result result, NodeIndex.Node node, RCs tree) {
 			this.result = result;
 			this.node = node;
 			this.tree = tree;
 		}
 
-		public NodeInfo(Result result) {
+		NodeInfo(Result result) {
 			this(result, null, null);
 		}
 	}
 
-	public Sequence makeSeq(int statei, int[] conf) {
-		if (stateInfos[statei].config.state.isSequenced) {
-			return seqdb.confSpace.seqSpace.makeSequence(stateInfos[statei].config.confSpace, conf);
-		} else {
-			return null;
-		}
-	}
-
-	public NodeInfo getNode(Directions directions) {
+	private NodeInfo getNode(Directions directions) {
 
 		// get the currently focused state
 		int statei = directions.getFocusedStatei();
@@ -213,7 +224,7 @@ public class NodeProcessor implements AutoCloseable {
 		return new NodeInfo(Result.GotNode, node, tree);
 	}
 
-	public NodeInfo process(NodeInfo nodeInfo) {
+	private NodeInfo process(NodeInfo nodeInfo) {
 
 		if (nodeInfo.node.isLeaf()) {
 
@@ -333,9 +344,11 @@ public class NodeProcessor implements AutoCloseable {
 			.map(conf -> (ConfEnergyCalculator.EnergiedCoords)null)
 			.collect(Collectors.toList());
 
+		// minimize the confs
+		// (can't use batches because we need the coords)
 		for (int i=0; i<confs.size(); i++) {
 			final int fi = i;
-			tasks.submit(
+			cpuTasks.submit(
 				() -> {
 					int[] conf = confs.get(fi);
 					var inters = makeInters(stateInfo, conf);
@@ -346,7 +359,7 @@ public class NodeProcessor implements AutoCloseable {
 			);
 		}
 
-		tasks.waitForFinish();
+		cpuTasks.waitForFinish();
 
 		return energiedCoords;
 	}

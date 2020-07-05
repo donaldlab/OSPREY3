@@ -16,8 +16,8 @@ import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
-import edu.duke.cs.osprey.parallelism.ThreadTools;
 import edu.duke.cs.osprey.tools.BigExp;
+import edu.duke.cs.osprey.tools.Stopwatch;
 
 import java.io.File;
 import java.math.MathContext;
@@ -252,12 +252,14 @@ public class Coffee {
 	public void run(Director director) {
 		try (var member = new ClusterMember(cluster)) {
 
+			var stopwatch = new Stopwatch().start();
+
 			// wait for everyone to get here
 			member.log0("waiting for cluster to assemble ...");
 			member.barrier(1, TimeUnit.MINUTES);
 
-			try (var tasks = new ThreadPoolTaskExecutor()) {
-				tasks.start(parallelism.numThreads);
+			try (var cpuTasks = new ThreadPoolTaskExecutor()) {
+				cpuTasks.start(parallelism.numThreads);
 
 				// open the sequence database
 				try (SeqDB seqdb = new SeqDB.Builder(confSpace, member)
@@ -275,7 +277,7 @@ public class Coffee {
 					) {
 
 						// init the node processor, and report dropped nodes to the sequence database
-						try (var nodeProcessor = new NodeProcessor(tasks, seqdb, nodedb, infos, includeStaticStatic, parallelism, precision)) {
+						try (var nodeProcessor = new NodeProcessor(cpuTasks, seqdb, nodedb, infos, includeStaticStatic, parallelism, precision)) {
 							nodedb.dropHandler = nodeProcessor::handleDrops;
 
 							// wait for everyone to be ready
@@ -284,7 +286,7 @@ public class Coffee {
 							// pre-compute the Z matrices
 							for (var info : infos) {
 								member.log0("computing Z matrix for state: %s", info.config.state.name);
-								info.zmat.compute(member, tasks, includeStaticStatic, nodeProcessor.ecalcs[info.config.state.index]);
+								info.zmat.compute(member, cpuTasks, includeStaticStatic, nodeProcessor.ecalcs[info.config.state.index]);
 							}
 
 							// initialize the directions and wait
@@ -302,19 +304,22 @@ public class Coffee {
 							member.barrier(5, TimeUnit.MINUTES);
 
 							// prep complete! now we can start the real computation
+							nodeProcessor.startNodeThreads(parallelism.numThreads, directions);
 							if (member.isDirector()) {
 								director.direct(directions, nodeProcessor);
-							} else {
-								followDirections(directions, nodeProcessor);
 							}
 
 							// wait for the computation to finish before cleaning up databases
+							member.log0("Computation finished, cleaning up resources ...");
 							member.barrier(5, TimeUnit.MINUTES);
 
 						} // node processor
 					} // nodedb
 				} // seqdb
 			} // tasks
+
+			member.log0("COFFEE Finished in %s", stopwatch.getTime(2));
+
 		} // cluster member
 	}
 
@@ -345,24 +350,5 @@ public class Coffee {
 
 		// let the rest of the cluster know right away we have the root nodes
 		processor.nodedb.broadcast();
-	}
-
-	private void followDirections(Directions directions, NodeProcessor processor) {
-
-		while (directions.isRunning()) {
-
-			// try to process a node
-			// TEMP
-			//var result = processor.process(directions);
-			var result = NodeProcessor.Result.NoState;
-
-			switch (result) {
-
-				// TODO
-
-				// wait a bit and try again
-				case NoState -> ThreadTools.sleep(500, TimeUnit.MILLISECONDS);
-			}
-		}
 	}
 }

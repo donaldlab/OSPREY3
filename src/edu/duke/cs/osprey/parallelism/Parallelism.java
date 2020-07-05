@@ -99,6 +99,10 @@ public class Parallelism {
 	public static Parallelism make(int numCpus, int numGpus, int numStreamsPerGpu) {
 		return new Parallelism(numCpus, numGpus, numStreamsPerGpu);
 	}
+
+	public static Parallelism make(int numCpus, int numGpus) {
+		return new Parallelism(numCpus, numGpus, 1);
+	}
 	
 	// TODO: this should eventually go into a CFP-only area
 	// it can be moved when we start refactoring config stuff to prepare for Python-land

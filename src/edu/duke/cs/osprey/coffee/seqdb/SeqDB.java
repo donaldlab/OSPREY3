@@ -14,6 +14,12 @@ import java.math.RoundingMode;
 import java.util.*;
 
 
+/**
+ * A database of information about sequences.
+ *
+ * SeqDB is **NOT** thread-safe!
+ * Callers must explicitly synchronize SeqDB if using from multiple threads.
+ */
 public class SeqDB implements AutoCloseable {
 
 	public static class Builder {
@@ -112,8 +118,7 @@ public class SeqDB implements AutoCloseable {
 		return new Batch(this);
 	}
 
-	// commits occur from multiple threads simultaneously, so this should be synchronized
-	synchronized void commitBatch(SaveOperation op) {
+	void commitBatch(SaveOperation op) {
 
 		for (var sum : op.sequencedSums) {
 
@@ -184,6 +189,18 @@ public class SeqDB implements AutoCloseable {
 	private void checkDirector() {
 		if (!member.isDirector()) {
 			throw new IllegalStateException("Tried to access SeqDB directly on non-director cluster member " + member.name);
+		}
+	}
+
+	/**
+	 * Returns the current Z bounds and dropped Z for the state and sequence.
+	 * If the state is unsequenced, the given sequence is ignored.
+	 */
+	public StateZ get(MultiStateConfSpace.State state, Sequence seq) {
+		if (state.isSequenced) {
+			return get(seq).statezs[state.sequencedIndex];
+		} else {
+			return getUnsequenced(state);
 		}
 	}
 
