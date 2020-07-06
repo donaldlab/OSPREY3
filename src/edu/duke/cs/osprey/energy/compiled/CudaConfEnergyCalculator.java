@@ -24,7 +24,6 @@ import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -259,9 +258,9 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 	}
 
 	private interface ForcefieldsImpl {
-		double calc(ByteBuffer confBuf, ByteBuffer intersBuf, ByteBuffer coordsBuf, long numAtoms);
-		double minimize(ByteBuffer jobsBuf, ByteBuffer coordsBuf, ByteBuffer dofsBuf);
-		void minimizeBatch(ByteBuffer jobsBuf, ByteBuffer energiesBuf);
+		double calc(Stream stream, ByteBuffer confBuf, ByteBuffer intersBuf, ByteBuffer coordsBuf, long numAtoms);
+		double minimize(Stream stream, ByteBuffer jobsBuf, ByteBuffer coordsBuf, ByteBuffer dofsBuf);
+		void minimizeBatch(Stream stream, ByteBuffer jobsBuf, ByteBuffer energiesBuf);
 		void dumpJobs(File file, ByteBuffer jobsBuf);
 		long paramsBytes();
 		void writeParams(BufWriter buf);
@@ -440,33 +439,27 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		}
 
 		@Override
-		public double calc(ByteBuffer confBuf, ByteBuffer intersBuf, ByteBuffer coordsBuf, long numAtoms) {
-			return withStream(stream ->
-				switch (precision) {
-					case Float32 -> (double)NativeLib.calc_amber_eef1_f32(stream.device, stream.stream, stream.pConfSpace, confBuf, intersBuf, coordsBuf, numAtoms);
-					case Float64 -> NativeLib.calc_amber_eef1_f64(stream.device, stream.stream, stream.pConfSpace, confBuf, intersBuf, coordsBuf, numAtoms);
-				}
-			);
+		public double calc(Stream stream, ByteBuffer confBuf, ByteBuffer intersBuf, ByteBuffer coordsBuf, long numAtoms) {
+			return switch (precision) {
+				case Float32 -> (double)NativeLib.calc_amber_eef1_f32(stream.device, stream.stream, stream.pConfSpace, confBuf, intersBuf, coordsBuf, numAtoms);
+				case Float64 -> NativeLib.calc_amber_eef1_f64(stream.device, stream.stream, stream.pConfSpace, confBuf, intersBuf, coordsBuf, numAtoms);
+			};
 		}
 
 		@Override
-		public double minimize(ByteBuffer jobsBuf, ByteBuffer coordsBuf, ByteBuffer dofsBuf) {
-			return withStream(stream ->
-				switch (precision) {
-					case Float32 -> (double)NativeLib.minimize_amber_eef1_f32(stream.device, stream.stream, stream.pConfSpace, confSpaceSizesBuf, jobsBuf, coordsBuf, dofsBuf);
-					case Float64 -> NativeLib.minimize_amber_eef1_f64(stream.device, stream.stream, stream.pConfSpace, confSpaceSizesBuf, jobsBuf, coordsBuf, dofsBuf);
-				}
-			);
+		public double minimize(Stream stream, ByteBuffer jobsBuf, ByteBuffer coordsBuf, ByteBuffer dofsBuf) {
+			return switch (precision) {
+				case Float32 -> (double)NativeLib.minimize_amber_eef1_f32(stream.device, stream.stream, stream.pConfSpace, confSpaceSizesBuf, jobsBuf, coordsBuf, dofsBuf);
+				case Float64 -> NativeLib.minimize_amber_eef1_f64(stream.device, stream.stream, stream.pConfSpace, confSpaceSizesBuf, jobsBuf, coordsBuf, dofsBuf);
+			};
 		}
 
 		@Override
-		public void minimizeBatch(ByteBuffer jobsBuf, ByteBuffer energiesBuf) {
-			withStream(stream -> {
-				switch (precision) {
-					case Float32 -> NativeLib.minimize_batch_amber_eef1_f32(stream.device, stream.stream, stream.pConfSpace, confSpaceSizesBuf, jobsBuf, energiesBuf);
-					case Float64 -> NativeLib.minimize_batch_amber_eef1_f64(stream.device, stream.stream, stream.pConfSpace, confSpaceSizesBuf, jobsBuf, energiesBuf);
-				}
-			});
+		public void minimizeBatch(Stream stream, ByteBuffer jobsBuf, ByteBuffer energiesBuf) {
+			switch (precision) {
+				case Float32 -> NativeLib.minimize_batch_amber_eef1_f32(stream.device, stream.stream, stream.pConfSpace, confSpaceSizesBuf, jobsBuf, energiesBuf);
+				case Float64 -> NativeLib.minimize_batch_amber_eef1_f64(stream.device, stream.stream, stream.pConfSpace, confSpaceSizesBuf, jobsBuf, energiesBuf);
+			}
 		}
 
 		@Override
@@ -1395,34 +1388,52 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 	private final List<Stream> streams = new ArrayList<>();
 	private final BlockingQueue<Stream> streamQueue;
 
-	private <T> T withStream(Function<Stream,T> func) {
-		try {
+	public class CheckedOutStream implements AutoCloseable {
 
-			// checkout a stream
-			Stream stream = null;
-			while (stream == null) {
-				stream = streamQueue.poll(500, TimeUnit.MILLISECONDS);
-			}
+		public final Stream stream;
 
-			// use it
-			try {
-				return func.apply(stream);
-			} finally {
+		private CheckedOutStream(Stream stream) {
+			this.stream = stream;
+		}
 
-				// return the stream
+		@Override
+		public void close() {
+			if (stream != null) {
 				streamQueue.add(stream);
 			}
-
-		} catch (InterruptedException ex) {
-			throw new RuntimeException(ex);
 		}
 	}
 
-	private void withStream(Consumer<Stream> func) {
-		withStream(stream -> {
-			func.accept(stream);
-			return 42;
-		});
+	/**
+	 * Check out a GPU stream.
+	 * If none are immediately available, wait until one is.
+	 */
+	public CheckedOutStream checkoutStream() {
+
+		Stream stream = null;
+		try {
+			while (stream == null) {
+				stream = streamQueue.poll(100, TimeUnit.MILLISECONDS);
+			}
+		} catch (InterruptedException ex) {
+			throw new RuntimeException(ex);
+		}
+
+		return new CheckedOutStream(stream);
+	}
+
+	/**
+	 * Try to check out a GPU stream.
+	 * If none are immediately available, the stream field will be null.
+	 */
+	public CheckedOutStream tryCheckoutStream() {
+
+		// try to get a stream
+		return new CheckedOutStream(streamQueue.poll());
+	}
+
+	public int numStreams() {
+		return streams.size();
 	}
 
 	@Override
@@ -1440,12 +1451,12 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 	public AssignedCoords assign(int[] conf) {
 		try (var confMem = makeConf(conf)) {
 			try (var coordsMem = makeArray(confSpace.maxNumConfAtoms, real3Struct.bytes())) {
-				withStream(stream -> {
+				try (var co = checkoutStream()) {
 					switch (precision) {
-						case Float32 -> NativeLib.assign_f32(stream.device, stream.stream, stream.pConfSpace, confMem.asByteBuffer(), coordsMem.asByteBuffer());
-						case Float64 -> NativeLib.assign_f64(stream.device, stream.stream, stream.pConfSpace, confMem.asByteBuffer(), coordsMem.asByteBuffer());
+						case Float32 -> NativeLib.assign_f32(co.stream.device, co.stream.stream, co.stream.pConfSpace, confMem.asByteBuffer(), coordsMem.asByteBuffer());
+						case Float64 -> NativeLib.assign_f64(co.stream.device, co.stream.stream, co.stream.pConfSpace, confMem.asByteBuffer(), coordsMem.asByteBuffer());
 					}
-				});
+				}
 				return makeCoords(coordsMem, conf);
 			}
 		}
@@ -1487,11 +1498,13 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		try (var confMem = makeConf(conf)) {
 			try (var intersMem = makeIntersMem(inters)) {
 				try (var coordsMem = makeArray(confSpace.maxNumConfAtoms, real3Struct.bytes())) {
-					double energy = forcefieldsImpl.calc(confMem.asByteBuffer(), intersMem.asByteBuffer(), coordsMem.asByteBuffer(), confSpace.maxNumConfAtoms);
-					return new EnergiedCoords(
-						makeCoords(coordsMem, conf),
-						energy
-					);
+					try (var co = checkoutStream()) {
+						var energy = forcefieldsImpl.calc(co.stream, confMem.asByteBuffer(), intersMem.asByteBuffer(), coordsMem.asByteBuffer(), confSpace.maxNumConfAtoms);
+						return new EnergiedCoords(
+							makeCoords(coordsMem, conf),
+							energy
+						);
+					}
 				}
 			}
 		}
@@ -1501,7 +1514,9 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 	public double calcEnergy(int[] conf, List<PosInter> inters) {
 		try (var confMem = makeConf(conf)) {
 			try (var intersMem = makeIntersMem(inters)) {
-				return forcefieldsImpl.calc(confMem.asByteBuffer(), intersMem.asByteBuffer(), null, confSpace.maxNumConfAtoms);
+				try (var co = checkoutStream()) {
+					return forcefieldsImpl.calc(co.stream, confMem.asByteBuffer(), intersMem.asByteBuffer(), null, confSpace.maxNumConfAtoms);
+				}
 			}
 		}
 	}
@@ -1526,14 +1541,14 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		try (var jobsMem = makeMinimizationJobsMem(jobs)) {
 			try (var coordsMem = makeArray(confSpace.maxNumConfAtoms, real3Struct.bytes())) {
 				try (var dofsMem = makeArray(confSpace.maxNumDofs, precision.bytes)) {
-
-					double energy = forcefieldsImpl.minimize(jobsMem.asByteBuffer(), coordsMem.asByteBuffer(), dofsMem.asByteBuffer());
-
-					return new EnergiedCoords(
-						makeCoords(coordsMem, conf),
-						energy,
-						makeDofs(dofsMem)
-					);
+					try (var co = checkoutStream()) {
+						double energy = forcefieldsImpl.minimize(co.stream, jobsMem.asByteBuffer(), coordsMem.asByteBuffer(), dofsMem.asByteBuffer());
+						return new EnergiedCoords(
+							makeCoords(coordsMem, conf),
+							energy,
+							makeDofs(dofsMem)
+						);
+					}
 				}
 			}
 		}
@@ -1548,6 +1563,10 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 	@Override
 	public void minimizeEnergies(List<MinimizationJob> jobs) {
+		minimizeEnergies(jobs, null);
+	}
+
+	public void minimizeEnergies(List<MinimizationJob> jobs, CheckedOutStream co) {
 
 		// check the batch size
 		if (jobs.size() > maxBatchSize) {
@@ -1565,7 +1584,15 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 			try (var energiesMem = makeArray(jobs.size(), precision.bytes)) {
 
-				forcefieldsImpl.minimizeBatch(jobsMem.asByteBuffer(), energiesMem.asByteBuffer());
+				// if we have a stream already, use that
+				if (co != null) {
+					forcefieldsImpl.minimizeBatch(co.stream, jobsMem.asByteBuffer(), energiesMem.asByteBuffer());
+				} else {
+					// otherwise, check one out now
+					try (var co2 = checkoutStream()) {
+						forcefieldsImpl.minimizeBatch(co2.stream, jobsMem.asByteBuffer(), energiesMem.asByteBuffer());
+					}
+				}
 
 				// read the energies back into the jobs
 				Real.Array energies = realarray(precision);

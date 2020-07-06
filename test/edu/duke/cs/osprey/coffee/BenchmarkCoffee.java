@@ -57,10 +57,10 @@ public class BenchmarkCoffee {
 		// set some settings
 		var seq = complex.seqSpace().makeWildTypeSequence();
 		var staticStatic = true;
-		var bounds = Bounds.Classic;
-		//var bounds = Bounds.Tighter;
-		var precision = Structs.Precision.Float32;
-		//var precision = Structs.Precision.Float64;
+		//var bounds = Bounds.Classic;
+		var bounds = Bounds.Tighter;
+		//var precision = Structs.Precision.Float32;
+		var precision = Structs.Precision.Float64;
 
 		double gWidthMax = 1.0;
 
@@ -76,21 +76,27 @@ public class BenchmarkCoffee {
 		//              COFFEE   emat   13060 ms ( 13.06 s)   pfunc  281446 ms (  4.69 m)   G [-1382.3351,-1381.3361]  w =  0.9991
 		// 126.3 confs/s
 
+		// cpus = 48, precision = 32
+		//COFFEE-0: 	G [-1382.253,-1381.257]   width 0.996068 of 0.000000   confs     29927   avgap 4.56   nodedb   7.7%   rr Infinity   time 2.71 m
+		//              COFFEE   emat   10534 ms ( 10.53 s)   pfunc  162315 ms (  2.71 m)   G [-1382.2527,-1381.2566]  w =  0.9961
+		// 184.4 confs/s
+
 		// cpus = 48, gpus = 1
-		//COFFEE-0: 	G [-1382.324,-1381.328]   width 0.995891 of 0.000000   confs     40240   avgap 4.89   nodedb   8.4%   rr Infinity   time 2.11 m
-		//              COFFEE   emat   10559 ms ( 10.56 s)   pfunc  126310 ms (  2.11 m)   G [-1382.3242,-1381.3283]  w =  0.9959
-		// 318.6 confs/s
+		//COFFEE-0: 	G [-1382.328,-1381.329]   width 0.998872 of 0.000000   confs     43769   avgap 4.91   nodedb   5.9%   rr Infinity   time 1.92 m
+		//              COFFEE   emat   14172 ms ( 14.17 s)   pfunc  115357 ms (  1.92 m)   G [-1382.3282,-1381.3294]  w =  0.9989
+		// 379.4 conf/s
 
 		// cpus = 48, gpus = 4
-		//COFFEE-0: 	G [-1382.311,-1381.330]   width 0.981098 of 0.000000   confs     51200   avgap 4.95   nodedb   4.4%   rr Infinity   time 48.19 s
-		//              COFFEE   emat   10232 ms ( 10.23 s)   pfunc   48196 ms ( 48.20 s)   G [-1382.3107,-1381.3296]  w =  0.9811
-		// 1062.3 confs/s
+		//COFFEE-0: 	G [-1382.318,-1381.330]   width 0.988346 of 0.000000   confs     59701   avgap 4.97   nodedb   4.0%   rr Infinity   time 52.29 s
+		//              COFFEE   emat    9916 ms (  9.92 s)   pfunc   52294 ms ( 52.29 s)   G [-1382.3184,-1381.3301]  w =  0.9883
+		// 1141.6 confs/s
 
 		// cpus = 48, gpus = 4, precision = 32
-		//COFFEE-0: 	G [-1382.271,-1381.278]   width 0.992618 of 0.000000   confs     41840   avgap 4.53   nodedb   3.7%   rr Infinity   time 43.18 s
-		//              COFFEE   emat    9655 ms (  9.66 s)   pfunc   43186 ms ( 43.19 s)   G [-1382.2705,-1381.2779]  w =  0.9926
-		// 968.8 confs/s
-		// not faster... so minimization is somehow not the bottleneck?
+		//COFFEE-0: 	G [-1382.274,-1381.278]   width 0.995364 of 0.000000   confs     48500   avgap 4.56   nodedb   3.3%   rr Infinity   time 48.25 s
+		//              COFFEE   emat   12634 ms ( 12.63 s)   pfunc   48257 ms ( 48.26 s)   G [-1382.2738,-1381.2784]  w =  0.9954
+		// 1005.0 confs/s
+
+		// float32 isn't much faster... so minimizations aren't the bottleneck? or the node scoring heuristics need some improvement?
 	}
 
 	private static void affinity_6ov7_1mut6flex() {
@@ -165,8 +171,9 @@ public class BenchmarkCoffee {
 
 		// benchmarks, on jerry4 (up to 48 threads, 24 cores, 4 Titan V GPUs)
 		//var parallelism = Parallelism.makeCpu(1);
-		var parallelism = Parallelism.makeCpu(48);
-		//var parallelism = Parallelism.make(3*4, 4, 64);
+		//var parallelism = Parallelism.makeCpu(48);
+		//var parallelism = Parallelism.make(48, 1, 64);
+		var parallelism = Parallelism.make(48, 4, 64);
 
 		//benchmark("GD     classic   noSS", () -> gradientDescent(complexClassic, seqClassic, parallelism, bounds, noStaticStatic, epsilon));
 

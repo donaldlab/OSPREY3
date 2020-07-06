@@ -286,7 +286,11 @@ public class Coffee {
 							// pre-compute the Z matrices
 							for (var info : infos) {
 								member.log0("computing Z matrix for state: %s", info.config.state.name);
-								info.zmat.compute(member, cpuTasks, includeStaticStatic, nodeProcessor.ecalcs[info.config.state.index]);
+								ConfEnergyCalculator ecalc = nodeProcessor.cpuEcalcs[info.config.state.index];
+								if (nodeProcessor.gpuEcalcs != null) {
+									ecalc = nodeProcessor.gpuEcalcs[info.config.state.index];
+								}
+								info.zmat.compute(member, cpuTasks, includeStaticStatic, ecalc);
 							}
 
 							// initialize the directions and wait
@@ -304,7 +308,7 @@ public class Coffee {
 							member.barrier(5, TimeUnit.MINUTES);
 
 							// prep complete! now we can start the real computation
-							nodeProcessor.startNodeThreads(parallelism.numThreads, directions);
+							nodeProcessor.start(parallelism.numThreads, directions);
 							if (member.isDirector()) {
 								director.direct(directions, nodeProcessor);
 							}

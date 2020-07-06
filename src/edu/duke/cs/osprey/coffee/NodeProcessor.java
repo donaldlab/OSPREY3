@@ -10,6 +10,8 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.compiled.CudaConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.compiled.NativeConfEnergyCalculator;
 import edu.duke.cs.osprey.gpu.Structs;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
@@ -19,54 +21,13 @@ import edu.duke.cs.osprey.tools.Stopwatch;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 
 public class NodeProcessor implements AutoCloseable {
-
-	private static class MinimizationQueue {
-
-		final int size;
-		final Deque<NodeIndex.Node> queue;
-
-		MinimizationQueue(StateInfo stateInfo, int size) {
-			this.size = size;
-			queue = new ArrayDeque<>(size);
-		}
-
-		/**
-		 * Adds the node to the queue.
-		 * If the queue is full, drains the queue and returns the nodes.
-		 */
-		public synchronized List<NodeIndex.Node> add(NodeIndex.Node node) {
-
-			assert (queue.size() < size);
-			queue.add(node);
-
-			if (queue.size() == size) {
-				var nodes = new ArrayList<>(queue);
-				queue.clear();
-				return nodes;
-			}
-
-			return null;
-		}
-
-		/**
-		 * Removes all nodes from the queue.
-		 */
-		public synchronized List<NodeIndex.Node> flush() {
-
-			if (!queue.isEmpty()) {
-				var nodes = new ArrayList<>(queue);
-				queue.clear();
-				return nodes;
-			}
-
-			return null;
-		}
-	}
 
 	private class NodeThread extends Thread {
 
@@ -108,16 +69,170 @@ public class NodeProcessor implements AutoCloseable {
 		}
 	}
 
+	private class GpuThread extends Thread {
+
+		final int id;
+		final Directions directions;
+
+		GpuThread(int id, Directions directions) {
+
+			this.id = id;
+			this.directions = directions;
+
+			setName("GpuMinimizer-" + id);
+			setDaemon(true);
+			start();
+		}
+
+		@Override
+		public void run() {
+
+			while (directions.isRunning()) {
+
+				// listen to directions
+				int statei = directions.getFocusedStatei();
+				if (statei < 0) {
+					ThreadTools.sleep(500, TimeUnit.MILLISECONDS);
+					continue;
+				}
+
+				var stateInfo = stateInfos[statei];
+				var q = minimizationQueues.get(statei);
+				var ecalc = gpuEcalcs[statei];
+
+				// get the next batch to minimize
+				var nodes = q.poll(ecalc.maxBatchSize(), 100, TimeUnit.MILLISECONDS);
+				if (nodes != null) {
+					minimize(stateInfo, ecalc, nodes);
+				}
+			}
+		}
+
+		public void waitForFinish() {
+			try {
+				join();
+			} catch (InterruptedException ex) {
+				throw new RuntimeException(ex);
+			}
+		}
+
+		private void minimize(StateInfo stateInfo, CudaConfEnergyCalculator ecalc, List<NodeIndex.Node> nodes) {
+
+			// collect timing info for the minimizations
+			Stopwatch stopwatch = new Stopwatch().start();
+
+			// minimize the nodes
+			var jobs = nodes.stream()
+				.map(n -> new ConfEnergyCalculator.MinimizationJob(n.conf, makeInters(stateInfo, n.conf)))
+				.collect(Collectors.toList());
+			ecalc.minimizeEnergies(jobs);
+
+			minimized(stateInfo, nodes, jobs, stopwatch);
+		}
+	}
+
+	private static class MinimizationQueue {
+
+		public final int capacity;
+		public final int batchSize;
+
+		private final Deque<NodeIndex.Node> nodes;
+		private final ReentrantLock lock;
+		private final Condition batchReady;
+
+		MinimizationQueue(int capacity, int batchSize) {
+
+			this.capacity = capacity;
+			this.batchSize = batchSize;
+
+			nodes = new ArrayDeque<>(capacity);
+			lock = new ReentrantLock(false);
+			batchReady = lock.newCondition();
+		}
+
+		int size() {
+			final ReentrantLock lock = this.lock;
+			lock.lock();
+			try {
+				return nodes.size();
+			} finally {
+				lock.unlock();
+			}
+		}
+
+		NodeIndex.Node offer(NodeIndex.Node node) {
+			final ReentrantLock lock = this.lock;
+			lock.lock();
+			try {
+
+				// if the queue is full, return the first node
+				NodeIndex.Node out = null;
+				if (nodes.size() == capacity) {
+					out = nodes.poll();
+				}
+
+				// add the node to the queue
+				nodes.offer(node);
+
+				// signal pollers if needed
+				if (nodes.size() >= batchSize) {
+					batchReady.signal();
+				}
+
+				return out;
+
+			} finally {
+				lock.unlock();
+			}
+		}
+
+		List<NodeIndex.Node> poll(int count, long timeout, TimeUnit unit) {
+			try {
+				long timeoutNs = unit.toNanos(timeout);
+				final ReentrantLock lock = this.lock;
+				lock.lockInterruptibly();
+				try {
+
+					// wait for the batch to fill up
+					while (nodes.size() < count) {
+						if (timeoutNs <= 0L) {
+
+							// no batch was ready in time
+							return null;
+						}
+						timeoutNs = batchReady.awaitNanos(timeoutNs);
+					}
+
+					// poll off the batch
+					var batch = new ArrayList<NodeIndex.Node>(count);
+					while (batch.size() < count) {
+						batch.add(nodes.poll());
+					}
+					return batch;
+
+				} finally {
+					lock.unlock();
+				}
+			} catch (InterruptedException ex) {
+				throw new RuntimeException(ex);
+			}
+		}
+	}
+
+
 	public final TaskExecutor cpuTasks;
 	public final SeqDB seqdb;
 	public final NodeDB nodedb;
 	public final StateInfo[] stateInfos;
 	public final boolean includeStaticStatic;
+	public final Parallelism parallelism;
 
-	public final ConfEnergyCalculator[] ecalcs;
+	public final ConfEnergyCalculator[] cpuEcalcs;
+	public final CudaConfEnergyCalculator[] gpuEcalcs;
 
-	private final List<MinimizationQueue> minimizationQueues;
 	private final List<NodeThread> nodeThreads = new ArrayList<>();
+	private final List<GpuThread> gpuThreads = new ArrayList<>();
+	private final List<MinimizationQueue> minimizationQueues = new ArrayList<>();
 
 	public NodeProcessor(TaskExecutor cpuTasks, SeqDB seqdb, NodeDB nodedb, StateInfo[] stateInfos, boolean includeStaticStatic, Parallelism parallelism, Structs.Precision precision) {
 
@@ -126,16 +241,19 @@ public class NodeProcessor implements AutoCloseable {
 		this.nodedb = nodedb;
 		this.stateInfos = stateInfos;
 		this.includeStaticStatic = includeStaticStatic;
+		this.parallelism = parallelism;
 
 		// make the energy calculators
-		ecalcs = Arrays.stream(stateInfos)
-			.map(stateInfo -> ConfEnergyCalculator.makeBest(stateInfo.config.confSpace, parallelism, precision))
+		cpuEcalcs = Arrays.stream(stateInfos)
+			.map(stateInfo -> new NativeConfEnergyCalculator(stateInfo.config.confSpace, precision))
 			.toArray(ConfEnergyCalculator[]::new);
-
-		// set up the minimization queues
-		minimizationQueues = Arrays.stream(stateInfos)
-			.map(stateInfo -> new MinimizationQueue(stateInfo, ecalcs[stateInfo.config.state.index].maxBatchSize()))
-			.collect(Collectors.toList());
+		if (parallelism.numGpus > 0) {
+			gpuEcalcs = Arrays.stream(stateInfos)
+				.map(stateInfo -> new CudaConfEnergyCalculator(stateInfo.config.confSpace, precision, parallelism))
+				.toArray(CudaConfEnergyCalculator[]::new);
+		} else {
+			gpuEcalcs = null;
+		}
 	}
 
 	@Override
@@ -145,16 +263,58 @@ public class NodeProcessor implements AutoCloseable {
 		for (var t : nodeThreads) {
 			t.waitForFinish();
 		}
+		for (var t : gpuThreads) {
+			t.waitForFinish();
+		}
 
-		for (var ecalc : ecalcs) {
+		// cleanup the ecalcs
+		for (var ecalc : cpuEcalcs) {
 			ecalc.close();
+		}
+		if (gpuEcalcs != null) {
+			for (var ecalc : gpuEcalcs) {
+				ecalc.close();
+			}
 		}
 	}
 
-	public void startNodeThreads(int numThreads, Directions directions) {
+	public void start(int numThreads, Directions directions) {
+
+		if (!nodeThreads.isEmpty() || !gpuThreads.isEmpty()) {
+			throw new IllegalStateException("threads already started");
+		}
+
+		// start the node threads
 		for (int i=0; i<numThreads; i++) {
 			nodeThreads.add(new NodeThread(i, directions));
 		}
+
+		// start the GPU threads too, if needed
+		if (gpuEcalcs != null) {
+
+			// all states should have the same GPU settings
+			int numStreams = gpuEcalcs[0].numStreams();
+			int batchSize = gpuEcalcs[0].maxBatchSize();
+
+			// make the queues
+			// make them big enough so all the GPU threads can get more work without waiting
+			int queueCapacity = numStreams*batchSize*6;
+			for (var ignored : stateInfos) {
+				minimizationQueues.add(new MinimizationQueue(queueCapacity, batchSize));
+			}
+
+			// start the threads
+			for (int streami=0; streami<numStreams; streami++) {
+				gpuThreads.add(new GpuThread(streami, directions));
+			}
+		}
+	}
+
+	public int getMinimizationQueueSize(int statei) {
+		if (minimizationQueues.isEmpty()) {
+			return -1;
+		}
+		return minimizationQueues.get(statei).size();
 	}
 
 	private void log(String msg, Object ... args) {
@@ -252,35 +412,47 @@ public class NodeProcessor implements AutoCloseable {
 
 	private void minimize(NodeIndex.Node node) {
 
-		// the score look good, add it to the minimization queue
-		var q = minimizationQueues.get(node.statei);
-		List<NodeIndex.Node> nodes = q.add(node);
+		var stateInfo = stateInfos[node.statei];
 
-		// if we finished a batch, minimize it now
-		if (nodes != null) {
-			minimize(node.statei, nodes);
+		// do we have GPUs?
+		if (gpuEcalcs != null) {
+
+			// yup, put the node on the queue and let the GPUs deal with it
+			node = minimizationQueues.get(node.statei).offer(node);
+			if (node == null) {
+				return;
+			}
 		}
-	}
 
-	private List<NodeIndex.Node> minimize(int statei, List<NodeIndex.Node> nodes) {
-
-		// got a full batch, minimize it!
-		var stateInfo = stateInfos[statei];
+		// we don't have GPUs or they're busy, so minimize on this CPU thread
 
 		// collect timing info for the minimizations
 		Stopwatch stopwatch = new Stopwatch().start();
 
-		// minimize the conformations
+		// minimize it
+		var nodes = Collections.singletonList(node);
 		var jobs = nodes.stream()
-			.map(node -> new ConfEnergyCalculator.MinimizationJob(node.conf, makeInters(stateInfo, node.conf)))
+			.map(n -> new ConfEnergyCalculator.MinimizationJob(n.conf, makeInters(stateInfo, n.conf)))
 			.collect(Collectors.toList());
-		ecalcs[statei].minimizeEnergies(jobs);
 
-		// TODO: if the GPUs are busy, minimize on the CPU
+		cpuEcalcs[node.statei].minimizeEnergies(jobs);
+
+		minimized(stateInfo, nodes, jobs, stopwatch);
+	}
+
+	private List<PosInter> makeInters(StateInfo stateInfo, int[] conf) {
+		if (includeStaticStatic) {
+			return stateInfo.config.posInterGen.all(stateInfo.config.confSpace, conf);
+		} else {
+			return stateInfo.config.posInterGen.dynamic(stateInfo.config.confSpace, conf);
+		}
+	}
+
+	private void minimized(StateInfo stateInfo, List<NodeIndex.Node> nodes, List<ConfEnergyCalculator.MinimizationJob> jobs, Stopwatch stopwatch) {
 
 		// compute the bound energies for each conf
 		double[] bounds = nodes.stream()
-			.mapToDouble(node -> stateInfo.bcalc.freeEnergyPrecise(node.zSumUpper))
+			.mapToDouble(n -> stateInfo.bcalc.freeEnergyPrecise(n.zSumUpper))
 			.toArray();
 
 		// update stats on energy bounds
@@ -293,7 +465,7 @@ public class NodeProcessor implements AutoCloseable {
 		for (int i=0; i<nodes.size(); i++) {
 			var n = nodes.get(i);
 			var e = jobs.get(i).energy;
-			var z = stateInfo.bcalc.calcPrecise(e);
+			var z = stateInfo.bcalc.calcPrecise(e); // TODO: is this bottlenecking the GPU threads?
 			seqdbBatch.addZConf(
 				stateInfo.config.state,
 				makeSeq(n.statei, n.conf),
@@ -324,16 +496,6 @@ public class NodeProcessor implements AutoCloseable {
 			);
 			*/
 		}
-
-		return nodes;
-	}
-
-	private List<PosInter> makeInters(StateInfo stateInfo, int[] conf) {
-		if (includeStaticStatic) {
-			return stateInfo.config.posInterGen.all(stateInfo.config.confSpace, conf);
-		} else {
-			return stateInfo.config.posInterGen.dynamic(stateInfo.config.confSpace, conf);
-		}
 	}
 
 	public List<ConfEnergyCalculator.EnergiedCoords> minimizeCoords(int statei, List<int[]> confs) {
@@ -344,6 +506,14 @@ public class NodeProcessor implements AutoCloseable {
 			.map(conf -> (ConfEnergyCalculator.EnergiedCoords)null)
 			.collect(Collectors.toList());
 
+		// pick an ecalc
+		ConfEnergyCalculator ecalc;
+		if (gpuEcalcs != null) {
+			ecalc = gpuEcalcs[statei];
+		} else {
+			ecalc = cpuEcalcs[statei];
+		}
+
 		// minimize the confs
 		// (can't use batches because we need the coords)
 		for (int i=0; i<confs.size(); i++) {
@@ -352,7 +522,7 @@ public class NodeProcessor implements AutoCloseable {
 				() -> {
 					int[] conf = confs.get(fi);
 					var inters = makeInters(stateInfo, conf);
-					energiedCoords.set(fi, ecalcs[statei].minimize(conf, inters));
+					energiedCoords.set(fi, ecalc.minimize(conf, inters));
 					return 42;
 				},
 				answer -> {}
