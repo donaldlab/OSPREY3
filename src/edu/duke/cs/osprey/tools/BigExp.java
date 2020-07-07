@@ -267,6 +267,16 @@ public class BigExp implements Comparable<BigExp>, IOable, Serializable {
 		fp = Math.abs(fp);
 	}
 
+	public double log() {
+		return Math.log10(fp) + exp;
+	}
+
+	private static final double oologe = 1.0/Math.log10(Math.E);
+
+	public double ln() {
+		return Math.log(fp) + exp*oologe;
+	}
+
 	public void min(BigExp other) {
 		if (compareTo(other) > 0) {
 			set(other);

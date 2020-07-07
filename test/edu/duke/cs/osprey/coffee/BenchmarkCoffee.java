@@ -430,6 +430,7 @@ public class BenchmarkCoffee {
 			//.setConditions(BoltzmannCalculator.Conditions.Room)
 			.setNodeDBMem(nodesMiB*1024*1024)
 			.setPrecision(precision)
+			//.setNodeScoringLog(new File("nodescores.tsv"))
 			.configEachState((config, ecalc) -> {
 				config.posInterGen = new PosInterGen(bounds.posInterDist, null);
 			})

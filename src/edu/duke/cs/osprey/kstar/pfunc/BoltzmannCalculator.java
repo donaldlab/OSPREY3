@@ -152,7 +152,7 @@ public class BoltzmannCalculator {
 	}
 
 	public double freeEnergyPrecise(BigExp z) {
-		return freeEnergyPrecise(z.toBigDecimal(mathContext));
+		return -RT*z.ln();
 	}
 
 	public DoubleBounds freeEnergyPrecise(BigDecimalBounds z) {

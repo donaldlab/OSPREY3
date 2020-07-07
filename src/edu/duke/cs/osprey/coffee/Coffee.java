@@ -52,6 +52,7 @@ public class Coffee {
 		private boolean includeStaticStatic = true;
 		private BoltzmannCalculator.Conditions conditions = BoltzmannCalculator.Conditions.Classic; // don't rock the boat
 		// TODO: experiment if other conditions better correlate with experimental results?
+		private File nodeScoringLog = null;
 
 		public Builder(MultiStateConfSpace confSpace) {
 			this.confSpace = confSpace;
@@ -128,6 +129,11 @@ public class Coffee {
 			return this;
 		}
 
+		public Builder setNodeScoringLog(File val) {
+			nodeScoringLog = val;
+			return this;
+		}
+
 		public Coffee build() {
 
 			// check the state configs
@@ -151,7 +157,8 @@ public class Coffee {
 			return new Coffee(
 				confSpace, stateConfigs, cluster, parallelism, precision,
 				nodedbFile, nodedbFileBytes, nodedbMemBytes,
-				seqdbFile, seqdbMathContext, includeStaticStatic, conditions
+				seqdbFile, seqdbMathContext, includeStaticStatic, conditions,
+				nodeScoringLog
 			);
 		}
 	}
@@ -223,12 +230,18 @@ public class Coffee {
 	public final MathContext seqdbMathContext;
 	public final boolean includeStaticStatic;
 	public final BoltzmannCalculator.Conditions conditions;
+	public final File nodeScoringLog;
 
 	public final MathContext mathContext = BigExp.mathContext;
 	public final BoltzmannCalculator bcalc;
 	public final StateInfo[] infos;
 
-	private Coffee(MultiStateConfSpace confSpace, StateConfig[] stateConfigs, Cluster cluster, Parallelism parallelism, Structs.Precision precision, File dbFile, long dbFileBytes, long dbMemBytes, File seqdbFile, MathContext seqdbMathContext, boolean includeStaticStatic, BoltzmannCalculator.Conditions conditions) {
+	private Coffee(
+		MultiStateConfSpace confSpace, StateConfig[] stateConfigs, Cluster cluster, Parallelism parallelism, Structs.Precision precision,
+		File dbFile, long dbFileBytes, long dbMemBytes,
+		File seqdbFile, MathContext seqdbMathContext, boolean includeStaticStatic, BoltzmannCalculator.Conditions conditions,
+		File nodeScoringLog
+	) {
 
 		this.confSpace = confSpace;
 		this.stateConfigs = stateConfigs;
@@ -242,6 +255,7 @@ public class Coffee {
 		this.seqdbMathContext = seqdbMathContext;
 		this.includeStaticStatic = includeStaticStatic;
 		this.conditions = conditions;
+		this.nodeScoringLog = nodeScoringLog;
 
 		bcalc = new BoltzmannCalculator(mathContext, conditions);
 		infos = Arrays.stream(stateConfigs)
@@ -273,6 +287,7 @@ public class Coffee {
 					try (var nodedb = new NodeDB.Builder(confSpace, member)
 						.setFile(dbFile, dbFileBytes)
 						.setMem(dbMemBytes)
+						.setScoringLog(nodeScoringLog)
 						.build()
 					) {
 

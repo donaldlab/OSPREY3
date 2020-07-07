@@ -28,6 +28,7 @@ public class NodeDB implements AutoCloseable {
 		private long fileBytes = 0;
 		private long memBytes = 0;
 		private long broadcastNs = 1_000_000_000L; // 1 second
+		private File scoringLog;
 
 		public Builder(MultiStateConfSpace confSpace, ClusterMember member) {
 			this.confSpace = confSpace;
@@ -50,13 +51,19 @@ public class NodeDB implements AutoCloseable {
 			return this;
 		}
 
+		public Builder setScoringLog(File val) {
+			scoringLog = val;
+			return this;
+		}
+
 		public NodeDB build() {
 			return new NodeDB(
 				confSpace,
 				member,
 				file, fileBytes,
 				memBytes,
-				broadcastNs
+				broadcastNs,
+				scoringLog
 			);
 		}
 	}
@@ -107,6 +114,7 @@ public class NodeDB implements AutoCloseable {
 	public final long fileBytes;
 	public final long memBytes;
 	public final long broadcastNs;
+	public final File scoringLog;
 
 	/**
 	 * Function to call when dropped nodes need to be processed.
@@ -124,7 +132,7 @@ public class NodeDB implements AutoCloseable {
 
 	private long lastBroadcastNs = 0;
 
-	private NodeDB(MultiStateConfSpace confSpace, ClusterMember member, File file, long fileBytes, long memBytes, long broadcastNs) {
+	private NodeDB(MultiStateConfSpace confSpace, ClusterMember member, File file, long fileBytes, long memBytes, long broadcastNs, File scoringLog) {
 
 		this.confSpace = confSpace;
 		this.member = member;
@@ -132,8 +140,10 @@ public class NodeDB implements AutoCloseable {
 		this.fileBytes = fileBytes;
 		this.memBytes = memBytes;
 		this.broadcastNs = broadcastNs;
+		this.scoringLog = scoringLog;
 
 		perf = new NodePerformance(confSpace);
+		perf.setLog(scoringLog);
 
 		// TODO: implement memory-buffered disk-backed options
 		// TEMP
