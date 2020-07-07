@@ -366,25 +366,38 @@ public class NodeDB implements AutoCloseable {
 	 * Otherwise, space will be evicted from local storage to make room.
 	 */
 	public void add(NodeIndex.Node node) {
-		thread.exec(() -> {
+		thread.exec(() -> addOnThread(node));
+	}
 
-			// prefer local storage first
-			if (indices[node.statei].freeSpace() > 0) {
-				addLocalOnThread(node);
-				return;
-			}
+	private void addOnThread(NodeIndex.Node node) {
 
-			// prefer remote storage next
-			Neighbor neighbor = neighbors.values().stream()
-				.max(Comparator.comparing(n -> n.freeSpaces[node.statei]))
-				.orElse(null);
-			if (neighbor != null && neighbor.freeSpaces[node.statei] > 0) {
-				neighbor.add(node);
-				return;
-			}
-
-			// finally, force local storage
+		// prefer local storage first
+		if (indices[node.statei].freeSpace() > 0) {
 			addLocalOnThread(node);
+			return;
+		}
+
+		// prefer remote storage next
+		Neighbor neighbor = neighbors.values().stream()
+			.max(Comparator.comparing(n -> n.freeSpaces[node.statei]))
+			.orElse(null);
+		if (neighbor != null && neighbor.freeSpaces[node.statei] > 0) {
+			neighbor.add(node);
+			return;
+		}
+
+		// finally, force local storage
+		addLocalOnThread(node);
+	}
+
+	/**
+	 * A batched version of add()
+	 */
+	public void add(List<NodeIndex.Node> nodes) {
+		thread.exec(() -> {
+			for (var node : nodes) {
+				addOnThread(node);
+			}
 		});
 	}
 

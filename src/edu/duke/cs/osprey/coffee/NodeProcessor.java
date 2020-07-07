@@ -4,6 +4,7 @@ import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.coffee.directions.Directions;
 import edu.duke.cs.osprey.coffee.nodedb.NodeDB;
 import edu.duke.cs.osprey.coffee.nodedb.NodeIndex;
+import edu.duke.cs.osprey.coffee.seqdb.Batch;
 import edu.duke.cs.osprey.coffee.seqdb.SeqDB;
 import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.ConfSearch;
@@ -34,6 +35,12 @@ public class NodeProcessor implements AutoCloseable {
 		final int id;
 		final Directions directions;
 
+		final Batch seqBatch = seqdb.batch();
+		final List<NodeIndex.Node> nodeBatch = new ArrayList<>();
+		long lastFlush = -1;
+
+		final long flushNs = TimeUnit.MILLISECONDS.toNanos(100);
+
 		NodeThread(int id, Directions directions) {
 
 			this.id = id;
@@ -46,17 +53,35 @@ public class NodeProcessor implements AutoCloseable {
 
 		@Override
 		public void run() {
+
 			while (directions.isRunning()) {
 
 				// get a node
 				var nodeInfo = getNode(directions);
 				if (!nodeInfo.result.gotNode) {
 					// no nodes, wait a bit and try again
+					flushIfNeeded();
 					ThreadTools.sleep(100, TimeUnit.MILLISECONDS);
 					continue;
 				}
 
-				process(nodeInfo);
+				// got a node! process it
+				process(nodeInfo, seqBatch, nodeBatch);
+				flushIfNeeded();
+			}
+		}
+
+		private void flushIfNeeded() {
+
+			long now = System.nanoTime();
+			if (now >= lastFlush + flushNs) {
+
+				seqBatch.save();
+
+				nodedb.add(nodeBatch);
+				nodeBatch.clear();
+
+				lastFlush = now;
 			}
 		}
 
@@ -116,14 +141,14 @@ public class NodeProcessor implements AutoCloseable {
 			}
 		}
 
-		private void minimize(StateInfo stateInfo, CudaConfEnergyCalculator ecalc, List<NodeIndex.Node> nodes) {
+		private void minimize(StateInfo stateInfo, CudaConfEnergyCalculator ecalc, List<NodeInfo> nodes) {
 
 			// collect timing info for the minimizations
 			Stopwatch stopwatch = new Stopwatch().start();
 
 			// minimize the nodes
 			var jobs = nodes.stream()
-				.map(n -> new ConfEnergyCalculator.MinimizationJob(n.conf, makeInters(stateInfo, n.conf)))
+				.map(info -> new ConfEnergyCalculator.MinimizationJob(info.node.conf, makeInters(stateInfo, info.node.conf)))
 				.collect(Collectors.toList());
 			ecalc.minimizeEnergies(jobs);
 
@@ -136,7 +161,7 @@ public class NodeProcessor implements AutoCloseable {
 		public final int capacity;
 		public final int batchSize;
 
-		private final Deque<NodeIndex.Node> nodes;
+		private final Deque<NodeInfo> nodes;
 		private final ReentrantLock lock;
 		private final Condition batchReady;
 
@@ -160,13 +185,13 @@ public class NodeProcessor implements AutoCloseable {
 			}
 		}
 
-		NodeIndex.Node offer(NodeIndex.Node node) {
+		NodeInfo offer(NodeInfo node) {
 			final ReentrantLock lock = this.lock;
 			lock.lock();
 			try {
 
 				// if the queue is full, return the first node
-				NodeIndex.Node out = null;
+				NodeInfo out = null;
 				if (nodes.size() == capacity) {
 					out = nodes.poll();
 				}
@@ -186,7 +211,7 @@ public class NodeProcessor implements AutoCloseable {
 			}
 		}
 
-		List<NodeIndex.Node> poll(int count, long timeout, TimeUnit unit) {
+		List<NodeInfo> poll(int count, long timeout, TimeUnit unit) {
 			try {
 				long timeoutNs = unit.toNanos(timeout);
 				final ReentrantLock lock = this.lock;
@@ -204,7 +229,7 @@ public class NodeProcessor implements AutoCloseable {
 					}
 
 					// poll off the batch
-					var batch = new ArrayList<NodeIndex.Node>(count);
+					var batch = new ArrayList<NodeInfo>(count);
 					while (batch.size() < count) {
 						batch.add(nodes.poll());
 					}
@@ -348,19 +373,23 @@ public class NodeProcessor implements AutoCloseable {
 		final Result result;
 		final NodeIndex.Node node;
 		final RCs tree;
+		final long aquisitionNs;
 
-		NodeInfo(Result result, NodeIndex.Node node, RCs tree) {
+		NodeInfo(Result result, NodeIndex.Node node, RCs tree, long aquisitionNs) {
 			this.result = result;
 			this.node = node;
 			this.tree = tree;
+			this.aquisitionNs = aquisitionNs;
 		}
 
 		NodeInfo(Result result) {
-			this(result, null, null);
+			this(result, null, null, -1);
 		}
 	}
 
 	private NodeInfo getNode(Directions directions) {
+
+		long startNs = System.nanoTime();
 
 		// get the currently focused state
 		int statei = directions.getFocusedStatei();
@@ -381,10 +410,11 @@ public class NodeProcessor implements AutoCloseable {
 		}
 
 		// all is well
-		return new NodeInfo(Result.GotNode, node, tree);
+		long nodeNs = System.nanoTime() - startNs;
+		return new NodeInfo(Result.GotNode, node, tree, nodeNs);
 	}
 
-	private NodeInfo process(NodeInfo nodeInfo) {
+	private void process(NodeInfo nodeInfo, Batch seqBatch, List<NodeIndex.Node> nodeBatch) {
 
 		if (nodeInfo.node.isLeaf()) {
 
@@ -394,32 +424,31 @@ public class NodeProcessor implements AutoCloseable {
 
 				// nope, it should have a much worse score
 				// re-score it and put it back into nodedb
-				nodedb.add(new NodeIndex.Node(nodeInfo.node, currentScore));
+				nodeBatch.add(new NodeIndex.Node(nodeInfo.node, currentScore));
 
 			} else {
 
 				// the score looks good, minimize it
-				minimize(nodeInfo.node);
+				minimize(nodeInfo);
 			}
 		} else {
 
 			// interior node, expand it
-			expand(nodeInfo);
+			expand(nodeInfo, seqBatch, nodeBatch);
 		}
-
-		return nodeInfo;
 	}
 
-	private void minimize(NodeIndex.Node node) {
+	private void minimize(NodeInfo nodeInfo) {
 
-		var stateInfo = stateInfos[node.statei];
+		int statei = nodeInfo.node.statei;
+		var stateInfo = stateInfos[nodeInfo.node.statei];
 
 		// do we have GPUs?
 		if (gpuEcalcs != null) {
 
 			// yup, put the node on the queue and let the GPUs deal with it
-			node = minimizationQueues.get(node.statei).offer(node);
-			if (node == null) {
+			nodeInfo = minimizationQueues.get(statei).offer(nodeInfo);
+			if (nodeInfo == null) {
 				return;
 			}
 		}
@@ -430,14 +459,14 @@ public class NodeProcessor implements AutoCloseable {
 		Stopwatch stopwatch = new Stopwatch().start();
 
 		// minimize it
-		var nodes = Collections.singletonList(node);
-		var jobs = nodes.stream()
-			.map(n -> new ConfEnergyCalculator.MinimizationJob(n.conf, makeInters(stateInfo, n.conf)))
+		var nodeInfos = Collections.singletonList(nodeInfo);
+		var jobs = nodeInfos.stream()
+			.map(info -> new ConfEnergyCalculator.MinimizationJob(info.node.conf, makeInters(stateInfo, info.node.conf)))
 			.collect(Collectors.toList());
 
-		cpuEcalcs[node.statei].minimizeEnergies(jobs);
+		cpuEcalcs[statei].minimizeEnergies(jobs);
 
-		minimized(stateInfo, nodes, jobs, stopwatch);
+		minimized(stateInfo, nodeInfos, jobs, stopwatch);
 	}
 
 	private List<PosInter> makeInters(StateInfo stateInfo, int[] conf) {
@@ -448,24 +477,24 @@ public class NodeProcessor implements AutoCloseable {
 		}
 	}
 
-	private void minimized(StateInfo stateInfo, List<NodeIndex.Node> nodes, List<ConfEnergyCalculator.MinimizationJob> jobs, Stopwatch stopwatch) {
+	private void minimized(StateInfo stateInfo, List<NodeInfo> nodeInfos, List<ConfEnergyCalculator.MinimizationJob> jobs, Stopwatch stopwatch) {
 
 		// compute the bound energies for each conf
-		double[] bounds = nodes.stream()
-			.mapToDouble(n -> stateInfo.bcalc.freeEnergyPrecise(n.zSumUpper))
+		double[] bounds = nodeInfos.stream()
+			.mapToDouble(info -> stateInfo.bcalc.freeEnergyPrecise(info.node.zSumUpper))
 			.toArray();
 
 		// update stats on energy bounds
-		for (int i=0; i<nodes.size(); i++) {
+		for (int i=0; i<nodeInfos.size(); i++) {
 			stateInfo.energyBoundStats.add(bounds[i], jobs.get(i).energy);
 		}
 
 		// update seqdb with boltzmann-weighted energies
 		var seqdbBatch = seqdb.batch();
-		for (int i=0; i<nodes.size(); i++) {
-			var n = nodes.get(i);
+		for (int i=0; i<nodeInfos.size(); i++) {
+			var n = nodeInfos.get(i).node;
 			var e = jobs.get(i).energy;
-			var z = stateInfo.bcalc.calcPrecise(e); // TODO: is this bottlenecking the GPU threads?
+			var z = stateInfo.bcalc.calcPrecise(e);
 			seqdbBatch.addZConf(
 				stateInfo.config.state,
 				makeSeq(n.statei, n.conf),
@@ -478,23 +507,10 @@ public class NodeProcessor implements AutoCloseable {
 
 		// update node performance
 		stopwatch.stop();
-		for (int i=0; i<nodes.size(); i++) {
-			var n = nodes.get(i);
-			var reduction = n.zSumUpper;
-			long ns = stopwatch.getTimeNs()/nodes.size();
-			nodedb.perf.update(n, ns, reduction);
-
-			/* TEMP
-			log("            minimization:   r %s  %10s  r/t %s",
-				reduction,
-				stopwatch.getTime(2),
-				Log.formatBigEngineering(processor.seqdb.bigMath()
-					.set(reduction)
-					.div(stopwatch.getTimeNs())
-					.get()
-				)
-			);
-			*/
+		for (var nodeInfo : nodeInfos) {
+			var reduction = nodeInfo.node.zSumUpper;
+			long ns = stopwatch.getTimeNs()/nodeInfos.size() + nodeInfo.aquisitionNs;
+			nodedb.perf.update(nodeInfo.node, ns, reduction);
 		}
 	}
 
@@ -534,7 +550,7 @@ public class NodeProcessor implements AutoCloseable {
 		return energiedCoords;
 	}
 
-	private void expand(NodeInfo nodeInfo) {
+	private void expand(NodeInfo nodeInfo, Batch seqBatch, List<NodeIndex.Node> nodeBatch) {
 
 		// get timing info for the node expansion
 		Stopwatch stopwatch = new Stopwatch().start();
@@ -545,8 +561,7 @@ public class NodeProcessor implements AutoCloseable {
 		Conf.index(nodeInfo.node.conf, confIndex);
 
 		// remove the old bound from SeqDB
-		var seqdbBatch = seqdb.batch();
-		seqdbBatch.subZSumUpper(
+		seqBatch.subZSumUpper(
 			stateInfo.config.state,
 			makeSeq(statei, nodeInfo.node.conf),
 			nodeInfo.node.zSumUpper
@@ -567,14 +582,13 @@ public class NodeProcessor implements AutoCloseable {
 
 			// update nodedb
 			var conf = Conf.make(confIndex);
-			var childNode = new NodeIndex.Node(
+			nodeBatch.add(new NodeIndex.Node(
 				statei, conf, zSumUpper,
 				nodedb.perf.score(statei, conf, zSumUpper)
-			);
-			nodedb.add(childNode);
+			));
 
 			// add the new bound
-			seqdbBatch.addZSumUpper(
+			seqBatch.addZSumUpper(
 				stateInfo.config.state,
 				makeSeq(statei, conf),
 				zSumUpper
@@ -586,23 +600,9 @@ public class NodeProcessor implements AutoCloseable {
 			confIndex.unassignInPlace(posi);
 		}
 
-		seqdbBatch.save();
-
-		// compute the uncertainty reduction and update the node performance
+		// update the node performance
 		stopwatch.stop();
-		nodedb.perf.update(nodeInfo.node, stopwatch.getTimeNs(), reduction);
-
-		/* TEMP
-		log("node expansion:   r %s  %10s  r/s %s",
-			reduction,
-			stopwatch.getTime(2),
-			Log.formatBigEngineering(seqdb.bigMath()
-				.set(reduction)
-				.div(stopwatch.getTimeNs())
-				.get()
-			)
-		);
-		*/
+		nodedb.perf.update(nodeInfo.node, stopwatch.getTimeNs() + nodeInfo.aquisitionNs, reduction);
 	}
 
 	public void handleDrops(Stream<NodeIndex.Node> nodes) {

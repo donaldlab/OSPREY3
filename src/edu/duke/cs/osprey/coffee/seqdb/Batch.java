@@ -139,7 +139,10 @@ public class Batch {
 			return;
 		}
 
+		// move all the changes to a hazelcast operation
 		var op = new SaveOperation(seqdb.confSpace, this);
+		sequencedSums.clear();
+		unsequencedSums.clear();
 
 		if (seqdb.member.isDirector()) {
 			// save locally
