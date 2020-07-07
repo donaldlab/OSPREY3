@@ -32,6 +32,8 @@
 
 package edu.duke.cs.osprey.tools;
 
+import ch.obermuhlner.math.big.BigDecimalMath;
+
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
@@ -271,10 +273,97 @@ public class BigExp implements Comparable<BigExp>, IOable, Serializable {
 		return Math.log10(fp) + exp;
 	}
 
-	private static final double oologe = 1.0/Math.log10(Math.E);
+	private static final MathContext staticmc = new MathContext(16, RoundingMode.HALF_UP);
+	private static final BigDecimal loge = BigDecimalMath.log10(BigDecimalMath.e(staticmc), staticmc);
+	private static final double oologe = BigDecimal.ONE.divide(loge, staticmc).doubleValue();
+	private static final double oologe100 = new BigDecimal("100.0").divide(loge, staticmc).doubleValue();
+	private static final double oologe1000 = new BigDecimal("1000.0").divide(loge, staticmc).doubleValue();
+	private static final double oologe10000 = new BigDecimal("10000.0").divide(loge, staticmc).doubleValue();
 
 	public double ln() {
 		return Math.log(fp) + exp*oologe;
+	}
+
+	/** Return 10^val */
+	public static BigExp pow10(double val) {
+
+		// subtract off enough so that Math.pow() works without overflow
+		// this is super naive, but it's really fast!
+		int exp = 0;
+		while (val > 10000.0) {
+			exp += 10000;
+			val -= 10000.0;
+		}
+		while (val > 1000.0) {
+			exp += 1000;
+			val -= 1000.0;
+		}
+		while (val > 100.0) {
+			exp += 100;
+			val -= 100.0;
+		}
+		while (val < -10000.0) {
+			exp -= 10000;
+			val += 10000.0;
+		}
+		while (val < -1000.0) {
+			exp -= 1000;
+			val += 1000.0;
+		}
+		while (val < -100.0) {
+			exp -= 100;
+			val += 100.0;
+		}
+
+		double fp = Math.pow(10.0, val);
+		if (!Double.isFinite(fp)) {
+			throw new IllegalArgumentException("Value magnitude too large to exponentiate");
+		}
+
+		var out = new BigExp(fp, exp);
+		out.normalize(true);
+		return out;
+	}
+
+	/** Return e^val */
+	public static BigExp exp(double val) {
+
+		// subtract off enough so that Math.exp() works without overflow
+		// this is super naive, but it's really fast!
+		int exp = 0;
+		while (val > oologe10000) {
+			exp += 10000;
+			val -= oologe10000;
+		}
+		while (val > oologe1000) {
+			exp += 1000;
+			val -= oologe1000;
+		}
+		while (val > oologe100) {
+			exp += 100;
+			val -= oologe100;
+		}
+		while (val < -oologe10000) {
+			exp -= 10000;
+			val += oologe10000;
+		}
+		while (val < -oologe1000) {
+			exp -= 1000;
+			val += oologe1000;
+		}
+		while (val < -oologe100) {
+			exp -= 100;
+			val += oologe100;
+		}
+
+		double fp = Math.exp(val);
+		if (!Double.isFinite(fp)) {
+			throw new IllegalArgumentException("Value magnitude too large to exponentiate");
+		}
+
+		var out = new BigExp(fp, exp);
+		out.normalize(true);
+		return out;
 	}
 
 	public void min(BigExp other) {

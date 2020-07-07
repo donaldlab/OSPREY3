@@ -32,10 +32,12 @@
 
 package edu.duke.cs.osprey.tools;
 
+import static edu.duke.cs.osprey.TestBase.isAbsolutely;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 
+import ch.obermuhlner.math.big.BigDecimalMath;
 import org.junit.Test;
 
 import java.math.BigDecimal;
@@ -460,5 +462,83 @@ public class TestBigExp {
 		// errors seen in the wild
 		assertThat(new BigExp(1.673007, -78675272).compareTo(new BigExp(0.0, 0)), is(+1));
 		assertThat(new BigExp(1.851726, 47).compareTo(new BigExp(7.582769, 48)), is(-1));
+	}
+
+	@Test
+	public void log() {
+
+		// check accuracy to 16 significant digits (that's about all double can represent)
+		var mc = new MathContext(16, RoundingMode.HALF_UP);
+		BiFunction<Double,Integer,Double> be = (fp, exp) -> new BigExp(fp, exp).log();
+		Function<String,Double> bd = val -> BigDecimalMath.log10(new BigDecimal(val), mc).doubleValue();
+
+		assertThat(be.apply(1.2345, 10), isAbsolutely(bd.apply("1.2345e10"), 1e-12));
+		assertThat(be.apply(1.2345, -10), isAbsolutely(bd.apply("1.2345e-10"), 1e-12));
+	}
+
+	@Test
+	public void ln() {
+
+		// check accuracy to 16 significant digits (that's about all double can represent)
+		var mc = new MathContext(16, RoundingMode.HALF_UP);
+		BiFunction<Double,Integer,Double> be = (fp, exp) -> new BigExp(fp, exp).ln();
+		Function<String,Double> bd = val -> BigDecimalMath.log(new BigDecimal(val), mc).doubleValue();
+
+		assertThat(be.apply(1.2345, 10), isAbsolutely(bd.apply("1.2345e10"), 1e-12));
+		assertThat(be.apply(1.2345, -10), isAbsolutely(bd.apply("1.2345e-10"), 1e-12));
+	}
+
+	@Test
+	public void pow10() {
+
+		// check accuracy to 16 significant digits (that's about all double can represent)
+		var mc = new MathContext(16, RoundingMode.HALF_UP);
+		Function<Double,String> be = val -> String.format("%.12e", BigExp.pow10(val).toBigDecimal(mc));
+		Function<String,String> bd = val -> String.format("%.12e", BigDecimalMath.pow(new BigDecimal("10"), new BigDecimal(val), mc));
+
+		assertThat(be.apply(1.2345), is(bd.apply("1.2345")));
+		assertThat(be.apply(12.345), is(bd.apply("12.345")));
+		assertThat(be.apply(123.45), is(bd.apply("123.45")));
+		assertThat(be.apply(308.0), is(bd.apply("308.0")));
+		assertThat(be.apply(309.0), is(bd.apply("309.0")));
+		assertThat(be.apply(1234.5), is(bd.apply("1234.5")));
+		assertThat(be.apply(12345.0), is(bd.apply("12345")));
+
+		assertThat(be.apply(-1.2345), is(bd.apply("-1.2345")));
+		assertThat(be.apply(-12.345), is(bd.apply("-12.345")));
+		assertThat(be.apply(-123.45), is(bd.apply("-123.45")));
+		assertThat(be.apply(-300.0), is(bd.apply("-300.0")));
+		assertThat(be.apply(-323.0), is(bd.apply("-323.0")));
+		assertThat(be.apply(-324.0), is(bd.apply("-324.0")));
+		assertThat(be.apply(-325.0), is(bd.apply("-325.0")));
+		assertThat(be.apply(-1234.5), is(bd.apply("-1234.5")));
+		assertThat(be.apply(-12345.0), is(bd.apply("-12345.0")));
+	}
+
+	@Test
+	public void exp() {
+
+		// check accuracy to 10 significant digits (the huger magnitude numbers are a little less precise)
+		var mc = new MathContext(16, RoundingMode.HALF_UP);
+		Function<Double,String> be = val -> String.format("%.10e", BigExp.exp(val).toBigDecimal(mc));
+		Function<String,String> bd = val -> String.format("%.10e", BigDecimalMath.exp(new BigDecimal(val), mc));
+
+		assertThat(be.apply(1.2345), is(bd.apply("1.2345")));
+		assertThat(be.apply(12.345), is(bd.apply("12.345")));
+		assertThat(be.apply(123.45), is(bd.apply("123.45")));
+		assertThat(be.apply(308.0), is(bd.apply("308.0")));
+		assertThat(be.apply(309.0), is(bd.apply("309.0")));
+		assertThat(be.apply(1234.5), is(bd.apply("1234.5")));
+		assertThat(be.apply(12345.0), is(bd.apply("12345.0")));
+
+		assertThat(be.apply(-1.2345), is(bd.apply("-1.2345")));
+		assertThat(be.apply(-12.345), is(bd.apply("-12.345")));
+		assertThat(be.apply(-123.45), is(bd.apply("-123.45")));
+		assertThat(be.apply(-300.0), is(bd.apply("-300.0")));
+		assertThat(be.apply(-323.0), is(bd.apply("-323.0")));
+		assertThat(be.apply(-324.0), is(bd.apply("-324.0")));
+		assertThat(be.apply(-325.0), is(bd.apply("-325.0")));
+		assertThat(be.apply(-1234.5), is(bd.apply("-1234.5")));
+		assertThat(be.apply(-12345.0), is(bd.apply("-12345.0")));
 	}
 }
