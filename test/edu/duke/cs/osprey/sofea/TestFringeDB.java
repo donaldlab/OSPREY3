@@ -451,8 +451,6 @@ public class TestFringeDB {
 				assertThat(tx.state().index, is(1));
 				assertThat(tx.conf(), is(conf(-1, 0, -1, -1)));
 				assertThat(tx.zSumUpper(), is(new BigExp(74.1)));
-
-				// TODO: NEXTTIME: make sure the confs agree
 			}
 		}
 	}

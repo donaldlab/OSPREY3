@@ -14,9 +14,6 @@
 namespace osprey {
 	namespace motions {
 
-		// TODO: NEXTTIME: the library links, but not rundump... why?!?!
-		//  ptxas fatal   : Cannot take address of function '_ZN6osprey7motions11DihedralDofIfE3setERNS_10AssignmentIfEEPvfPa'
-
 		template<>
 		__device__
 		void DihedralDof<float32_t>::set(Assignment<float32_t> & assignment, void * pdof, float32_t radians, int8_t * shared_mem) {
