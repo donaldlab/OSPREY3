@@ -72,31 +72,26 @@ public class BenchmarkCoffee {
 		benchmark("COFFEE", () -> coffee(complex, seq, parallelism, bounds, staticStatic, gWidthMax, 1024, precision));
 
 		// cpus = 48
-		//COFFEE-0: 	G [-1382.335,-1381.336]   width 0.999081 of 0.000000   confs     35534   avgap 4.86   nodedb  10.4%   rr Infinity   time 4.69 m
-		//              COFFEE   emat   13060 ms ( 13.06 s)   pfunc  281446 ms (  4.69 m)   G [-1382.3351,-1381.3361]  w =  0.9991
-		// 126.3 confs/s
-
-		// cpus = 48, precision = 32
-		//COFFEE-0: 	G [-1382.253,-1381.257]   width 0.996068 of 0.000000   confs     29927   avgap 4.56   nodedb   7.7%   rr Infinity   time 2.71 m
-		//              COFFEE   emat   10534 ms ( 10.53 s)   pfunc  162315 ms (  2.71 m)   G [-1382.2527,-1381.2566]  w =  0.9961
-		// 184.4 confs/s
+		//COFFEE-0: 	G [-1382.254,-1381.256]   width 0.997744 of 0.000000   confs     29282   avgap 4.56   nodedb  48.8%   rr Infinity   time 2.64 m   minq: -1
+		//              COFFEE   emat   10911 ms ( 10.91 s)   pfunc  158258 ms (  2.64 m)   G [-1382.2542,-1381.2564]  w =  0.9977
+		// 185.0 confs/s
 
 		// cpus = 48, gpus = 1
-		//COFFEE-0: 	G [-1382.328,-1381.329]   width 0.998872 of 0.000000   confs     43769   avgap 4.91   nodedb   5.9%   rr Infinity   time 1.92 m
-		//              COFFEE   emat   14172 ms ( 14.17 s)   pfunc  115357 ms (  1.92 m)   G [-1382.3282,-1381.3294]  w =  0.9989
-		// 379.4 conf/s
+		//COFFEE-0: 	G [-1382.321,-1381.330]   width 0.990889 of 0.000000   confs     39135   avgap 4.90   nodedb  44.6%   rr Infinity   time 1.55 m   minq: 720
+		//              COFFEE   emat   13924 ms ( 13.92 s)   pfunc   93203 ms (  1.55 m)   G [-1382.3209,-1381.3300]  w =  0.9909
+		// 419.9 confs/s
 
 		// cpus = 48, gpus = 4
-		//COFFEE-0: 	G [-1382.318,-1381.330]   width 0.988346 of 0.000000   confs     59701   avgap 4.97   nodedb   4.0%   rr Infinity   time 52.29 s
-		//              COFFEE   emat    9916 ms (  9.92 s)   pfunc   52294 ms ( 52.29 s)   G [-1382.3184,-1381.3301]  w =  0.9883
-		// 1141.6 confs/s
+		//COFFEE-0: 	G [-1382.317,-1381.329]   width 0.987532 of 0.000000   confs     41928   avgap 4.91   nodedb  25.5%   rr Infinity   time 32.18 s   minq: 2557
+		//              COFFEE   emat   12693 ms ( 12.69 s)   pfunc   32188 ms ( 32.19 s)   G [-1382.3166,-1381.3290]  w =  0.9875
+		// 1302.6 confs/s, 4.92x speedup over CPUs
 
 		// cpus = 48, gpus = 4, precision = 32
-		//COFFEE-0: 	G [-1382.274,-1381.278]   width 0.995364 of 0.000000   confs     48500   avgap 4.56   nodedb   3.3%   rr Infinity   time 48.25 s
-		//              COFFEE   emat   12634 ms ( 12.63 s)   pfunc   48257 ms ( 48.26 s)   G [-1382.2738,-1381.2784]  w =  0.9954
-		// 1005.0 confs/s
+		//COFFEE-0: 	G [-1382.259,-1381.276]   width 0.982609 of 0.000000   confs     32935   avgap 4.50   nodedb  22.6%   rr Infinity   time 27.09 s   minq: 2880
+		//              COFFEE   emat    9074 ms (  9.07 s)   pfunc   27112 ms ( 27.11 s)   G [-1382.2589,-1381.2763]  w =  0.9826
+		// 1214.8 confs/s
 
-		// float32 isn't much faster... so minimizations aren't the bottleneck? or the node scoring heuristics need some improvement?
+		// float32 isn't much faster... still bottlenecking on getting nodes
 	}
 
 	private static void affinity_6ov7_1mut6flex() {

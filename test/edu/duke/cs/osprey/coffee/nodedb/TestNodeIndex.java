@@ -57,12 +57,15 @@ public class TestNodeIndex {
 			new BigExp(1.0, 42),
 			new BigExp(4.2, 10)
 		);
-		index.add(node);
+		boolean wasAdded = index.add(node);
+		assertThat(wasAdded, is(true));
 
 		assertThat(index.size(), is(1L));
+		assertThat(index.highestScore(), is(node.score));
 		assertThat(index.removeHighest(), is(node));
 
 		assertThat(index.size(), is(0L));
+		assertThat(index.highestScore(), is(nullValue()));
 		assertThat(index.removeHighest(), is(nullValue()));
 	}
 
@@ -102,10 +105,15 @@ public class TestNodeIndex {
 		index.add(nodes[4]);
 		assertThat(index.size(), is(5L));
 
+		assertThat(index.highestScore(), is(nodes[4].score));
 		assertThat(index.removeHighest(), is(nodes[4]));
+		assertThat(index.highestScore(), is(nodes[3].score));
 		assertThat(index.removeHighest(), is(nodes[3]));
+		assertThat(index.highestScore(), is(nodes[2].score));
 		assertThat(index.removeHighest(), is(nodes[2]));
+		assertThat(index.highestScore(), is(nodes[1].score));
 		assertThat(index.removeHighest(), is(nodes[1]));
+		assertThat(index.highestScore(), is(nodes[0].score));
 		assertThat(index.removeHighest(), is(nodes[0]));
 		assertThat(index.size(), is(0L));
 		assertThat(index.removeHighest(), is(nullValue()));
@@ -118,10 +126,15 @@ public class TestNodeIndex {
 		index.add(nodes[0]);
 		assertThat(index.size(), is(5L));
 
+		assertThat(index.highestScore(), is(nodes[4].score));
 		assertThat(index.removeHighest(), is(nodes[4]));
+		assertThat(index.highestScore(), is(nodes[3].score));
 		assertThat(index.removeHighest(), is(nodes[3]));
+		assertThat(index.highestScore(), is(nodes[2].score));
 		assertThat(index.removeHighest(), is(nodes[2]));
+		assertThat(index.highestScore(), is(nodes[1].score));
 		assertThat(index.removeHighest(), is(nodes[1]));
+		assertThat(index.highestScore(), is(nodes[0].score));
 		assertThat(index.removeHighest(), is(nodes[0]));
 		assertThat(index.size(), is(0L));
 		assertThat(index.removeHighest(), is(nullValue()));
@@ -160,6 +173,7 @@ public class TestNodeIndex {
 		assertThat(index.size(), is((long)nodes.length));
 
 		for (int i=0; i<nodes.length; i++) {
+			assertThat("node " + i, index.highestScore(), is(nodes[nodes.length - i - 1].score));
 			assertThat("node " + i, index.removeHighest(), is(nodes[nodes.length - i - 1]));
 		}
 		assertThat(index.size(), is(0L));
@@ -171,6 +185,7 @@ public class TestNodeIndex {
 		assertThat(index.size(), is((long)nodes.length));
 
 		for (int i=0; i<nodes.length; i++) {
+			assertThat("node " + i, index.highestScore(), is(nodes[nodes.length - i - 1].score));
 			assertThat("node " + i, index.removeHighest(), is(nodes[nodes.length - i - 1]));
 		}
 		assertThat(index.size(), is(0L));
@@ -259,7 +274,8 @@ public class TestNodeIndex {
 		// poll some nodes, check the scores
 		long size = index.size();
 		for (int i=0; i<numNodes; i++) {
-			assertThat("" + i, index.removeHighest().score, is(sortedNodes.pollLast().score));
+			assertThat("" + i, index.highestScore(), is(sortedNodes.last().score));
+			assertThat("" + i, index.removeHighest(), is(sortedNodes.pollLast()));
 		}
 
 		assertThat(index.size(), is(size - numNodes));
@@ -310,7 +326,8 @@ public class TestNodeIndex {
 		// poll some nodes, check the scores
 		long size = index.size();
 		for (int i=0; i<numNodes; i++) {
-			assertThat("" + i, index.removeHighest().score, is(highestNodes.pollLast().score));
+			assertThat("" + i, index.highestScore(), is(highestNodes.last().score));
+			assertThat("" + i, index.removeHighest(), is(highestNodes.pollLast()));
 		}
 
 		assertThat(index.size(), is(size - numNodes));

@@ -70,11 +70,13 @@ public class NodeIndex {
 		this.store = store;
 		this.state = state;
 
-		index = new FixedIndex<>(store, Serializers.indexNode(state));
+		// benchmarking shows the "fast" implementation is indeed quite a bit faster
+		//index = new ReferenceFixedIndex<>(store, Serializers.indexNode(state));
+		index = new FastFixedIndex<>(store, Serializers.indexNode(state));
 	}
 
 	protected int nodesPerBlock() {
-		return index.blockCapacity;
+		return index.blockCapacity();
 	}
 
 	public long size() {
@@ -103,7 +105,7 @@ public class NodeIndex {
 	}
 
 	public Deque<Node> dropped() {
-		return index.dropped;
+		return index.dropped();
 	}
 
 	public void clear() {
