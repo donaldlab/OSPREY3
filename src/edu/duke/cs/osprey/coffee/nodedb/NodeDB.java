@@ -101,6 +101,10 @@ public class NodeDB implements AutoCloseable {
 			return member.requestFrom(new GetHighestNodeOperation(statei), addr, 10, TimeUnit.SECONDS);
 		}
 
+		public void removeHighest(int statei, int count, List<NodeIndex.Node> nodes) {
+			nodes.addAll(member.requestFrom(new GetHighestNodesOperation(statei, count), addr, 10, TimeUnit.SECONDS));
+		}
+
 		public void add(NodeIndex.Node node) {
 			member.sendTo(new AddNodeOperation(node), addr);
 		}
@@ -314,6 +318,16 @@ public class NodeDB implements AutoCloseable {
 		});
 	}
 
+	public void removeHighestLocal(int statei, int count, List<NodeIndex.Node> nodes) {
+		thread.exec(() -> {
+
+			var index = indices[statei];
+			index.removeHighest(count, nodes);
+
+			broadcastIfNeeded();
+		});
+	}
+
 	/**
 	 * Removes a high-scoring node from the cluster.
 	 *
@@ -355,6 +369,46 @@ public class NodeDB implements AutoCloseable {
 
 				// no nodes anywhere
 				return null;
+			}
+		});
+	}
+
+	/**
+	 * A batched version of removeHigh()
+	 */
+	public void removeHigh(int statei, int count, List<NodeIndex.Node> nodes) {
+		thread.exec(() -> {
+
+			// find the neighbor with the highest node for this state
+			Neighbor highestNeighbor = neighbors.values().stream()
+				.filter(neighbor -> neighbor.maxScores[statei] != null)
+				.max(Comparator.comparing(neighbor -> neighbor.maxScores[statei]))
+				.orElse(null);
+
+			BigExp localMaxScore = indices[statei].highestScore();
+
+			if (highestNeighbor != null) {
+
+				// is a local node higher?
+				if (localMaxScore != null && localMaxScore.compareTo(highestNeighbor.maxScores[statei]) > 0) {
+
+					// yup, use that
+					indices[statei].removeHighest(count, nodes);
+
+				} else {
+
+					// nope, use the cluster node
+					highestNeighbor.removeHighest(statei, count, nodes);
+				}
+
+			} else if (localMaxScore != null) {
+
+				// use the local node
+				indices[statei].removeHighest(count, nodes);
+
+			//} else {
+
+				// no nodes anywhere
 			}
 		});
 	}

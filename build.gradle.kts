@@ -130,6 +130,7 @@ dependencies {
 	implementation("org.tukaani:xz:1.8")
 	implementation("com.hazelcast:hazelcast:4.0")
 	implementation("net.java.dev.jna:jna:5.5.0")
+	implementation("com.google.guava:guava:29.0-jre")
 
 	// libs used by the GUI
 	api("org.apache.commons:commons-lang3:3.4")

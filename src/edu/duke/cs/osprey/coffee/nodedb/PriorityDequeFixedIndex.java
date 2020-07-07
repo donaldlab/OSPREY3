@@ -1,5 +1,7 @@
 package edu.duke.cs.osprey.coffee.nodedb;
 
+import com.google.common.collect.MinMaxPriorityQueue;
+
 import java.nio.ByteBuffer;
 import java.util.*;
 
@@ -7,7 +9,8 @@ import java.util.*;
 /**
  * Trying to be a faster implementation of FixedIndex
  */
-public class FastFixedIndex<S extends Comparable<S>, T extends FixedIndex.Indexable<S>> implements FixedIndex<S,T> {
+@SuppressWarnings("UnstableApiUsage") // the MinMaxPriorityQueue seems to be perpetually in "beta"... silly Google
+public class PriorityDequeFixedIndex<S extends Comparable<S>, T extends FixedIndex.Indexable<S>> implements FixedIndex<S,T> {
 
 	private static class Block<S extends Comparable<S>> {
 
@@ -19,7 +22,7 @@ public class FastFixedIndex<S extends Comparable<S>, T extends FixedIndex.Indexa
 			max = null;
 		}
 
-		<T extends FixedIndex.Indexable<S>> void fill(BlockStore store, Serializer<T> serializer, TreeSet<T> unpackedItems, int size) {
+		<T extends Indexable<S>> void fill(BlockStore store, Serializer<T> serializer, MinMaxPriorityQueue<T> unpackedItems, int size) {
 
 			max = null;
 
@@ -37,7 +40,7 @@ public class FastFixedIndex<S extends Comparable<S>, T extends FixedIndex.Indexa
 			assert (max != null);
 		}
 
-		<T extends FixedIndex.Indexable<S>> void moveAll(BlockStore store, Serializer<T> serializer, Collection<T> out, int size) {
+		<T extends Indexable<S>> void moveAll(BlockStore store, Serializer<T> serializer, Collection<T> out, int size) {
 
 			ByteBuffer buf = store.get(id);
 			buf.position(0);
@@ -50,7 +53,7 @@ public class FastFixedIndex<S extends Comparable<S>, T extends FixedIndex.Indexa
 	}
 
 	public final BlockStore store;
-	public final FixedIndex.Serializer<T> serializer;
+	public final Serializer<T> serializer;
 
 	public final int blockCapacity;
 	public final Deque<T> dropped;
@@ -59,12 +62,12 @@ public class FastFixedIndex<S extends Comparable<S>, T extends FixedIndex.Indexa
 	private final TreeSet<Block<S>> packedBlocks = new TreeSet<>(Comparator.comparing(block -> block.max));
 
 	// keep the unpacked items sorted by score
-	private final TreeSet<T> unpackedItems = new TreeSet<>(Comparator.comparing(item -> item.score()));
+	private final MinMaxPriorityQueue<T> unpackedItems;
 	private final int unpackedCapacity;
 
 	private long size = 0;
 
-	public FastFixedIndex(BlockStore store, FixedIndex.Serializer<T> serializer) {
+	public PriorityDequeFixedIndex(BlockStore store, Serializer<T> serializer) {
 
 		this.store = store;
 		this.serializer = serializer;
@@ -72,6 +75,10 @@ public class FastFixedIndex<S extends Comparable<S>, T extends FixedIndex.Indexa
 		blockCapacity = store.blockSize/serializer.bytes();
 		dropped = new ArrayDeque<>(blockCapacity);
 		unpackedCapacity = blockCapacity*2;
+		unpackedItems = MinMaxPriorityQueue
+			.orderedBy(Comparator.comparing((T item) -> item.score()))
+			.maximumSize(unpackedCapacity + blockCapacity) // one extra block for temporary storage
+			.create();
 	}
 
 	@Override
@@ -146,7 +153,7 @@ public class FastFixedIndex<S extends Comparable<S>, T extends FixedIndex.Indexa
 
 		S unpackedScore = null;
 		if (!unpackedItems.isEmpty()) {
-			unpackedScore = unpackedItems.last().score();
+			unpackedScore = unpackedItems.peekLast().score();
 		}
 
 		if (packedScore != null && unpackedScore != null) {
@@ -182,7 +189,7 @@ public class FastFixedIndex<S extends Comparable<S>, T extends FixedIndex.Indexa
 		}
 
 		// if the highest item is already unpacked, return it
-		if (packedBlocks.isEmpty() || (!unpackedItems.isEmpty() && unpackedItems.last().score().compareTo(packedBlocks.last().max) > 0)) {
+		if (packedBlocks.isEmpty() || (!unpackedItems.isEmpty() && unpackedItems.peekLast().score().compareTo(packedBlocks.last().max) > 0)) {
 			return removeLastUnpacked();
 		}
 

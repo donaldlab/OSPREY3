@@ -36,10 +36,12 @@ public class NodeProcessor implements AutoCloseable {
 		final Directions directions;
 
 		final Batch seqBatch = seqdb.batch();
-		final List<NodeIndex.Node> nodeBatch = new ArrayList<>();
+		final List<NodeIndex.Node> nodesIncoming = new ArrayList<>();
+		final List<NodeIndex.Node> nodesOutgoing = new ArrayList<>();
 		long lastFlush = -1;
 
 		final long flushNs = TimeUnit.MILLISECONDS.toNanos(100);
+		final int nodeBatchSize = 100;
 
 		NodeThread(int id, Directions directions) {
 
@@ -54,20 +56,41 @@ public class NodeProcessor implements AutoCloseable {
 		@Override
 		public void run() {
 
+			Runnable waitABit = () -> ThreadTools.sleep(100, TimeUnit.MILLISECONDS);
+
 			while (directions.isRunning()) {
 
-				// get a node
-				var nodeInfo = getNode(directions);
-				if (!nodeInfo.result.gotNode) {
-					// no nodes, wait a bit and try again
-					flushIfNeeded();
-					ThreadTools.sleep(100, TimeUnit.MILLISECONDS);
+				flushIfNeeded();
+
+				long startNs = System.nanoTime();
+
+				// get the currently focused state
+				int statei = directions.getFocusedStatei();
+				if (statei < 0) {
+					waitABit.run();
 					continue;
 				}
 
-				// got a node! process it
-				process(nodeInfo, seqBatch, nodeBatch);
-				flushIfNeeded();
+				// get the tree for this state
+				RCs tree = directions.getTree(statei);
+				if (tree == null) {
+					waitABit.run();
+					continue;
+				}
+
+				// get the next nodes from that state
+				nodedb.removeHigh(statei, nodeBatchSize, nodesIncoming);
+				if (nodesIncoming.isEmpty()) {
+					waitABit.run();
+					continue;
+				}
+
+				// got some nodes! process them!
+				long nodeNs = System.nanoTime() - startNs;
+				for (var node : nodesIncoming) {
+					process(new NodeInfo(node, tree, nodeNs/nodesIncoming.size()), seqBatch, nodesOutgoing);
+				}
+				nodesIncoming.clear();
 			}
 		}
 
@@ -78,8 +101,8 @@ public class NodeProcessor implements AutoCloseable {
 
 				seqBatch.save();
 
-				nodedb.add(nodeBatch);
-				nodeBatch.clear();
+				nodedb.add(nodesOutgoing);
+				nodesOutgoing.clear();
 
 				lastFlush = now;
 			}
@@ -370,48 +393,15 @@ public class NodeProcessor implements AutoCloseable {
 
 	private static class NodeInfo {
 
-		final Result result;
 		final NodeIndex.Node node;
 		final RCs tree;
 		final long aquisitionNs;
 
-		NodeInfo(Result result, NodeIndex.Node node, RCs tree, long aquisitionNs) {
-			this.result = result;
+		NodeInfo(NodeIndex.Node node, RCs tree, long aquisitionNs) {
 			this.node = node;
 			this.tree = tree;
 			this.aquisitionNs = aquisitionNs;
 		}
-
-		NodeInfo(Result result) {
-			this(result, null, null, -1);
-		}
-	}
-
-	private NodeInfo getNode(Directions directions) {
-
-		long startNs = System.nanoTime();
-
-		// get the currently focused state
-		int statei = directions.getFocusedStatei();
-		if (statei < 0) {
-			return new NodeInfo(Result.NoState);
-		}
-
-		// get the tree for this state
-		RCs tree = directions.getTree(statei);
-		if (tree == null) {
-			return new NodeInfo(Result.NoTree);
-		}
-
-		// get the next node from that state
-		var node = nodedb.removeHigh(statei);
-		if (node == null) {
-			return new NodeInfo(Result.NoNode);
-		}
-
-		// all is well
-		long nodeNs = System.nanoTime() - startNs;
-		return new NodeInfo(Result.GotNode, node, tree, nodeNs);
 	}
 
 	private void process(NodeInfo nodeInfo, Batch seqBatch, List<NodeIndex.Node> nodeBatch) {

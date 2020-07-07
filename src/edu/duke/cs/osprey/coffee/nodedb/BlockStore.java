@@ -43,7 +43,7 @@ public class BlockStore implements AutoCloseable {
 		blockSize = 1 << blockShift;
 		numBlocks = bytes/blockSize;
 		if (numBlocks <= 0) {
-			throw new IllegalArgumentException("need at least " + blockSize + " bytes for BlockStore");
+			throw new IllegalArgumentException("need at least " + blockSize + " bytes for BlockStore, but only requested " + bytes);
 		}
 
 		// allocate the memory, either in memory, or in storage

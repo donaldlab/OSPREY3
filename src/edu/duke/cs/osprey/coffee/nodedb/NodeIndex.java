@@ -7,6 +7,7 @@ import edu.duke.cs.osprey.tools.BigExp;
 
 import java.util.Arrays;
 import java.util.Deque;
+import java.util.List;
 
 
 /**
@@ -71,8 +72,10 @@ public class NodeIndex {
 		this.state = state;
 
 		// benchmarking shows the "fast" implementation is indeed quite a bit faster
+		// and the implemenation based on a better sorted set is even faster!
 		//index = new ReferenceFixedIndex<>(store, Serializers.indexNode(state));
-		index = new FastFixedIndex<>(store, Serializers.indexNode(state));
+		//index = new FastFixedIndex<>(store, Serializers.indexNode(state));
+		index = new PriorityDequeFixedIndex<>(store, Serializers.indexNode(state));
 	}
 
 	protected int nodesPerBlock() {
@@ -98,6 +101,16 @@ public class NodeIndex {
 
 	public Node removeHighest() {
 		return index.removeHighest();
+	}
+
+	public void removeHighest(int count, List<Node> nodes) {
+		for (int i=0; i<count; i++) {
+			var node = removeHighest();
+			if (node == null) {
+				break;
+			}
+			nodes.add(node);
+		}
 	}
 
 	public void freeUpSpace() {

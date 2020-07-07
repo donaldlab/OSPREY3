@@ -69,7 +69,13 @@ public class BenchmarkCoffee {
 		//var parallelism = Parallelism.make(48, 1);
 		var parallelism = Parallelism.make(48, 4);
 
-		benchmark("COFFEE", () -> coffee(complex, seq, parallelism, bounds, staticStatic, gWidthMax, 1024, precision));
+		// TEMP
+		//double epsilon = 0.9;
+		//benchmark("GrdDsc", () -> gradientDescent(complex, seq, parallelism, bounds, staticStatic, epsilon));
+		//[7     8     8     11    3     2     7     17    5     3     7    ] scores: 3171893, confs:22407, score:-1376.902739, energy:-1373.008556, bounds:[ 1011.558285, 1012.557291] (log10p1), delta:0.899771, time:    3.31 m, heapMem:1.2% of 30.0 GiB, extMem:0 B
+		//              GrdDsc   emat  137201 ms (  2.29 m)   pfunc  198768 ms (  3.31 m)   G [-1382.6961,-1381.3319]  w =  1.3642
+
+		benchmark("COFFEE", () -> coffee(complex, seq, parallelism, bounds, staticStatic, gWidthMax, 4*1024, precision));
 
 		// cpus = 48
 		//COFFEE-0: 	G [-1382.254,-1381.256]   width 0.997744 of 0.000000   confs     29282   avgap 4.56   nodedb  48.8%   rr Infinity   time 2.64 m   minq: -1
@@ -91,7 +97,7 @@ public class BenchmarkCoffee {
 		//              COFFEE   emat    9074 ms (  9.07 s)   pfunc   27112 ms ( 27.11 s)   G [-1382.2589,-1381.2763]  w =  0.9826
 		// 1214.8 confs/s
 
-		// float32 isn't much faster... still bottlenecking on getting nodes
+		// float32 isn't much faster... not bottlenecking on getting nodes anymore, should look into CCD step size
 	}
 
 	private static void affinity_6ov7_1mut6flex() {
@@ -423,7 +429,7 @@ public class BenchmarkCoffee {
 			.setStaticStatic(includeStaticStatic)
 			//.setConditions(BoltzmannCalculator.Conditions.Body)
 			//.setConditions(BoltzmannCalculator.Conditions.Room)
-			.setNodeDBMem(nodesMiB*1024*1024)
+			.setNodeDBMem(nodesMiB*1024L*1024L)
 			.setPrecision(precision)
 			//.setNodeScoringLog(new File("nodescores.tsv"))
 			.configEachState((config, ecalc) -> {
