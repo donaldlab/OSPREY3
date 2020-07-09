@@ -919,6 +919,13 @@ public class TestSHARKStarBound extends TestBase {
     }
 
     @Test
+    public void testComputeFlexibleMark(){
+        double epsilon = 0.9;
+        SimpleConfSpace confSpace = make1CC8MutableContinuous().makeFlexibleCopy();
+        testComputeFlexibleMARK(confSpace, epsilon);
+    }
+
+    @Test
     public void compareSHARKandMARKFlexible() {
         double epsilon = 0.9;
         SimpleConfSpace confSpace = make1CC8MutableContinuous();
