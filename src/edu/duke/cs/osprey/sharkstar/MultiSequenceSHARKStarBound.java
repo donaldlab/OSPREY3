@@ -268,13 +268,16 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         System.out.println("Creating new pfunc for sequence "+seq);
         System.out.println("Full RCs: "+fullRCs);
         System.out.println("Sequence RCs: "+newBound.seqRCs);
-        //computeFringeForSequence(newBound, this.rootNode);
+        computeFringeForSequence(newBound, this.rootNode);
+
+        /*
         // Compute the fringe in parallel
         List<MultiSequenceSHARKStarNode> scoredFringe = computeFringeForSequenceParallel(newBound.sequence, newBound.seqRCs);
         if(scoredFringe.size()==0)
             scoredFringe.add(this.rootNode);
         debugPrint(String.format("[Normal fringe # nodes, Parallel fringe # nodes] = [%d, %d]",newBound.fringeNodes.size(), scoredFringe.size()));
         newBound.fringeNodes.addAll(scoredFringe);
+         */
 
         //rootNode.updateSubtreeBounds(seq);
         newBound.updateBound();
