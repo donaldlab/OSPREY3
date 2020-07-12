@@ -1314,6 +1314,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     PartialConfNodeResult result = new PartialConfNodeResult();
                     result.resultNode = child;
 
+                    // For now don't get history, since it slows things down
+                    result.historyString = "";
+
                     // score the child node differentially against the parent node
                     if (child.getLevel() < RCs.getNumPos()) {
                         double confCorrection = correctionMatrix.confE(child.assignments);
@@ -1336,8 +1339,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                             confLowerBound = confCorrection + hdiff;
                         }
                         child.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperbound);
-                        result.historyString = String.format("%s: previous lower bound (none), g score %f, hscore %f, f score %f corrected score %f, from %s",
+                        if(debug) {
+                            result.historyString = String.format("%s: previous lower bound (none), g score %f, hscore %f, f score %f corrected score %f, from %s",
                                 node.confToString(), curNode.getConfLowerBound(bound.sequence), diff, hdiff, diff+hdiff, confCorrection, getStackTrace());
+                        }
                         progress.reportInternalNode(child.level, child.getPartialConfLowerBound(), confLowerBound, queue.size(), children.size(), bound.getSequenceEpsilon());
                         result.lowerBound = confLowerBound;
                         result.upperBound = confUpperbound;
@@ -1355,8 +1360,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                             recordCorrection(lowerbound, confCorrection - lowerbound);
                         }
                         checkBounds(confCorrection, confRigid);
-                        result.historyString = String.format("%s: previous lower bound (none), confLower score %f, confCorrected score %f from %s",
-                                node.confToString(), curNode.getConfLowerBound(bound.sequence), confLower, confCorrection, getStackTrace());
+                        if (debug) {
+                            result.historyString = String.format("%s: previous lower bound (none), confLower score %f, confCorrected score %f from %s",
+                                    node.confToString(), curNode.getConfLowerBound(bound.sequence), confLower, confCorrection, getStackTrace());
+                        }
                         child.setBoundsFromConfLowerAndUpper(confCorrection, confRigid);
                         child.setPartialConfLowerAndUpper(confCorrection, confRigid);
                         numConfsScored++;
