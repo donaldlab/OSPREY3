@@ -1390,8 +1390,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     SimpleConfSpace.Position nextDesignPos = null;
                     if (nextDesignIndex >= 0)
                         nextDesignPos = confSpace.positions.get(nextDesignIndex);
-                    MultiSequenceSHARKStarNode newChild = curNode.makeOrUpdateChild(result.resultNode,
-                            bound.sequence, result.lowerBound, result.upperBound, designPos, nextDesignPos);
+                    //MultiSequenceSHARKStarNode newChild = curNode.makeOrUpdateChild(result.resultNode,
+                            //bound.sequence, result.lowerBound, result.upperBound, designPos, nextDesignPos);
+
+                    MultiSequenceSHARKStarNode newChild = curNode.makeChild(result.resultNode, designPos, nextDesignPos);
                     newChild.setBoundsFromConfLowerAndUpperWithHistory(result.lowerBound,
                             result.upperBound, bound.sequence, result.historyString);
                     //System.out.println("Created new child "+MultiSequenceSHARKStarNodeChild.toSeqString(bound.sequence));

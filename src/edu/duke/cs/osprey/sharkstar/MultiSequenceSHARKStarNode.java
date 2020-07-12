@@ -62,6 +62,15 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         this.childrenByRC = new HashMap<>();
     }
 
+    public MultiSequenceSHARKStarNode makeChild(Node child, SimpleConfSpace.Position designPosition,
+                                                      SimpleConfSpace.Position nextDesignPosition) {
+        MultiSequenceSHARKStarNode newChild = new MultiSequenceSHARKStarNode(child, this,
+                this.fullConfSpace, designPosition, nextDesignPosition);
+        childrenByRC.put(child.rc, newChild);
+        children.add(newChild);
+        return childrenByRC.get(child.rc);
+    }
+
     /**
      * Makes a SHARKStarNode generated during flexible precomputation compatible with a new conformation space
      *
