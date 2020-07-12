@@ -50,6 +50,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     private Sequence precomputedSequence;
     protected double targetEpsilon = 1;
     public static final boolean debug = false;
+    public static final boolean batcher = false;
     public boolean profileOutput = false;
     private Status status = null;
 
@@ -1480,9 +1481,12 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.assignments, curNode.getConfLowerBound(bound.sequence));
                         ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
                         Stopwatch correctionTimer = new Stopwatch().start();
-                        energyMatrixCorrector.computeEnergyCorrection(analysis, conf, bound.getSequenceEpsilon(),
+                        if(batcher){
+                            energyMatrixCorrector.computeEnergyCorrection(analysis, conf, bound.getSequenceEpsilon(),
                                 context.batcher);
-                        //computeEnergyCorrectionWithoutBatcher(analysis, conf, context.ecalc);
+                        }else{
+                            computeEnergyCorrectionWithoutBatcher(analysis, conf, context.ecalc);
+                        }
 
                         double energy = analysis.epmol.energy;
                         double newConfUpper = energy;
