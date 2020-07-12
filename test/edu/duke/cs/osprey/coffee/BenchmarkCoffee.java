@@ -61,6 +61,8 @@ public class BenchmarkCoffee {
 		var bounds = Bounds.Tighter;
 		//var precision = Structs.Precision.Float32;
 		var precision = Structs.Precision.Float64;
+		//Double triples = null;
+		Double triples = 1.0;
 
 		double gWidthMax = 1.0;
 
@@ -75,7 +77,7 @@ public class BenchmarkCoffee {
 		//[7     8     8     11    3     2     7     17    5     3     7    ] scores: 3171893, confs:22407, score:-1376.902739, energy:-1373.008556, bounds:[ 1011.558285, 1012.557291] (log10p1), delta:0.899771, time:    3.31 m, heapMem:1.2% of 30.0 GiB, extMem:0 B
 		//              GrdDsc   emat  137201 ms (  2.29 m)   pfunc  198768 ms (  3.31 m)   G [-1382.6961,-1381.3319]  w =  1.3642
 
-		benchmark("COFFEE", () -> coffee(complex, seq, parallelism, bounds, staticStatic, gWidthMax, 4*1024, precision));
+		benchmark("COFFEE", () -> coffee(complex, seq, parallelism, bounds, staticStatic, triples, gWidthMax, 4*1024, precision));
 
 		// cpus = 48
 		//COFFEE-0: 	G [-1382.254,-1381.256]   width 0.997744 of 0.000000   confs     29282   avgap 4.56   nodedb  48.8%   rr Infinity   time 2.64 m   minq: -1
@@ -98,6 +100,10 @@ public class BenchmarkCoffee {
 		// 1214.8 confs/s
 
 		// float32 isn't much faster... not bottlenecking on getting nodes anymore, should look into CCD step size
+
+		// cpus = 48, gpus = 4, triples <= 1.0
+		//COFFEE-0: 	G [-1382.199,-1381.315]   width 0.883893 of 0.000000   confs     10349   avgap 3.11   nodedb   4.6%   rr Infinity   time 10.03 s   minq: 2880
+		//              COFFEE   emat   24602 ms ( 24.60 s)   pfunc   10032 ms ( 10.03 s)   G [-1382.1986,-1381.3147]  w =  0.8839
 	}
 
 	private static void affinity_6ov7_1mut6flex() {
@@ -121,7 +127,7 @@ public class BenchmarkCoffee {
 		var parallelism = Parallelism.make(3*4, 4, 1);
 
 		benchmark("GrdDsc", () -> gradientDescent(complex, seq, parallelism, bounds, staticStatic, epsilon));
-		benchmark("COFFEE", () -> coffee(complex, seq, parallelism, bounds, staticStatic, gWidthMax, 2, precision));
+		benchmark("COFFEE", () -> coffee(complex, seq, parallelism, bounds, staticStatic, null, gWidthMax, 2, precision));
 
 		// cpus = 4
 		//8     8     0     17    16    4    ] scores:  101383, confs:3418, score:-1376.578351, energy:-1373.434374, bounds:[ 1010.963826, 1011.457663] (log10p1), delta:0.679253, time:    1.75 m, heapMem:0.1% of 30.0 GiB, extMem:0 B
@@ -235,7 +241,7 @@ public class BenchmarkCoffee {
 		//GD     compiled yesSS   emat    8467 ms (  8.47 s)   pfunc   12756 ms ( 12.76 s)   G [-1560.3169,-1560.3070]  w =  0.0099
 
 
-		benchmark("COFFEE compiled yesSS", () -> coffee(complexCompiled, seqCompiled, parallelism, bounds, yesStaticStatic, gWidthMax, 2, precision));
+		benchmark("COFFEE compiled yesSS", () -> coffee(complexCompiled, seqCompiled, parallelism, bounds, yesStaticStatic, null, gWidthMax, 2, precision));
 
 		// 1 thread
 		//COFFEE-0: 	G [-1560.934,-1560.277]   width 0.656849 of 0.000000   confs       226   avgap 2.75   nodedb  21.1%   rr Infinity   time 39.02 s
@@ -418,7 +424,7 @@ public class BenchmarkCoffee {
 		}
 	}
 
-	private static Result coffee(ConfSpace confSpace, Sequence seq, Parallelism parallelism, Bounds bounds, boolean includeStaticStatic, double gWidthMax, int nodesMiB, Structs.Precision precision) {
+	private static Result coffee(ConfSpace confSpace, Sequence seq, Parallelism parallelism, Bounds bounds, boolean includeStaticStatic, Double triples, double gWidthMax, int nodesMiB, Structs.Precision precision) {
 
 		var msConfSpace = new MultiStateConfSpace.Builder("complex", confSpace)
 			.build();
@@ -431,6 +437,7 @@ public class BenchmarkCoffee {
 			//.setConditions(BoltzmannCalculator.Conditions.Room)
 			.setNodeDBMem(nodesMiB*1024L*1024L)
 			.setPrecision(precision)
+			.setTripleCorrectionThreshold(triples)
 			//.setNodeScoringLog(new File("nodescores.tsv"))
 			.configEachState((config, ecalc) -> {
 				config.posInterGen = new PosInterGen(bounds.posInterDist, null);

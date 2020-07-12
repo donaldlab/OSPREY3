@@ -1004,4 +1004,24 @@ public class MathTools {
 			};
 		}
 	}
+
+	public static int numTriplesPerSingle(int n) {
+		// (n-1) choose 2
+		return (n - 1)*(n - 2)/2;
+	}
+
+	public static int numTriplesPerPair(int n) {
+		// (n-2) choose 1
+		return n - 2;
+	}
+
+	public static int numQuadsPerSingle(int n) {
+		// (n-1) choose 3
+		return (n - 1)*(n - 2)*(n - 3)/3/2;
+	}
+
+	public static int numQuadsPerPair(int n) {
+		// (n-2) choose 2
+		return (n - 2)*(n - 3)/2;
+	}
 }

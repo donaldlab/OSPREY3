@@ -50,6 +50,7 @@ public class Coffee {
 		private File seqdbFile = null;
 		private MathContext seqdbMathContext = new MathContext(128, RoundingMode.HALF_UP);
 		private boolean includeStaticStatic = true;
+		private Double tripleCorrectionThreshold = null;
 		private BoltzmannCalculator.Conditions conditions = BoltzmannCalculator.Conditions.Classic; // don't rock the boat
 		// TODO: experiment if other conditions better correlate with experimental results?
 		private File nodeScoringLog = null;
@@ -119,6 +120,11 @@ public class Coffee {
 			return this;
 		}
 
+		public Builder setTripleCorrectionThreshold(Double val) {
+			tripleCorrectionThreshold = val;
+			return this;
+		}
+
 		public Builder setConditions(BoltzmannCalculator.Conditions val) {
 			conditions = val;
 			return this;
@@ -157,8 +163,8 @@ public class Coffee {
 			return new Coffee(
 				confSpace, stateConfigs, cluster, parallelism, precision,
 				nodedbFile, nodedbFileBytes, nodedbMemBytes,
-				seqdbFile, seqdbMathContext, includeStaticStatic, conditions,
-				nodeScoringLog
+				seqdbFile, seqdbMathContext, includeStaticStatic, tripleCorrectionThreshold,
+				conditions, nodeScoringLog
 			);
 		}
 	}
@@ -229,6 +235,7 @@ public class Coffee {
 	public final File seqdbFile;
 	public final MathContext seqdbMathContext;
 	public final boolean includeStaticStatic;
+	public final Double tripleCorrectionThreshold;
 	public final BoltzmannCalculator.Conditions conditions;
 	public final File nodeScoringLog;
 
@@ -239,8 +246,8 @@ public class Coffee {
 	private Coffee(
 		MultiStateConfSpace confSpace, StateConfig[] stateConfigs, Cluster cluster, Parallelism parallelism, Structs.Precision precision,
 		File dbFile, long dbFileBytes, long dbMemBytes,
-		File seqdbFile, MathContext seqdbMathContext, boolean includeStaticStatic, BoltzmannCalculator.Conditions conditions,
-		File nodeScoringLog
+		File seqdbFile, MathContext seqdbMathContext, boolean includeStaticStatic, Double tripleCorrectionThreshold,
+		BoltzmannCalculator.Conditions conditions, File nodeScoringLog
 	) {
 
 		this.confSpace = confSpace;
@@ -254,6 +261,7 @@ public class Coffee {
 		this.seqdbFile = seqdbFile;
 		this.seqdbMathContext = seqdbMathContext;
 		this.includeStaticStatic = includeStaticStatic;
+		this.tripleCorrectionThreshold = tripleCorrectionThreshold;
 		this.conditions = conditions;
 		this.nodeScoringLog = nodeScoringLog;
 
@@ -305,7 +313,7 @@ public class Coffee {
 								if (nodeProcessor.gpuEcalcs != null) {
 									ecalc = nodeProcessor.gpuEcalcs[info.config.state.index];
 								}
-								info.zmat.compute(member, cpuTasks, includeStaticStatic, ecalc);
+								info.zmat.compute(member, cpuTasks, includeStaticStatic, tripleCorrectionThreshold, ecalc);
 							}
 
 							// initialize the directions and wait

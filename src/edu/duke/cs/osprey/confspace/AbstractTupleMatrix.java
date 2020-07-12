@@ -176,23 +176,23 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
 		return numConfAtPos;
 	}
 
-	protected int getNumOneBody() {
+	public int getNumOneBody() {
     	return numOneBodyTerms;
 	}
 
-	protected int getNumPairwise() {
+	public int getNumPairwise() {
     	return numPairwiseTerms;
 	}
-    
-    protected int getOneBodyIndex(int res, int conf) {
+
+	public int getOneBodyIndex(int res, int conf) {
     	return oneBodyOffsets[res] + conf;
     }
     
     private int getPairwiseIndexNoCheck(int res1, int res2) {
     	return res1*(res1 - 1)/2 + res2;
     }
-    
-    protected int getPairwiseIndex(int res1, int res2) {
+
+	public int getPairwiseIndex(int res1, int res2) {
     	
     	// res2 should be strictly less than res1
     	if (res2 > res1) {
@@ -205,8 +205,8 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
     	
     	return getPairwiseIndexNoCheck(res1, res2);
     }
-    
-    protected int getPairwiseIndex(int res1, int conf1, int res2, int conf2) {
+
+	public int getPairwiseIndex(int res1, int conf1, int res2, int conf2) {
     	
     	// res2 should be strictly less than res1
     	if (res2 > res1) {
@@ -222,7 +222,7 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
     	
     	return pairwiseOffsets[getPairwiseIndexNoCheck(res1, res2)] + numConfAtPos[res2]*conf1 + conf2;
     }
-    
+
     @Override
     public void fill(T val) {
 		for (int res1=0; res1<getNumPos(); res1++) {

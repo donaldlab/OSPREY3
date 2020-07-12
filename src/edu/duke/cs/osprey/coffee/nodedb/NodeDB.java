@@ -6,6 +6,7 @@ import edu.duke.cs.osprey.coffee.Serializers;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.parallelism.BottleneckThread;
 import edu.duke.cs.osprey.tools.BigExp;
+import edu.duke.cs.osprey.tools.Streams;
 
 import java.io.File;
 import java.util.*;
@@ -248,6 +249,12 @@ public class NodeDB implements AutoCloseable {
 			}
 		}
 
+		handleDroppedOnThread();
+		broadcastIfNeeded();
+	}
+
+	private void handleDroppedOnThread() {
+
 		// handle dropped nodes
 		if (Arrays.stream(indices).anyMatch(index -> !index.dropped().isEmpty())) {
 
@@ -263,8 +270,6 @@ public class NodeDB implements AutoCloseable {
 				index.dropped().clear();
 			}
 		}
-
-		broadcastIfNeeded();
 	}
 
 	private void broadcastIfNeeded() {
@@ -308,24 +313,62 @@ public class NodeDB implements AutoCloseable {
 
 	public NodeIndex.Node removeHighestLocal(int statei) {
 		return thread.get(() -> {
-
-			var index = indices[statei];
-			NodeIndex.Node node = index.removeHighest();
-
+			var node = removeHighestLocalOnThread(statei);
 			broadcastIfNeeded();
-
 			return node;
 		});
 	}
 
+	private void handleDroppedOnThread(int statei) {
+
+		var index = indices[statei];
+
+		// any dropped nodes to process?
+		if (index.dropped().isEmpty()) {
+			return;
+		}
+
+		// call the drop handler if possible
+		if (dropHandler != null) {
+			dropHandler.accept(Streams.of(index.dropped()));
+		}
+
+		// then forget the nodes
+		indices[statei].dropped().clear();
+	}
+
+	private NodeIndex.Node removeHighestLocalOnThread(int statei) {
+
+		NodeIndex.Node node = indices[statei].removeHighest();
+
+		// remove highest can drop nodes too, so handle them now
+		handleDroppedOnThread(statei);
+
+		return node;
+	}
+
 	public void removeHighestLocal(int statei, int count, List<NodeIndex.Node> nodes) {
 		thread.exec(() -> {
-
-			var index = indices[statei];
-			index.removeHighest(count, nodes);
-
+			removeHighestLocalOnThread(statei, count, nodes);
 			broadcastIfNeeded();
 		});
+	}
+
+	private void removeHighestLocalOnThread(int statei, int count, List<NodeIndex.Node> nodes) {
+
+		var index = indices[statei];
+
+		for (int i=0; i<count; i++) {
+			var node = index.removeHighest();
+
+			// remove highest can drop nodes too, so handle them now
+			handleDroppedOnThread(statei);
+
+			if (node == null) {
+				break;
+			}
+			nodes.add(node);
+		}
 	}
 
 	/**
@@ -352,7 +395,7 @@ public class NodeDB implements AutoCloseable {
 				if (localMaxScore != null && localMaxScore.compareTo(highestNeighbor.maxScores[statei]) > 0) {
 
 					// yup, use that
-					return indices[statei].removeHighest();
+					return removeHighestLocalOnThread(statei);
 
 				} else {
 
@@ -363,7 +406,7 @@ public class NodeDB implements AutoCloseable {
 			} else if (localMaxScore != null) {
 
 				// use the local node
-				return indices[statei].removeHighest();
+				return removeHighestLocalOnThread(statei);
 
 			} else {
 
@@ -393,7 +436,7 @@ public class NodeDB implements AutoCloseable {
 				if (localMaxScore != null && localMaxScore.compareTo(highestNeighbor.maxScores[statei]) > 0) {
 
 					// yup, use that
-					indices[statei].removeHighest(count, nodes);
+					removeHighestLocalOnThread(statei, count, nodes);
 
 				} else {
 
@@ -404,7 +447,7 @@ public class NodeDB implements AutoCloseable {
 			} else if (localMaxScore != null) {
 
 				// use the local node
-				indices[statei].removeHighest(count, nodes);
+				removeHighestLocalOnThread(statei, count, nodes);
 
 			//} else {
 

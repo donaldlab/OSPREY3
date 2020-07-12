@@ -150,14 +150,25 @@ public class StateInfo {
 			z.mult(zmat.single(posi1, confi1));
 
 			for (int i2=0; i2<i1; i2++) {
-				int pos2 = index.definedPos[i2];
-				int rc2 = index.definedRCs[i2];
+				int posi2 = index.definedPos[i2];
+				int confi2 = index.definedRCs[i2];
 
-				z.mult(zmat.pair(posi1, confi1, pos2, rc2));
+				z.mult(zmat.pair(posi1, confi1, posi2, confi2));
+
+				// also multiply triples, if any
+				if (zmat.hasTriples()) {
+					for (int i3=0; i3<i2; i3++) {
+						int posi3 = index.definedPos[i3];
+						int confi3 = index.definedRCs[i3];
+
+						var triple = zmat.triple(posi1, confi1, posi2, confi2, posi3, confi3);
+						if (triple != null) {
+							z.mult(triple);
+						}
+					}
+				}
 			}
 		}
-
-		// TODO: triples, quads, etc
 
 		return z;
 	}

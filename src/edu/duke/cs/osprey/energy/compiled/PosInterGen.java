@@ -31,6 +31,10 @@ public class PosInterGen {
 		return dist.pair(confSpace, eref, posi1, confi1, posi2, confi2);
 	}
 
+	public List<PosInter> tripleCorrection(ConfSpace confSpace, int posi1, int confi1, int posi2, int confi2, int posi3, int confi3) {
+		return dist.tripleCorrection(confSpace, eref, posi1, confi1, posi2, confi2, posi3, confi3);
+	}
+
 	public List<PosInter> staticStatic() {
 		return PosInterDist.staticStatic();
 	}

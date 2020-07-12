@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.confspace.compiled;
 
 import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
+import edu.duke.cs.osprey.tools.MathTools;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -46,6 +47,20 @@ public enum PosInterDist {
 			inters.add(new PosInter(posi1, posi2, 1.0, 0.0));
 			return inters;
 		}
+
+		/**
+		 * A triad of pair interactions weighted to prevent over-counting when all possible triads are used.
+		 */
+		@Override
+		public List<PosInter> tripleCorrection(ConfSpace confSpace, SimpleReferenceEnergies eref, int posi1, int confi1, int posi2, int confi2, int posi3, int confi3) {
+			double weight = 1.0/MathTools.numTriplesPerPair(confSpace.positions.length);
+			List<PosInter> inters = new ArrayList<>();
+			// no offsets needed, since the pairs have no offsets
+			inters.add(new PosInter(posi1, posi2, weight, 0.0));
+			inters.add(new PosInter(posi1, posi3, weight, 0.0));
+			inters.add(new PosInter(posi2, posi3, weight, 0.0));
+			return inters;
+		}
 	},
 
 	/**
@@ -81,6 +96,25 @@ public enum PosInterDist {
 			inters.add(new PosInter(posi1, PosInter.StaticPos, weight, 0.0));
 			inters.add(new PosInter(posi2, PosInter.StaticPos, weight, 0.0));
 			inters.add(new PosInter(posi1, posi2, 1.0, 0.0));
+			return inters;
+		}
+
+		@Override
+		public List<PosInter> tripleCorrection(ConfSpace confSpace, SimpleReferenceEnergies eref, int posi1, int confi1, int posi2, int confi2, int posi3, int confi3) {
+
+			double singleWeight = 1.0/MathTools.numTriplesPerSingle(confSpace.positions.length);
+			double pairWeight = 1.0/MathTools.numTriplesPerPair(confSpace.positions.length);
+
+			List<PosInter> inters = new ArrayList<>();
+			inters.add(new PosInter(posi1, posi1, singleWeight, getErefOffset(confSpace, eref, posi1, confi1)));
+			inters.add(new PosInter(posi2, posi2, singleWeight, getErefOffset(confSpace, eref, posi2, confi2)));
+			inters.add(new PosInter(posi3, posi3, singleWeight, getErefOffset(confSpace, eref, posi2, confi2)));
+			inters.add(new PosInter(posi1, PosInter.StaticPos, singleWeight, 0.0));
+			inters.add(new PosInter(posi2, PosInter.StaticPos, singleWeight, 0.0));
+			inters.add(new PosInter(posi3, PosInter.StaticPos, singleWeight, 0.0));
+			inters.add(new PosInter(posi1, posi2, pairWeight, 0.0));
+			inters.add(new PosInter(posi1, posi3, pairWeight, 0.0));
+			inters.add(new PosInter(posi2, posi3, pairWeight, 0.0));
 			return inters;
 		}
 	};
@@ -197,4 +231,10 @@ public enum PosInterDist {
 
 	public abstract List<PosInter> single(ConfSpace confSpace, SimpleReferenceEnergies eref, int posi1, int confi1);
 	public abstract List<PosInter> pair(ConfSpace confSpace, SimpleReferenceEnergies eref, int posi1, int confi1, int posi2, int confi2);
+
+	/**
+	 * Interactions of a tuple of three positions,
+	 * but weighted to prevent over-counting when all possible triples are used simultaneously.
+	 */
+	public abstract List<PosInter> tripleCorrection(ConfSpace confSpace, SimpleReferenceEnergies eref, int posi1, int confi1, int posi2, int confi2, int posi3, int confi3);
 }

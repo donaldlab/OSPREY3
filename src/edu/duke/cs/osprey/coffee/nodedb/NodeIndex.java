@@ -7,7 +7,6 @@ import edu.duke.cs.osprey.tools.BigExp;
 
 import java.util.Arrays;
 import java.util.Deque;
-import java.util.List;
 
 
 /**
@@ -101,16 +100,6 @@ public class NodeIndex {
 
 	public Node removeHighest() {
 		return index.removeHighest();
-	}
-
-	public void removeHighest(int count, List<Node> nodes) {
-		for (int i=0; i<count; i++) {
-			var node = removeHighest();
-			if (node == null) {
-				break;
-			}
-			nodes.add(node);
-		}
 	}
 
 	public void freeUpSpace() {
