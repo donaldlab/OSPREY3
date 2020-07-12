@@ -39,6 +39,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     public SimpleConfSpace.Position nextDesignPosition;
 
     // Information for MultiSequence SHARK* Nodes
+    private final Map<Sequence, BigDecimal> errorBounds = new HashMap<>();
     private Map<Sequence, MathTools.BigDecimalBounds> sequenceBounds = new HashMap<>();
     private Map<String, List<MultiSequenceSHARKStarNode>> childrenByAA= new HashMap<>(); // probably should override the children list
     private Map<Sequence, List<MultiSequenceSHARKStarNode>> childrenBySequence = new HashMap<>(); // probably should override the children list
@@ -330,6 +331,14 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         getSequenceConfBounds(seq).lower = lowerBound;
         getSequenceConfBounds(seq).upper = upperBound;
         setSubtreeBounds(seq, tighterLower, tighterUpper);
+
+        // And, lastly, set the partition function error
+        if(this.isMinimized(seq)) {
+            this.errorBounds.put(seq, BigDecimal.ZERO);
+        }else{
+            this.errorBounds.put(seq, MathTools.bigSubtract(getUpperBound(seq), getLowerBound(seq), PartitionFunction.decimalPrecision));
+        }
+
         if(MathTools.isLessThan(tighterUpper, BigDecimal.ONE) && lowerBound < 0)
             for(Sequence boundedSeq: sequenceBounds.keySet())
                 System.out.println(toSeqString(seq)+"-"+boundedSeq+":"+sequenceBounds.get(boundedSeq));
@@ -516,6 +525,8 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
     public BigDecimal getErrorBound(Sequence seq) {
+        return errorBounds.get(seq);
+        /* Old, GTH
         if(isMinimized(seq))
             return BigDecimal.ZERO;
         if(getChildren(seq) == null || !hasChildren(seq)) {
@@ -527,6 +538,8 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         }
         errorBound = errorSum;
         return errorBound;
+
+         */
     }
 
     public MathTools.BigDecimalBounds getSequenceBounds(Sequence seq) {
