@@ -366,6 +366,17 @@ public class BigExp implements Comparable<BigExp>, IOable, Serializable {
 		return out;
 	}
 
+	/** returns this^pow */
+	public void pow(double pow) {
+		double e = exp*pow;
+		exp = (int)e;
+		fp = Math.pow(fp, pow)*Math.pow(10.0, e - exp);
+		if (!Double.isFinite(fp)) {
+			throw new IllegalArgumentException("Value magnitude and power too large");
+		}
+		normalize(true);
+	}
+
 	public void min(BigExp other) {
 		if (compareTo(other) > 0) {
 			set(other);

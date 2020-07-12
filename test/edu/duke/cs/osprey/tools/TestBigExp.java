@@ -541,4 +541,36 @@ public class TestBigExp {
 		assertThat(be.apply(-1234.5), is(bd.apply("-1234.5")));
 		assertThat(be.apply(-12345.0), is(bd.apply("-12345.0")));
 	}
+
+	private interface BigExpPow {
+		String apply(double fp, int exp, double pow);
+	}
+
+	@Test
+	public void pow() {
+
+		// check accuracy to 16 significant digits (that's about all double can represent)
+		var mc = new MathContext(16, RoundingMode.HALF_UP);
+		BigExpPow be = (fp, exp, pow) -> {
+			var val = new BigExp(fp, exp);
+			val.pow(pow);
+			return String.format("%.12e", val.toBigDecimal(mc));
+		};
+		BiFunction<String,Double,String> bd = (val, pow) -> String.format("%.12e", BigDecimalMath.pow(new BigDecimal(val), new BigDecimal(pow), mc));
+
+		assertThat(be.apply(1.0, 0, 1.0), is(bd.apply("1.0", 1.0)));
+
+		assertThat(be.apply(1.0, 0, 0.0), is(bd.apply("1.0", 0.0)));
+		assertThat(be.apply(1.2345, 34, 0.0), is(bd.apply("1.2345e34", 0.0)));
+
+		assertThat(be.apply(1.2345, 34, 3.0), is(bd.apply("1.2345e34", 3.0)));
+		assertThat(be.apply(1.2345, 34, 3.7), is(bd.apply("1.2345e34", 3.7)));
+		assertThat(be.apply(1.2345, 34, -3.7), is(bd.apply("1.2345e34", -3.7)));
+
+		assertThat(be.apply(1.2345, 34, 0.456), is(bd.apply("1.2345e34", 0.456)));
+		assertThat(be.apply(1.2345, 34, -0.456), is(bd.apply("1.2345e34", -0.456)));
+
+		// huge numbers work too, but there's much less precision
+		//assertThat(be.apply(1.2345, 6543, 204.6), is(bd.apply("1.2345e6543", 204.6)));
+	}
 }
