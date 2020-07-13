@@ -89,6 +89,62 @@ public class BoltzmannCalculator {
 
 	}
 
+	/**
+	 * Computes ln(1 + e(x)) in a relatively numerical stable way.
+	 * See DOI: 10.13140/RG.2.2.11834.70084
+	 * @param x
+	 * @return ln(1 + e(x)).
+	 */
+	public double log1pexp(double x){
+		if (x<= -37){
+			return Math.exp(x);
+		}else if( -37 < x && x <= 18){
+			return Math.log1p(Math.exp(x));
+		}else if( 18 < x && x <=33.3){
+			return x + Math.exp(-x);
+		}else{ // x > 33.3
+			return x;
+		}
+	}
+
+	/**
+	 * Computes ln(1 - e(a)) in a relatively numerical stable way.
+	 * See DOI: 10.13140/RG.2.2.11834.70084
+	 * @param a
+	 * @return ln(1 - e(a)).
+	 */
+	public double log1mexp(double a){
+		if (0 < a && a <= 0.693){
+			return Math.log(-Math.expm1(-a));
+		}else if(a > 0.693){
+			return Math.log1p(-Math.exp(-a));
+		}else{
+			throw new ArithmeticException();
+		}
+	}
+
+	public double logSumExpSorting(ArrayList<Double> energyList){
+		/** logSumExp
+		 *
+		 * Returns the free energy of a Boltzmann-weighted sum of energies.
+		 *
+		 * Uses the log-sum-exp trick:
+		 * 	Shifts sum of exponentials to start at zero. In doing so, avoids
+		 * 	some numerical instability issues.
+         * Also sorts the list to minimize the size of the exponential.
+		 */
+
+		energyList.sort(Collections.reverseOrder());
+
+		double maxEnergy = energyList.get(0);
+		for (int i = 1; i < energyList.size(); i++){
+			double nextE = energyList.get(i);
+			maxEnergy = nextE + -constRT*log1pexp(-(maxEnergy - nextE)/constRT);
+		}
+
+		return maxEnergy;
+	}
+
 	public double freeEnergy(BigDecimal z) {
 		return -constRT*e.log(z).doubleValue();
 	}

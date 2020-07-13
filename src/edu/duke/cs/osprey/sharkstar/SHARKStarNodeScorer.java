@@ -219,7 +219,7 @@ public class SHARKStarNodeScorer implements AStarScorer {
                 rotEnergies.add(rotEnergy);
             }
             // Compute the residue sum via logSumExp
-            double residueFreeEnergy = bcalc.logSumExp(rotEnergies);
+            double residueFreeEnergy = bcalc.logSumExpSorting(rotEnergies);
             if(confMatch(conf, debugConf)){
                 System.out.println("Gotcha-calc2");
                 System.out.println("End residue free energy: "+ residueFreeEnergy);
