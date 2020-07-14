@@ -147,9 +147,13 @@ public class Coffee {
 				config.check();
 			}
 
-			// make a single-node cluster if needed
+			// try to auto-detect the cluster
 			if (cluster == null) {
-				// if no cluster was given, make a random id,
+				cluster = Cluster.fromSLURM();
+			}
+			if (cluster == null) {
+
+				// if no cluster was given/found, make a random id,
 				// so we (probably) don't try to join with other jobs on this machine, and vice versa
 				int jobId = Math.abs(new Random().nextInt());
 				cluster = new Cluster("COFFEE", "job-" + jobId, 0, 1);

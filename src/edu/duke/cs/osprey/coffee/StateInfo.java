@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.coffee;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.coffee.zmat.ClusterZMatrix;
 import edu.duke.cs.osprey.confspace.SeqSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;

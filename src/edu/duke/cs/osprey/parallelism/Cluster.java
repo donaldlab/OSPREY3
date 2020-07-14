@@ -54,13 +54,23 @@ public class Cluster {
 
 	/** Read environment variables to determine cluster properties */
 	public static Cluster fromSLURM(boolean clientIsMember) {
+		String jobId = System.getenv("SLURM_JOB_ID");
+		String procId = System.getenv("SLURM_PROCID");
+		String nprocs = System.getenv("SLURM_NPROCS");
+		if (jobId == null || procId == null || nprocs == null) {
+			return null;
+		}
 		return new Cluster(
 			"SLURM",
-			System.getenv("SLURM_JOB_ID"),
-			Integer.parseInt(System.getenv("SLURM_PROCID")),
-			Integer.parseInt(System.getenv("SLURM_NPROCS")),
+			jobId,
+			Integer.parseInt(procId),
+			Integer.parseInt(nprocs),
 			clientIsMember
 		);
+	}
+
+	public static Cluster fromSLURM() {
+		return fromSLURM(DefaultClientIsMember);
 	}
 
 	public int numMembers() {

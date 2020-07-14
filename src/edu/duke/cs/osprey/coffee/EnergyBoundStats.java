@@ -41,7 +41,7 @@ public class EnergyBoundStats {
 
 		// find the bucket index
 		int index = 0;
-		for (; index<buckets.length; index++) {
+		for (; index<boundaries.length; index++) {
 			if (gap < boundaries[index]) {
 				break;
 			}

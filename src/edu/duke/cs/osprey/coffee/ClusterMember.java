@@ -202,6 +202,13 @@ public class ClusterMember implements AutoCloseable {
 		serviceManager.registerService(name, service);
 	}
 
+	private static class UnregisteredService {}
+
+	public void unregisterService(String name) {
+		// hazelcast doesn't actually allow un-registration, so fake it with a dummy object
+		serviceManager.registerService(name, new UnregisteredService());
+	}
+
 	public <T> void registerSerializer(Class<T> c, StreamSerializer<T> serializer) {
 		serializationService.register(c, serializer);
 	}
