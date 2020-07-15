@@ -38,6 +38,7 @@ public class NodeProcessor implements AutoCloseable {
 		final Batch seqBatch = seqdb.batch();
 		final List<NodeIndex.Node> nodesIncoming = new ArrayList<>();
 		final List<NodeIndex.Node> nodesOutgoing = new ArrayList<>();
+		int stateiOutgoing;
 		long lastFlush = -1;
 
 		final long flushNs = TimeUnit.MILLISECONDS.toNanos(100);
@@ -60,7 +61,11 @@ public class NodeProcessor implements AutoCloseable {
 
 			while (directions.isRunning()) {
 
-				flushIfNeeded();
+				// flush if we haven't done it in a while
+				long now = System.nanoTime();
+				if (now >= lastFlush + flushNs) {
+					flush();
+				}
 
 				long startNs = System.nanoTime();
 
@@ -70,6 +75,12 @@ public class NodeProcessor implements AutoCloseable {
 					waitABit.run();
 					continue;
 				}
+
+				// if the state changed, flush
+				if (statei != stateiOutgoing) {
+					flush();
+				}
+				stateiOutgoing = statei;
 
 				// get the tree for this state
 				RCs tree = directions.getTree(statei);
@@ -94,18 +105,18 @@ public class NodeProcessor implements AutoCloseable {
 			}
 		}
 
-		private void flushIfNeeded() {
+		private void flush() {
 
-			long now = System.nanoTime();
-			if (now >= lastFlush + flushNs) {
+			seqBatch.save();
 
-				seqBatch.save();
-
-				nodedb.add(nodesOutgoing);
+			if (!nodesOutgoing.isEmpty()) {
+				assert (stateiOutgoing >= 0);
+				nodedb.add(stateiOutgoing, nodesOutgoing);
 				nodesOutgoing.clear();
-
-				lastFlush = now;
+				stateiOutgoing = -1;
 			}
+
+			lastFlush = System.nanoTime();
 		}
 
 		public void waitForFinish() {

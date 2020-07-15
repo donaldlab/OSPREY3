@@ -305,7 +305,7 @@ public class Coffee {
 
 						// init the node processor, and report dropped nodes to the sequence database
 						try (var nodeProcessor = new NodeProcessor(cpuTasks, seqdb, nodedb, infos, includeStaticStatic, parallelism, precision)) {
-							nodedb.dropHandler = nodeProcessor::handleDrops;
+							nodedb.setDropHandler(nodeProcessor::handleDrops);
 
 							// wait for everyone to be ready
 							member.barrier(5, TimeUnit.MINUTES);

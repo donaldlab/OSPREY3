@@ -5,8 +5,8 @@ import edu.duke.cs.osprey.coffee.ClusterMember;
 import edu.duke.cs.osprey.coffee.Serializers;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.parallelism.BottleneckThread;
+import edu.duke.cs.osprey.parallelism.RateLimitedThread;
 import edu.duke.cs.osprey.tools.BigExp;
-import edu.duke.cs.osprey.tools.Streams;
 
 import java.io.File;
 import java.util.*;
@@ -98,16 +98,12 @@ public class NodeDB implements AutoCloseable {
 			this.totalBytes = totalBytes;
 		}
 
-		public NodeIndex.Node removeHighest(int statei) {
-			return member.requestFrom(new GetHighestNodeOperation(statei), addr, 10, TimeUnit.SECONDS);
-		}
-
 		public void removeHighest(int statei, int count, List<NodeIndex.Node> nodes) {
 			nodes.addAll(member.requestFrom(new GetHighestNodesOperation(statei, count), addr, 10, TimeUnit.SECONDS));
 		}
 
-		public void add(NodeIndex.Node node) {
-			member.sendTo(new AddNodeOperation(node), addr);
+		public void add(int statei, List<NodeIndex.Node> nodes) {
+			member.sendTo(new AddNodesOperation(statei, nodes), addr);
 		}
 	}
 
@@ -121,21 +117,22 @@ public class NodeDB implements AutoCloseable {
 	public final long broadcastNs;
 	public final File scoringLog;
 
-	/**
-	 * Function to call when dropped nodes need to be processed.
-	 * Called from the NodeDB thread, not the caller thread!
-	 **/
-	public Consumer<Stream<NodeIndex.Node>> dropHandler = null;
-
 	public final NodePerformance perf;
 
+	/**
+	 * Since the NodeIndex instances are not thread-safe,
+	 * and the BlockStore memory must be accessed by a single thread,
+	 * we have to serialize all DB accesses through one thread.
+	 *
+	 * This could eventually end up being too slow,
+	 * but profiling shows the performance isn't too bad yet,
+	 * even on 48 threads.
+	 */
 	private final BottleneckThread thread;
+	private final RateLimitedThread broadcaster;
 
+	private NodeIndices indices;
 	private Map<Address,Neighbor> neighbors;
-	private BlockStore store;
-	private NodeIndex[] indices;
-
-	private long lastBroadcastNs = 0;
 
 	private NodeDB(MultiStateConfSpace confSpace, ClusterMember member, File file, long fileBytes, long memBytes, long broadcastNs, File scoringLog) {
 
@@ -160,23 +157,12 @@ public class NodeDB implements AutoCloseable {
 		// so make a thread to handle all the accesses
 		thread = new BottleneckThread("NodeDB");
 
+		// make another thread to periodically keep the cluster members up-to-date
+		broadcaster = new RateLimitedThread("NodeDB-bcast", broadcastNs, TimeUnit.NANOSECONDS, () -> broadcast());
+
 		thread.exec(() -> {
 
-			// allocate the block store
-			store = new BlockStore(null, memBytes);
-
-			// make sure there's at least 2 blocks for each index
-			long minBytes = store.blockSize*confSpace.states.size()*2;
-			if (memBytes < minBytes) {
-				throw new IllegalArgumentException(String.format("NodeDB should have at least %d bytes for %d states",
-					minBytes, confSpace.states.size()
-				));
-			}
-
-			// init the state indices and metadata
-			indices = confSpace.states.stream()
-				.map(state -> new NodeIndex(store, state))
-				.toArray(NodeIndex[]::new);
+			indices = new NodeIndices(confSpace, memBytes);
 
 			// register NodeDB with hazelcast
 			member.registerService(ServiceName, this);
@@ -191,20 +177,51 @@ public class NodeDB implements AutoCloseable {
 					addr -> addr,
 					addr -> new Neighbor(addr)
 				));
-
-			// but tell them that we care
-			broadcast();
 		});
+
+		// wait for everyone to catch up before sending the first broadcast
+		member.barrier(1, TimeUnit.MINUTES);
+
+		// but tell them that we care
+		broadcast();
+	}
+
+	/**
+	 * Set a function to call when dropped nodes need to be processed.
+	 * Called from the NodeDB thread, not the caller thread!
+	 **/
+	public void setDropHandler(Consumer<Stream<NodeIndex.Node>> dropHandler) {
+		thread.exec(() -> indices.dropHandler = dropHandler);
 	}
 
 	@Override
 	public void close() {
-		thread.exec(() -> store.close());
+		broadcaster.close();
+		thread.exec(() -> indices.close());
 		thread.close();
 	}
 
 	public long size(int statei) {
-		return indices[statei].size();
+		return thread.get(() -> indices.size(statei));
+	}
+
+	public void broadcast() {
+
+		// get info from the indices
+		var info = thread.get(() -> indices.getBroadcastInfo());
+
+		// broadcast
+		// NOTE: don't send on the db thread, we don't want that thread blocking on network IO
+		member.sendToOthers(() -> new BroadcastOperation(info, perf));
+	}
+
+	void receiveBroadcast(Address src, long[] freeSpaces, BigExp[] maxScores, long usedBytes, long totalBytes) {
+		// TODO: do we need to synchronize neighbors?
+		getNeighbor(src).broadcasted(freeSpaces, maxScores, usedBytes, totalBytes);
+	}
+
+	private Neighbor getNeighbor(Address addr) {
+		return neighbors.computeIfAbsent(addr, key -> new Neighbor(addr));
 	}
 
 	/**
@@ -219,205 +236,93 @@ public class NodeDB implements AutoCloseable {
 	}
 
 	public void clearLocal(int statei) {
-		thread.exec(() -> indices[statei].clear());
+		thread.exec(() -> {
+			indices.clear(statei);
+			broadcaster.request();
+		});
 	}
 
 	/**
-	 * Add the node to the local store
+	 * Adds nodes to the cluster.
+	 * Local storage is preferred if there's space.
+	 * Next, remote storage is preferred if there's space.
+	 * Otherwise, space will be evicted from local storage to make room.
+	 */
+	public void add(int statei, List<NodeIndex.Node> nodes) {
+
+		// prefer local storage first
+		boolean wasAdded = thread.get(() -> indices.tryAdd(statei, nodes));
+		if (wasAdded) {
+			broadcaster.request();
+			return;
+		}
+
+		// prefer remote storage next
+		Neighbor neighbor = neighbors.values().stream()
+			.max(Comparator.comparing(n -> n.freeSpaces[statei]))
+			.orElse(null);
+		if (neighbor != null && neighbor.freeSpaces[statei] > 0) {
+			neighbor.add(statei, nodes);
+			return;
+		}
+
+		// finally, force local storage
+		thread.exec(() -> indices.add(statei, nodes));
+		broadcaster.request();
+	}
+
+	/**
+	 * Conveience method to add a single node.
+	 * The batched version is preferred, for speed.
+	 */
+	public void add(NodeIndex.Node node) {
+		add(node.statei, Collections.singletonList(node));
+	}
+
+	/**
+	 * Add nodes to the local store
+	 */
+	public void addLocal(int statei, List<NodeIndex.Node> nodes) {
+		thread.exec(() -> {
+			indices.add(statei, nodes);
+			broadcaster.request();
+		});
+	}
+
+	/**
+	 * Conveience method to add a single node to the local store.
+	 * The batched version is preferred, for speed.
 	 */
 	public void addLocal(NodeIndex.Node node) {
-		thread.exec(() -> addLocalOnThread(node));
+		addLocal(node.statei, Collections.singletonList(node));
 	}
 
-	private void addLocalOnThread(NodeIndex.Node node) {
-
-		// add the node, if there's space
-		boolean wasAdded = indices[node.statei].add(node);
-		if (!wasAdded) {
-
-			// free up space in all the other indices
-			for (var state : confSpace.states) {
-				if (state.index != node.statei) {
-					indices[state.index].freeUpSpace();
-				}
-			}
-
-			// try again
-			wasAdded = indices[node.statei].add(node);
-			if (!wasAdded) {
-				throw new Error("Couldn't find/make space for a new node in the local store. This is a bug.");
-			}
-		}
-
-		handleDroppedOnThread();
-		broadcastIfNeeded();
-	}
-
-	private void handleDroppedOnThread() {
-
-		// handle dropped nodes
-		if (Arrays.stream(indices).anyMatch(index -> !index.dropped().isEmpty())) {
-
-			// call the drop handler if possible
-			if (dropHandler != null) {
-				dropHandler.accept(Arrays.stream(indices)
-					.flatMap(index -> index.dropped().stream())
-				);
-			}
-
-			// forget the nodes
-			for (var index : indices) {
-				index.dropped().clear();
-			}
-		}
-	}
-
-	private void broadcastIfNeeded() {
-
-		// is it time to check again?
-		if (System.nanoTime() - lastBroadcastNs < broadcastNs) {
-
-			// nope
-			return;
-		}
-
-		broadcast();
-	}
-
-	public void broadcast() {
-
-		// get the free spaces
-		long[] freeSpaces = Arrays.stream(indices)
-			.mapToLong(NodeIndex::freeSpace)
-			.toArray();
-
-		// get the max scores
-		BigExp[] maxScores = Arrays.stream(indices)
-			.map(NodeIndex::highestScore)
-			.toArray(BigExp[]::new);
-
-		// broadcast
-		member.sendToOthers(() -> new BroadcastOperation(freeSpaces, maxScores, store.numUsedBytes(), memBytes, perf));
-		lastBroadcastNs = System.nanoTime();
-	}
-
-	public void receiveBroadcast(Address src, long[] freeSpaces, BigExp[] maxScores, long usedBytes, long totalBytes) {
-		thread.exec(() ->
-			getNeighbor(src).broadcasted(freeSpaces, maxScores, usedBytes, totalBytes)
-		);
-	}
-
-	private Neighbor getNeighbor(Address addr) {
-		return neighbors.computeIfAbsent(addr, key -> new Neighbor(addr));
-	}
-
-	public NodeIndex.Node removeHighestLocal(int statei) {
-		return thread.get(() -> {
-			var node = removeHighestLocalOnThread(statei);
-			broadcastIfNeeded();
-			return node;
-		});
-	}
-
-	private void handleDroppedOnThread(int statei) {
-
-		var index = indices[statei];
-
-		// any dropped nodes to process?
-		if (index.dropped().isEmpty()) {
-			return;
-		}
-
-		// call the drop handler if possible
-		if (dropHandler != null) {
-			dropHandler.accept(Streams.of(index.dropped()));
-		}
-
-		// then forget the nodes
-		indices[statei].dropped().clear();
-	}
-
-	private NodeIndex.Node removeHighestLocalOnThread(int statei) {
-
-		NodeIndex.Node node = indices[statei].removeHighest();
-
-		// remove highest can drop nodes too, so handle them now
-		handleDroppedOnThread(statei);
-
-		return node;
-	}
-
+	/**
+	 * Removes the highest node from the local index.
+	 */
 	public void removeHighestLocal(int statei, int count, List<NodeIndex.Node> nodes) {
 		thread.exec(() -> {
-			removeHighestLocalOnThread(statei, count, nodes);
-			broadcastIfNeeded();
+			indices.removeHighest(statei, count, nodes);
+			broadcaster.request();
 		});
 	}
 
-	private void removeHighestLocalOnThread(int statei, int count, List<NodeIndex.Node> nodes) {
-
-		var index = indices[statei];
-
-		for (int i=0; i<count; i++) {
-			var node = index.removeHighest();
-
-			// remove highest can drop nodes too, so handle them now
-			handleDroppedOnThread(statei);
-
-			if (node == null) {
-				break;
-			}
-			nodes.add(node);
-		}
-	}
-
 	/**
-	 * Removes a high-scoring node from the cluster.
-	 *
-	 * It's not necessarily the highest-scoring node,
-	 * due to delays in score broadcasting,
-	 * but it should be pretty high.
+	 * Conveience method to remove a single node.
+	 * The batched version is preferred, for speed.
 	 */
-	public NodeIndex.Node removeHigh(int statei) {
-		return thread.get(() -> {
-
-			// find the neighbor with the highest node for this state
-			Neighbor highestNeighbor = neighbors.values().stream()
-				.filter(neighbor -> neighbor.maxScores[statei] != null)
-				.max(Comparator.comparing(neighbor -> neighbor.maxScores[statei]))
-				.orElse(null);
-
-			BigExp localMaxScore = indices[statei].highestScore();
-
-			if (highestNeighbor != null) {
-
-				// is a local node higher?
-				if (localMaxScore != null && localMaxScore.compareTo(highestNeighbor.maxScores[statei]) > 0) {
-
-					// yup, use that
-					return removeHighestLocalOnThread(statei);
-
-				} else {
-
-					// nope, use the cluster node
-					return highestNeighbor.removeHighest(statei);
-				}
-
-			} else if (localMaxScore != null) {
-
-				// use the local node
-				return removeHighestLocalOnThread(statei);
-
-			} else {
-
-				// no nodes anywhere
-				return null;
-			}
-		});
+	public NodeIndex.Node removeHighestLocal(int statei) {
+		var nodes = new ArrayList<NodeIndex.Node>(1);
+		removeHighestLocal(statei, 1, nodes);
+		return nodes.get(0);
 	}
 
 	/**
-	 * A batched version of removeHigh()
+	 * Removes high-scoring nodes from the cluster.
+	 *
+	 * It's not necessarily the highest-scoring nodes,
+	 * due to delays in score broadcasting,
+	 * but they should be pretty high.
 	 */
 	public void removeHigh(int statei, int count, List<NodeIndex.Node> nodes) {
 		thread.exec(() -> {
@@ -428,7 +333,7 @@ public class NodeDB implements AutoCloseable {
 				.max(Comparator.comparing(neighbor -> neighbor.maxScores[statei]))
 				.orElse(null);
 
-			BigExp localMaxScore = indices[statei].highestScore();
+			BigExp localMaxScore = indices.highestScore(statei);
 
 			if (highestNeighbor != null) {
 
@@ -436,7 +341,8 @@ public class NodeDB implements AutoCloseable {
 				if (localMaxScore != null && localMaxScore.compareTo(highestNeighbor.maxScores[statei]) > 0) {
 
 					// yup, use that
-					removeHighestLocalOnThread(statei, count, nodes);
+					indices.removeHighest(statei, count, nodes);
+					broadcaster.request();
 
 				} else {
 
@@ -447,7 +353,8 @@ public class NodeDB implements AutoCloseable {
 			} else if (localMaxScore != null) {
 
 				// use the local node
-				removeHighestLocalOnThread(statei, count, nodes);
+				indices.removeHighest(statei, count, nodes);
+				broadcaster.request();
 
 			//} else {
 
@@ -457,56 +364,22 @@ public class NodeDB implements AutoCloseable {
 	}
 
 	/**
-	 * Adds the node to the cluster.
-	 * Local storage is preferred if there's space.
-	 * Next, remote storage is preferred if there's space.
-	 * Otherwise, space will be evicted from local storage to make room.
+	 * Conveience method to remove a single node.
+	 * The batched version is preferred, for speed.
 	 */
-	public void add(NodeIndex.Node node) {
-		thread.exec(() -> addOnThread(node));
-	}
-
-	private void addOnThread(NodeIndex.Node node) {
-
-		// prefer local storage first
-		if (indices[node.statei].freeSpace() > 0) {
-			addLocalOnThread(node);
-			return;
-		}
-
-		// prefer remote storage next
-		Neighbor neighbor = neighbors.values().stream()
-			.max(Comparator.comparing(n -> n.freeSpaces[node.statei]))
-			.orElse(null);
-		if (neighbor != null && neighbor.freeSpaces[node.statei] > 0) {
-			neighbor.add(node);
-			return;
-		}
-
-		// finally, force local storage
-		addLocalOnThread(node);
-	}
-
-	/**
-	 * A batched version of add()
-	 */
-	public void add(List<NodeIndex.Node> nodes) {
-		thread.exec(() -> {
-			for (var node : nodes) {
-				addOnThread(node);
-			}
-		});
+	public NodeIndex.Node removeHigh(int statei) {
+		var nodes = new ArrayList<NodeIndex.Node>(1);
+		removeHigh(statei, 1, nodes);
+		return nodes.get(0);
 	}
 
 	public long freeSpaceLocal(int statei) {
-		return thread.get(() ->
-			indices[statei].freeSpace()
-		);
+		return thread.get(() -> indices.freeSpace(statei));
 	}
 
 	public long nodesPerBlock(int statei) {
 		// constant lookup, don't need to synchronize
-		return indices[statei].nodesPerBlock();
+		return indices.nodesPerBlock(statei);
 	}
 
 	/**
@@ -515,7 +388,7 @@ public class NodeDB implements AutoCloseable {
 	public float usage() {
 
 		// start with the local usage
-		long usedBytes = store.numUsedBytes();
+		long usedBytes = thread.get(() -> indices.numUsedBytes());
 		long totalBytes = memBytes;
 
 		// add usage from neighbors

@@ -97,7 +97,7 @@ public class TestNodeDB {
 
 			// count dropped nodes
 			var numDropped = new AtomicLong(0);
-			nodedb.dropHandler = nodes -> numDropped.addAndGet(nodes.count());
+			nodedb.setDropHandler(nodes -> numDropped.addAndGet(nodes.count()));
 
 			// add a bunch of random nodes
 			Random rand = new Random(12345);
@@ -127,7 +127,7 @@ public class TestNodeDB {
 
 			// count dropped nodes
 			var numDropped = new AtomicLong(0);
-			nodedb.dropHandler = nodes -> numDropped.addAndGet(nodes.count());
+			nodedb.setDropHandler(nodes -> numDropped.addAndGet(nodes.count()));
 
 			// generate a bunch of random nodes
 			var rand = new Random(12345);

@@ -68,8 +68,17 @@ public class BottleneckThread implements AutoCloseable {
 	 * Run the task on the thread, and don't wait for it to finish.
 	 */
 	public void launch(Runnable task) {
+
+		// don't allow tasks from the bottleneck thread, it'll cause a deadlock
+		if (Thread.currentThread() == thread) {
+			throw new IllegalArgumentException("can't launch new tasks from the bottleneck thread itself!");
+		}
+
 		try {
 			while (true) {
+				if (!isRunning) {
+					throw new IllegalStateException("BottleneckThread is not running");
+				}
 				boolean wasAdded = queue.offer(task, 500, TimeUnit.MILLISECONDS);
 				if (wasAdded) {
 					break;

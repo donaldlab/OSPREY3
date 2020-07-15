@@ -7,7 +7,15 @@ import java.util.*;
 
 
 /**
- * Trying to be a faster implementation of FixedIndex
+ * A fast and correct implementation of FixedIndex.
+ * Uses double-ended priority queues to sort efficiently.
+ *
+ * There used to be other implementations than this one,
+ * but they were slower, and eventually turned out to be flawed,
+ * so they were all deleted. Only this one is left now.
+ *
+ * Simpler choices to handle double-ended sorting (like TreeSet)
+ * tragically can't handle collisions in item scores correctly.
  */
 @SuppressWarnings("UnstableApiUsage") // the MinMaxPriorityQueue seems to be perpetually in "beta"... silly Google
 public class PriorityDequeFixedIndex<S extends Comparable<S>, T extends FixedIndex.Indexable<S>> implements FixedIndex<S,T> {
@@ -45,9 +53,7 @@ public class PriorityDequeFixedIndex<S extends Comparable<S>, T extends FixedInd
 			ByteBuffer buf = store.get(id);
 			buf.position(0);
 			for (int i=0; i<size; i++) {
-				// TODO: this add is a huge bottleneck! 50% of the workload
-				//  and half of that is BigExp comparisons
-				checkAdd(out.add(serializer.deserialize(buf)));
+				out.add(serializer.deserialize(buf));
 			}
 		}
 	}
@@ -59,7 +65,9 @@ public class PriorityDequeFixedIndex<S extends Comparable<S>, T extends FixedInd
 	public final Deque<T> dropped;
 
 	// keep the blocks sorted by max val
-	private final TreeSet<Block<S>> packedBlocks = new TreeSet<>(Comparator.comparing(block -> block.max));
+	private final MinMaxPriorityQueue<Block<S>> packedBlocks = MinMaxPriorityQueue
+		.orderedBy(Comparator.comparing((Block<S> block) -> block.max))
+		.create();
 
 	// keep the unpacked items sorted by score
 	private final MinMaxPriorityQueue<T> unpackedItems;
@@ -111,7 +119,7 @@ public class PriorityDequeFixedIndex<S extends Comparable<S>, T extends FixedInd
 		// fill it from the unpacked items and put it on the packed tree
 		Block<S> block = new Block<>(blockid);
 		block.fill(store, serializer, unpackedItems, blockCapacity);
-		checkAdd(packedBlocks.add(block));
+		packedBlocks.add(block);
 		return true;
 	}
 
@@ -126,7 +134,7 @@ public class PriorityDequeFixedIndex<S extends Comparable<S>, T extends FixedInd
 		}
 
 		// then add the item to the unpacked tree
-		checkAdd(unpackedItems.add(item));
+		unpackedItems.add(item);
 		size += 1;
 		return true;
 	}
@@ -149,7 +157,7 @@ public class PriorityDequeFixedIndex<S extends Comparable<S>, T extends FixedInd
 
 		S packedScore = null;
 		if (!packedBlocks.isEmpty()) {
-			packedScore = packedBlocks.last().max;
+			packedScore = packedBlocks.peekLast().max;
 		}
 
 		S unpackedScore = null;
@@ -190,7 +198,7 @@ public class PriorityDequeFixedIndex<S extends Comparable<S>, T extends FixedInd
 		}
 
 		// if the highest item is already unpacked, return it
-		if (packedBlocks.isEmpty() || (!unpackedItems.isEmpty() && unpackedItems.peekLast().score().compareTo(packedBlocks.last().max) > 0)) {
+		if (packedBlocks.isEmpty() || (!unpackedItems.isEmpty() && unpackedItems.peekLast().score().compareTo(packedBlocks.peekLast().max) > 0)) {
 			return removeLastUnpacked();
 		}
 
@@ -240,11 +248,5 @@ public class PriorityDequeFixedIndex<S extends Comparable<S>, T extends FixedInd
 		}
 		packedBlocks.clear();
 		size = 0;
-	}
-
-	private static void checkAdd(boolean wasAdded) {
-		if (!wasAdded) {
-			throw new IllegalStateException("item was not added");
-		}
 	}
 }

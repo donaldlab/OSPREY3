@@ -11,9 +11,7 @@ import edu.duke.cs.osprey.tools.BigExp;
 import org.junit.Test;
 
 import java.io.File;
-import java.util.Comparator;
-import java.util.Random;
-import java.util.TreeSet;
+import java.util.*;
 import java.util.stream.IntStream;
 
 
@@ -341,6 +339,58 @@ public class TestNodeIndex {
 	public void fillRemoveSome_file() {
 		try (var file = new TestBase.TempFile("node.index")) {
 			fillRemoveSome(file);
+		}
+	}
+
+	public void scoreCollisions(File file) {
+
+		MultiStateConfSpace confSpace = TestCoffee.affinity_2RL0_7mut();
+		var state = confSpace.getState("complex");
+
+		var store = new BlockStore(file, 4*1024*1024);
+		var index = new NodeIndex(store, state);
+
+		Set<NodeIndex.Node> expNodes = new HashSet<>();
+		final int numNodes = 10_000;
+
+		// add a bunch of random nodes with exactly the same score
+		Random rand = new Random(12345);
+		for (int i=0; i<numNodes; i++) {
+
+			NodeIndex.Node node = new NodeIndex.Node(
+				state.index,
+				Conf.make(state.confSpace),
+				new BigExp(rand.nextDouble(), rand.nextInt()),
+				new BigExp(4.2, 5)
+			);
+			index.add(node);
+
+			assertThat(index.dropped().size(), is(0));
+
+			expNodes.add(node);
+		}
+
+		assertThat(expNodes.size(), is(numNodes));
+
+		// make sure we get all of the nodes back
+		Set<NodeIndex.Node> obsNodes = new HashSet<>();
+		while (index.size() > 0) {
+			obsNodes.add(index.removeHighest());
+		}
+
+		assertThat(obsNodes.size(), is(numNodes));
+		assertThat(obsNodes, is(expNodes));
+	}
+
+	@Test
+	public void scoreCollisions_mem() {
+		scoreCollisions(null);
+	}
+
+	@Test
+	public void scoreCollisions_file() {
+		try (var file = new TestBase.TempFile("node.index")) {
+			scoreCollisions(file);
 		}
 	}
 }

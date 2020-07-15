@@ -26,11 +26,11 @@ public class BroadcastOperation extends Operation {
 		this.maxScores = null;
 	}
 
-	public BroadcastOperation(long[] freeSpaces, BigExp[] maxScores, long usedBytes, long totalBytes, NodePerformance nodePerformance) {
-		this.freeSpaces = freeSpaces;
-		this.maxScores = maxScores;
-		this.usedBytes = usedBytes;
-		this.totalBytes = totalBytes;
+	public BroadcastOperation(NodeIndices.BroadcastInfo indices, NodePerformance nodePerformance) {
+		this.freeSpaces = indices.freeSpaces;
+		this.maxScores = indices.maxScores;
+		this.usedBytes = indices.usedBytes;
+		this.totalBytes = indices.totalBytes;
 	}
 
 	@Override

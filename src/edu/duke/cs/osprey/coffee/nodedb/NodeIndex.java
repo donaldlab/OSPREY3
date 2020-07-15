@@ -4,6 +4,7 @@ import edu.duke.cs.osprey.coffee.Serializers;
 import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.tools.BigExp;
+import edu.duke.cs.osprey.tools.HashCalculator;
 
 import java.util.Arrays;
 import java.util.Deque;
@@ -39,6 +40,16 @@ public class NodeIndex {
 		}
 
 		@Override
+		public int hashCode() {
+			return HashCalculator.combineHashes(
+				Integer.hashCode(statei),
+				Arrays.hashCode(conf),
+				zSumUpper.hashCode(),
+				score.hashCode()
+			);
+		}
+
+		@Override
 		public boolean equals(Object other) {
 			return other instanceof Node && equals((Node)other);
 		}
@@ -70,11 +81,6 @@ public class NodeIndex {
 		this.store = store;
 		this.state = state;
 
-		// benchmarking shows the "fast" implementation is indeed quite a bit faster
-		// and the implemenation based on a better sorted set is even faster!
-		//index = new ReferenceFixedIndex<>(store, Serializers.indexNode(state));
-		// TODO: NEXTTIME: the faster indices are wrong somehow! they don't pass the NodeIndex tests!!
-		//index = new FastFixedIndex<>(store, Serializers.indexNode(state));
 		index = new PriorityDequeFixedIndex<>(store, Serializers.indexNode(state));
 	}
 

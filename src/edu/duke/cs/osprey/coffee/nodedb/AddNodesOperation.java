@@ -6,22 +6,27 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 import edu.duke.cs.osprey.coffee.Serializers;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 
 /**
- * Adds a node to the cluster member.
+ * Adds nodes to the cluster member.
  */
-public class AddNodeOperation extends Operation {
+public class AddNodesOperation extends Operation {
 
-	private NodeIndex.Node node;
+	private int statei;
+	private List<NodeIndex.Node> nodes;
 
 	@SuppressWarnings("unused") // used by hazelcast
-	public AddNodeOperation() {
-		this.node = null;
+	public AddNodesOperation() {
+		this.statei = -1;
+		this.nodes = null;
 	}
 
-	public AddNodeOperation(NodeIndex.Node node) {
-		this.node = node;
+	public AddNodesOperation(int statei, List<NodeIndex.Node> nodes) {
+		this.statei = statei;
+		this.nodes = nodes;
 	}
 
 	@Override
@@ -35,7 +40,11 @@ public class AddNodeOperation extends Operation {
 		super.writeInternal(out);
 
 		NodeDB nodedb = getService();
-		Serializers.hazelcastNodeSerializeDeNovo(out, nodedb.confSpace, node);
+		out.writeInt(statei);
+		out.writeInt(nodes.size());
+		for (var node : nodes) {
+			Serializers.hazelcastNodeSerializeDeNovo(out, nodedb.confSpace, node);
+		}
 	}
 
 	@Override
@@ -45,7 +54,12 @@ public class AddNodeOperation extends Operation {
 
 		// NOTE: can't getService() here  ;_;
 
-		node = Serializers.hazelcastNodeDeserializeDeNovo(in);
+		statei = in.readInt();
+		int size = in.readInt();
+		nodes = new ArrayList<>(size);
+		for (int i=0; i<size; i++) {
+			nodes.add(Serializers.hazelcastNodeDeserializeDeNovo(in));
+		}
 	}
 
 	@Override
@@ -56,6 +70,6 @@ public class AddNodeOperation extends Operation {
 	@Override
 	public final void run() {
 		NodeDB nodedb = getService();
-		nodedb.addLocal(node);
+		nodedb.addLocal(statei, nodes);
 	}
 }
