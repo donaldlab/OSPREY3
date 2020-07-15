@@ -35,8 +35,6 @@ public class ClusterZMatrix {
 	private final TupleMatrixGeneric<BigExp> singlesPairs;
 	private TripleMatrix<BigExp> triples;
 
-	private final BigExp[][] optimizationCache;
-
 	private WorkLatch latch = null;
 	private AtomicLong droppedTuples = null;
 
@@ -49,14 +47,6 @@ public class ClusterZMatrix {
 		staticStatic = new BigExp(1.0, 0);
 		singlesPairs = new TupleMatrixGeneric<>(confSpace);
 		triples = null;
-
-		// allocate memory for the optimization cache
-		optimizationCache = new BigExp[singlesPairs.getNumPairwise()][];
-		for (int posi1=0; posi1<confSpace.numPos(); posi1++) {
-			for (int posi2=0; posi2<posi1; posi2++) {
-				optimizationCache[singlesPairs.getPairwiseIndex(posi1, posi2)] = new BigExp[confSpace.numConf(posi1)];
-			}
-		}
 	}
 
 	private BigExp z(double energy) {
@@ -434,40 +424,41 @@ public class ClusterZMatrix {
 		return staticStatic;
 	}
 
+	public int numSingles() {
+		return singlesPairs.getNumOneBody();
+	}
+	public int singleIndex(int posi, int confi) {
+		return singlesPairs.getOneBodyIndex(posi, confi);
+	}
 	public BigExp single(int posi, int confi) {
 		return singlesPairs.getOneBody(posi, confi);
 	}
 
+	public int numPairs() {
+		return singlesPairs.getNumPairwise();
+	}
+	public int pairIndex(int posi1, int posi2) {
+		return singlesPairs.getPairwiseIndex(posi1, posi2);
+	}
+	public int pairIndex(int posi1, int confi1, int posi2, int confi2) {
+		return singlesPairs.getPairwiseIndex(posi1, confi1, posi2, confi2);
+	}
 	public BigExp pair(int posi1, int confi1, int posi2, int confi2) {
 		return singlesPairs.getPairwise(posi1, confi1, posi2, confi2);
 	}
 
-	public BigExp pairUpper(int posi1, int confi1, int posi2) {
-
-		// check the cache first
-		int i = singlesPairs.getPairwiseIndex(posi1, posi2);
-		BigExp max = optimizationCache[i][confi1];
-		if (max != null) {
-			return max;
-		}
-
-		// cache miss, do the optimization
-		for (int confi2=1; confi2<confSpace.numConf(posi2); confi2++) {
-			BigExp z = singlesPairs.getPairwise(posi1, confi1, posi2, confi2);
-			if (max == null || z.greaterThan(max)) {
-				max = z;
-			}
-		}
-
-		optimizationCache[i][confi1] = max;
-
-		return max;
-	}
-
 	public boolean hasTriples() {
-		return triples != null;
+		return triples != null && triples.count() > 0;
 	}
-
+	public int numTriples() {
+		return triples.size();
+	}
+	public int tripleIndex(int posi1, int posi2, int posi3) {
+		return triples.index(posi1, posi2, posi3);
+	}
+	public int tripleIndex(int posi1, int confi1, int posi2, int confi2, int posi3, int confi3) {
+		return triples.index(posi1, confi1, posi2, confi2, posi3, confi3);
+	}
 	public BigExp triple(int posi1, int confi1, int posi2, int confi2, int posi3, int confi3) {
 		return triples.get(posi1, confi1, posi2, confi2, posi3, confi3);
 	}

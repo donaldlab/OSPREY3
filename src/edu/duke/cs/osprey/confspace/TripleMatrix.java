@@ -17,6 +17,7 @@ public class TripleMatrix<T> {
 
 	private final List<T> triples; // indices: pos i1,i2,i3 conf i1,i2,i3 where i1 > i2 > i3
 	private final int[] offsets;
+	private int count;
 
 	public TripleMatrix(int numPos, int[] numConfByPos) {
 		
@@ -39,6 +40,8 @@ public class TripleMatrix<T> {
 		for (int i=0; i<triplei; i++) {
 			triples.add(null);
 		}
+
+		count = 0;
 	}
 	
 	public TripleMatrix(ConfSpaceIteration confSpace) {
@@ -49,9 +52,18 @@ public class TripleMatrix<T> {
 		return triples.size();
 	}
 
+	public int count() {
+		return count;
+	}
+
 	public void fill(T val) {
 		for (int i=0; i<triples.size(); i++) {
 			triples.set(i, val);
+		}
+		if (val == null) {
+			count = 0;
+		} else {
+			count = triples.size();
 		}
 	}
 
@@ -126,7 +138,12 @@ public class TripleMatrix<T> {
 	}
 
 	public void set(int posi1, int confi1, int posi2, int confi2, int posi3, int confi3, T val) {
-		triples.set(index(posi1, confi1, posi2, confi2, posi3, confi3), val);
+		var oldVal = triples.set(index(posi1, confi1, posi2, confi2, posi3, confi3), val);
+		if (oldVal == null && val != null) {
+			count += 1;
+		} else if (oldVal != null && val == null) {
+			count -= 1;
+		}
 	}
 
 	public T get(int posi1, int confi1, int posi2, int confi2, int posi3, int confi3) {

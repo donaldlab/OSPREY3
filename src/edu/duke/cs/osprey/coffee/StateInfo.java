@@ -2,6 +2,9 @@ package edu.duke.cs.osprey.coffee;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.coffee.bounds.Bounder;
+import edu.duke.cs.osprey.coffee.bounds.PairwiseBounder;
+import edu.duke.cs.osprey.coffee.bounds.TriplewiseBounder;
 import edu.duke.cs.osprey.coffee.zmat.ClusterZMatrix;
 import edu.duke.cs.osprey.confspace.SeqSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
@@ -23,6 +26,8 @@ public class StateInfo {
 
 	private final int[][] typesByConfByPos;
 	private final int[] numTypesByPos;
+
+	private Bounder bounder = null;
 
 	public StateInfo(Coffee.StateConfig config, BoltzmannCalculator bcalc) {
 
@@ -86,6 +91,17 @@ public class StateInfo {
 		return 0.0;
 	}
 
+	public void initBounder() {
+
+		// choose the best bounder for this state
+		// TODO: find better bounders
+		if (zmat.hasTriples()) {
+			bounder = new TriplewiseBounder(zmat);
+		} else {
+			bounder = new PairwiseBounder(zmat);
+		}
+	}
+
 	public ConfIndex makeConfIndex() {
 		ConfIndex index = new ConfIndex(config.confSpace.numPos());
 		index.updateUndefined();
@@ -137,87 +153,10 @@ public class StateInfo {
 	}
 
 	public BigExp zPathHead(ConfIndex index) {
-
-		BigExp z = new BigExp(1.0);
-
-		// start with the static-static energy
-		z.mult(zmat.staticStatic());
-
-		// multiply all the singles and pairs
-		for (int i1=0; i1<index.numDefined; i1++) {
-			int posi1 = index.definedPos[i1];
-			int confi1 = index.definedRCs[i1];
-
-			z.mult(zmat.single(posi1, confi1));
-
-			for (int i2=0; i2<i1; i2++) {
-				int posi2 = index.definedPos[i2];
-				int confi2 = index.definedRCs[i2];
-
-				z.mult(zmat.pair(posi1, confi1, posi2, confi2));
-
-				// also multiply triples, if any
-				if (zmat.hasTriples()) {
-					for (int i3=0; i3<i2; i3++) {
-						int posi3 = index.definedPos[i3];
-						int confi3 = index.definedRCs[i3];
-
-						var triple = zmat.triple(posi1, confi1, posi2, confi2, posi3, confi3);
-						if (triple != null) {
-							z.mult(triple);
-						}
-					}
-				}
-			}
-		}
-
-		return z;
+		return bounder.g(index);
 	}
 
 	public BigExp zPathTailUpper(ConfIndex index, RCs rcs) {
-
-		// this is the usual A* heuristic
-
-		// NOTE: applying higher-order corrections here isn't terribly useful
-		// they're quite slow to multiply in, and don't improve zSumUpper that much
-		// of course, they help get a better zPathTailUpper, but most of the zSumUpper looseness
-		// comes from multiplying by the number of nodes rather than the looseness of zPathTailUpper
-
-		BigExp z = new BigExp(1.0);
-
-		// for each undefined position
-		for (int i1=0; i1<index.numUndefined; i1++) {
-			int posi1 = index.undefinedPos[i1];
-
-			// optimize over possible assignments to pos1
-			BigExp zpos1 = new BigExp(Double.NEGATIVE_INFINITY);
-			for (int confi1 : rcs.get(posi1)) {
-
-				BigExp zrc1 = new BigExp(zmat.single(posi1, confi1));
-
-				// interactions with defined residues
-				for (int i2=0; i2<index.numDefined; i2++) {
-					int posi2 = index.definedPos[i2];
-					int confi2 = index.definedRCs[i2];
-
-					zrc1.mult(zmat.pair(posi1, confi1, posi2, confi2));
-				}
-
-				// interactions with undefined residues
-				for (int i2=0; i2<i1; i2++) {
-					int posi2 = index.undefinedPos[i2];
-
-					// optimize over possible assignments to pos2
-					zrc1.mult(zmat.pairUpper(posi1, confi1, posi2));
-				}
-
-				zpos1.max(zrc1);
-			}
-
-			assert (zpos1.isFinite());
-			z.mult(zpos1);
-		}
-
-		return z;
+		return bounder.h(index, rcs);
 	}
 }

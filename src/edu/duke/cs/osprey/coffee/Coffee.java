@@ -318,6 +318,7 @@ public class Coffee {
 									ecalc = nodeProcessor.gpuEcalcs[info.config.state.index];
 								}
 								info.zmat.compute(member, cpuTasks, includeStaticStatic, tripleCorrectionThreshold, ecalc);
+								info.initBounder();
 							}
 
 							// initialize the directions and wait

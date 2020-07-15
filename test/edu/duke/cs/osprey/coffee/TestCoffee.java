@@ -115,12 +115,12 @@ public class TestCoffee {
 		}
 	}
 
-	private static Coffee makeCoffee(MultiStateConfSpace confSpace, PosInterDist posInterDist, boolean triples, Cluster cluster, Parallelism parallelism, long bytes) {
+	private static Coffee makeCoffee(MultiStateConfSpace confSpace, PosInterDist posInterDist, Double triplesThreshold, Cluster cluster, Parallelism parallelism, long bytes) {
 		return new Coffee.Builder(confSpace)
 			.setCluster(cluster)
 			.setParallelism(parallelism)
 			.setNodeDBMem(bytes)
-			.setTripleCorrectionThreshold(triples ? 10.0 : null)
+			.setTripleCorrectionThreshold(triplesThreshold)
 			.configEachState((config, ecalc) -> {
 				config.posInterGen = new PosInterGen(posInterDist, null);
 			})
@@ -266,11 +266,11 @@ public class TestCoffee {
 	}
 
 
-	private void seqFreeEnergy(MultiStateConfSpace confSpace, Function<SeqSpace,Sequence> seqFunc, PosInterDist posInterDist, boolean triples, double[] freeEnergies, long bytes, double precision, int numMembers, Parallelism parallelism) {
+	private void seqFreeEnergy(MultiStateConfSpace confSpace, Function<SeqSpace,Sequence> seqFunc, PosInterDist posInterDist, Double triplesThreshold, double[] freeEnergies, long bytes, double precision, int numMembers, Parallelism parallelism) {
 		withPseudoCluster(numMembers, cluster -> {
 
 			// get the sequence
-			Coffee coffee = makeCoffee(confSpace, posInterDist, triples, cluster, parallelism, bytes);
+			Coffee coffee = makeCoffee(confSpace, posInterDist, triplesThreshold, cluster, parallelism, bytes);
 			Sequence seq = seqFunc.apply(coffee.confSpace.seqSpace);
 
 			// run COFFEE
@@ -288,11 +288,11 @@ public class TestCoffee {
 		});
 	}
 
-	private void seqFreeEnergy(MultiStateConfSpace confSpace, Function<SeqSpace,Sequence> seqFunc, PosInterDist posInterDist, boolean triples, DoubleBounds[] freeEnergies, long bytes, double precision, int numMembers, Parallelism parallelism) {
+	private void seqFreeEnergy(MultiStateConfSpace confSpace, Function<SeqSpace,Sequence> seqFunc, PosInterDist posInterDist, Double triplesThreshold, DoubleBounds[] freeEnergies, long bytes, double precision, int numMembers, Parallelism parallelism) {
 		withPseudoCluster(numMembers, cluster -> {
 
 			// get the sequence
-			Coffee coffee = makeCoffee(confSpace, posInterDist, triples, cluster, parallelism, bytes);
+			Coffee coffee = makeCoffee(confSpace, posInterDist, triplesThreshold, cluster, parallelism, bytes);
 			Sequence seq = seqFunc.apply(coffee.confSpace.seqSpace);
 
 			// run COFFEE
@@ -316,7 +316,7 @@ public class TestCoffee {
 			TestCoffee.affinity_6ov7_1mut2flex(),
 			seqSpace -> seqSpace.makeWildTypeSequence(),
 			PosInterDist.DesmetEtAl1992,
-			triples,
+			triples ? 10.0 : null,
 			new double[] { -1377.127950, -144.199934, -1187.667391 },
 			bytes, precision, numMembers, parallelism
 		);
@@ -326,7 +326,7 @@ public class TestCoffee {
 			TestCoffee.affinity_6ov7_1mut2flex(),
 			seqSpace -> seqSpace.makeWildTypeSequence().set("6 GLN", "ALA"),
 			PosInterDist.DesmetEtAl1992,
-			false,
+			null,
 			new double[] { -1363.561940, -132.431356, -1187.667391 },
 			bytes, precision, numMembers, parallelism
 		);
@@ -336,14 +336,14 @@ public class TestCoffee {
 			TestCoffee.affinity_6ov7_1mut2flex(),
 			seqSpace -> seqSpace.makeWildTypeSequence().set("6 GLN", "ASN"),
 			PosInterDist.DesmetEtAl1992,
-			false,
+			null,
 			new double[] { -1375.773406, -143.920583, -1187.667391 },
 			bytes, precision, numMembers, parallelism
 		);
 	}
 	private static void bruteForce_affinity_6ov7_1mut2flex(Parallelism parallelism) {
 		bruteForceAll(
-			makeCoffee(TestCoffee.affinity_6ov7_1mut2flex(), PosInterDist.DesmetEtAl1992, false, null, parallelism, 0),
+			makeCoffee(TestCoffee.affinity_6ov7_1mut2flex(), PosInterDist.DesmetEtAl1992, null, null, parallelism, 0),
 			TestCoffee::bruteForceFreeEnergies
 		);
 		//sequence [6 GLN=gln]
@@ -365,7 +365,7 @@ public class TestCoffee {
 			TestCoffee.affinity_6ov7_1mut6flex(),
 			seqSpace -> seqSpace.makeWildTypeSequence(),
 			PosInterDist.TighterBounds, // tighter bounds here cuts the runtime in half!
-			triples,
+			triples ? 1.0 : null,
 			new DoubleBounds[] {
 				new DoubleBounds(-1380.529388,-1380.523437),
 				new DoubleBounds(-145.154147,-145.149392),
@@ -379,7 +379,7 @@ public class TestCoffee {
 			TestCoffee.affinity_6ov7_1mut6flex(),
 			seqSpace -> seqSpace.makeWildTypeSequence().set("6 GLN", "ALA"),
 			PosInterDist.TighterBounds,
-			false,
+			null,
 			new DoubleBounds[] {
 				new DoubleBounds(-1366.734330,-1366.728415),
 				new DoubleBounds(-133.531642,-133.531642),
@@ -393,7 +393,7 @@ public class TestCoffee {
 			TestCoffee.affinity_6ov7_1mut6flex(),
 			seqSpace -> seqSpace.makeWildTypeSequence().set("6 GLN", "ASN"),
 			PosInterDist.TighterBounds,
-			false,
+			null,
 			new DoubleBounds[] {
 				new DoubleBounds(-1378.941423,-1378.935472),
 				new DoubleBounds(-145.208390,-145.204453),
@@ -404,7 +404,7 @@ public class TestCoffee {
 	}
 	private static void bruteForce_affinity_6ov7_1mut6flex(Parallelism parallelism) {
 		bruteForceAll(
-			makeCoffee(TestCoffee.affinity_6ov7_1mut6flex(), PosInterDist.TighterBounds, false, null, parallelism, 0),
+			makeCoffee(TestCoffee.affinity_6ov7_1mut6flex(), PosInterDist.TighterBounds, null, null, parallelism, 0),
 			TestCoffee::gradientDescentFreeEnergies
 		);
 		// GPU results
@@ -494,9 +494,12 @@ public class TestCoffee {
 	@Test public void seqFreeEnergy_affinity_6ov7_1mut2flex_wt_01_1x1_1m_triples() {
 		seqFreeEnergy_affinity_6ov7_1mut2flex_wt(1024*1024, 0.1, true, 1, oneCpu);
 	}
+	@Test public void seqFreeEnergy_affinity_6ov7_1mut2flex_wt_01_1x2_1m_triples() {
+		seqFreeEnergy_affinity_6ov7_1mut2flex_wt(1024*1024, 0.1, true, 1, Parallelism.makeCpu(2));
+	}
 	@Test public void seqFreeEnergy_affinity_6ov7_1mut2flex_wt_01_2x1_1m_triples() {
 		seqFreeEnergy_affinity_6ov7_1mut2flex_wt(1024*1024, 0.1, true, 2, oneCpu);
-	}
+	} // TODO: NEXTTIME: this test is failing with an inaccurate answer... need to find out why
 
 
 	// SMALL CONF SPACE
@@ -512,5 +515,11 @@ public class TestCoffee {
 	}
 	@Test public void seqFreeEnergy_affinity_6ov7_1mut6flex_wt_01_4x1_1m() {
 		seqFreeEnergy_affinity_6ov7_1mut6flex_wt(1024*1024, 1.0, false, 4, oneCpu);
+	}
+
+	// add triples
+	//@Test // this test takes 12 minutes on my laptop... waay too long to leave on by default
+	public void seqFreeEnergy_affinity_6ov7_1mut6flex_wt_01_1x4_1m_triples() {
+		seqFreeEnergy_affinity_6ov7_1mut6flex_wt(1024*1024, 1.0, true, 1, allCpus);
 	}
 }
