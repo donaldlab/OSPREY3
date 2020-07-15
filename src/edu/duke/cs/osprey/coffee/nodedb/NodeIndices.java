@@ -23,6 +23,10 @@ public class NodeIndices implements AutoCloseable {
 			freeSpaces = new long[n];
 			maxScores = new BigExp[n];
 		}
+
+		public int size() {
+			return freeSpaces.length;
+		}
 	}
 
 	public final MultiStateConfSpace confSpace;

@@ -13,24 +13,17 @@ import java.io.IOException;
  */
 public class BroadcastOperation extends Operation {
 
-	private long[] freeSpaces;
-	private BigExp[] maxScores;
-	private long usedBytes;
-	private long totalBytes;
+	private NodeIndices.BroadcastInfo nodesInfo;
 
 	// TODO: serialize node performance
 
 	@SuppressWarnings("unused") // used by hazelcast
 	public BroadcastOperation() {
-		this.freeSpaces = null;
-		this.maxScores = null;
+		nodesInfo = null;
 	}
 
-	public BroadcastOperation(NodeIndices.BroadcastInfo indices, NodePerformance nodePerformance) {
-		this.freeSpaces = indices.freeSpaces;
-		this.maxScores = indices.maxScores;
-		this.usedBytes = indices.usedBytes;
-		this.totalBytes = indices.totalBytes;
+	public BroadcastOperation(NodeIndices.BroadcastInfo nodesInfo, NodePerformance nodePerformance) {
+		this.nodesInfo = nodesInfo;
 	}
 
 	@Override
@@ -43,15 +36,14 @@ public class BroadcastOperation extends Operation {
 	throws IOException {
 		super.writeInternal(out);
 
-		assert (freeSpaces.length == maxScores.length);
-		int numStates = freeSpaces.length;
-		out.writeInt(numStates);
+		int n = nodesInfo.size();
+		out.writeInt(n);
 
-		for (long freeSpace : freeSpaces) {
+		for (var freeSpace : nodesInfo.freeSpaces) {
 			out.writeLong(freeSpace);
 		}
 
-		for (var maxScore : maxScores) {
+		for (var maxScore : nodesInfo.maxScores) {
 			if (maxScore != null) {
 				out.writeBoolean(true);
 				out.writeDouble(maxScore.fp);
@@ -61,8 +53,8 @@ public class BroadcastOperation extends Operation {
 			}
 		}
 
-		out.writeLong(usedBytes);
-		out.writeLong(totalBytes);
+		out.writeLong(nodesInfo.usedBytes);
+		out.writeLong(nodesInfo.totalBytes);
 	}
 
 	@Override
@@ -70,25 +62,24 @@ public class BroadcastOperation extends Operation {
 	throws IOException {
 		super.readInternal(in);
 
-		int numStates = in.readInt();
-		freeSpaces = new long[numStates];
-		maxScores = new BigExp[numStates];
+		int n = in.readInt();
+		nodesInfo = new NodeIndices.BroadcastInfo(n);
 
-		for (int statei=0; statei<maxScores.length; statei++) {
-			freeSpaces[statei] = in.readLong();
+		for (int i=0; i<n; i++) {
+			nodesInfo.freeSpaces[i] = in.readLong();
 		}
 
-		for (int statei=0; statei<maxScores.length; statei++) {
-			maxScores[statei] = null;
+		for (int i=0; i<n; i++) {
+			nodesInfo.maxScores[i] = null;
 			if (in.readBoolean()) {
 				double fp = in.readDouble();
 				int exp = in.readInt();
-				maxScores[statei] = new BigExp(fp, exp);
+				nodesInfo.maxScores[i] = new BigExp(fp, exp);
 			}
 		}
 
-		usedBytes = in.readLong();
-		totalBytes = in.readLong();
+		nodesInfo.usedBytes = in.readLong();
+		nodesInfo.totalBytes = in.readLong();
 	}
 
 	@Override
@@ -99,6 +90,6 @@ public class BroadcastOperation extends Operation {
 	@Override
 	public final void run() {
 		NodeDB nodedb = getService();
-		nodedb.receiveBroadcast(getCallerAddress(), freeSpaces, maxScores, usedBytes, totalBytes);
+		nodedb.receiveBroadcast(getCallerAddress(), nodesInfo);
 	}
 }

@@ -505,4 +505,12 @@ public class TestCoffee {
 	@Test public void seqFreeEnergy_affinity_6ov7_1mut6flex_wt_01_1x4_1m() {
 		seqFreeEnergy_affinity_6ov7_1mut6flex_wt(1024*1024, 1.0, false, 1, allCpus);
 	}
+
+	// vary the cluster members/parallelism
+	@Test public void seqFreeEnergy_affinity_6ov7_1mut6flex_wt_01_2x2_1m() {
+		seqFreeEnergy_affinity_6ov7_1mut6flex_wt(1024*1024, 1.0, false, 2, Parallelism.makeCpu(2));
+	}
+	@Test public void seqFreeEnergy_affinity_6ov7_1mut6flex_wt_01_4x1_1m() {
+		seqFreeEnergy_affinity_6ov7_1mut6flex_wt(1024*1024, 1.0, false, 4, oneCpu);
+	}
 }

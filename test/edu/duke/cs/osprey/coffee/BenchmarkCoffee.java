@@ -61,8 +61,8 @@ public class BenchmarkCoffee {
 		var bounds = Bounds.Tighter;
 		//var precision = Structs.Precision.Float32;
 		var precision = Structs.Precision.Float64;
-		//Double triples = null;
-		Double triples = 1.0;
+		Double triples = null;
+		//Double triples = 1.0;
 
 		double gWidthMax = 1.0;
 
@@ -93,6 +93,10 @@ public class BenchmarkCoffee {
 		//COFFEE-0: 	G [-1382.317,-1381.329]   width 0.987532 of 0.000000   confs     41928   avgap 4.91   nodedb  25.5%   rr Infinity   time 32.18 s   minq: 2557
 		//              COFFEE   emat   12693 ms ( 12.69 s)   pfunc   32188 ms ( 32.19 s)   G [-1382.3166,-1381.3290]  w =  0.9875
 		// 1302.6 confs/s, 4.92x speedup over CPUs
+
+		// cpus = 48*2, gpus = 4*2
+		//SLURM-0: 	G [-1382.295,-1381.329]   width 0.965748 of 0.000000   confs     21324   avgap 4.89   nodedb   0.9%   rr Infinity   time 17.32 s   minq: 2765
+		//              COFFEE   emat   21840 ms ( 21.84 s)   pfunc   17324 ms ( 17.32 s)   G [-1382.2947,-1381.3290]  w =  0.9657
 
 		// cpus = 48, gpus = 4, precision = 32
 		//COFFEE-0: 	G [-1382.259,-1381.276]   width 0.982609 of 0.000000   confs     32935   avgap 4.50   nodedb  22.6%   rr Infinity   time 27.09 s   minq: 2880

@@ -12,7 +12,6 @@ import java.io.File;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 
@@ -69,45 +68,14 @@ public class NodeDB implements AutoCloseable {
 		}
 	}
 
-	private class Neighbor {
+	public static final String ServiceName = "nodedb";
+	private static final String ThreadName = "NodeDB";
 
-		final Address addr;
-		final long[] freeSpaces;
-		final BigExp[] maxScores;
-
-		long usedBytes;
-		long totalBytes;
-
-		public Neighbor(Address addr) {
-			this.addr = addr;
-			freeSpaces = new long[confSpace.states.size()];
-			maxScores = new BigExp[confSpace.states.size()];
-		}
-
-		public void broadcasted(long[] freeSpaces, BigExp[] maxScores, long usedBytes, long totalBytes) {
-
-			// update the free spaces
-			assert (freeSpaces.length == confSpace.states.size());
-			System.arraycopy(freeSpaces, 0, this.freeSpaces, 0, confSpace.states.size());
-
-			// update the max scores
-			assert (maxScores.length == confSpace.states.size());
-			System.arraycopy(maxScores, 0, this.maxScores, 0, confSpace.states.size());
-
-			this.usedBytes = usedBytes;
-			this.totalBytes = totalBytes;
-		}
-
-		public void removeHighest(int statei, int count, List<NodeIndex.Node> nodes) {
-			nodes.addAll(member.requestFrom(new GetHighestNodesOperation(statei, count), addr, 10, TimeUnit.SECONDS));
-		}
-
-		public void add(int statei, List<NodeIndex.Node> nodes) {
-			member.sendTo(new AddNodesOperation(statei, nodes), addr);
+	public static void checkSocketIOThread() {
+		if (Thread.currentThread().getName().equals(NodeDB.ThreadName)) {
+			throw new Error("don't do socket IO on the NodeDB thread");
 		}
 	}
-
-	public static final String ServiceName = "nodedb";
 
 	public final MultiStateConfSpace confSpace;
 	public final ClusterMember member;
@@ -129,10 +97,9 @@ public class NodeDB implements AutoCloseable {
 	 * even on 48 threads.
 	 */
 	private final BottleneckThread thread;
+	private final NodeIndices indices;
 	private final RateLimitedThread broadcaster;
-
-	private NodeIndices indices;
-	private Map<Address,Neighbor> neighbors;
+	private final Neighbors neighbors;
 
 	private NodeDB(MultiStateConfSpace confSpace, ClusterMember member, File file, long fileBytes, long memBytes, long broadcastNs, File scoringLog) {
 
@@ -144,45 +111,31 @@ public class NodeDB implements AutoCloseable {
 		this.broadcastNs = broadcastNs;
 		this.scoringLog = scoringLog;
 
-		perf = new NodePerformance(confSpace);
-		perf.setLog(scoringLog);
-
-		// TODO: implement memory-buffered disk-backed options
+		// TODO: implement memory-buffered disk-backed options?
 		// TEMP
 		if (file != null || fileBytes > 0) {
 			throw new Error("implement me");
 		}
 
+		perf = new NodePerformance(confSpace);
+		perf.setLog(scoringLog);
+
 		// the node indices aren't thread-safe, and can only be accessed by their creating thread
 		// so make a thread to handle all the accesses
-		thread = new BottleneckThread("NodeDB");
+		thread = new BottleneckThread(ThreadName);
+		indices = thread.get(() -> new NodeIndices(confSpace, memBytes));
 
 		// make another thread to periodically keep the cluster members up-to-date
 		broadcaster = new RateLimitedThread("NodeDB-bcast", broadcastNs, TimeUnit.NANOSECONDS, () -> broadcast());
 
-		thread.exec(() -> {
+		neighbors = new Neighbors(confSpace, member);
 
-			indices = new NodeIndices(confSpace, memBytes);
-
-			// register NodeDB with hazelcast
-			member.registerService(ServiceName, this);
-			member.registerSerializer(NodeIndex.Node.class, Serializers.hazelcastNode(confSpace));
-
-			// wait for everyone to finish registering with hazelcast, so NodeDB operations will work
-			member.barrier(1, TimeUnit.MINUTES);
-
-			// spy on our neighbors
-			neighbors = member.otherMemberAddresses().stream()
-				.collect(Collectors.toMap(
-					addr -> addr,
-					addr -> new Neighbor(addr)
-				));
-		});
+		// register NodeDB with hazelcast
+		member.registerService(ServiceName, this);
+		member.registerSerializer(NodeIndex.Node.class, Serializers.hazelcastNode(confSpace));
 
 		// wait for everyone to catch up before sending the first broadcast
 		member.barrier(1, TimeUnit.MINUTES);
-
-		// but tell them that we care
 		broadcast();
 	}
 
@@ -207,21 +160,17 @@ public class NodeDB implements AutoCloseable {
 
 	public void broadcast() {
 
+		checkSocketIOThread();
+
 		// get info from the indices
 		var info = thread.get(() -> indices.getBroadcastInfo());
 
 		// broadcast
-		// NOTE: don't send on the db thread, we don't want that thread blocking on network IO
 		member.sendToOthers(() -> new BroadcastOperation(info, perf));
 	}
 
-	void receiveBroadcast(Address src, long[] freeSpaces, BigExp[] maxScores, long usedBytes, long totalBytes) {
-		// TODO: do we need to synchronize neighbors?
-		getNeighbor(src).broadcasted(freeSpaces, maxScores, usedBytes, totalBytes);
-	}
-
-	private Neighbor getNeighbor(Address addr) {
-		return neighbors.computeIfAbsent(addr, key -> new Neighbor(addr));
+	void receiveBroadcast(Address src, NodeIndices.BroadcastInfo nodeInfo) {
+		neighbors.receiveBroadcast(src, nodeInfo);
 	}
 
 	/**
@@ -230,6 +179,7 @@ public class NodeDB implements AutoCloseable {
 	public void clear(int statei) {
 
 		// propagate to neighbors
+		checkSocketIOThread();
 		member.sendToOthers(() -> new ClearOperation(statei));
 
 		clearLocal(statei);
@@ -258,11 +208,9 @@ public class NodeDB implements AutoCloseable {
 		}
 
 		// prefer remote storage next
-		Neighbor neighbor = neighbors.values().stream()
-			.max(Comparator.comparing(n -> n.freeSpaces[statei]))
-			.orElse(null);
-		if (neighbor != null && neighbor.freeSpaces[statei] > 0) {
-			neighbor.add(statei, nodes);
+		var neighbor = neighbors.findMostFreeSpace(statei);
+		if (neighbor != null) {
+			neighbors.addNodes(neighbor.addr, statei, nodes);
 			return;
 		}
 
@@ -325,42 +273,28 @@ public class NodeDB implements AutoCloseable {
 	 * but they should be pretty high.
 	 */
 	public void removeHigh(int statei, int count, List<NodeIndex.Node> nodes) {
-		thread.exec(() -> {
+		var neighbor = thread.get(() -> {
 
-			// find the neighbor with the highest node for this state
-			Neighbor highestNeighbor = neighbors.values().stream()
-				.filter(neighbor -> neighbor.maxScores[statei] != null)
-				.max(Comparator.comparing(neighbor -> neighbor.maxScores[statei]))
-				.orElse(null);
-
+			// compare the local scores with the highest neighbor to figure out where the best nodes are
+			var highestNeighbor = neighbors.findHighestNodes(statei);
 			BigExp localMaxScore = indices.highestScore(statei);
 
-			if (highestNeighbor != null) {
-
-				// is a local node higher?
-				if (localMaxScore != null && localMaxScore.compareTo(highestNeighbor.maxScores[statei]) > 0) {
-
-					// yup, use that
-					indices.removeHighest(statei, count, nodes);
-					broadcaster.request();
-
-				} else {
-
-					// nope, use the cluster node
-					highestNeighbor.removeHighest(statei, count, nodes);
-				}
-
-			} else if (localMaxScore != null) {
-
-				// use the local node
+			// if the local nodes the best, get those
+			if (localMaxScore != null && (highestNeighbor == null || localMaxScore.compareTo(highestNeighbor.item) > 0)) {
 				indices.removeHighest(statei, count, nodes);
 				broadcaster.request();
-
-			//} else {
-
-				// no nodes anywhere
+				return null;
 			}
+
+			return highestNeighbor;
 		});
+
+		// if the neighbor's nodes are the best, get those
+		if (neighbor != null) {
+			neighbors.removeHighestNodes(neighbor.addr, statei, count, nodes);
+		}
+
+		// otherwise, there are no nodes anywhere
 	}
 
 	/**
@@ -386,18 +320,9 @@ public class NodeDB implements AutoCloseable {
 	 * Returns the ratio of used space to total space.
 	 */
 	public float usage() {
-
-		// start with the local usage
-		long usedBytes = thread.get(() -> indices.numUsedBytes());
-		long totalBytes = memBytes;
-
-		// add usage from neighbors
-		for (var n : neighbors.values()) {
-			usedBytes += n.usedBytes;
-			totalBytes += n.totalBytes;
-		}
-
-		// convert to a ratio
-		return (float)usedBytes/(float)totalBytes;
+		return neighbors.usage(
+			thread.get(() -> indices.numUsedBytes()),
+			memBytes
+		);
 	}
 }

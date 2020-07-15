@@ -240,12 +240,12 @@ public class PfuncDirector implements Coffee.Director {
 			// report progress
 			directions.member.log("\tG %s   width %.6f of %.6f   confs %9d   avgap %.2f   nodedb %5.1f%%   rr %.6f   time %s   minq: %d",
 				g.toString(3), gWidth, gWidthMin,
-				processor.stateInfos[state.index].energyBoundStats.count(),
-				processor.stateInfos[state.index].energyBoundStats.meanGap(),
+				processor.stateInfos[state.index].energyBoundStats.count(), // TODO: these are only for the local node
+				processor.stateInfos[state.index].energyBoundStats.meanGap(), // TODO: these are only for the local node
 				processor.nodedb.usage()*100f,
 				reducibleRatio,
 				stopwatch.getTime(2),
-				processor.getMinimizationQueueSize(state.index)
+				processor.getMinimizationQueueSize(state.index) // TODO: these are only for the local node
 			);
 			// TODO: show node processing speeds?
 			if (showBoundStats) {
