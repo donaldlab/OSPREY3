@@ -140,6 +140,7 @@ public class PriorityDequeFixedIndex<S extends Comparable<S>, T extends FixedInd
 		}
 
 		block.moveAll(store, serializer, unpackedItems, blockCapacity);
+		store.freeBlock(block.id);
 		return true;
 	}
 

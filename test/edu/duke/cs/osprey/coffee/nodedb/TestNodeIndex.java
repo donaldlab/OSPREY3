@@ -245,11 +245,11 @@ public class TestNodeIndex {
 		MultiStateConfSpace confSpace = TestCoffee.affinity_2RL0_7mut();
 		var state = confSpace.getState("complex");
 
-		var store = new BlockStore(file, 1024*1024);
+		var store = new BlockStore(file, 4*1024*1024);
 		var index = new NodeIndex(store, state);
 
 		TreeSet<NodeIndex.Node> sortedNodes = new TreeSet<>(Comparator.comparing(node -> node.score));
-		final int numNodes = 10_000;
+		final int numNodes = 100_000;
 
 		// add a bunch of random nodes
 		Random rand = new Random(12345);
@@ -264,18 +264,17 @@ public class TestNodeIndex {
 			index.add(node);
 
 			assertThat(index.dropped().size(), is(0));
-			index.dropped().clear();
 
 			sortedNodes.add(node);
 		}
 
-		assertThat(index.size(), is((long)sortedNodes.size()));
-
 		// poll some nodes, check the scores
 		long size = index.size();
 		for (int i=0; i<numNodes; i++) {
+			assertThat("" + i, index.size(), is((long)sortedNodes.size()));
 			assertThat("" + i, index.highestScore(), is(sortedNodes.last().score));
 			assertThat("" + i, index.removeHighest(), is(sortedNodes.pollLast()));
+			assertThat(index.dropped().size(), is(0));
 		}
 
 		assertThat(index.size(), is(size - numNodes));

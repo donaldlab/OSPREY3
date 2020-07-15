@@ -140,11 +140,6 @@ public class TestNodeDB {
 				))
 				.collect(Collectors.toList());
 
-			// sort them
-			Comparator<NodeIndex.Node> comparator = Comparator.comparing(node -> node.score);
-			var sortedNodes = new TreeSet<>(comparator);
-			sortedNodes.addAll(allNodes);
-
 			// add the nodes from a bunch of threads
 			List<Thread> threads = IntStream.range(0, numThreads)
 				.mapToObj(t -> new Thread(() -> {
@@ -168,6 +163,11 @@ public class TestNodeDB {
 			});
 
 			assertThat(numDropped.get(), is(0L));
+
+			// sort them
+			Comparator<NodeIndex.Node> comparator = Comparator.comparing(node -> node.score);
+			var sortedNodes = new TreeSet<>(comparator);
+			sortedNodes.addAll(allNodes);
 
 			// remove all the nodes, check the scores
 			assertThat(nodedb.size(state.index), is((long)allNodes.size()));

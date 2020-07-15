@@ -73,6 +73,7 @@ public class NodeIndex {
 		// benchmarking shows the "fast" implementation is indeed quite a bit faster
 		// and the implemenation based on a better sorted set is even faster!
 		//index = new ReferenceFixedIndex<>(store, Serializers.indexNode(state));
+		// TODO: NEXTTIME: the faster indices are wrong somehow! they don't pass the NodeIndex tests!!
 		//index = new FastFixedIndex<>(store, Serializers.indexNode(state));
 		index = new PriorityDequeFixedIndex<>(store, Serializers.indexNode(state));
 	}

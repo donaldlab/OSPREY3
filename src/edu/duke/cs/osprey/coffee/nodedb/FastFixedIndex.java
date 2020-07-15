@@ -133,6 +133,7 @@ public class FastFixedIndex<S extends Comparable<S>, T extends FixedIndex.Indexa
 		}
 
 		block.moveAll(store, serializer, unpackedItems, blockCapacity);
+		store.freeBlock(block.id);
 		return true;
 	}
 
