@@ -15,6 +15,7 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.OperationServiceImpl;
 import com.hazelcast.spi.impl.servicemanager.impl.ServiceManagerImpl;
 import edu.duke.cs.osprey.parallelism.Cluster;
+import edu.duke.cs.osprey.parallelism.Hostname;
 import edu.duke.cs.osprey.parallelism.ThreadTools;
 import edu.duke.cs.osprey.tools.IntRange;
 import edu.duke.cs.osprey.tools.Log;
@@ -117,7 +118,7 @@ public class ClusterMember implements AutoCloseable {
 		serializationService = (AbstractSerializationService)nodeEngine.getSerializationService();
 		operationRunners = nodeEngine.getOperationService().getOperationExecutor().getGenericOperationRunners();
 
-		log("node started on cluster %s, addr=%s", cluster.id, nodeEngine.getThisAddress());
+		log("node started on cluster %s, addr=%s, hostname=%s", cluster.id, nodeEngine.getThisAddress(), Hostname.get());
 	}
 
 	@Override
