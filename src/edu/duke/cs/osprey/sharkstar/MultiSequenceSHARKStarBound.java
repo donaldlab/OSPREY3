@@ -587,6 +587,37 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         return numInternalNodesProcessed + numConfsEnergied + numConfsScored + numPartialMinimizations;
     }
 
+    /**
+     * Try to apply corrections to node.
+     */
+    private boolean correctNodeOrFalse(MultiSequenceSHARKStarNode node, SingleSequenceSHARKStarBound bound) {
+        boolean corrected = false;
+        double confCorrection = correctionMatrix.confE(node.getConfSearchNode().assignments);
+
+        if (confCorrection - node.getConfSearchNode().getPartialConfLowerBound() > 1e-2) {
+            corrected = true;
+
+            BigDecimal oldUpperBound = node.getUpperBound(bound.sequence);
+
+            double oldg = node.getConfSearchNode().getPartialConfLowerBound();
+            node.getConfSearchNode().setPartialConfLowerAndUpper(confCorrection, node.getConfSearchNode().getPartialConfUpperBound());
+            recordCorrection(oldg, confCorrection - oldg);
+            String historyString = String.format("%s: correction from %f to %f, from ",
+                    node.getConfSearchNode().confToString(), oldg, confCorrection);
+            node.setBoundsFromConfLowerAndUpperWithHistory(confCorrection, node.getConfUpperBound(bound.sequence), bound.sequence, historyString);
+            node.markUpdated();
+            System.out.println("Correcting " + node.toSeqString(bound.sequence) +" correction ="+(confCorrection - oldg) );
+
+            BigDecimal newUpperBound = node.getUpperBound(bound.sequence);
+            BigDecimal diffUB = newUpperBound.subtract(oldUpperBound, PartitionFunction.decimalPrecision);
+            if(diffUB.compareTo(BigDecimal.ZERO) > 0){
+                throw new RuntimeException();
+            }
+            bound.state.upperBound = bound.state.upperBound.add(diffUB, PartitionFunction.decimalPrecision);
+        }
+        return corrected;
+    }
+
     @Override
     public void compute(int maxNumConfs) {
         throw new UnsupportedOperationException("Do not try to run Multisequence SHARK* bounds directly. Call " +
@@ -635,7 +666,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         Continue looping if 1) there are nodes in the fringe queue or
         2) we are running tasks that will result in nodes being added to the queue
          */
+        int numIterations = 0;
         while( (!sequenceBound.fringeNodes.isEmpty() || loopTasks.isExpecting())){
+            numIterations++;
+            if(numIterations > 10000)
+                break;
 
             synchronized(this) {
                 //TODO: apply partial minimizations
@@ -691,8 +726,17 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 if(computePartials && false){
                     step = Step.Partial;
                 }else if(sequenceBound.fringeNodes.size() > 0){
-                    System.out.println(sequenceBound.fringeNodes.size());
-                    MultiSequenceSHARKStarNode node = sequenceBound.fringeNodes.poll();
+                    MultiSequenceSHARKStarNode node = null;
+                    boolean foundUncorrectedNode = false;
+                    while(!foundUncorrectedNode){
+                        node = sequenceBound.fringeNodes.poll();
+                        // Try to correct the node
+                        foundUncorrectedNode = !correctNodeOrFalse(node, sequenceBound);
+                        // If we corrected the node, put it back and try again
+                        if(!foundUncorrectedNode){
+                            sequenceBound.fringeNodes.add(node);
+                        }
+                    }
                     if(node.getConfSearchNode().getLevel() >= fullRCs.getNumPos()){
                         step = Step.Energy;
                         loosestLeaf = node;
@@ -796,10 +840,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                             .reduce(BigDecimal.ZERO, (a, b) -> a.add(b, PartitionFunction.decimalPrecision)), PartitionFunction.decimalPrecision);
 
                                     synchronized(sequenceBound.fringeNodes){
-                                        for (int i = 0; i < newNodes.size(); i++){
-                                            sequenceBound.fringeNodes.add(newNodes.get(i));
-                                        }
-                                        //sequenceBound.fringeNodes.addAll(newNodes);
+                                        sequenceBound.fringeNodes.addAll(newNodes);
                                     }
                                 }
 
@@ -888,11 +929,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
                                 synchronized (this) {
                                     System.out.println("Got " + result.newNodes.size() +" internal nodes.");
-                                    for(MultiSequenceSHARKStarNode node : result.newNodes){
-                                        if(node.getErrorBound(sequenceBound.sequence) == null){
-                                            System.err.println("huh?");
-                                        }
-                                    }
                                     internalTimeSum = internalTime.getTimeS();
                                     internalTimeAverage = internalTimeSum / Math.max(1, toExpand.size());
                                     debugPrint("Internal node time :" + internalTimeSum + ", average " + internalTimeAverage);
@@ -949,6 +985,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         System.out.println("Finished tasks");
         System.out.println(sequenceBound.fringeNodes.size());
         sequenceBound.updateBound();
+        System.out.println(String.format("Trtacking Epsilon: %.9f, Bounds:[%1.3e, %1.3e]",
+                curEps,
+                sequenceBound.state.lowerBound,
+                sequenceBound.state.upperBound
+        ));
         System.out.println(String.format("Epsilon: %.9f, Bounds:[%1.3e, %1.3e]",
                 sequenceBound.getSequenceEpsilon(),
                 sequenceBound.getLowerBound(),
