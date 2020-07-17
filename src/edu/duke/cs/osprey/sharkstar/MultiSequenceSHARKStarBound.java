@@ -678,27 +678,22 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         Continue looping if 1) there are nodes in the fringe queue or
         2) we are running tasks that will result in nodes being added to the queue
          */
-        long numIterations = 0;
         while( (!sequenceBound.fringeNodes.isEmpty() || loopTasks.isExpecting())){
-            numIterations++;
-            //if(numIterations > 10000)
-                //break;
 
             synchronized(this) {
                 //TODO: apply partial minimizations
                 sequenceBound.updateBound();
 
                 // Early termination
-                ;;curEps = sequenceBound.state.upperBound.subtract(sequenceBound.state.lowerBound).divide(sequenceBound.state.upperBound, RoundingMode.HALF_UP).doubleValue();
-                curEps = sequenceBound.getSequenceEpsilon();
+                curEps = sequenceBound.state.upperBound.subtract(sequenceBound.state.lowerBound).divide(sequenceBound.state.upperBound, RoundingMode.HALF_UP).doubleValue();
 
                 System.out.println(String.format("Epsilon: %.9f, Bounds:[%1.3e, %1.3e]",
-                        sequenceBound.getSequenceEpsilon(),
-                        sequenceBound.getLowerBound(),
-                        sequenceBound.getUpperBound()
-                        //curEps,
-                        //sequenceBound.state.lowerBound,
-                        //sequenceBound.state.upperBound
+                        //sequenceBound.getSequenceEpsilon(),
+                        //sequenceBound.getLowerBound(),
+                        //sequenceBound.getUpperBound()
+                        curEps,
+                        sequenceBound.state.lowerBound,
+                        sequenceBound.state.upperBound
                 ));
 
                 if (curEps < targetEpsilon ||
