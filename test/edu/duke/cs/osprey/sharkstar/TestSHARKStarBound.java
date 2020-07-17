@@ -26,6 +26,7 @@ import org.junit.Test;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 
 import static edu.duke.cs.osprey.sharkstar.TestSHARKStar.loadFromCFS;
@@ -276,6 +277,30 @@ public class TestSHARKStarBound extends TestBase {
                 .build();
 
     }
+
+    /**
+     * Creates a mutable confspace with one chain using 10 residues from 1CC8
+     */
+    private SimpleConfSpace make1CC8FlexiblContinuousAnalog(){
+        Strand strand1 = new Strand.Builder(metallochaperone).setResidues("A2", "A20").build();
+        strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A3").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A4").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A5").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A6").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A7").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A8").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A9").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A10").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A11").setLibraryRotamers(Strand.WildType).setContinuous();
+
+        return new SimpleConfSpace.Builder()
+                .addStrands(strand1)
+                .setShellDistance(9)
+                .build();
+
+    }
+
     private SimpleConfSpace make1CC8MutableBiggerContinuous(){
         Strand strand1 = new Strand.Builder(metallochaperone).setResidues("A2", "A20").build();
         strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType, "ARG").setContinuous();
@@ -895,6 +920,16 @@ public class TestSHARKStarBound extends TestBase {
         bound.init(0.90);
         PartitionFunction ssbound = bound.getPartitionFunctionForSequence(wildType);
         ssbound.compute();
+    }
+
+    @Test
+    public void testLargerFlexible(){
+        SimpleConfSpace confSpace = make1CC8FlexiblContinuousAnalog();
+        Sequence wildType = confSpace.seqSpace.makeWildTypeSequence();
+        MultiSequenceSHARKStarBound bound= makeSHARKStarPfuncForConfSpace(confSpace, wildType, 0.90, null, null);
+        bound.init(0.90);
+        //PartitionFunction ssbound = bound.getPartitionFunctionForSequence(wildType);
+        //ssbound.compute();
     }
 
     @Test
