@@ -593,24 +593,36 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     private boolean correctNodeOrFalse(MultiSequenceSHARKStarNode node, SingleSequenceSHARKStarBound bound) {
         boolean corrected = false;
         double confCorrection = correctionMatrix.confE(node.getConfSearchNode().assignments);
+        double oldg = node.getConfSearchNode().getPartialConfLowerBound();
+        double correctionDiff = confCorrection - oldg;
 
-        if (confCorrection - node.getConfSearchNode().getPartialConfLowerBound() > 1e-2) {
+        if ( correctionDiff > 1e-5) {
             corrected = true;
 
-            BigDecimal oldUpperBound = node.getUpperBound(bound.sequence);
+            BigDecimal oldZUpperBound = node.getUpperBound(bound.sequence);
+            double oldConfLowerBound = node.getConfLowerBound(bound.sequence);
 
-            double oldg = node.getConfSearchNode().getPartialConfLowerBound();
+            // update the node gscore
             node.getConfSearchNode().setPartialConfLowerAndUpper(confCorrection, node.getConfSearchNode().getPartialConfUpperBound());
-            recordCorrection(oldg, confCorrection - oldg);
+            recordCorrection(oldg, correctionDiff);
             String historyString = String.format("%s: correction from %f to %f, from ",
                     node.getConfSearchNode().confToString(), oldg, confCorrection);
-            node.setBoundsFromConfLowerAndUpperWithHistory(confCorrection, node.getConfUpperBound(bound.sequence), bound.sequence, historyString);
+
+            // update the node total scores
+            node.setBoundsFromConfLowerAndUpperWithHistory(oldConfLowerBound + correctionDiff, node.getConfUpperBound(bound.sequence), bound.sequence, historyString);
             node.markUpdated();
-            System.out.println("Correcting " + node.toSeqString(bound.sequence) +" correction ="+(confCorrection - oldg) );
+            System.out.println("Correcting " + node.toSeqString(bound.sequence) +" correction ="+(correctionDiff) );
 
             BigDecimal newUpperBound = node.getUpperBound(bound.sequence);
-            BigDecimal diffUB = newUpperBound.subtract(oldUpperBound, PartitionFunction.decimalPrecision);
+            BigDecimal diffUB = newUpperBound.subtract(oldZUpperBound, PartitionFunction.decimalPrecision);
             if(diffUB.compareTo(BigDecimal.ZERO) > 0){
+                throw new RuntimeException();
+            }
+            if(node.getUpperBound(bound.sequence).compareTo(node.getLowerBound(bound.sequence)) < 0){
+                System.err.println(String.format("Old score [g+h] was [%.3f + %.3f], new score is [%.3f, %.3f]",
+                        oldg,
+                        confCorrection
+                        ));
                 throw new RuntimeException();
             }
             bound.state.upperBound = bound.state.upperBound.add(diffUB, PartitionFunction.decimalPrecision);
@@ -666,11 +678,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         Continue looping if 1) there are nodes in the fringe queue or
         2) we are running tasks that will result in nodes being added to the queue
          */
-        int numIterations = 0;
         while( (!sequenceBound.fringeNodes.isEmpty() || loopTasks.isExpecting())){
-            numIterations++;
-            if(numIterations > 10000)
-                break;
 
             synchronized(this) {
                 //TODO: apply partial minimizations
@@ -723,7 +731,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     computePartials = context.batcher.isFull();
                 }
 
-                if(computePartials && false){
+                if(computePartials ){
                     step = Step.Partial;
                 }else if(sequenceBound.fringeNodes.size() > 0){
                     MultiSequenceSHARKStarNode node = null;
@@ -1030,7 +1038,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 energyMatrixCorrector.scheduleEnergyCorrection(analysis, conf,
                         context.batcher);
             }else{
-                computeEnergyCorrectionWithoutBatcher(analysis, conf, context.ecalc);
+                //computeEnergyCorrectionWithoutBatcher(analysis, conf, context.ecalc);
             }
 
             double energy = analysis.epmol.energy;
