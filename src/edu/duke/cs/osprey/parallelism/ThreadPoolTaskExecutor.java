@@ -119,6 +119,9 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 	private AtomicLong numTasksFinished;
 	private AtomicReference<TaskException> exception;
 	private Signal taskSignal;
+
+	private AtomicLong numTasksStartedExpecting;
+	private AtomicLong numTasksFinishedExpecting;
 	
 	public ThreadPoolTaskExecutor() {
 		threads = null;
@@ -126,6 +129,9 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 		numTasksFinished = new AtomicLong(0);
 		exception = new AtomicReference<>(null);
 		taskSignal = new Signal();
+
+		numTasksStartedExpecting = new AtomicLong(0);
+		numTasksFinishedExpecting = new AtomicLong(0);
 	}
 	
 	public void start(int numThreads) {
@@ -166,7 +172,75 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 	public boolean isWorking() {
 		return getNumRunningTasks() > 0;
 	}
-	
+
+	@Override
+	public boolean isExpecting(){
+		return getNumRunningTasksExpected() > 0;
+	}
+
+	/**
+	 * Submit a task with a special flag
+	 * @param task
+	 * @param listener
+	 * @param <T>
+	 */
+	@Override
+	public <T> void submitExpecting(Task<T> task, TaskListener<T> listener) {
+		try {
+
+			boolean wasAdded = false;
+			while (!wasAdded) {
+
+				// check for exceptions
+				// NOTE: waitForFinish will throw the exception
+				if (exception.get() != null) {
+					waitForFinish();
+				}
+
+				// NOTE: don't use ThreadPoolExecutor.submit() to send tasks, because it won't let us block.
+				// access the work queue directly instead, so we can block if the thread pool isn't ready yet.
+				wasAdded = threads.queue.offer(() -> {
+
+					try {
+
+						// run the task
+						T result = task.run();
+
+						// send the result to the listener thread
+						threads.listener.submit(() -> {
+
+							try {
+
+								// run the listener
+								listener.onFinished(result);
+
+							} catch (Throwable t) {
+								recordException(task, listener, t);
+							}
+
+							// tell anyone waiting that we finished a task
+							finishedTaskExpecting();
+						});
+
+					} catch (Throwable t) {
+						recordException(task, listener, t);
+
+						// the task failed, but still report finish
+						finishedTaskExpecting();
+					}
+
+				}, 400, TimeUnit.MILLISECONDS);
+			}
+
+			// the task was started successfully, hooray!
+			numTasksStarted.incrementAndGet();
+			numTasksStartedExpecting.incrementAndGet();
+
+		} catch (InterruptedException ex) {
+			throw new Error(ex);
+		}
+	}
+
 	@Override
 	public <T> void submit(Task<T> task, TaskListener<T> listener) {
 		try {
@@ -255,5 +329,14 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 	private void finishedTask() {
 		numTasksFinished.incrementAndGet();
 		taskSignal.sendSignal();
+	}
+
+	private void finishedTaskExpecting(){
+		numTasksFinishedExpecting.incrementAndGet();
+		finishedTask();
+	}
+
+	public long getNumRunningTasksExpected(){
+		return numTasksStartedExpecting.get() - numTasksFinishedExpecting.get();
 	}
 }

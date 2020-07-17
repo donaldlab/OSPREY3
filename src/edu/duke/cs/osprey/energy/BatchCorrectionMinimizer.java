@@ -30,6 +30,10 @@ public class BatchCorrectionMinimizer {
         submittedConfs = new UpdatingEnergyMatrix.TupleTrie(confEcalc.confSpace.positions);
     }
 
+    public boolean isFull(){
+        return batch!= null && batch.cost >= CostThreshold;
+    }
+
     public Batch getBatch() {
             if (batch == null) {
                 batch = new Batch();
@@ -38,9 +42,8 @@ public class BatchCorrectionMinimizer {
         }
 
     public void submitIfFull() {
-            if (batch != null && batch.cost >= CostThreshold) {
+            if ( isFull() )
                 submit();
-            }
         }
 
     public void submit() {

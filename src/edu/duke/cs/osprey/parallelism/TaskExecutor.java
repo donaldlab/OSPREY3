@@ -56,9 +56,15 @@ public class TaskExecutor implements AutoCleanable {
 		return false;
 	}
 
+	public boolean isExpecting() { return false; }
+
 	public <T> void submit(Task<T> task, TaskListener<T> listener) {
 		T result = task.run();
 		listener.onFinished(result);
+	}
+
+	public <T> void submitExpecting(Task<T> task, TaskListener<T> listener) {
+		submit(task, listener);
 	}
 	
 	public void waitForFinish() {

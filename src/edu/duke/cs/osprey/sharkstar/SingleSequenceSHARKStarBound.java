@@ -37,9 +37,10 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
     private double sequenceEpsilon = 1;
     private BigDecimal finishedNodeZ = BigDecimal.ZERO;
     public final RCs seqRCs;
+    public final State state;
 
     //debug variable
-    private Set<MultiSequenceSHARKStarNode> finishedNodes = new HashSet<>();
+    public Set<MultiSequenceSHARKStarNode> finishedNodes = new HashSet<>();
     private boolean errors;
 
     public SingleSequenceSHARKStarBound(MultiSequenceSHARKStarBound multiSequenceSHARKStarBound, Sequence seq, MultiSequenceSHARKStarBound sharkStarBound) {
@@ -51,6 +52,10 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
         this.fringeNodes = new SHARKStarQueue(seq);
         this.internalQueue = new SHARKStarQueue(seq);
         this.leafQueue = new SHARKStarQueue(seq);
+
+        this.state = new State();
+        this.state.lowerBound = BigDecimal.ZERO;
+        this.state.upperBound = BigDecimal.ZERO;
     }
 
     public void addFinishedNode(MultiSequenceSHARKStarNode node) {
@@ -110,8 +115,9 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
 
     @Override
     public void compute(int maxNumConfs) {
-            multisequenceBound.computeForSequence(maxNumConfs, this);
-            updateBound();
+            //multisequenceBound.computeForSequence(maxNumConfs, this);
+        multisequenceBound.computeForSequenceParallel(maxNumConfs, this);
+        updateBound();
         if (getSequenceEpsilon() < multiSequenceSHARKStarBound.targetEpsilon) {
             setStatus(Status.Estimated);
             if (values.qstar.compareTo(BigDecimal.ZERO) == 0) {
@@ -250,5 +256,10 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
         return fringeNodes.isEmpty()
                 && internalQueue.isEmpty()
                 && leafQueue.isEmpty();
+    }
+
+    public static class State{
+        BigDecimal upperBound;
+        BigDecimal lowerBound;
     }
 }

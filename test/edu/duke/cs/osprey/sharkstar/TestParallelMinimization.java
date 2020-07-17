@@ -68,7 +68,7 @@ public class TestParallelMinimization {
         ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
         BatchCorrectionMinimizer batcher = new BatchCorrectionMinimizer(minimizingConfEcalc, mssharkbound.correctionMatrix,
                 mssharkbound.minimizingEmat);
-        energyMatrixCorrector.computeEnergyCorrection(analysis, conf, 0, batcher);
+        energyMatrixCorrector.scheduleEnergyCorrection(analysis, conf, batcher);
     }
 
     private void minimizeOneConformation(int numCores) {
