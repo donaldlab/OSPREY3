@@ -699,7 +699,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfDB, Parti
 				long nowNs = System.nanoTime();
 				if (nowNs - state.lastReportNs > 1_000_000_000L) {
 					log("[%s] scores:%8d, confs:%4d, score:%12s, energy:%12s, bounds:[%12f,%12f] (log10p1), delta:%.6f, time:%10s, heapMem:%s, extMem:%s",
-						String.format("%" + (ecalc.confSpace.positions.size()*6 - 1) + "s", ""),
+						String.format("%" + (ecalc.confSpaceIteration().numPos()*6 - 1) + "s", ""),
 						state.numScoredConfs,
 						state.numEnergiedConfs,
 						"", "",

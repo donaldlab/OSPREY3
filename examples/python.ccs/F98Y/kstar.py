@@ -27,7 +27,7 @@ kstar = osprey.KStar(
 for info in kstar.confSpaceInfos():
 
 	# TODO: make python API for constructor? using parallelism?
-	ecalc = osprey.c.energy.compiled.CPUConfEnergyCalculator(info.confSpace, tasks)
+	ecalc = osprey.c.energy.compiled.CPUConfEnergyCalculator(info.confSpace)
 
 	# compute reference energies
 	# TODO: make python API
@@ -50,22 +50,25 @@ for info in kstar.confSpaceInfos():
 		.build() \
 		.calc()
 
-	info.confEcalc = osprey.jvm.getInnerClass(osprey.c.energy.compiled.ConfEnergyCalculatorAdapter, 'Builder')(ecalc) \
+	info.confEcalc = osprey.jvm.getInnerClass(osprey.c.energy.compiled.ConfEnergyCalculatorAdapter, 'Builder')(ecalc, tasks) \
 		.setPosInterDist(posInterDist) \
 		.setReferenceEnergies(eref) \
 		.setIncludeStaticStatic(includeStaticStatic) \
 		.build()
 
-	# how should confs be ordered and searched? (don't forget to capture emat by using a defaulted argument)
-	def makeAStar(rcs, emat=emat):
-		return osprey.AStarTraditional(emat, rcs, showProgress=False)
-	info.confSearchFactory = osprey.KStar.ConfSearchFactory(makeAStar)
-
-	# use a conformation database, to make computing ensembles easier
-	info.setConfDBFile('kstar.%s.db' % info.type.name().lower())
+	# how should we score each sequence?
+	# (since we're in a loop, need capture variables above by using defaulted arguments)
+	def makePfunc(rcs, confEcalc=info.confEcalc, emat=emat):
+		return osprey.PartitionFunction(
+			confEcalc,
+			osprey.AStarTraditional(emat, rcs, showProgress=False),
+			osprey.AStarTraditional(emat, rcs, showProgress=False),
+			rcs
+		)
+	info.pfuncFactory = osprey.KStar.PfuncFactory(makePfunc)
 
 # run K*
-scoredSequences = kstar.run()
+scoredSequences = kstar.run(tasks)
 
 # use results
 analyzer = osprey.SequenceAnalyzer(kstar)
