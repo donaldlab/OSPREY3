@@ -915,14 +915,24 @@ public class TestSHARKStarBound extends TestBase {
 
     @Test
     public void testComputeFlexible() {
-        testComputeFlexible(make1CC8MutableContinuous(), 0.9);
+        testComputeFlexible(make1CC8MutableContinuous(), 0.1);
     }
 
     @Test
     public void testComputeFlexibleMark(){
-        double epsilon = 0.9;
+        double epsilon = 0.1;
         SimpleConfSpace confSpace = make1CC8MutableContinuous().makeFlexibleCopy();
         testComputeFlexibleMARK(confSpace, epsilon);
+    }
+
+    @Test
+    public void testComputeFlexibleGDP(){
+        double epsilon = 0.1;
+        SimpleConfSpace confSpace = make1CC8MutableContinuous().makeFlexibleCopy();
+        Sequence wildType = confSpace.makeWildTypeSequence();
+        PartitionFunction traditionalPfunc = makeGradientDescentPfuncForConfSpace(confSpace, wildType, epsilon);
+        traditionalPfunc.setReportProgress(true);
+        traditionalPfunc.compute();
     }
 
     @Test
