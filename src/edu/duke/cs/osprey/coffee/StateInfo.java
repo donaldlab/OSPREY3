@@ -8,7 +8,6 @@ import edu.duke.cs.osprey.coffee.bounds.TriplewiseBounder;
 import edu.duke.cs.osprey.coffee.zmat.ClusterZMatrix;
 import edu.duke.cs.osprey.confspace.SeqSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
-import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.tools.BigExp;
 
 import java.util.Arrays;
@@ -18,9 +17,8 @@ import java.util.stream.IntStream;
 public class StateInfo {
 
 	public final Coffee.StateConfig config;
-	public final BoltzmannCalculator bcalc;
 
-	public final ClusterZMatrix zmat;
+	public ClusterZMatrix zmat;
 	public final EnergyBoundStats energyBoundStats;
 	public final int[] posPermutation;
 
@@ -29,12 +27,10 @@ public class StateInfo {
 
 	private Bounder bounder = null;
 
-	public StateInfo(Coffee.StateConfig config, BoltzmannCalculator bcalc) {
+	public StateInfo(Coffee.StateConfig config) {
 
 		this.config = config;
-		this.bcalc = bcalc;
 
-		zmat = new ClusterZMatrix(config.confSpace, config.posInterGen, bcalc);
 		energyBoundStats = new EnergyBoundStats();
 
 		// sort positions so multi-sequence layers are first

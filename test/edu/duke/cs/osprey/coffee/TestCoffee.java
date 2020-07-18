@@ -173,7 +173,7 @@ public class TestCoffee {
 							},
 							answer -> {
 								for (var job : jobs) {
-									bigMath.add(stateInfo.bcalc.calcPrecise(job.energy));
+									bigMath.add(stateInfo.zmat.bcalc.calcPrecise(job.energy));
 								}
 								progress.incrementProgress(jobs.size());
 							}
@@ -494,8 +494,8 @@ public class TestCoffee {
 	@Test public void seqFreeEnergy_affinity_6ov7_1mut2flex_wt_01_1x1_1m_triples() {
 		seqFreeEnergy_affinity_6ov7_1mut2flex_wt(1024*1024, 0.1, true, 1, oneCpu);
 	}
-	@Test public void seqFreeEnergy_affinity_6ov7_1mut2flex_wt_01_1x2_1m_triples() {
-		seqFreeEnergy_affinity_6ov7_1mut2flex_wt(1024*1024, 0.1, true, 1, Parallelism.makeCpu(2));
+	@Test public void seqFreeEnergy_affinity_6ov7_1mut2flex_wt_01_1x4_1m_triples() {
+		seqFreeEnergy_affinity_6ov7_1mut2flex_wt(1024*1024, 0.1, true, 1, Parallelism.makeCpu(4));
 	}
 	@Test public void seqFreeEnergy_affinity_6ov7_1mut2flex_wt_01_2x1_1m_triples() {
 		seqFreeEnergy_affinity_6ov7_1mut2flex_wt(1024*1024, 0.1, true, 2, oneCpu);

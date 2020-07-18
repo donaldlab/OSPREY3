@@ -35,7 +35,7 @@ public class NodeProcessor implements AutoCloseable {
 		final int id;
 		final Directions directions;
 
-		final Batch seqBatch = seqdb.batch();
+		Batch seqBatch = null;
 		final List<NodeIndex.Node> nodesIncoming = new ArrayList<>();
 		final List<NodeIndex.Node> nodesOutgoing = new ArrayList<>();
 		int stateiOutgoing;
@@ -58,6 +58,10 @@ public class NodeProcessor implements AutoCloseable {
 		public void run() {
 
 			Runnable waitABit = () -> ThreadTools.sleep(100, TimeUnit.MILLISECONDS);
+
+			if (seqdb != null) {
+				seqBatch = seqdb.batch();
+			}
 
 			while (directions.isRunning()) {
 
@@ -107,7 +111,9 @@ public class NodeProcessor implements AutoCloseable {
 
 		private void flush() {
 
-			seqBatch.save();
+			if (seqBatch != null) {
+				seqBatch.save();
+			}
 
 			if (!nodesOutgoing.isEmpty()) {
 				assert (stateiOutgoing >= 0);
@@ -471,18 +477,14 @@ public class NodeProcessor implements AutoCloseable {
 	}
 
 	private List<PosInter> makeInters(StateInfo stateInfo, int[] conf) {
-		if (includeStaticStatic) {
-			return stateInfo.config.posInterGen.all(stateInfo.config.confSpace, conf);
-		} else {
-			return stateInfo.config.posInterGen.dynamic(stateInfo.config.confSpace, conf);
-		}
+		return stateInfo.config.makeInters(conf, includeStaticStatic);
 	}
 
 	private void minimized(StateInfo stateInfo, List<NodeInfo> nodeInfos, List<ConfEnergyCalculator.MinimizationJob> jobs, Stopwatch stopwatch) {
 
 		// compute the bound energies for each conf
 		double[] bounds = nodeInfos.stream()
-			.mapToDouble(info -> stateInfo.bcalc.freeEnergyPrecise(info.node.zSumUpper))
+			.mapToDouble(info -> stateInfo.zmat.bcalc.freeEnergyPrecise(info.node.zSumUpper))
 			.toArray();
 
 		// update stats on energy bounds
@@ -490,21 +492,23 @@ public class NodeProcessor implements AutoCloseable {
 			stateInfo.energyBoundStats.add(bounds[i], jobs.get(i).energy);
 		}
 
-		// update seqdb with boltzmann-weighted energies
-		var seqdbBatch = seqdb.batch();
-		for (int i=0; i<nodeInfos.size(); i++) {
-			var n = nodeInfos.get(i).node;
-			var e = jobs.get(i).energy;
-			var z = stateInfo.bcalc.calcPrecise(e);
-			seqdbBatch.addZConf(
-				stateInfo.config.state,
-				makeSeq(n.statei, n.conf),
-				z,
-				n.zSumUpper,
-				new ConfSearch.EnergiedConf(n.conf, bounds[i], e)
-			);
+		// update seqdb with boltzmann-weighted energies if needed
+		if (seqdb != null) {
+			var seqdbBatch = seqdb.batch();
+			for (int i=0; i<nodeInfos.size(); i++) {
+				var n = nodeInfos.get(i).node;
+				var e = jobs.get(i).energy;
+				var z = stateInfo.zmat.bcalc.calcPrecise(e);
+				seqdbBatch.addZConf(
+					stateInfo.config.state,
+					makeSeq(n.statei, n.conf),
+					z,
+					n.zSumUpper,
+					new ConfSearch.EnergiedConf(n.conf, bounds[i], e)
+				);
+			}
+			seqdbBatch.save();
 		}
-		seqdbBatch.save();
 
 		// update node performance
 		stopwatch.stop();
@@ -551,7 +555,17 @@ public class NodeProcessor implements AutoCloseable {
 		return energiedCoords;
 	}
 
+	public void expand(NodeIndex.Node node, RCs tree, List<NodeIndex.Node> nodeBatch) {
+		var nodeInfo = new NodeInfo(node, tree, 0);
+		expand(nodeInfo, null, nodeBatch);
+	}
+
 	private void expand(NodeInfo nodeInfo, Batch seqBatch, List<NodeIndex.Node> nodeBatch) {
+
+		// just in case ...
+		if (nodeInfo.node.isLeaf()) {
+			throw new IllegalArgumentException("can't expand leaf node");
+		}
 
 		// get timing info for the node expansion
 		Stopwatch stopwatch = new Stopwatch().start();
@@ -561,12 +575,14 @@ public class NodeProcessor implements AutoCloseable {
 		var confIndex = stateInfo.makeConfIndex();
 		Conf.index(nodeInfo.node.conf, confIndex);
 
-		// remove the old bound from SeqDB
-		seqBatch.subZSumUpper(
-			stateInfo.config.state,
-			makeSeq(statei, nodeInfo.node.conf),
-			nodeInfo.node.zSumUpper
-		);
+		// remove the old bound from SeqDB if needed
+		if (seqBatch != null) {
+			seqBatch.subZSumUpper(
+				stateInfo.config.state,
+				makeSeq(statei, nodeInfo.node.conf),
+				nodeInfo.node.zSumUpper
+			);
+		}
 
 		// track the reduction in uncertainty for this node
 		var reduction = new BigExp(nodeInfo.node.zSumUpper);
@@ -588,12 +604,14 @@ public class NodeProcessor implements AutoCloseable {
 				nodedb.perf.score(statei, conf, zSumUpper)
 			));
 
-			// add the new bound
-			seqBatch.addZSumUpper(
-				stateInfo.config.state,
-				makeSeq(statei, conf),
-				zSumUpper
-			);
+			// add the new bound if needed
+			if (seqBatch != null) {
+				seqBatch.addZSumUpper(
+					stateInfo.config.state,
+					makeSeq(statei, conf),
+					zSumUpper
+				);
+			}
 
 			// update the reduction calculation
 			reduction.sub(zSumUpper);
@@ -610,14 +628,16 @@ public class NodeProcessor implements AutoCloseable {
 
 		// NOTE: this is called on the NodeDB thread!
 
-		var batch = seqdb.batch();
-		nodes.forEach(node ->
-			batch.drop(
-				stateInfos[node.statei].config.state,
-				makeSeq(node.statei, node.conf),
-				node.zSumUpper
-			)
-		);
-		batch.save();
+		if (seqdb != null) {
+			var batch = seqdb.batch();
+			nodes.forEach(node ->
+				batch.drop(
+					stateInfos[node.statei].config.state,
+					makeSeq(node.statei, node.conf),
+					node.zSumUpper
+				)
+			);
+			batch.save();
+		}
 	}
 }

@@ -1,15 +1,19 @@
 package edu.duke.cs.osprey.coffee;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.coffee.directions.Directions;
 import edu.duke.cs.osprey.coffee.nodedb.NodeDB;
 import edu.duke.cs.osprey.coffee.nodedb.NodeIndex;
 import edu.duke.cs.osprey.coffee.seqdb.SeqDB;
+import edu.duke.cs.osprey.coffee.zmat.ClusterZMatrix;
 import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
+import edu.duke.cs.osprey.confspace.compiled.PosInter;
 import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.compiled.NativeConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
 import edu.duke.cs.osprey.gpu.Structs;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
@@ -22,7 +26,9 @@ import edu.duke.cs.osprey.tools.Stopwatch;
 import java.io.File;
 import java.math.MathContext;
 import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
@@ -202,6 +208,14 @@ public class Coffee {
 				super("Please set a value for: " + name + " for the state: " + state.name);
 			}
 		}
+
+		public List<PosInter> makeInters(int[] conf, boolean includeStaticStatic) {
+			if (includeStaticStatic) {
+				return posInterGen.all(confSpace, conf);
+			} else {
+				return posInterGen.dynamic(confSpace, conf);
+			}
+		}
 	}
 
 
@@ -271,7 +285,7 @@ public class Coffee {
 
 		bcalc = new BoltzmannCalculator(mathContext, conditions);
 		infos = Arrays.stream(stateConfigs)
-			.map(config -> new StateInfo(config, bcalc))
+			.map(config -> new StateInfo(config))
 			.toArray(StateInfo[]::new);
 	}
 
@@ -317,6 +331,7 @@ public class Coffee {
 								if (nodeProcessor.gpuEcalcs != null) {
 									ecalc = nodeProcessor.gpuEcalcs[info.config.state.index];
 								}
+								info.zmat = new ClusterZMatrix(info.config.confSpace, info.config.posInterGen, bcalc);
 								info.zmat.compute(member, cpuTasks, includeStaticStatic, tripleCorrectionThreshold, ecalc);
 								info.initBounder();
 							}
@@ -382,5 +397,99 @@ public class Coffee {
 
 		// let the rest of the cluster know right away we have the root nodes
 		processor.nodedb.broadcast();
+	}
+
+	/**
+	 * Compute a Z matrix.
+	 * Mostly only useful for debugging.
+	 */
+	public ClusterZMatrix calcZMat(int statei) {
+
+		var stateInfo = infos[statei];
+
+		try (var member = new ClusterMember(cluster)) {
+			try (var cpuTasks = new ThreadPoolTaskExecutor()) {
+				cpuTasks.start(parallelism.numThreads);
+
+				try (var ecalc = new NativeConfEnergyCalculator(stateInfo.config.confSpace, precision)) {
+
+					var zmat = new ClusterZMatrix(stateInfo.config.confSpace, stateInfo.config.posInterGen, bcalc);
+					zmat.compute(member, cpuTasks, includeStaticStatic, tripleCorrectionThreshold, ecalc);
+					return zmat;
+				}
+			}
+		}
+	}
+
+	/**
+	 * Quickly get a few nodes with high Z values.
+	 * Mostly only useful for debugging.
+	 */
+	public List<NodeIndex.Node> findHighZNodes(int statei, ClusterZMatrix zmat, RCs tree, int count) {
+
+		var leafNodes = new ArrayList<NodeIndex.Node>(count);
+
+		int batchSize = 10;
+		var nodeBatch = new ArrayList<NodeIndex.Node>(batchSize);
+		var expandedNodes = new ArrayList<NodeIndex.Node>();
+
+		try (var member = new ClusterMember(cluster)) {
+
+			try (var cpuTasks = new ThreadPoolTaskExecutor()) {
+				cpuTasks.start(parallelism.numThreads);
+
+				// open the node database
+				try (var nodedb = new NodeDB.Builder(confSpace, member)
+					.setFile(dbFile, dbFileBytes)
+					.setMem(dbMemBytes)
+					.setScoringLog(nodeScoringLog)
+					.build()
+				) {
+
+					// init the node processor, and report dropped nodes to the sequence database
+					try (var nodeProcessor = new NodeProcessor(cpuTasks, null, nodedb, infos, includeStaticStatic, parallelism, precision)) {
+
+						// init the state with the zmat
+						var stateInfo = infos[statei];
+						stateInfo.zmat = zmat;
+						stateInfo.initBounder();
+
+						// init the root node
+						ConfIndex index = stateInfo.makeConfIndex();
+						BigExp zSumUpper = stateInfo.zSumUpper(index, tree).normalize(true);
+						nodeProcessor.nodedb.addLocal(new NodeIndex.Node(statei, Conf.make(index), zSumUpper, zSumUpper));
+
+						while (true) {
+
+							// get the next nodes
+							nodedb.removeHighestLocal(statei, batchSize, nodeBatch);
+							if (nodeBatch.isEmpty()) {
+								throw new RuntimeException("couldn't find " + count + " nodes");
+							}
+							for (var node : nodeBatch) {
+
+								// if it's a leaf node, add it to the list
+								if (node.isLeaf()) {
+									leafNodes.add(node);
+									if (leafNodes.size() >= count) {
+										return leafNodes;
+									}
+									continue;
+								}
+
+								// otherwise, expand the node
+								nodeProcessor.expand(node, tree, expandedNodes);
+							}
+							nodeBatch.clear();
+
+							// add the nodes to the db
+							nodedb.addLocal(statei, expandedNodes);
+							expandedNodes.clear();
+						}
+
+					} // node processor
+				} // nodedb
+			} // cpu tasks
+		} // cluster member
 	}
 }
