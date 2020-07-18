@@ -465,6 +465,66 @@ public class TestBigExp {
 	}
 
 	@Test
+	public void greaterThan() {
+
+		final double epsilon = 1e-1;
+
+		assertThat(new BigExp(0.0, 0).greaterThan(new BigExp(0.0, 0), epsilon), is(false));
+
+		assertThat(new BigExp(6.66, -100).greaterThan(new BigExp(0.0, 0), epsilon), is(true));
+		assertThat(new BigExp(6.66, -10).greaterThan(new BigExp(0.0, 0), epsilon), is(true));
+		assertThat(new BigExp(6.66, -1).greaterThan(new BigExp(0.0, 0), epsilon), is(true));
+		assertThat(new BigExp(6.66,  0).greaterThan(new BigExp(0.0, 0), epsilon), is(true));
+		assertThat(new BigExp(6.66, +1).greaterThan(new BigExp(0.0, 0), epsilon), is(true));
+		assertThat(new BigExp(6.66, +10).greaterThan(new BigExp(0.0, 0), epsilon), is(true));
+		assertThat(new BigExp(6.66, +100).greaterThan(new BigExp(0.0, 0), epsilon), is(true));
+
+		assertThat(new BigExp(-6.66, -100).greaterThan(new BigExp(0.0, 0), epsilon), is(false));
+		assertThat(new BigExp(-6.66, -10).greaterThan(new BigExp(0.0, 0), epsilon), is(false));
+		assertThat(new BigExp(-6.66, -1).greaterThan(new BigExp(0.0, 0), epsilon), is(false));
+		assertThat(new BigExp(-6.66,  0).greaterThan(new BigExp(0.0, 0), epsilon), is(false));
+		assertThat(new BigExp(-6.66, +1).greaterThan(new BigExp(0.0, 0), epsilon), is(false));
+		assertThat(new BigExp(-6.66, +10).greaterThan(new BigExp(0.0, 0), epsilon), is(false));
+		assertThat(new BigExp(-6.66, +100).greaterThan(new BigExp(0.0, 0), epsilon), is(false));
+
+		assertThat(new BigExp(4.93, 0).greaterThan(new BigExp(2.64, 0), epsilon), is(true));
+		assertThat(new BigExp(2.64, 0).greaterThan(new BigExp(4.93, 0), epsilon), is(false));
+
+		assertThat(new BigExp(4.93e10, 0).greaterThan(new BigExp(2.64e10, 0), epsilon), is(true));
+		assertThat(new BigExp(2.64e10, 0).greaterThan(new BigExp(4.93e10, 0), epsilon), is(false));
+
+		assertThat(new BigExp(4.93e10, 10).greaterThan(new BigExp(2.64e10, 5), epsilon), is(true));
+		assertThat(new BigExp(2.64e10, 5).greaterThan(new BigExp(4.93e10, 10), epsilon), is(false));
+
+		assertThat(new BigExp(4.93e10, 5).greaterThan(new BigExp(2.64e10, 10), epsilon), is(false));
+		assertThat(new BigExp(2.64e10, 10).greaterThan(new BigExp(4.93e10, 5), epsilon), is(true));
+
+		assertThat(new BigExp(4.93e20, 5).greaterThan(new BigExp(2.64e10, 10), epsilon), is(true));
+		assertThat(new BigExp(2.64e10, 10).greaterThan(new BigExp(4.93e20, 5), epsilon), is(false));
+
+		assertThat(new BigExp(4.93e5, 5).greaterThan(new BigExp(2.64e5, 6), epsilon), is(false));
+		assertThat(new BigExp(2.64e5, 6).greaterThan(new BigExp(4.93e5, 5), epsilon), is(true));
+
+		assertThat(new BigExp(4.93, 0).greaterThan(new BigExp(2.64, 1), epsilon), is(false));
+		assertThat(new BigExp(4.93, 1).greaterThan(new BigExp(2.64, 0), epsilon), is(true));
+		assertThat(new BigExp(4.93, 1).greaterThan(new BigExp(2.64, 1), epsilon), is(true));
+
+		assertThat(new BigExp(4.93,  0).greaterThan(new BigExp(2.64, -1), epsilon), is(true));
+		assertThat(new BigExp(4.93, -1).greaterThan(new BigExp(2.64,  0), epsilon), is(false));
+		assertThat(new BigExp(4.93, -1).greaterThan(new BigExp(2.64, -1), epsilon), is(true));
+
+		assertThat(new BigExp(6.66, -1).greaterThan(new BigExp(6.66, -1), epsilon), is(false));
+		assertThat(new BigExp(6.66, -1).greaterThan(new BigExp(6.66,  0), epsilon), is(false));
+		assertThat(new BigExp(6.66, -1).greaterThan(new BigExp(6.66, +1), epsilon), is(false));
+		assertThat(new BigExp(6.66,  0).greaterThan(new BigExp(6.66, -1), epsilon), is(true));
+		assertThat(new BigExp(6.66,  0).greaterThan(new BigExp(6.66,  0), epsilon), is(false));
+		assertThat(new BigExp(6.66,  0).greaterThan(new BigExp(6.66, +1), epsilon), is(false));
+		assertThat(new BigExp(6.66, +1).greaterThan(new BigExp(6.66, -1), epsilon), is(true));
+		assertThat(new BigExp(6.66, +1).greaterThan(new BigExp(6.66,  0), epsilon), is(true));
+		assertThat(new BigExp(6.66, +1).greaterThan(new BigExp(6.66, +1), epsilon), is(false));
+	}
+
+	@Test
 	public void log() {
 
 		// check accuracy to 16 significant digits (that's about all double can represent)

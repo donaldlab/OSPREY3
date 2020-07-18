@@ -419,16 +419,36 @@ public class BigExp implements Comparable<BigExp>, IOable, Serializable {
 		return compareTo(other) > 0;
 	}
 
+	public boolean greaterThan(BigExp other, double epsilon) {
+		return !lessThanOrEqual(other, epsilon);
+	}
+
 	public boolean greaterThanOrEqual(BigExp other) {
 		return compareTo(other) >= 0;
+	}
+
+	public boolean greaterThanOrEqual(BigExp other, double epsilon) {
+		other = new BigExp(other);
+		other.mult(1 - other.sign()*epsilon);
+		return greaterThanOrEqual(other);
 	}
 
 	public boolean lessThan(BigExp other) {
 		return compareTo(other) < 0;
 	}
 
+	public boolean lessThan(BigExp other, double epsilon) {
+		return !greaterThanOrEqual(other, epsilon);
+	}
+
 	public boolean lessThanOrEqual(BigExp other) {
 		return compareTo(other) <= 0;
+	}
+
+	public boolean lessThanOrEqual(BigExp other, double epsilon) {
+		other = new BigExp(other);
+		other.mult(1 + other.sign()*epsilon);
+		return lessThanOrEqual(other);
 	}
 
 	public boolean isNaN() {
