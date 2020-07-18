@@ -730,13 +730,8 @@ public class ConfSpace implements ConfSpaceIteration {
 
 	private int posPairIndex(int posi1, int posi2) {
 
-		// posi2 should be strictly less than posi1
 		if (posi2 > posi1) {
-			int swap = posi1;
-			posi1 = posi2;
-			posi2 = swap;
-		} else if (posi1 == posi2) {
-			throw new Error("Can't pair position " + posi1 + " with itself");
+			throw new IllegalArgumentException("posi2 should be strictly less than posi1");
 		}
 
 		return posi1*(posi1 - 1)/2 + posi2;
@@ -777,6 +772,11 @@ public class ConfSpace implements ConfSpaceIteration {
 	}
 
 	public int getConfAtomIndex(int posi, int atomi) {
+
+		// just in case...
+		assert (atomi < positions[posi].maxNumAtoms) :
+			String.format("atom %d can't belong to position %d, which only has %d atoms", atomi, posi, positions[posi].maxNumAtoms);
+
 		return confAtomOffsetsByPos[posi] + atomi;
 	}
 
