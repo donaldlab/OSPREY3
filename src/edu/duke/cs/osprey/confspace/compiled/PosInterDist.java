@@ -88,7 +88,7 @@ public enum PosInterDist {
 		@Override
 		public List<PosInter> pair(ConfSpace confSpace, SimpleReferenceEnergies eref, int posi1, int confi1, int posi2, int confi2) {
 
-			double weight = 1.0/(confSpace.positions.length - 1);
+			double weight = 1.0/MathTools.numPairsPerSingle(confSpace.positions.length);
 
 			List<PosInter> inters = new ArrayList<>();
 			inters.add(new PosInter(posi1, posi1, weight, getErefOffset(confSpace, eref, posi1, confi1)));

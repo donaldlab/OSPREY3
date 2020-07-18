@@ -433,6 +433,9 @@ public class ClusterZMatrix {
 	public BigExp single(int posi, int confi) {
 		return singlesPairs.getOneBody(posi, confi);
 	}
+	public void set(int posi, int confi, BigExp val) {
+		singlesPairs.setOneBody(posi, confi, val);
+	}
 
 	public int numPairs() {
 		return singlesPairs.getNumPairwise();
@@ -445,6 +448,9 @@ public class ClusterZMatrix {
 	}
 	public BigExp pair(int posi1, int confi1, int posi2, int confi2) {
 		return singlesPairs.getPairwise(posi1, confi1, posi2, confi2);
+	}
+	public void set(int posi1, int confi1, int posi2, int confi2, BigExp val) {
+		singlesPairs.setPairwise(posi1, confi1, posi2, confi2, val);
 	}
 
 	public boolean hasTriples() {
@@ -461,5 +467,8 @@ public class ClusterZMatrix {
 	}
 	public BigExp triple(int posi1, int confi1, int posi2, int confi2, int posi3, int confi3) {
 		return triples.get(posi1, confi1, posi2, confi2, posi3, confi3);
+	}
+	public void set(int posi1, int confi1, int posi2, int confi2, int posi3, int confi3, BigExp val) {
+		triples.set(posi1, confi1, posi2, confi2, posi3, confi3, val);
 	}
 }

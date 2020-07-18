@@ -39,6 +39,16 @@ public class TriplewiseBounder implements Bounder {
 				int confi2 = index.definedRCs[i2];
 
 				z.mult(zmat.pair(posi1, confi1, posi2, confi2));
+
+				for (int i3=0; i3<i2; i3++) {
+					int posi3 = index.definedPos[i3];
+					int confi3 = index.definedRCs[i3];
+
+					var triple = zmat.triple(posi1, confi1, posi2, confi2, posi3, confi3);
+					if (triple != null) {
+						z.mult(triple);
+					}
+				}
 			}
 		}
 

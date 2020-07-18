@@ -42,6 +42,12 @@ public class CPUConfEnergyCalculator implements ConfEnergyCalculator {
 		// build the conformation coords
 		AssignedCoords coords = confSpace.makeCoords(conf);
 
+		double energy = calcEnergy(coords, inters);
+		return new EnergiedCoords(coords, energy);
+	}
+
+	public double calcEnergy(AssignedCoords coords, List<PosInter> inters) {
+
 		double energy = 0.0;
 
 		for (EnergyCalculator ecalc : confSpace.ecalcs) {
@@ -50,7 +56,7 @@ public class CPUConfEnergyCalculator implements ConfEnergyCalculator {
 			}
 		}
 
-		return new EnergiedCoords(coords, energy);
+		return energy;
 	}
 
 	@Override

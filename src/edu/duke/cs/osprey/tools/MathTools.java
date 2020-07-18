@@ -1005,6 +1005,11 @@ public class MathTools {
 		}
 	}
 
+	public static int numPairsPerSingle(int n) {
+		// (n-1) choose 1
+		return n - 1;
+	}
+
 	public static int numTriplesPerSingle(int n) {
 		// (n-1) choose 2
 		return (n - 1)*(n - 2)/2;
