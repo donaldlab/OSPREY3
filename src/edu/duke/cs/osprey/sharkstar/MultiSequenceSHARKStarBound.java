@@ -708,6 +708,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     if(workDone() - previousConfCount >= maxNumConfs)
                         System.out.println("Exiting loop because of work");
 
+                    if(!isStable(stabilityThreshold, sequenceBound)) {
+                        System.out.println("Exiting loop due to stablity, thresh: " + stabilityThreshold);
+                        sequenceBound.setStatus(Status.Unstable);
+                    }
                     break;
                 }
             }
