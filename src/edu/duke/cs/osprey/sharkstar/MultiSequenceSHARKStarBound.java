@@ -57,6 +57,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     // the number of full conformations minimized
     private int numConfsEnergied = 0;
+    private int numConfsEnergiedThisLoop = 0;
     // max confs minimized, -1 means infinite.
     private int maxNumConfs = -1;
 
@@ -680,6 +681,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         Continue looping if 1) there are nodes in the fringe queue or
         2) we are running tasks that will result in nodes being added to the queue
          */
+        this.numConfsEnergiedThisLoop = 0;
+
         while( (!sequenceBound.fringeNodes.isEmpty() || loopTasks.isExpecting())){
 
             synchronized(sequenceBound) {
@@ -782,6 +785,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                         correctionMatrix.setHigherOrder(result.minimizedNode.toTuple(),
                                                 result.energy - minimizingEmat.confE(result.minimizedNode.getConfSearchNode().assignments));
                                     numConfsEnergied++;
+                                    this.numConfsEnergiedThisLoop++;
                                     minList.set(result.conf.getAssignments().length - 1, minList.get(result.conf.getAssignments().length - 1) + 1);
                                     //recordReduction(oldConfLower, oldConfUpper, energy);
                                     //printMinimizationOutput(node, newConfLower, oldgscore, bound);
