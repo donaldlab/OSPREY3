@@ -619,9 +619,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 throw new RuntimeException();
             }
             if(node.getUpperBound(bound.sequence).compareTo(node.getLowerBound(bound.sequence)) < 0){
-                System.err.println(String.format("Old score [g+h] was [%.3f + %.3f], new score is [%.3f, %.3f]",
-                        oldg,
-                        confCorrection
+                System.err.println(String.format("Insane bounds: UB (%1.9e) < LB (%1.9e)",
+                        node.getUpperBound(bound.sequence),
+                        node.getLowerBound(bound.sequence)
                         ));
                 throw new RuntimeException();
             }
@@ -672,7 +672,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         // Initialize state
         sequenceBound.state.upperBound = sequenceBound.getUpperBound();
         sequenceBound.state.lowerBound = sequenceBound.getLowerBound();
-        double curEps = sequenceBound.state.upperBound.subtract(sequenceBound.state.lowerBound).divide(sequenceBound.state.upperBound, RoundingMode.HALF_UP).doubleValue();
+        double curEps = sequenceBound.state.calcDelta();
 
         Step step = Step.None;
 
@@ -682,14 +682,12 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
          */
         while( (!sequenceBound.fringeNodes.isEmpty() || loopTasks.isExpecting())){
 
-            synchronized(this) {
+            synchronized(sequenceBound) {
                 //TODO: apply partial minimizations
                 sequenceBound.updateBound();
 
                 // Early termination
-                synchronized(sequenceBound.state) {
-                    curEps = sequenceBound.state.upperBound.subtract(sequenceBound.state.lowerBound).divide(sequenceBound.state.upperBound, RoundingMode.HALF_UP).doubleValue();
-                }
+                    curEps = sequenceBound.state.calcDelta();
 
                 System.out.println(String.format("Epsilon: %.9f, Bounds:[%1.3e, %1.3e]",
                         //sequenceBound.getSequenceEpsilon(),
@@ -701,9 +699,12 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 ));
 
                 if (curEps < targetEpsilon ||
-                        workDone() - previousConfCount >= maxNumConfs ||
+                        numConfsEnergiedThisLoop >= maxNumConfs ||
                         !isStable(stabilityThreshold, sequenceBound)
                 ){
+                    if(workDone() - previousConfCount >= maxNumConfs)
+                        System.out.println("Exiting loop because of work");
+
                     break;
                 }
             }
@@ -770,11 +771,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         return minimizeNode(toMinimize, sequenceBound.sequence);
                             },
                             (result) -> {
-                        synchronized(sequenceBound.state) {
-                            // Update partition function values
-                            sequenceBound.state.upperBound = sequenceBound.state.upperBound.add(result.deltaUB, PartitionFunction.decimalPrecision);
-                            sequenceBound.state.lowerBound = sequenceBound.state.lowerBound.add(result.deltaLB, PartitionFunction.decimalPrecision);
-                        }
+                                synchronized(sequenceBound.state) {
+                                    // Update partition function values
+                                    sequenceBound.state.upperBound = sequenceBound.state.upperBound.add(result.deltaUB, PartitionFunction.decimalPrecision);
+                                    sequenceBound.state.lowerBound = sequenceBound.state.lowerBound.add(result.deltaLB, PartitionFunction.decimalPrecision);
+                                }
 
                                 synchronized (this) { // don't race the main thread
                                     if (precomputedSequence.equals(confSpace.makeUnassignedSequence()))
@@ -998,7 +999,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         System.out.println("Finished tasks");
         System.out.println(sequenceBound.fringeNodes.size());
         sequenceBound.updateBound();
-        curEps = sequenceBound.state.upperBound.subtract(sequenceBound.state.lowerBound).divide(sequenceBound.state.upperBound, RoundingMode.HALF_UP).doubleValue();
+        curEps = sequenceBound.state.calcDelta();
         System.out.println(String.format("Tracking Epsilon: %.9f, Bounds:[%1.9e, %1.9e]",
                 curEps,
                 sequenceBound.state.lowerBound,
