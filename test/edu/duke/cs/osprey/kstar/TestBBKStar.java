@@ -59,8 +59,14 @@ public class TestBBKStar {
 		public List<KStar.ScoredSequence> sequences;
 	}
 
+	public static enum Impls{
+		SHARK,
+		MARK,
+		GRADIENT
+	}
+
 	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, int numSequences, double epsilon, String confdbPattern, int maxSimultaneousMutations,
-									 boolean runSHARKStar) {
+									 Impls implementation) {
 
 		Parallelism parallelism = Parallelism.makeCpu(4);
 
@@ -108,8 +114,10 @@ public class TestBBKStar {
 
 				PartitionFunctionFactory pfuncFactory = new PartitionFunctionFactory(info.confSpace, info.confEcalcMinimized, info.id);
 				info.pfuncFactory = pfuncFactory;
-				if(runSHARKStar) {
+				if(implementation == Impls.SHARK) {
 					pfuncFactory.setUseMSSHARKStar(confEcalcRigid);
+				}else if(implementation == Impls.MARK){
+					pfuncFactory.setUseMARKStar(confEcalcRigid);
 				}
 				info.pfuncFactory.setCachePattern(info.id);
 				EnergyMatrix ematMinimized = info.pfuncFactory.getOrMakeEmat(info.confEcalcMinimized, "minimized");
@@ -145,7 +153,7 @@ public class TestBBKStar {
 	}
 
 	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, int numSequences, double epsilon, String confdbPattern, int maxSimultaneousMutations) {
-		return runBBKStar(confSpaces, numSequences, epsilon, confdbPattern, maxSimultaneousMutations, false);
+		return runBBKStar(confSpaces, numSequences, epsilon, confdbPattern, maxSimultaneousMutations, Impls.GRADIENT);
 	}
 
 	@Test
@@ -154,7 +162,7 @@ public class TestBBKStar {
 		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0();
 		final double epsilon = 0.99;
 		final int numSequences = 25;
-		Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 10, true);
+		Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 10, Impls.GRADIENT);
 
 		assert2RL0(results, numSequences);
 	}

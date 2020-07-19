@@ -38,6 +38,7 @@ import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.kstar.KStar;
+import edu.duke.cs.osprey.kstar.TestBBKStar;
 import edu.duke.cs.osprey.kstar.TestKStar;
 import edu.duke.cs.osprey.kstar.TestKStar.ConfSpaces;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
@@ -90,7 +91,7 @@ public class TestSHARKStarDesignProblems {
     public void test1a0r_B_12res_13() {
         try {
             TestKStar.ConfSpaces confSpaces = loadFromCFS("test-resources/1a0r_B_12res_3.930E+13.cfs");
-            runBBKStar(confSpaces, 5, 0.999999999, null, 10, true);
+            runBBKStar(confSpaces, 5, 0.999999999, null, 10, TestBBKStar.Impls.SHARK);
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
@@ -106,13 +107,13 @@ public class TestSHARKStarDesignProblems {
         boolean runkstar = true;
         if(runkstar) {
             watch.start();
-            runBBKStar(confSpaces, numSequences, epsilon, null, 1, false);
+            runBBKStar(confSpaces, numSequences, epsilon, null, 1, TestBBKStar.Impls.GRADIENT);
             watch.stop();
             kstartime = watch.getTime(2);
             watch.reset();
         }
         watch.start();
-        runBBKStar(confSpaces, numSequences, epsilon, null, 1, true);
+        runBBKStar(confSpaces, numSequences, epsilon, null, 1, TestBBKStar.Impls.SHARK);
         watch.stop();
         String bbkstartime = watch.getTime(2);
         System.out.println("MARK*: "+bbkstartime+", Traditional K*: "+kstartime);
@@ -455,13 +456,13 @@ public class TestSHARKStarDesignProblems {
         boolean runkstar = false;
         if(runkstar) {
             watch.start();
-            runBBKStar(confSpaces, numSequences, epsilon, null, 1, false);
+            runBBKStar(confSpaces, numSequences, epsilon, null, 1, TestBBKStar.Impls.GRADIENT);
             watch.stop();
             kstartime = watch.getTime(2);
             watch.reset();
         }
         watch.start();
-        runBBKStar(confSpaces, numSequences, epsilon, null, 1, true);
+        runBBKStar(confSpaces, numSequences, epsilon, null, 1, TestBBKStar.Impls.SHARK);
         watch.stop();
         String bbkstartime = watch.getTime(2);
         System.out.println("MARK*: "+bbkstartime+", Traditional K*: "+kstartime);
@@ -509,7 +510,7 @@ public class TestSHARKStarDesignProblems {
 
         try {
             runBBKStar(loadFromCFS("examples/python.KStar/1a0r_B_10res_8.034E+41.cfs"),
-                   5, 0.68, null, 2, true);
+                   5, 0.68, null, 2, TestBBKStar.Impls.SHARK);
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }

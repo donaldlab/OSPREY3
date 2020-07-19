@@ -909,13 +909,13 @@ public class TestMARKStar {
 		boolean runkstar = true;
 		Stopwatch timer = new Stopwatch().start();
 		if(runkstar) {
-			TestBBKStar.Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1, false);
+			TestBBKStar.Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1, TestBBKStar.Impls.GRADIENT);
 			timer.stop();
 			traditionalTime = timer.getTime(2);
 			timer.reset();
 			timer.start();
 		}
-		runBBKStar(confSpaces, numSequences, epsilon, null, 1, true);
+		runBBKStar(confSpaces, numSequences, epsilon, null, 1, TestBBKStar.Impls.MARK);
 		String MARKStarTime = timer.getTime(2);
 		timer.stop();
 
@@ -932,12 +932,12 @@ public class TestMARKStar {
 		final double epsilon = 0.68;
 		final int numSequences = 10;
 		Stopwatch timer = new Stopwatch().start();
-		TestBBKStar.Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1, false);
+		TestBBKStar.Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1, TestBBKStar.Impls.GRADIENT);
 		timer.stop();
 		String traditionalTime = timer.getTime(2);
 		timer.reset();
 		timer.start();
-		results = runBBKStar(confSpaces, numSequences, epsilon, null, 1, true);
+		results = runBBKStar(confSpaces, numSequences, epsilon, null, 1, TestBBKStar.Impls.MARK);
 		String MARKStarTime = timer.getTime(2);
 		timer.stop();
 
@@ -997,7 +997,7 @@ public class TestMARKStar {
 	public void test4hem7resNanBug() {
 		try {
 			ConfSpaces confSpaces = loadFromCFS("examples/python.KStar/4hem_B_7res_1.131E+41.cfs");
-			TestBBKStar.Results results = runBBKStar(confSpaces, 1, 0.999999999999, null, 2, true);
+			TestBBKStar.Results results = runBBKStar(confSpaces, 1, 0.999999999999, null, 2, TestBBKStar.Impls.MARK);
 			for(KStar.ScoredSequence seq: results.sequences)
 				System.out.println(seq);
 

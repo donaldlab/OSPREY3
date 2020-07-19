@@ -627,7 +627,7 @@ public class TestSHARKStar {
 		try {
 			ConfSpaces confSpaces = loadFromCFS("test-resources/4wwi_F_4res_2.468E+05.cfs");
 			//runBBSHARKStar(confSpaces, 0.9999);
-			runBBKStar(confSpaces, 3, 0.99999999999, null, 5, true);
+			runBBKStar(confSpaces, 3, 0.99999999999, null, 5, TestBBKStar.Impls.SHARK);
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}
@@ -638,7 +638,7 @@ public class TestSHARKStar {
 		try {
 			ConfSpaces confSpaces = loadFromCFS("test-resources/4wwi_F_7res_1.065E+10.cfs");
 			//runBBSHARKStar(confSpaces, 0.9999);
-			runBBKStar(confSpaces, 3, 0.99999, null, 5, true);
+			runBBKStar(confSpaces, 3, 0.99999, null, 5, TestBBKStar.Impls.SHARK);
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}
@@ -648,8 +648,8 @@ public class TestSHARKStar {
 	public void test4wem() {
 		try {
 			ConfSpaces confSpaces = loadFromCFS("test-resources/4wem_B_5res_2.014E+07.cfs");
-			//TestBBKStar.Results results = runBBKStar(confSpaces, 3, 0.99999999999, null, 5, false);
-			TestBBKStar.Results results = runBBKStar(confSpaces, 3, 0.99999999999, null, 5, true);
+			//TestBBKStar.Results results = runBBKStar(confSpaces, 3, 0.99999999999, null, 5, TestBBKStar.Impls.SHARK);
+			TestBBKStar.Results results = runBBKStar(confSpaces, 3, 0.99999999999, null, 5, TestBBKStar.Impls.SHARK);
 			for(KStar.ScoredSequence seq : results.sequences){
 			    System.out.println(String.format("Result for %s: [%2.3e, %2.3e]",
 						seq.sequence,
@@ -669,8 +669,8 @@ public class TestSHARKStar {
 		try {
 			ConfSpaces confSpaces = loadFromCFS("test-resources/4znc_E_7res_1.065E+10.cfs");
 			//runBBSHARKStar(confSpaces, 0.9999);
-			runBBKStar(confSpaces, 3, 0.68, null, 5, true);
-			runBBKStar(confSpaces, 3, 0.68, null, 5, false);
+			runBBKStar(confSpaces, 3, 0.68, null, 5, TestBBKStar.Impls.SHARK);
+			runBBKStar(confSpaces, 3, 0.68, null, 5, TestBBKStar.Impls.MARK);
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}
@@ -681,7 +681,7 @@ public class TestSHARKStar {
 		try {
 			ConfSpaces confSpaces = loadFromCFS("test-resources/3ma2_A_6res_3.157E+06.cfs");
 			//runBBSHARKStar(confSpaces, 0.9999);
-			runBBKStar(confSpaces, 3, 0.68, null, 5, true);
+			runBBKStar(confSpaces, 3, 0.68, null, 5, TestBBKStar.Impls.SHARK);
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}
@@ -692,7 +692,7 @@ public class TestSHARKStar {
 		try {
 			ConfSpaces confSpaces = loadFromCFS("test-resources/3ma2_D_10res_1.140E+10.cfs");
 			//runBBSHARKStar(confSpaces, 0.9999);
-			runBBKStar(confSpaces, 2, 0.68, null, 5, true);
+			runBBKStar(confSpaces, 2, 0.68, null, 5, TestBBKStar.Impls.SHARK);
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}
@@ -703,7 +703,7 @@ public class TestSHARKStar {
 		try {
 			ConfSpaces confSpaces = loadFromCFS("test-resources/5it3_A_7res_6.446E+08.cfs");
 			//runBBSHARKStar(confSpaces, 0.9999);
-			runBBKStar(confSpaces, 5, 0.99, null, 5, true);
+			runBBKStar(confSpaces, 5, 0.99, null, 5, TestBBKStar.Impls.SHARK);
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}
@@ -714,7 +714,7 @@ public class TestSHARKStar {
 		try {
 			ConfSpaces confSpaces = loadSSFromCFS("examples/python.KStar/3u7y_L_15res_1.326E+48.cfs");
 			runBBSHARKStar(confSpaces, 0.9999);
-			//runBBKStar(confSpaces, 5, 0.99, null, 5, true);
+			//runBBKStar(confSpaces, 5, 0.99, null, 5, TestBBKStar.Impls.SHARK);
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}
@@ -725,8 +725,9 @@ public class TestSHARKStar {
 	public void test3bua_UBerror() {
 		try {
 			ConfSpaces confSpaces = loadFromCFS("test-resources/3bua_B_10res_4.363E+11.cfs");
-			runBBSHARKStar(confSpaces, 0.9999);
-			//runBBKStar(confSpaces, 5, 0.99, null, 5, true);
+			TestBBKStar.runBBKStar(confSpaces, 5, 0.9999, null , 5, TestBBKStar.Impls.SHARK);
+			//runBBSHARKStar(confSpaces, 0.9999);
+			//runBBKStar(confSpaces, 5, 0.99, null, 5, TestBBKStar.Impls.SHARK);
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}
@@ -739,7 +740,7 @@ public class TestSHARKStar {
 			ConfSpaces confSpaces = loadFromCFS("test-resources/2rl0_A_11res_4.041E+09.cfs", false);
 			//runBBSHARKStar(confSpaces, 0.9999);
 			runBBSHARKStar(confSpaces, 0.68);
-			//runBBKStar(confSpaces, 5, 0.99, null, 5, true);
+			//runBBKStar(confSpaces, 5, 0.99, null, 5, TestBBKStar.Impls.SHARK);
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}
@@ -750,7 +751,7 @@ public class TestSHARKStar {
 		try {
 			ConfSpaces confSpaces = loadFromCFS("test-resources/2rl0_A_13res_3.218E+12.cfs");
 			runBBSHARKStar(confSpaces, 0.9999);
-			//runBBKStar(confSpaces, 5, 0.99, null, 5, true);
+			//runBBKStar(confSpaces, 5, 0.99, null, 5, TestBBKStar.Impls.SHARK);
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}
@@ -761,7 +762,7 @@ public class TestSHARKStar {
 		try {
 			ConfSpaces confSpaces = loadFromCFS("test-resources/2rf9_A_5res_7.308E+04.cfs");
 			runBBSHARKStar(confSpaces, 0.9999);
-			//runBBKStar(confSpaces, 5, 0.99, null, 5, true);
+			//runBBKStar(confSpaces, 5, 0.99, null, 5, TestBBKStar.Impls.SHARK);
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}
@@ -773,7 +774,7 @@ public class TestSHARKStar {
         try {
             ConfSpaces confSpaces = loadFromCFS("test-resources/4z80_B_11res_8.398E+11.cfs");
             runBBSHARKStar(confSpaces, 0.9999);
-            //runBBKStar(confSpaces, 5, 0.99, null, 5, true);
+            //runBBKStar(confSpaces, 5, 0.99, null, 5, TestBBKStar.Impls.SHARK);
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
@@ -1080,13 +1081,13 @@ public class TestSHARKStar {
 		boolean runkstar = false;
 		Stopwatch timer = new Stopwatch().start();
 		if(runkstar) {
-			TestBBKStar.Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1, false);
+			TestBBKStar.Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1, TestBBKStar.Impls.GRADIENT);
 			timer.stop();
 			traditionalTime = timer.getTime(2);
 			timer.reset();
 			timer.start();
 		}
-		runBBKStar(confSpaces, numSequences, epsilon, null, 1, true);
+		runBBKStar(confSpaces, numSequences, epsilon, null, 1, TestBBKStar.Impls.SHARK);
 		String BBSHARKStarTime = timer.getTime(2);
 		timer.stop();
 
@@ -1103,12 +1104,12 @@ public class TestSHARKStar {
 		final double epsilon = 0.68;
 		final int numSequences = 10;
 		Stopwatch timer = new Stopwatch().start();
-		TestBBKStar.Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1, false);
+		TestBBKStar.Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1, TestBBKStar.Impls.GRADIENT);
 		timer.stop();
 		String traditionalTime = timer.getTime(2);
 		timer.reset();
 		timer.start();
-		results = runBBKStar(confSpaces, numSequences, epsilon, null, 1, true);
+		results = runBBKStar(confSpaces, numSequences, epsilon, null, 1, TestBBKStar.Impls.SHARK);
 		String BBSHARKStarTime = timer.getTime(2);
 		timer.stop();
 
@@ -1168,7 +1169,7 @@ public class TestSHARKStar {
 	public void test4hem7resNanBug() {
 		try {
 			ConfSpaces confSpaces = loadFromCFS("examples/python.KStar/4hem_B_7res_1.131E+41.cfs");
-			TestBBKStar.Results results = runBBKStar(confSpaces, 1, 0.999999999999, null, 2, true);
+			TestBBKStar.Results results = runBBKStar(confSpaces, 1, 0.999999999999, null, 2, TestBBKStar.Impls.SHARK);
 			for(KStar.ScoredSequence seq: results.sequences)
 				System.out.println(seq);
 
@@ -1614,4 +1615,66 @@ public class TestSHARKStar {
 
 	}
 
+	@Test
+	/**
+	 * This test takes only a few seconds on the cluster
+	 */
+	public void test4wwiA(){
+		try {
+			ConfSpaces confSpaces = loadFromCFS("test-resources/4wwi_A_3res_4.547E+04.cfs");
+			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.68, null, 5, TestBBKStar.Impls.MARK);
+			for (KStar.ScoredSequence sequence : results.sequences){
+				System.out.println(String.format("%s : [%1.9e, %1.9e]",
+						sequence.sequence,
+						sequence.score.lowerBound,
+						sequence.score.upperBound
+						));
+			}
+
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
+
+	@Test
+	/**
+	 * This test takes about 5 minutes on cluster. SHARK is slightly faster than MARK there
+	 */
+	public void test2rl0A(){
+		try {
+			ConfSpaces confSpaces = loadFromCFS("test-resources/2rl0_A_11res_4.041E+09.cfs");
+			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.68, null, 5, TestBBKStar.Impls.MARK);
+			for (KStar.ScoredSequence sequence : results.sequences){
+				System.out.println(String.format("%s : [%1.9e, %1.9e]",
+						sequence.sequence,
+						sequence.score.lowerBound,
+						sequence.score.upperBound
+				));
+			}
+
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
+
+	@Test
+	/**
+	 * This test takes about 5 minutes on cluster. MARK is slightly faster than SHARK there
+	 */
+	public void test2rfeA(){
+		try {
+			ConfSpaces confSpaces = loadFromCFS("test-resources/2rfe_A_6res_2.302E+07.cfs");
+			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.68, null, 5, TestBBKStar.Impls.SHARK);
+			for (KStar.ScoredSequence sequence : results.sequences){
+				System.out.println(String.format("%s : [%1.9e, %1.9e]",
+						sequence.sequence,
+						sequence.score.lowerBound,
+						sequence.score.upperBound
+				));
+			}
+
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
 }
