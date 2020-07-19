@@ -625,7 +625,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         ));
                 throw new RuntimeException();
             }
-            bound.state.upperBound = bound.state.upperBound.add(diffUB, PartitionFunction.decimalPrecision);
+            synchronized(bound.state){
+                bound.state.upperBound = bound.state.upperBound.add(diffUB, PartitionFunction.decimalPrecision);
+            }
         }
         return corrected;
     }
@@ -685,7 +687,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 sequenceBound.updateBound();
 
                 // Early termination
-                curEps = sequenceBound.state.upperBound.subtract(sequenceBound.state.lowerBound).divide(sequenceBound.state.upperBound, RoundingMode.HALF_UP).doubleValue();
+                synchronized(sequenceBound.state) {
+                    curEps = sequenceBound.state.upperBound.subtract(sequenceBound.state.lowerBound).divide(sequenceBound.state.upperBound, RoundingMode.HALF_UP).doubleValue();
+                }
 
                 System.out.println(String.format("Epsilon: %.9f, Bounds:[%1.3e, %1.3e]",
                         //sequenceBound.getSequenceEpsilon(),
@@ -731,7 +735,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     computePartials = context.batcher.isFull();
                 }
 
-                if(computePartials ){
+                if(computePartials){
                     step = Step.Partial;
                 }else if(sequenceBound.fringeNodes.size() > 0){
                     MultiSequenceSHARKStarNode node = null;
@@ -740,6 +744,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         node = sequenceBound.fringeNodes.poll();
                         // Try to correct the node
                         foundUncorrectedNode = !correctNodeOrFalse(node, sequenceBound);
+                        //foundUncorrectedNode = true;
                         // If we corrected the node, put it back and try again
                         if(!foundUncorrectedNode){
                             sequenceBound.fringeNodes.add(node);
@@ -993,12 +998,13 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         System.out.println("Finished tasks");
         System.out.println(sequenceBound.fringeNodes.size());
         sequenceBound.updateBound();
-        System.out.println(String.format("Trtacking Epsilon: %.9f, Bounds:[%1.3e, %1.3e]",
+        curEps = sequenceBound.state.upperBound.subtract(sequenceBound.state.lowerBound).divide(sequenceBound.state.upperBound, RoundingMode.HALF_UP).doubleValue();
+        System.out.println(String.format("Tracking Epsilon: %.9f, Bounds:[%1.9e, %1.9e]",
                 curEps,
                 sequenceBound.state.lowerBound,
                 sequenceBound.state.upperBound
         ));
-        System.out.println(String.format("Epsilon: %.9f, Bounds:[%1.3e, %1.3e]",
+        System.out.println(String.format("Epsilon: %.9f, Bounds:[%1.9e, %1.9e]",
                 sequenceBound.getSequenceEpsilon(),
                 sequenceBound.getLowerBound(),
                 sequenceBound.getUpperBound()
