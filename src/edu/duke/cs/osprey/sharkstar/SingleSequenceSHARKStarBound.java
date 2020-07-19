@@ -7,6 +7,7 @@ import edu.duke.cs.osprey.confspace.SeqSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.ObjectPool;
 
@@ -261,5 +262,26 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
     public static class State{
         BigDecimal upperBound;
         BigDecimal lowerBound;
+
+        BigDecimal getUpperBound(){
+            return upperBound;
+        }
+
+        BigDecimal getLowerBound(){
+            return lowerBound;
+        }
+
+        double calcDelta() {
+            BigDecimal upperBound = getUpperBound();
+            if (MathTools.isZero(upperBound) || MathTools.isInf(upperBound)) {
+                return 1.0;
+            }
+            return new BigMath(PartitionFunction.decimalPrecision)
+                    .set(upperBound)
+                    .sub(getLowerBound())
+                    .div(upperBound)
+                    .get()
+                    .doubleValue();
+        }
     }
 }
