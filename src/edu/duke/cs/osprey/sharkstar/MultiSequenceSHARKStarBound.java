@@ -778,6 +778,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                     // Update partition function values
                                     sequenceBound.state.upperBound = sequenceBound.state.upperBound.add(result.deltaUB, PartitionFunction.decimalPrecision);
                                     sequenceBound.state.lowerBound = sequenceBound.state.lowerBound.add(result.deltaLB, PartitionFunction.decimalPrecision);
+                                    sequenceBound.state.numEnergiedConfs++;
                                 }
 
                                 synchronized (this) { // don't race the main thread
@@ -1401,8 +1402,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
 
     boolean isStable(BigDecimal stabilityThreshold, SingleSequenceSHARKStarBound seqBound) {
-        return numConfsEnergied <= 0 || stabilityThreshold == null
-                || MathTools.isGreaterThanOrEqual(seqBound.getUpperBound(), stabilityThreshold);
+        return seqBound.state.numEnergiedConfs <= 0 || stabilityThreshold == null
+                || MathTools.isGreaterThanOrEqual(seqBound.state.getUpperBound(), stabilityThreshold);
     }
 
 

@@ -262,6 +262,7 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
     public static class State{
         BigDecimal upperBound;
         BigDecimal lowerBound;
+        long numEnergiedConfs = 0;
 
         BigDecimal getUpperBound(){
             return upperBound;
