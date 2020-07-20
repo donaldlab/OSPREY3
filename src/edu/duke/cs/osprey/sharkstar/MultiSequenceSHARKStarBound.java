@@ -739,8 +739,16 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
             // How many internal nodes can we score in the time it takes to do a minimization?
             int maxInternalNodes = 1;
-            if (leafTimeAverage > 0)
-                maxInternalNodes = Math.max(maxInternalNodes, (int) Math.floor(0.1 * leafTimeAverage / internalTimeAverage));
+            //TODO: Figure out why setting the above to 1000 makes the main thread take all the resources
+            synchronized(sequenceBound){
+                double leafTimeAvg = sequenceBound.state.totalTimeEnergy / sequenceBound.state.numEnergiedConfs;
+                double internalTimeAvg = sequenceBound.state.totalTimeExpansion / sequenceBound.state.numExpansions;
+                if (leafTimeAverage > 0)
+                    maxInternalNodes = Math.min(maxInternalNodes, (int) Math.floor(0.1 * leafTimeAvg / internalTimeAvg));
+                maxInternalNodes = Math.min(maxInternalNodes,
+                        (int) (sequenceBound.fringeNodes.size() / 2*loopTasks.getParallelism()));
+                maxInternalNodes = Math.max(maxInternalNodes,1);
+            }
 
             boolean computePartials = false;
             synchronized(theBatcher) {
@@ -752,28 +760,56 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     step = Step.Partial;
             }
             synchronized(sequenceBound.fringeNodes) {
-                if(!computePartials && sequenceBound.fringeNodes.size() > 0){
+                if(!computePartials && sequenceBound.fringeNodes.size() > 0) {
                     MultiSequenceSHARKStarNode node = null;
+
+                    System.err.println(maxInternalNodes);
+
                     boolean foundUncorrectedNode = false;
-                    while(!foundUncorrectedNode){
+                    //while (!foundUncorrectedNode && internalNodes.size() < maxInternalNodes) {
+                    while (!sequenceBound.fringeNodes.isEmpty() && internalNodes.size() < maxInternalNodes) {
                         node = sequenceBound.fringeNodes.poll();
                         // Try to correct the node
                         foundUncorrectedNode = !correctNodeOrFalse(node, sequenceBound);
                         //foundUncorrectedNode = true;
                         // If we corrected the node, put it back and try again
-                        if(!foundUncorrectedNode){
+                        if (!foundUncorrectedNode) {
                             sequenceBound.fringeNodes.add(node);
+                            // If we didn't correct the node
+                        } else {
+                            // if it's a leaf
+                            if (node.getConfSearchNode().getLevel() >= fullRCs.getNumPos()) {
+                                // if we don't already have a leaf
+                                if (loosestLeaf == null) {
+                                    loosestLeaf = node;
+                                    // if we do already have the leaf, put it back later
+                                } else {
+                                    leftoverLeaves.add(node);
+                                }
+                                // if it's not a leaf, add it to the internal list
+                            } else {
+                                internalNodes.add(node);
+                            }
                         }
                     }
-                    if(node.getConfSearchNode().getLevel() >= fullRCs.getNumPos()){
-                        step = Step.Energy;
-                        loosestLeaf = node;
-                    }else{
-                        internalNodes.add(node);
+                    sequenceBound.fringeNodes.addAll(leftoverLeaves);
+                    // now, decide which step to take
+                    BigDecimal leafSum = BigDecimal.ZERO;
+                    for (int i = 0; i < internalNodes.size(); i++) {
+                        leafSum = leafSum.add(internalNodes.get(i).getErrorBound(sequenceBound.sequence), PartitionFunction.decimalPrecision);
+                    }
+
+                    if (loosestLeaf == null) {
                         step = Step.ExpandInBatches;
-                        }
+                    }else if(leafSum.compareTo(loosestLeaf.getErrorBound(sequenceBound.sequence)) > 0){
+                        step = Step.ExpandInBatches;
+                        sequenceBound.fringeNodes.add(loosestLeaf);
+                    }else{
+                        step = Step.Energy;
+                        sequenceBound.fringeNodes.addAll(internalNodes);
                     }
                 }
+            }
 
 
             // Take steps
