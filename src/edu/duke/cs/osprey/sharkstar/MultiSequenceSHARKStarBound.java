@@ -968,10 +968,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
                                     internalNode.checkDescendents(sequenceBound.sequence);
                                     if (!MathTools.isGreaterThan(internalNode.getLowerBound(sequenceBound.sequence), BigDecimal.ONE) &&
+                                            (sequenceBound.state.upperBound.compareTo(BigDecimal.ONE) < 0 ||
                                             MathTools.isGreaterThan(
                                                     MathTools.bigDivide(internalNode.getUpperBound(sequenceBound.sequence), sequenceBound.state.upperBound,
                                                             PartitionFunction.decimalPrecision),
-                                                    new BigDecimal(1 - targetEpsilon))
+                                                    new BigDecimal(1 - targetEpsilon)))
                                     ) {
                                         boundLowestBoundConfUnderNode(sequenceBound, internalNode, result.newNodes);
                                     } else {
