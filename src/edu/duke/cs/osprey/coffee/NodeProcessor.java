@@ -30,6 +30,30 @@ import java.util.stream.Stream;
 
 public class NodeProcessor implements AutoCloseable {
 
+	private static class FlushTracker {
+
+		final long flushNs = TimeUnit.MILLISECONDS.toNanos(100);
+
+		int lastStatei = -1;
+		long lastFlush = -1;
+
+		boolean stateChanged(int statei) {
+			return statei != lastStatei;
+		}
+
+		void setState(int statei) {
+			lastStatei = statei;
+		}
+
+		boolean shouldFlush() {
+			return System.nanoTime() >= lastFlush + flushNs;
+		}
+
+		void flushed() {
+			lastFlush = System.nanoTime();
+		}
+	}
+
 	private class NodeThread extends Thread {
 
 		final int id;
@@ -38,10 +62,8 @@ public class NodeProcessor implements AutoCloseable {
 		Batch seqBatch = null;
 		final List<NodeIndex.Node> nodesIncoming = new ArrayList<>();
 		final List<NodeIndex.Node> nodesOutgoing = new ArrayList<>();
-		int stateiOutgoing;
-		long lastFlush = -1;
+		final FlushTracker flushTracker = new FlushTracker();
 
-		final long flushNs = TimeUnit.MILLISECONDS.toNanos(100);
 		final int nodeBatchSize = 100;
 
 		NodeThread(int id, Directions directions) {
@@ -65,9 +87,8 @@ public class NodeProcessor implements AutoCloseable {
 
 			while (directions.isRunning()) {
 
-				// flush if we haven't done it in a while
-				long now = System.nanoTime();
-				if (now >= lastFlush + flushNs) {
+				// flush if needed
+				if (flushTracker.shouldFlush()) {
 					flush();
 				}
 
@@ -81,10 +102,10 @@ public class NodeProcessor implements AutoCloseable {
 				}
 
 				// if the state changed, flush
-				if (statei != stateiOutgoing) {
+				if (flushTracker.stateChanged(statei)) {
 					flush();
+					flushTracker.setState(statei);
 				}
-				stateiOutgoing = statei;
 
 				// get the tree for this state
 				RCs tree = directions.getTree(statei);
@@ -116,13 +137,12 @@ public class NodeProcessor implements AutoCloseable {
 			}
 
 			if (!nodesOutgoing.isEmpty()) {
-				assert (stateiOutgoing >= 0);
-				nodedb.add(stateiOutgoing, nodesOutgoing);
+				assert (flushTracker.lastStatei >= 0);
+				nodedb.add(flushTracker.lastStatei, nodesOutgoing);
 				nodesOutgoing.clear();
-				stateiOutgoing = -1;
 			}
 
-			lastFlush = System.nanoTime();
+			flushTracker.flushed();
 		}
 
 		public void waitForFinish() {
@@ -139,6 +159,9 @@ public class NodeProcessor implements AutoCloseable {
 		final int id;
 		final Directions directions;
 
+		Batch seqBatch = null;
+		FlushTracker flushTracker = new FlushTracker();
+
 		GpuThread(int id, Directions directions) {
 
 			this.id = id;
@@ -152,13 +175,28 @@ public class NodeProcessor implements AutoCloseable {
 		@Override
 		public void run() {
 
+			if (seqdb != null) {
+				seqBatch = seqdb.batch();
+			}
+
 			while (directions.isRunning()) {
+
+				// flush if we haven't done it in a while
+				if (flushTracker.shouldFlush()) {
+					flush();
+				}
 
 				// listen to directions
 				int statei = directions.getFocusedStatei();
 				if (statei < 0) {
 					ThreadTools.sleep(500, TimeUnit.MILLISECONDS);
 					continue;
+				}
+
+				// if the state changed, flush
+				if (flushTracker.stateChanged(statei)) {
+					flush();
+					flushTracker.setState(statei);
 				}
 
 				var stateInfo = stateInfos[statei];
@@ -173,7 +211,7 @@ public class NodeProcessor implements AutoCloseable {
 			}
 		}
 
-		public void waitForFinish() {
+		void waitForFinish() {
 			try {
 				join();
 			} catch (InterruptedException ex) {
@@ -181,7 +219,7 @@ public class NodeProcessor implements AutoCloseable {
 			}
 		}
 
-		private void minimize(StateInfo stateInfo, CudaConfEnergyCalculator ecalc, List<NodeInfo> nodes) {
+		void minimize(StateInfo stateInfo, CudaConfEnergyCalculator ecalc, List<NodeInfo> nodes) {
 
 			// collect timing info for the minimizations
 			Stopwatch stopwatch = new Stopwatch().start();
@@ -192,7 +230,16 @@ public class NodeProcessor implements AutoCloseable {
 				.collect(Collectors.toList());
 			ecalc.minimizeEnergies(jobs);
 
-			minimized(stateInfo, nodes, jobs, stopwatch);
+			minimized(stateInfo, nodes, jobs, stopwatch, seqBatch);
+		}
+
+		void flush() {
+
+			if (seqBatch != null) {
+				seqBatch.save();
+			}
+
+			flushTracker.flushed();
 		}
 	}
 
@@ -284,6 +331,123 @@ public class NodeProcessor implements AutoCloseable {
 		}
 	}
 
+	private class DropThread extends Thread {
+
+		final Directions directions;
+
+		final Deque<NodeIndex.Node> nodeQueue;
+		final ReentrantLock lock;
+		final Condition nodesReady;
+
+		Batch seqBatch = null;
+		FlushTracker flushTracker = new FlushTracker();
+
+		public DropThread(Directions directions) {
+
+			this.directions = directions;
+
+			nodeQueue = new ArrayDeque<>();
+			lock = new ReentrantLock(false);
+			nodesReady = lock.newCondition();
+
+			setName("NodeDrops");
+			setDaemon(true);
+			start();
+		}
+
+		@Override
+		public void run() {
+
+			if (seqdb != null) {
+				seqBatch = seqdb.batch();
+			}
+
+			while (directions.isRunning()) {
+
+				// flush if we haven't done it in a while
+				if (flushTracker.shouldFlush()) {
+					flush();
+				}
+
+				// listen to directions
+				int statei = directions.getFocusedStatei();
+				if (statei < 0) {
+					ThreadTools.sleep(500, TimeUnit.MILLISECONDS);
+					continue;
+				}
+
+				// if the state changed, flush
+				if (flushTracker.stateChanged(statei)) {
+					flush();
+					flushTracker.setState(statei);
+				}
+
+				// check the drop queue
+				try {
+					long timeoutNs = TimeUnit.MILLISECONDS.toNanos(100);
+					final ReentrantLock lock = this.lock;
+					lock.lockInterruptibly();
+					try {
+
+						// wait for nodes to drop, if any
+						while (nodeQueue.isEmpty()) {
+							if (timeoutNs <= 0L) {
+								break;
+							}
+							timeoutNs = nodesReady.awaitNanos(timeoutNs);
+						}
+
+						// drop any nodes we got
+						while (!nodeQueue.isEmpty()) {
+							var node = nodeQueue.poll();
+							seqBatch.drop(
+								stateInfos[node.statei].config.state,
+								makeSeq(node.statei, node.conf),
+								node.zSumUpper
+							);
+						}
+
+					} finally {
+						lock.unlock();
+					}
+				} catch (InterruptedException ex) {
+					throw new RuntimeException(ex);
+				}
+			}
+		}
+
+		void waitForFinish() {
+			try {
+				join();
+			} catch (InterruptedException ex) {
+				throw new RuntimeException(ex);
+			}
+		}
+
+		void addNodes(Stream<NodeIndex.Node> nodes) {
+			final ReentrantLock lock = this.lock;
+			lock.lock();
+			try {
+				nodes.forEach(node -> nodeQueue.offer(node));
+
+				// signal pollers if needed
+				if (!nodeQueue.isEmpty()) {
+					nodesReady.signal();
+				}
+
+			} finally {
+				lock.unlock();
+			}
+		}
+
+		void flush() {
+			if (seqBatch != null) {
+				seqBatch.save();
+			}
+			flushTracker.flushed();
+		}
+	}
+
 
 	public final TaskExecutor cpuTasks;
 	public final SeqDB seqdb;
@@ -298,6 +462,7 @@ public class NodeProcessor implements AutoCloseable {
 	private final List<NodeThread> nodeThreads = new ArrayList<>();
 	private final List<GpuThread> gpuThreads = new ArrayList<>();
 	private final List<MinimizationQueue> minimizationQueues = new ArrayList<>();
+	private DropThread dropThread = null;
 
 	public NodeProcessor(TaskExecutor cpuTasks, SeqDB seqdb, NodeDB nodedb, StateInfo[] stateInfos, boolean includeStaticStatic, Parallelism parallelism, Structs.Precision precision) {
 
@@ -331,6 +496,7 @@ public class NodeProcessor implements AutoCloseable {
 		for (var t : gpuThreads) {
 			t.waitForFinish();
 		}
+		dropThread.waitForFinish();
 
 		// cleanup the ecalcs
 		for (var ecalc : cpuEcalcs) {
@@ -373,6 +539,9 @@ public class NodeProcessor implements AutoCloseable {
 				gpuThreads.add(new GpuThread(streami, directions));
 			}
 		}
+
+		// start the drop thread
+		dropThread = new DropThread(directions);
 	}
 
 	public int getMinimizationQueueSize(int statei) {
@@ -436,7 +605,7 @@ public class NodeProcessor implements AutoCloseable {
 			} else {
 
 				// the score looks good, minimize it
-				minimize(nodeInfo);
+				minimize(nodeInfo, seqBatch);
 			}
 		} else {
 
@@ -445,7 +614,7 @@ public class NodeProcessor implements AutoCloseable {
 		}
 	}
 
-	private void minimize(NodeInfo nodeInfo) {
+	private void minimize(NodeInfo nodeInfo, Batch seqBatch) {
 
 		int statei = nodeInfo.node.statei;
 		var stateInfo = stateInfos[nodeInfo.node.statei];
@@ -473,14 +642,14 @@ public class NodeProcessor implements AutoCloseable {
 
 		cpuEcalcs[statei].minimizeEnergies(jobs);
 
-		minimized(stateInfo, nodeInfos, jobs, stopwatch);
+		minimized(stateInfo, nodeInfos, jobs, stopwatch, seqBatch);
 	}
 
 	private List<PosInter> makeInters(StateInfo stateInfo, int[] conf) {
 		return stateInfo.config.makeInters(conf, includeStaticStatic);
 	}
 
-	private void minimized(StateInfo stateInfo, List<NodeInfo> nodeInfos, List<ConfEnergyCalculator.MinimizationJob> jobs, Stopwatch stopwatch) {
+	private void minimized(StateInfo stateInfo, List<NodeInfo> nodeInfos, List<ConfEnergyCalculator.MinimizationJob> jobs, Stopwatch stopwatch, Batch seqBatch) {
 
 		// compute the bound energies for each conf
 		double[] bounds = nodeInfos.stream()
@@ -494,12 +663,11 @@ public class NodeProcessor implements AutoCloseable {
 
 		// update seqdb with boltzmann-weighted energies if needed
 		if (seqdb != null) {
-			var seqdbBatch = seqdb.batch();
 			for (int i=0; i<nodeInfos.size(); i++) {
 				var n = nodeInfos.get(i).node;
 				var e = jobs.get(i).energy;
 				var z = stateInfo.zmat.bcalc.calcPrecise(e);
-				seqdbBatch.addZConf(
+				seqBatch.addZConf(
 					stateInfo.config.state,
 					makeSeq(n.statei, n.conf),
 					z,
@@ -507,7 +675,6 @@ public class NodeProcessor implements AutoCloseable {
 					new ConfSearch.EnergiedConf(n.conf, bounds[i], e)
 				);
 			}
-			seqdbBatch.save();
 		}
 
 		// update node performance
@@ -629,15 +796,8 @@ public class NodeProcessor implements AutoCloseable {
 		// NOTE: this is called on the NodeDB thread!
 
 		if (seqdb != null) {
-			var batch = seqdb.batch();
-			nodes.forEach(node ->
-				batch.drop(
-					stateInfos[node.statei].config.state,
-					makeSeq(node.statei, node.conf),
-					node.zSumUpper
-				)
-			);
-			batch.save();
+			// move the nodes to the drop thread
+			dropThread.addNodes(nodes);
 		}
 	}
 }

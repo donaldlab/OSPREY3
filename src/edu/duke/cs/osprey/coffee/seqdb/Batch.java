@@ -21,8 +21,6 @@ public class Batch {
 	final Map<Sequence,SeqInfo> sequencedSums = new HashMap<>();
 	final Map<Integer,StateZ> unsequencedSums = new HashMap<>();
 
-	private boolean isEmpty = true;
-
 	Batch(SeqDB seqdb) {
 		this.seqdb = seqdb;
 	}
@@ -55,8 +53,6 @@ public class Batch {
 			f.accept(statez);
 			unsequencedSums.put(state.unsequencedIndex, statez);
 		}
-
-		isEmpty = false;
 	}
 
 	public void addZConf(MultiStateConfSpace.State state, Sequence seq, BigDecimal zConf, BigExp zSumUpper, ConfSearch.EnergiedConf econf) {
@@ -129,13 +125,13 @@ public class Batch {
 	}
 
 	public boolean isEmpty() {
-		return isEmpty;
+		return sequencedSums.isEmpty() && unsequencedSums.isEmpty();
 	}
 
 	public void save() {
 
 		// short circuit
-		if (isEmpty) {
+		if (isEmpty()) {
 			return;
 		}
 

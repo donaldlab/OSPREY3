@@ -12,8 +12,6 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 
-import static edu.duke.cs.osprey.tools.Log.log;
-
 
 public class Triple implements Tuple {
 
@@ -74,8 +72,9 @@ public class Triple implements Tuple {
 			return false;
 		}
 
-		z.div(divisor);
-		triples.set(posi1, confi1, posi2, confi2, posi3, confi3, z);
+		var correction = new BigExp(z);
+		correction.div(divisor);
+		triples.set(posi1, confi1, posi2, confi2, posi3, confi3, correction);
 		return true;
 	}
 

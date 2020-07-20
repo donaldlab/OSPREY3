@@ -61,8 +61,8 @@ public class BenchmarkCoffee {
 		var bounds = Bounds.Tighter;
 		//var precision = Structs.Precision.Float32;
 		var precision = Structs.Precision.Float64;
-		Double triples = null;
-		//Double triples = 1.0;
+		//Double triples = null;
+		Double triples = 1.0;
 
 		double gWidthMax = 1.0;
 
@@ -98,6 +98,11 @@ public class BenchmarkCoffee {
 		//SLURM-0: 	G [-1382.295,-1381.329]   width 0.965748 of 0.000000   confs     21324   avgap 4.89   nodedb   0.9%   rr Infinity   time 17.32 s   minq: 2765
 		//              COFFEE   emat   21840 ms ( 21.84 s)   pfunc   17324 ms ( 17.32 s)   G [-1382.2947,-1381.3290]  w =  0.9657
 
+		// cpus = 48*3, gpus = 4*3
+		//SLURM-0: 	G [-1382.278,-1381.329]   width 0.948676 of 0.000000   confs     19083   avgap 4.99   nodedb   0.9%   rr Infinity   time 16.13 s   minq: 2880
+		//              COFFEE   emat   20366 ms ( 20.37 s)   pfunc   16134 ms ( 16.13 s)   G [-1382.2090,-1381.3293]  w =  0.8797
+		// not much speedup... probably need a bigger design problem
+
 		// cpus = 48, gpus = 4, precision = 32
 		//COFFEE-0: 	G [-1382.259,-1381.276]   width 0.982609 of 0.000000   confs     32935   avgap 4.50   nodedb  22.6%   rr Infinity   time 27.09 s   minq: 2880
 		//              COFFEE   emat    9074 ms (  9.07 s)   pfunc   27112 ms ( 27.11 s)   G [-1382.2589,-1381.2763]  w =  0.9826
@@ -108,6 +113,15 @@ public class BenchmarkCoffee {
 		// cpus = 48, gpus = 4, triples <= 1.0
 		//COFFEE-0: 	G [-1382.199,-1381.315]   width 0.883893 of 0.000000   confs     10349   avgap 3.11   nodedb   4.6%   rr Infinity   time 10.03 s   minq: 2880
 		//              COFFEE   emat   24602 ms ( 24.60 s)   pfunc   10032 ms ( 10.03 s)   G [-1382.1986,-1381.3147]  w =  0.8839
+
+		// cpus = 48*2, gpus = 4*2, triples <= 1.0
+		//SLURM-0: 	G [-1382.162,-1381.316]   width 0.846198 of 0.000000   confs      5440   avgap 2.98   nodedb   0.6%   rr Infinity   time 7.05 s   minq: 2880
+		//              COFFEE   emat   25939 ms ( 25.94 s)   pfunc    7053 ms (  7.05 s)   G [-1382.1619,-1381.3160]  w =  0.8459
+		// I'm surprised we got any speed up here on such a small problem. Nice!
+
+		// cpus = 48*3, gpus = 4*3, triples <= 1.0
+		//SLURM-0: 	G [-1382.285,-1381.308]   width 0.976752 of 0.000000   confs      7059   avgap 3.14   nodedb   0.4%   rr Infinity   time 7.21 s   minq: 2852
+		//              COFFEE   emat   27266 ms ( 27.27 s)   pfunc    7217 ms (  7.22 s)   G [-1382.2762,-1381.3082]  w =  0.9680
 	}
 
 	private static void affinity_6ov7_1mut6flex() {

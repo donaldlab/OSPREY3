@@ -44,6 +44,9 @@ public class TriplewiseBounder implements Bounder {
 					int posi3 = index.definedPos[i3];
 					int confi3 = index.definedRCs[i3];
 
+					// TODO: accelerate this by pre-calculating all the posi3,confi3 values for p1c1p2c2 pairs
+					//  then intersect against the defined positions in the conf
+					// TODO: could also optimize the index calculation for the triples
 					var triple = zmat.triple(posi1, confi1, posi2, confi2, posi3, confi3);
 					if (triple != null) {
 						z.mult(triple);
