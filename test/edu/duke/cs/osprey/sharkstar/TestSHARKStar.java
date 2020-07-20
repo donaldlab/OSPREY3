@@ -1643,7 +1643,7 @@ public class TestSHARKStar {
 	public void test2rl0A(){
 		try {
 			ConfSpaces confSpaces = loadFromCFS("test-resources/2rl0_A_11res_4.041E+09.cfs");
-			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.68, null, 5, TestBBKStar.Impls.MARK);
+			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.68, null, 5, TestBBKStar.Impls.SHARK);
 			for (KStar.ScoredSequence sequence : results.sequences){
 				System.out.println(String.format("%s : [%1.9e, %1.9e]",
 						sequence.sequence,

@@ -13,6 +13,7 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.BatchCorrectionMinimizer;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.ResidueForcefieldBreakdown;
 import edu.duke.cs.osprey.gmec.ConfAnalyzer;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
@@ -99,6 +100,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     EnergyMatrix rigidEmat;
     UpdatingEnergyMatrix correctionMatrix;
     ConfEnergyCalculator minimizingEcalc;
+    BatchCorrectionMinimizer theBatcher;
 
     private SHARKStarEnsembleAnalyzer ensembleAnalyzer;
     private Stopwatch stopwatch = new Stopwatch().start();
@@ -202,10 +204,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             /** These scoreres should match the scorers in the SHARKStarNode root - they perform the same calculations**/
             context.upperBoundScorer = nhscorerFactory.make(rigidEmat); //this is used for upper bounds, so we want it rigid
             context.ecalc = minimizingConfEcalc;
-            context.batcher = new BatchCorrectionMinimizer(minimizingConfEcalc, correctionMatrix, minimizingEmat);
 
             return context;
         });
+        this.theBatcher = new BatchCorrectionMinimizer(minimizingConfEcalc, correctionMatrix, minimizingEmat);
 
         progress = new MARKStarProgress(fullRCs.getNumPos());
         //confAnalyzer = new ConfAnalyzer(minimizingConfEcalc, minimizingEmat);
@@ -735,17 +737,17 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             if (leafTimeAverage > 0)
                 maxInternalNodes = Math.max(maxInternalNodes, (int) Math.floor(0.1 * leafTimeAverage / internalTimeAverage));
 
+            boolean computePartials = false;
+            synchronized(theBatcher) {
                 //Figure out what step to make and get nodes
-            synchronized(sequenceBound.fringeNodes) {
-                boolean computePartials = false;
-                try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
-                    ScoreContext context = checkout.get();
-                    computePartials = context.batcher.isFull();
-                }
+                computePartials = theBatcher.canBatch();
 
-                if(computePartials){
+                if(computePartials)
+                    theBatcher.makeBatch();
                     step = Step.Partial;
-                }else if(sequenceBound.fringeNodes.size() > 0){
+            }
+            synchronized(sequenceBound.fringeNodes) {
+                if(!computePartials && sequenceBound.fringeNodes.size() > 0){
                     MultiSequenceSHARKStarNode node = null;
                     boolean foundUncorrectedNode = false;
                     while(!foundUncorrectedNode){
@@ -968,10 +970,45 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 }
                 case Partial: {
                     System.out.println("Computing partial mins");
-                    try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
-                        ScoreContext context = checkout.get();
-                        context.batcher.submit();
-                    }
+                    BatchCorrectionMinimizer.Batch batch = theBatcher.acquireBatch();
+                    loopTasks.submit(
+                            () -> {
+
+                                // calculate all the fragment energies
+                                Map<RCTuple, EnergyCalculator.EnergiedParametricMolecule> confs = new HashMap<>();
+                                for (RCTuple frag : batch.fragments) {
+
+                                    double energy;
+
+                                    // are there any RCs are from two different backbone states that can't connect?
+                                    if (theBatcher.isParametricallyIncompatible(frag)) {
+
+                                        // yup, give this frag an infinite energy so we never choose it
+                                        energy = Double.POSITIVE_INFINITY;
+
+                                    } else {
+
+                                        // nope, calculate the usual fragment energy
+                                        confs.put(frag, theBatcher.confEcalc.calcEnergy(frag));
+                                    }
+                                }
+                                return confs;
+                            },
+                            (Map<RCTuple, EnergyCalculator.EnergiedParametricMolecule> confs) -> {
+                                // update the energy matrix
+                                for(RCTuple tuple : confs.keySet()) {
+                                    double lowerbound = theBatcher.minimizingEnergyMatrix.getInternalEnergy(tuple);
+                                    double tupleEnergy = confs.get(tuple).energy;
+                                    if (tupleEnergy - lowerbound > 0) {
+                                        double correction = tupleEnergy - lowerbound;
+                                        correctionMatrix.setHigherOrder(tuple, correction);
+                                    } else
+                                        System.err.println("Negative correction for " + tuple.stringListing());
+
+
+                                }
+                            }
+                    );
                     break;
                 }
                 case None: {
@@ -1052,7 +1089,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
             if(batcher){
                 energyMatrixCorrector.scheduleEnergyCorrection(analysis, conf,
-                        context.batcher);
+                        theBatcher);
             }else{
                 //computeEnergyCorrectionWithoutBatcher(analysis, conf, context.ecalc);
             }
@@ -1970,7 +2007,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         Stopwatch correctionTimer = new Stopwatch().start();
                         if(batcher){
                             energyMatrixCorrector.scheduleEnergyCorrection(analysis, conf,
-                                context.batcher);
+                                theBatcher);
                         }else{
                             computeEnergyCorrectionWithoutBatcher(analysis, conf, context.ecalc);
                         }

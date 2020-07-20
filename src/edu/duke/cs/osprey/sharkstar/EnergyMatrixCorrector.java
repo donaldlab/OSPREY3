@@ -63,7 +63,8 @@ public class EnergyMatrixCorrector {
                     3, scheduledMinimizations);
         for (RCTuple scheduledTuple : scheduledMinimizations) {
             synchronized (batcher) {
-            batcher.getBatch().addTuple(scheduledTuple);
+                batcher.addTuple(scheduledTuple);
+            //batcher.getBatch().addTuple(scheduledTuple);
             //batcher.submitIfFull();
             }
         }

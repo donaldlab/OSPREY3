@@ -5,35 +5,77 @@ import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.TupE;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
+import edu.duke.cs.osprey.parallelism.TaskExecutor;
+import org.apache.commons.math3.analysis.function.Cos;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static edu.duke.cs.osprey.tools.Log.log;
 
 public class BatchCorrectionMinimizer {
 
-    private final ConfEnergyCalculator confEcalc;
+    public final ConfEnergyCalculator confEcalc;
     public final int CostThreshold = 100;
     public final int[] costs = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
     private Batch batch = null;
     private UpdatingEnergyMatrix.TupleTrie submittedConfs;
     private UpdatingEnergyMatrix correctionMatrix;
-    private EnergyMatrix minimizingEnergyMatrix;
+    public EnergyMatrix minimizingEnergyMatrix;
+    private final Queue<RCTuple> waitingQueue;
+    private int waitingCost = 0;
+
     public BatchCorrectionMinimizer(ConfEnergyCalculator confEcalc, UpdatingEnergyMatrix correctionMatrix,
                                     EnergyMatrix minimizingEnergyMatrix) {
         this.confEcalc = confEcalc;
         this.correctionMatrix = correctionMatrix;
         this.minimizingEnergyMatrix = minimizingEnergyMatrix;
-        submittedConfs = new UpdatingEnergyMatrix.TupleTrie(confEcalc.confSpace.positions);
+        this.submittedConfs = new UpdatingEnergyMatrix.TupleTrie(confEcalc.confSpace.positions);
+        this.waitingQueue = new LinkedList<>();
+    }
+
+    public void addTuple(RCTuple tuple) {
+        synchronized (this) {
+            if (submittedConfs.contains(tuple))
+                return;
+            submittedConfs.insert(new TupE(tuple, 0));
+            int tupleSize = tuple.size();
+            if(costs[tupleSize] < 0)
+                costs[tupleSize] = confEcalc.makeFragInters(tuple).size();
+            waitingQueue.add(tuple);
+            waitingCost += costs[tupleSize];
+        }
     }
 
     public boolean isFull(){
         return batch!= null && batch.cost >= CostThreshold;
     }
 
+    public boolean canBatch(){
+        return waitingCost >= CostThreshold;
+    }
+
+    public void makeBatch(){
+        this.batch = new Batch();
+        int batchCost = 0;
+        while(batchCost < CostThreshold){
+            synchronized(this){
+                RCTuple frag = waitingQueue.poll();
+                batchCost += costs[frag.size()];
+                waitingCost -= costs[frag.size()];
+                this.batch.fragments.add(frag);
+            }
+        }
+    }
+
+    public Batch acquireBatch(){
+        synchronized(this){
+            Batch toReturn = this.batch;
+            this.batch = null;
+            return toReturn;
+        }
+    }
+
+    /*
     public Batch getBatch() {
             if (batch == null) {
                 batch = new Batch();
@@ -41,14 +83,16 @@ public class BatchCorrectionMinimizer {
             return batch;
         }
 
-    public void submitIfFull() {
+     */
+
+    public void submitIfFull(TaskExecutor taskExecutor) {
             if ( isFull() )
-                submit();
+                submit(taskExecutor);
         }
 
-    public void submit() {
+    public void submit(TaskExecutor taskExecutor) {
             if (batch != null) {
-                batch.submitTask();
+                batch.submitTask(taskExecutor);
                 batch = null;
             }
         submittedConfs.clear();
@@ -56,7 +100,7 @@ public class BatchCorrectionMinimizer {
 
     public class Batch {
 
-        List<RCTuple> fragments = new ArrayList<>();
+        public List<RCTuple> fragments = new ArrayList<>();
         int cost = 0;
 
         public void addTuple(RCTuple tuple) {
@@ -72,8 +116,8 @@ public class BatchCorrectionMinimizer {
             cost += costs[tupleSize];
         }
 
-        void submitTask() {
-            confEcalc.tasks.submit(
+        void submitTask(TaskExecutor taskExecutor) {
+            taskExecutor.submit(
                     () -> {
 
                         // calculate all the fragment energies
@@ -116,7 +160,7 @@ public class BatchCorrectionMinimizer {
 
 
 
-    protected boolean isParametricallyIncompatible(RCTuple tuple) {
+    public boolean isParametricallyIncompatible(RCTuple tuple) {
         for (int i1=0; i1<tuple.size(); i1++) {
             SimpleConfSpace.ResidueConf rc1 = getRC(tuple, i1);
             for (int i2=0; i2<i1; i2++) {
