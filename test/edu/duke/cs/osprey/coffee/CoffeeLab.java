@@ -38,7 +38,7 @@ public class CoffeeLab {
 			.build();
 
 		//var director = new AffinityDirector(confSpace, "complex", "design", "target", 5);
-		var director = new SequenceDirector(confSpace, confSpace.seqSpace.makeWildTypeSequence(), 0.1);
+		var director = new SequenceDirector(confSpace, confSpace.seqSpace.makeWildTypeSequence(), 0.1, true);
 		coffee.run(director);
 
 		// show the results

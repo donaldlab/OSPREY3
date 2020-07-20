@@ -14,14 +14,16 @@ public class SequenceDirector implements Coffee.Director {
 	public final MultiStateConfSpace confSpace;
 	public final Sequence seq;
 	public final double gWidthMax;
+	public final boolean reportProgress;
 
 	private final DoubleBounds[] freeEnergies;
 
-	public SequenceDirector(MultiStateConfSpace confSpace, Sequence seq, double gWidthMax) {
+	public SequenceDirector(MultiStateConfSpace confSpace, Sequence seq, double gWidthMax, boolean reportProgress) {
 
 		this.confSpace = confSpace;
 		this.seq = seq;
 		this.gWidthMax = gWidthMax;
+		this.reportProgress = reportProgress;
 
 		freeEnergies = new DoubleBounds[confSpace.states.size()];
 	}
@@ -48,6 +50,7 @@ public class SequenceDirector implements Coffee.Director {
 			// calc the pfunc
 			var pfunc = new PfuncDirector.Builder(confSpace, state, seq)
 				.setGWidthMax(gWidthMax)
+				.setReportProgress(reportProgress)
 				.build();
 			freeEnergies[state.index] = pfunc.calc(directions, processor);
 

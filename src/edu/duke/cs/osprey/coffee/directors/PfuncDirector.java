@@ -31,6 +31,7 @@ public class PfuncDirector implements Coffee.Director {
 
 		private double gWidthMax = 1.0;
 		private Timing timing = Timing.Efficient;
+		private boolean reportProgress = false;
 		private int ensembleSize = 0;
 		private File ensembleFile = null;
 		private long ensembleUpdate = 30;
@@ -57,6 +58,11 @@ public class PfuncDirector implements Coffee.Director {
 			return this;
 		}
 
+		public Builder setReportProgress(boolean val) {
+			reportProgress = val;
+			return this;
+		}
+
 		/**
 		 * Tracks the K lowest-energy conformations and periodically writes out an ensemble PDB file.
 		 */
@@ -76,7 +82,7 @@ public class PfuncDirector implements Coffee.Director {
 		}
 
 		public PfuncDirector build() {
-			return new PfuncDirector(confSpace, state, seq, gWidthMax, timing, ensembleSize, ensembleFile, ensembleUpdate, ensembleUpdateUnit);
+			return new PfuncDirector(confSpace, state, seq, gWidthMax, timing, reportProgress, ensembleSize, ensembleFile, ensembleUpdate, ensembleUpdateUnit);
 		}
 	}
 
@@ -112,6 +118,7 @@ public class PfuncDirector implements Coffee.Director {
 	public final Sequence seq;
 	public final double gWidthMax;
 	public final Timing timing;
+	public final boolean reportProgress;
 	public final int ensembleSize;
 	public final File ensembleFile;
 	public final long ensembleUpdate;
@@ -123,12 +130,13 @@ public class PfuncDirector implements Coffee.Director {
 
 	private DoubleBounds freeEnergy;
 
-	private PfuncDirector(MultiStateConfSpace confSpace, MultiStateConfSpace.State state, Sequence seq, double gWidthMax, Timing timing, int ensembleSize, File ensembleFile, long ensembleUpdate, TimeUnit ensembleUpdateUnit) {
+	private PfuncDirector(MultiStateConfSpace confSpace, MultiStateConfSpace.State state, Sequence seq, double gWidthMax, Timing timing, boolean reportProgress, int ensembleSize, File ensembleFile, long ensembleUpdate, TimeUnit ensembleUpdateUnit) {
 		this.confSpace = confSpace;
 		this.state = state;
 		this.seq = seq;
 		this.gWidthMax = gWidthMax;
 		this.timing = timing;
+		this.reportProgress = reportProgress;
 		this.ensembleSize = ensembleSize;
 		this.ensembleFile = ensembleFile;
 		this.ensembleUpdate = ensembleUpdate;
@@ -227,29 +235,23 @@ public class PfuncDirector implements Coffee.Director {
 				(proof of the last step omitted, it's not the hard step in this proof)
 			*/
 
-			// what fraction of the uncertainty is not dropped, and hence still reducible?
-			// (this should asymptotically approach zero)
-			var reducibleRatio = processor.seqdb.bigMath()
-				.set(statez.zSumBounds.upper)
-				.sub(statez.zSumBounds.lower)
-				.div(statez.zSumDropped)
-				.get()
-				.doubleValue()
-				- 1.0;
-
-			// report progress
-			directions.member.log("\tG %s   width %.6f of %.6f   confs %9d   avgap %.2f   nodedb %5.1f%%   rr %.6f   time %s   minq: %d",
-				g.toString(3), gWidth, gWidthMin,
-				processor.stateInfos[state.index].energyBoundStats.count(), // TODO: these are only for the local node
-				processor.stateInfos[state.index].energyBoundStats.meanGap(), // TODO: these are only for the local node
-				processor.nodedb.usage()*100f,
-				reducibleRatio,
-				stopwatch.getTime(2),
-				processor.getMinimizationQueueSize(state.index) // TODO: these are only for the local node
-			);
-			// TODO: show node processing speeds?
-			if (showBoundStats) {
-				directions.member.log("%s", processor.stateInfos[state.index].energyBoundStats.toString());
+			// report progress if needed
+			if (reportProgress) {
+				directions.member.log("\tG %s   width %.6f of %.6f   nodedb %5.1f%%   time %s",
+					g.toString(3), gWidth, gWidthMin,
+					processor.nodedb.usage()*100f,
+					stopwatch.getTime(2)
+				);
+				/* TODO: show node processing statistics? eg:
+					processor.stateInfos[state.index].energyBoundStats.count()
+					processor.stateInfos[state.index].energyBoundStats.meanGap()
+					but these are only for the local cluster member
+					in general, we'd need to aggregate over all the cluster members
+					maybe using some kind of statistics broadcast mechanism
+				*/
+				if (showBoundStats) {
+					directions.member.log("%s", processor.stateInfos[state.index].energyBoundStats.toString());
+				}
 			}
 
 			// should we save an ensemble now?

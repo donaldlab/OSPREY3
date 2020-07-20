@@ -274,7 +274,7 @@ public class TestCoffee {
 			Sequence seq = seqFunc.apply(coffee.confSpace.seqSpace);
 
 			// run COFFEE
-			var director = new SequenceDirector(coffee.confSpace, seq, precision);
+			var director = new SequenceDirector(coffee.confSpace, seq, precision, true);
 			coffee.run(director);
 
 			// check the free energies
@@ -296,7 +296,7 @@ public class TestCoffee {
 			Sequence seq = seqFunc.apply(coffee.confSpace.seqSpace);
 
 			// run COFFEE
-			var director = new SequenceDirector(coffee.confSpace, seq, precision);
+			var director = new SequenceDirector(coffee.confSpace, seq, precision, true);
 			coffee.run(director);
 
 			// check the free energies

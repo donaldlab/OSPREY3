@@ -124,7 +124,12 @@ public class NodeProcessor implements AutoCloseable {
 				// got some nodes! process them!
 				long nodeNs = System.nanoTime() - startNs;
 				for (var node : nodesIncoming) {
+
 					process(new NodeInfo(node, tree, nodeNs/nodesIncoming.size()), seqBatch, nodesOutgoing);
+
+					if (flushTracker.shouldFlush()) {
+						flush();
+					}
 				}
 				nodesIncoming.clear();
 			}
