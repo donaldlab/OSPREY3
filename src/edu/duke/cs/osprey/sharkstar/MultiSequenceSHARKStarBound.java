@@ -100,7 +100,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     EnergyMatrix rigidEmat;
     UpdatingEnergyMatrix correctionMatrix;
     ConfEnergyCalculator minimizingEcalc;
-    BatchCorrectionMinimizer theBatcher;
+    final BatchCorrectionMinimizer theBatcher;
 
     private SHARKStarEnsembleAnalyzer ensembleAnalyzer;
     private Stopwatch stopwatch = new Stopwatch().start();
@@ -123,6 +123,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     private double leafTimeSum = 0;
     private double internalTimeSum = 0;
     private int numLeavesScored = 0;
+    private MultiSequenceState state;
 
 
     private MultiSequenceSHARKStarBound precomputedPfunc;
@@ -169,6 +170,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         this.fullRCs = rcs;
         this.pruner = null;
         this.correctionMatrix = new UpdatingEnergyMatrix(confSpace, minimizingEmat);
+
+        this.state = new MultiSequenceState();
 
         confIndex = new ConfIndex(rcs.getNumPos());
         Node rootConfNode = new Node(confSpace.positions.size(), 0, new MathTools.DoubleBounds());
@@ -653,6 +656,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         List <MultiSequenceSHARKStarNode> newNodes;
         BigDecimal deltaLB;
         BigDecimal deltaUB;
+        double timeS = 0;
+        int numExpanded = 0;
     }
 
     public void computeForSequenceParallel(int maxNumConfs, SingleSequenceSHARKStarBound sequenceBound){
@@ -785,6 +790,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                     sequenceBound.state.upperBound = sequenceBound.state.upperBound.add(result.deltaUB, PartitionFunction.decimalPrecision);
                                     sequenceBound.state.lowerBound = sequenceBound.state.lowerBound.add(result.deltaLB, PartitionFunction.decimalPrecision);
                                     sequenceBound.state.numEnergiedConfs++;
+                                    sequenceBound.state.totalTimeEnergy+=result.timeS;
+                                    sequenceBound.state.numRoundsEnergy++;
                                 }
 
                                 synchronized (this) { // don't race the main thread
@@ -794,6 +801,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                     numConfsEnergied++;
                                     this.numConfsEnergiedThisLoop++;
                                     minList.set(result.conf.getAssignments().length - 1, minList.get(result.conf.getAssignments().length - 1) + 1);
+
+                                    this.state.numEnergiedConfs++;
+                                    this.state.totalTimeEnergy+=result.timeS;
+                                    this.state.numRoundsEnergy++;
+
                                     //recordReduction(oldConfLower, oldConfUpper, energy);
                                     //printMinimizationOutput(node, newConfLower, oldgscore, bound);
                                     sequenceBound.addFinishedNode(result.minimizedNode);
@@ -943,6 +955,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                 result.deltaUB = endUB.subtract(startUB, PartitionFunction.decimalPrecision);
 
                                 internalTime.stop();
+                                result.timeS = internalTime.getTimeS();
+                                result.numExpanded = toExpand.size();
                                 return result;
                             },
                             (result) -> {
@@ -950,9 +964,15 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                     // Update partition function values
                                     sequenceBound.state.upperBound = sequenceBound.state.upperBound.add(result.deltaUB, PartitionFunction.decimalPrecision);
                                     sequenceBound.state.lowerBound = sequenceBound.state.lowerBound.add(result.deltaLB, PartitionFunction.decimalPrecision);
+                                    sequenceBound.state.numExpansions += result.numExpanded;
+                                    sequenceBound.state.totalTimeExpansion += result.timeS;
+                                    sequenceBound.state.numRoundsExpand++;
                                 }
 
                                 synchronized (this) {
+                                    this.state.numExpansions += result.numExpanded;
+                                    this.state.totalTimeExpansion += result.timeS;
+                                    this.state.numRoundsExpand++;
                                     System.out.println("Got " + result.newNodes.size() +" internal nodes.");
                                     internalTimeSum = internalTime.getTimeS();
                                     internalTimeAverage = internalTimeSum / Math.max(1, toExpand.size());
@@ -973,6 +993,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     BatchCorrectionMinimizer.Batch batch = theBatcher.acquireBatch();
                     loopTasks.submit(
                             () -> {
+                                PartialMinimizationResult result = new PartialMinimizationResult();
+                                Stopwatch partialMinTime = new Stopwatch().start();
 
                                 // calculate all the fragment energies
                                 Map<RCTuple, EnergyCalculator.EnergiedParametricMolecule> confs = new HashMap<>();
@@ -992,20 +1014,35 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                         confs.put(frag, theBatcher.confEcalc.calcEnergy(frag));
                                     }
                                 }
-                                return confs;
+                                partialMinTime.stop();
+
+                                result.confs = confs;
+                                result.numPartials = confs.size();
+                                result.timeS = partialMinTime.getTimeS();
+                                return result;
                             },
-                            (Map<RCTuple, EnergyCalculator.EnergiedParametricMolecule> confs) -> {
+                            (PartialMinimizationResult result) -> {
                                 // update the energy matrix
-                                for(RCTuple tuple : confs.keySet()) {
+                                for(RCTuple tuple : result.confs.keySet()) {
                                     double lowerbound = theBatcher.minimizingEnergyMatrix.getInternalEnergy(tuple);
-                                    double tupleEnergy = confs.get(tuple).energy;
+                                    double tupleEnergy = result.confs.get(tuple).energy;
                                     if (tupleEnergy - lowerbound > 0) {
                                         double correction = tupleEnergy - lowerbound;
                                         correctionMatrix.setHigherOrder(tuple, correction);
                                     } else
                                         System.err.println("Negative correction for " + tuple.stringListing());
+                                }
 
-
+                                // Record stats
+                                synchronized(sequenceBound.state){
+                                    sequenceBound.state.numPartialMinimizations += result.numPartials;
+                                    sequenceBound.state.totalTimePartialMin += result.timeS;
+                                    sequenceBound.state.numRoundsPartialMin++;
+                                }
+                                synchronized(this){
+                                    this.state.numPartialMinimizations += result.numPartials;
+                                    this.state.totalTimePartialMin += result.timeS;
+                                    this.state.numRoundsPartialMin++;
                                 }
                             }
                     );
@@ -1060,6 +1097,22 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 sequenceBound.finishedNodes.size(),
                 sequenceBound.fringeNodes.size()));
 
+        System.out.println(String.format("--- Minimizations --- #: %d, Avg time: %1.3e s, Avg time per round: %1.3e s",
+                this.state.numEnergiedConfs,
+                this.state.totalTimeEnergy / this.state.numEnergiedConfs,
+                this.state.totalTimeEnergy / this.state.numRoundsEnergy
+                ));
+        System.out.println(String.format("--- Expansions --- #: %d, Avg time: %1.3e s, Avg time per round: %1.3e s",
+                this.state.numExpansions,
+                this.state.totalTimeExpansion / this.state.numExpansions,
+                this.state.totalTimeExpansion / this.state.numRoundsExpand
+        ));
+        System.out.println(String.format("--- Partials --- #: %d, Avg time: %1.3e s, Avg time per round: %1.3e s",
+                this.state.numPartialMinimizations,
+                this.state.totalTimePartialMin / this.state.numPartialMinimizations,
+                this.state.totalTimePartialMin / this.state.numRoundsPartialMin
+        ));
+
     }
 
     private static class MinimizationResult{
@@ -1070,6 +1123,12 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         double timeS; // Minimization time in seconds
         BigDecimal deltaLB; // Lower bound change
         BigDecimal deltaUB; // Upper bound change
+    }
+
+    private static class PartialMinimizationResult{
+        Map<RCTuple, EnergyCalculator.EnergiedParametricMolecule> confs;
+        int numPartials;
+        double timeS;
     }
 
     private MinimizationResult minimizeNode(MultiSequenceSHARKStarNode node, Sequence sequence) {
@@ -2245,6 +2304,20 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             else
                 System.err.println("Negative correction for "+tuple.stringListing());
         });
+    }
+
+    static class MultiSequenceState{
+        long numEnergiedConfs = 0; // number of conformations fully minimized
+        long numExpansions = 0; // number of internal nodes expanded
+        long numPartialMinimizations; // number of partially minimized tuples
+
+        double totalTimeEnergy = 0; // total time spent "energy-ing" conformations
+        double totalTimeExpansion = 0; // total time spent expanding internal nodes
+        double totalTimePartialMin = 0; // total time spent partially minimizing tuples
+
+        long numRoundsEnergy = 0; // number of rounds of full minimization
+        long numRoundsExpand = 0; // number of rounds of expansion
+        long numRoundsPartialMin = 0; // number of rounds of partial minimization
     }
 
 }

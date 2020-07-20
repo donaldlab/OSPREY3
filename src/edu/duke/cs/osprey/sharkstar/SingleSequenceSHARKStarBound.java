@@ -260,9 +260,20 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
     }
 
     public static class State{
-        BigDecimal upperBound;
-        BigDecimal lowerBound;
-        long numEnergiedConfs = 0;
+        BigDecimal upperBound; // pfunc upper bound
+        BigDecimal lowerBound; // pfunc lower bound
+
+        long numEnergiedConfs = 0; // number of conformations fully minimized
+        long numExpansions = 0; // number of internal nodes expanded
+        long numPartialMinimizations; // number of partially minimized tuples
+
+        double totalTimeEnergy = 0; // total time spent "energy-ing" conformations
+        double totalTimeExpansion = 0; // total time spent expanding internal nodes
+        double totalTimePartialMin = 0; // total time spent partially minimizing tuples
+
+        long numRoundsEnergy = 0; // number of rounds of full minimization
+        long numRoundsExpand = 0; // number of rounds of expansion
+        long numRoundsPartialMin = 0; // number of rounds of partial minimization
 
         BigDecimal getUpperBound(){
             return upperBound;
