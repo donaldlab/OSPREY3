@@ -1677,4 +1677,25 @@ public class TestSHARKStar {
 			e.printStackTrace();
 		}
 	}
+
+	@Test
+	/**
+	 * This test takes about 5 minutes on cluster. MARK is significantly faster than SHARK there
+	 */
+	public void test4wyqE(){
+		try {
+			ConfSpaces confSpaces = loadFromCFS("test-resources/4wyq_E_6res_2.819E+08.cfs");
+			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.68, null, 5, TestBBKStar.Impls.MARK);
+			for (KStar.ScoredSequence sequence : results.sequences){
+				System.out.println(String.format("%s : [%1.9e, %1.9e]",
+						sequence.sequence,
+						sequence.score.lowerBound,
+						sequence.score.upperBound
+				));
+			}
+
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
 }
