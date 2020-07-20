@@ -444,16 +444,16 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
 
 
             public void populateCorrections (RCTuple query, List<TupE> output) {
-                debugPrint("Matching corrections for "+query.stringListing());
+                //debugPrint("Matching corrections for "+query.stringListing());
                 populateCorrections(query, output, 0);
             }
 
             private void populateCorrections(RCTuple query, List<TupE> output, int tupleIndex) {
-                debugPrint("Currently at "+this);
+                //debugPrint("Currently at "+this);
                 if(corrections.size() > 0)
                 {
                     output.addAll(corrections);
-                    debugPrint("Adding corrections from "+this);
+                    //debugPrint("Adding corrections from "+this);
                     if(debug)
                     for(TupE correction:corrections) {
                         System.out.println(correction);
