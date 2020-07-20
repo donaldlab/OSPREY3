@@ -797,6 +797,10 @@ public class MathTools {
 			return lower <= upper;
 		}
 
+		public boolean isFinite() {
+			return Double.isFinite(lower) && Double.isFinite(upper);
+		}
+
 		public boolean contains(double val) {
 			return val >= lower && val <= upper;
 		}

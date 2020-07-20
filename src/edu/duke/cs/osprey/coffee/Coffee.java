@@ -337,7 +337,7 @@ public class Coffee {
 							}
 
 							// initialize the directions and wait
-							var directions = new Directions(member);
+							var directions = new Directions(confSpace, member);
 							member.barrier(5, TimeUnit.MINUTES);
 
 							// initialize the computation

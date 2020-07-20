@@ -11,8 +11,8 @@ import java.math.RoundingMode;
 
 public class FreeEnergyCalculator {
 
-	private final MathContext mathContext;
-	private final BoltzmannCalculator bcalc;
+	public final MathContext mathContext;
+	public final BoltzmannCalculator bcalc;
 
 	public FreeEnergyCalculator() {
 

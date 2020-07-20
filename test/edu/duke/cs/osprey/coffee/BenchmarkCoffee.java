@@ -4,6 +4,7 @@ import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.coffee.directions.Directions;
 import edu.duke.cs.osprey.coffee.directors.PfuncDirector;
+import edu.duke.cs.osprey.coffee.directors.Timing;
 import edu.duke.cs.osprey.confspace.ConfSpaceIteration;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
@@ -464,7 +465,7 @@ public class BenchmarkCoffee {
 
 		var director = new PfuncDirector.Builder(msConfSpace, state, seq)
 			.setGWidthMax(gWidthMax)
-			.setTiming(PfuncDirector.Timing.Precise)
+			.setTiming(Timing.Precise)
 			.build();
 
 		var result = new Result();

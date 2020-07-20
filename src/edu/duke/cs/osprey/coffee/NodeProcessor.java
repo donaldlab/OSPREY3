@@ -100,6 +100,7 @@ public class NodeProcessor implements AutoCloseable {
 					waitABit.run();
 					continue;
 				}
+				int sequencedStatei = nodedb.confSpace.states.get(statei).sequencedIndex;
 
 				// if the state changed, flush
 				if (flushTracker.stateChanged(statei)) {
@@ -125,7 +126,14 @@ public class NodeProcessor implements AutoCloseable {
 				long nodeNs = System.nanoTime() - startNs;
 				for (var node : nodesIncoming) {
 
-					process(new NodeInfo(node, tree, nodeNs/nodesIncoming.size()), seqBatch, nodesOutgoing);
+					// drop nodes from finished sequences
+					if (sequencedStatei >= 0) {
+						if (directions.isFinished(sequencedStatei, makeSeqOrThrow(statei, node.conf))) {
+							continue;
+						}
+					}
+
+					process(directions, new NodeInfo(node, tree, nodeNs/nodesIncoming.size()), seqBatch, nodesOutgoing);
 
 					if (flushTracker.shouldFlush()) {
 						flush();
@@ -197,6 +205,7 @@ public class NodeProcessor implements AutoCloseable {
 					ThreadTools.sleep(500, TimeUnit.MILLISECONDS);
 					continue;
 				}
+				int sequencedStatei = nodedb.confSpace.states.get(statei).sequencedIndex;
 
 				// if the state changed, flush
 				if (flushTracker.stateChanged(statei)) {
@@ -211,6 +220,16 @@ public class NodeProcessor implements AutoCloseable {
 				// get the next batch to minimize
 				var nodes = q.poll(ecalc.maxBatchSize(), 100, TimeUnit.MILLISECONDS);
 				if (nodes != null) {
+
+					// drop nodes from finished sequences
+					if (sequencedStatei >= 0) {
+						nodes = nodes.stream()
+							.filter(nodeInfo ->
+								!directions.isFinished(sequencedStatei, makeSeqOrThrow(statei, nodeInfo.node.conf))
+							)
+							.collect(Collectors.toList());
+					}
+
 					minimize(stateInfo, ecalc, nodes);
 				}
 			}
@@ -568,6 +587,10 @@ public class NodeProcessor implements AutoCloseable {
 		}
 	}
 
+	private Sequence makeSeqOrThrow(int statei, int[] conf) {
+		return seqdb.confSpace.seqSpace.makeSequence(stateInfos[statei].config.confSpace, conf);
+	}
+
 	private enum Result {
 
 		GotNode(true),
@@ -595,7 +618,7 @@ public class NodeProcessor implements AutoCloseable {
 		}
 	}
 
-	private void process(NodeInfo nodeInfo, Batch seqBatch, List<NodeIndex.Node> nodeBatch) {
+	private void process(Directions directions, NodeInfo nodeInfo, Batch seqBatch, List<NodeIndex.Node> nodeBatch) {
 
 		if (nodeInfo.node.isLeaf()) {
 
@@ -615,7 +638,7 @@ public class NodeProcessor implements AutoCloseable {
 		} else {
 
 			// interior node, expand it
-			expand(nodeInfo, seqBatch, nodeBatch);
+			expand(directions, nodeInfo, seqBatch, nodeBatch);
 		}
 	}
 
@@ -729,10 +752,10 @@ public class NodeProcessor implements AutoCloseable {
 
 	public void expand(NodeIndex.Node node, RCs tree, List<NodeIndex.Node> nodeBatch) {
 		var nodeInfo = new NodeInfo(node, tree, 0);
-		expand(nodeInfo, null, nodeBatch);
+		expand(null, nodeInfo, null, nodeBatch);
 	}
 
-	private void expand(NodeInfo nodeInfo, Batch seqBatch, List<NodeIndex.Node> nodeBatch) {
+	private void expand(Directions directions, NodeInfo nodeInfo, Batch seqBatch, List<NodeIndex.Node> nodeBatch) {
 
 		// just in case ...
 		if (nodeInfo.node.isLeaf()) {
@@ -766,11 +789,20 @@ public class NodeProcessor implements AutoCloseable {
 		for (int confi : nodeInfo.tree.get(posi)) {
 			confIndex.assignInPlace(posi, confi);
 
+			var conf = Conf.make(confIndex);
+			var seq = makeSeq(statei, conf);
+
+			// skip this node if it's from a finished sequence
+			if (seq != null && directions != null && directions.isFinished(stateInfo.config.state.sequencedIndex, seq)) {
+				continue;
+			}
+
+			// TODO: prune assignments based on filters? eg, max simultaneous mutations?
+
 			// compute an upper bound for the assignment
 			var zSumUpper = stateInfo.zSumUpper(confIndex, nodeInfo.tree).normalize(true);
 
 			// update nodedb
-			var conf = Conf.make(confIndex);
 			nodeBatch.add(new NodeIndex.Node(
 				statei, conf, zSumUpper,
 				nodedb.perf.score(statei, conf, zSumUpper)
@@ -778,11 +810,7 @@ public class NodeProcessor implements AutoCloseable {
 
 			// add the new bound if needed
 			if (seqBatch != null) {
-				seqBatch.addZSumUpper(
-					stateInfo.config.state,
-					makeSeq(statei, conf),
-					zSumUpper
-				);
+				seqBatch.addZSumUpper(stateInfo.config.state, seq, zSumUpper);
 			}
 
 			// update the reduction calculation

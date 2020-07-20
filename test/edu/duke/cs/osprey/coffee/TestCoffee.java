@@ -6,7 +6,10 @@ import static edu.duke.cs.osprey.TestBase.*;
 import static edu.duke.cs.osprey.tools.Log.log;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.coffee.directors.AffinityDirector;
 import edu.duke.cs.osprey.coffee.directors.SequenceDirector;
+import edu.duke.cs.osprey.coffee.directors.Timing;
+import edu.duke.cs.osprey.coffee.seqdb.SeqFreeEnergies;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.SeqSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
@@ -24,9 +27,7 @@ import edu.duke.cs.osprey.tools.MathTools.*;
 import org.junit.Test;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -100,6 +101,22 @@ public class TestCoffee {
 			ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/6ov7.medium.complex.ccsx")),
 			ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/6ov7.medium.design.ccsx")),
 			ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/6ov7.medium.target.ccsx"))
+		);
+		return new MultiStateConfSpace
+			.Builder("complex", confSpaces.complex)
+			.addMutableState("design", confSpaces.chainA)
+			.addUnmutableState("target", confSpaces.chainB)
+			.build();
+	}
+
+	/**
+	 * A small peptide inhibitor effinity design with ~50 sequences.
+	 */
+	public static MultiStateConfSpace affinity_6ov7_2mut4flex() {
+		var confSpaces = new TestConfSpace.AffinityCompiled(
+			ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/6ov7.2m4f.complex.ccsx")),
+			ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/6ov7.2m4f.design.ccsx")),
+			ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/6ov7.2m4f.target.ccsx"))
 		);
 		return new MultiStateConfSpace
 			.Builder("complex", confSpaces.complex)
@@ -521,5 +538,101 @@ public class TestCoffee {
 	//@Test // this test takes 12 minutes on my laptop... waay too long to leave on by default
 	public void seqFreeEnergy_affinity_6ov7_1mut6flex_wt_01_1x4_1m_triples() {
 		seqFreeEnergy_affinity_6ov7_1mut6flex_wt(1024*1024, 1.0, true, 1, allCpus);
+	}
+	
+	private void assertFreeEnergies_2m4f_complex(Collection<SeqFreeEnergies> obsgs, int complexi) {
+		
+		var expgs = new HashMap<String,Double>();
+
+		// expected values computed by running COFFEE on each sequence separately to gWidthMax = 1e-3
+		// and with a SeqDB precision of 4096, to accurately compute the high-energy sequences
+		expgs.put("8 THR=thr 10 VAL=val", -1378.274);
+
+		expgs.put("8 THR=ASN 10 VAL=val", -1379.407);
+		expgs.put("8 THR=ASP 10 VAL=val", -1381.103);
+		expgs.put("8 THR=GLN 10 VAL=val", -1383.747);
+		expgs.put("8 THR=GLU 10 VAL=val", -1381.935);
+		expgs.put("8 THR=GLY 10 VAL=val", -1369.435);
+		expgs.put("8 THR=SER 10 VAL=val", -1376.250);
+
+		expgs.put("8 THR=thr 10 VAL=ALA", -1371.377);
+		expgs.put("8 THR=thr 10 VAL=ILE", -1370.218);
+		expgs.put("8 THR=thr 10 VAL=LEU", -1348.772);
+		expgs.put("8 THR=thr 10 VAL=PHE", -702.158);
+		expgs.put("8 THR=thr 10 VAL=TRP", 2132.812);
+		expgs.put("8 THR=thr 10 VAL=TYR", 1513.490);
+
+		expgs.put("8 THR=ASN 10 VAL=ALA", -1372.556);
+		expgs.put("8 THR=ASN 10 VAL=ILE", -1371.100);
+		expgs.put("8 THR=ASN 10 VAL=LEU", -1353.375);
+		expgs.put("8 THR=ASN 10 VAL=PHE", -706.786);
+		expgs.put("8 THR=ASN 10 VAL=TRP", 2129.810);
+		expgs.put("8 THR=ASN 10 VAL=TYR", 1504.753);
+
+		expgs.put("8 THR=ASP 10 VAL=ALA", -1374.421);
+		expgs.put("8 THR=ASP 10 VAL=ILE", -1372.843);
+		expgs.put("8 THR=ASP 10 VAL=LEU", -1353.971);
+		expgs.put("8 THR=ASP 10 VAL=PHE", -706.888);
+		expgs.put("8 THR=ASP 10 VAL=TRP", 2125.893);
+		expgs.put("8 THR=ASP 10 VAL=TYR", 1504.968);
+
+		expgs.put("8 THR=GLN 10 VAL=ALA", -1376.818);
+		expgs.put("8 THR=GLN 10 VAL=ILE", -1375.701);
+		expgs.put("8 THR=GLN 10 VAL=LEU", -1356.205);
+		expgs.put("8 THR=GLN 10 VAL=PHE", -709.313);
+		expgs.put("8 THR=GLN 10 VAL=TRP", 2124.343);
+		expgs.put("8 THR=GLN 10 VAL=TYR", 1502.252);
+
+		expgs.put("8 THR=GLU 10 VAL=ALA", -1375.199);
+		expgs.put("8 THR=GLU 10 VAL=ILE", -1373.809);
+		expgs.put("8 THR=GLU 10 VAL=LEU", -1355.209);
+		expgs.put("8 THR=GLU 10 VAL=PHE", -708.985);
+		expgs.put("8 THR=GLU 10 VAL=TRP", 2124.959);
+		expgs.put("8 THR=GLU 10 VAL=TYR", 1502.685);
+
+		expgs.put("8 THR=GLY 10 VAL=ALA", -1362.851);
+		expgs.put("8 THR=GLY 10 VAL=ILE", -1361.027);
+		expgs.put("8 THR=GLY 10 VAL=LEU", -1342.512);
+		expgs.put("8 THR=GLY 10 VAL=PHE", -699.969);
+		expgs.put("8 THR=GLY 10 VAL=TRP", 2137.699);
+		expgs.put("8 THR=GLY 10 VAL=TYR", 1510.260);
+
+		expgs.put("8 THR=SER 10 VAL=ALA", -1369.562);
+		expgs.put("8 THR=SER 10 VAL=ILE", -1368.029);
+		expgs.put("8 THR=SER 10 VAL=LEU", -1349.555);
+		expgs.put("8 THR=SER 10 VAL=PHE", -704.956);
+		expgs.put("8 THR=SER 10 VAL=TRP", 2130.538);
+		expgs.put("8 THR=SER 10 VAL=TYR", 1506.171);
+
+		final double epsilon = 1e-3;
+
+		for (var seqg : obsgs) {
+			double expg = expgs.get(seqg.seq.toString());
+			assertThat("unexpected sequence: " + seqg.seq, expg, is(not(nullValue())));
+			assertThat("wrong free energy for: " + seqg.seq, seqg.freeEnergies[complexi], isAbsoluteBound(expg, epsilon));
+		}
+	}
+
+	@Test
+	public void design_affinity_6ov7_2mut4flex() {
+
+		var confSpace = TestCoffee.affinity_6ov7_2mut4flex();
+
+		var posInterDist = PosInterDist.DesmetEtAl1992;
+
+		Coffee coffee = new Coffee.Builder(confSpace)
+			.setParallelism(Parallelism.makeCpu(Parallelism.getMaxNumCPUs()))
+			.configEachState((config, ecalc) -> config.posInterGen = new PosInterGen(posInterDist, null))
+			.build();
+
+		var director = new AffinityDirector.Builder(confSpace, "complex", "design", "target")
+			.setK(28) // just the sequences that are quick to get... the other 21 sequences have high energies and VERY loose bounds
+			.setTiming(Timing.Precise)
+			.build();
+		coffee.run(director);
+
+		assertFreeEnergies_2m4f_complex(director.bestSeqs, confSpace.getState("complex").index);
+		// TODO: design bounds?
+		// TODO: target bounds?
 	}
 }

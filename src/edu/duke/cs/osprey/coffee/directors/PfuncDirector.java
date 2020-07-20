@@ -10,6 +10,7 @@ import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.parallelism.ThreadTools;
 import edu.duke.cs.osprey.structure.PDBIO;
+import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
@@ -84,33 +85,6 @@ public class PfuncDirector implements Coffee.Director {
 		public PfuncDirector build() {
 			return new PfuncDirector(confSpace, state, seq, gWidthMax, timing, reportProgress, ensembleSize, ensembleFile, ensembleUpdate, ensembleUpdateUnit);
 		}
-	}
-
-	public enum Timing {
-
-		/**
-		 * Uniform 1 s batches of computation.
-		 * Good for benchmarking when precise timing on short timescales is necessary.
-		 */
-		Precise {
-			@Override
-			public long workMs(Stopwatch stopwatch) {
-				return 1000; // 1 s work batches
-			}
-		},
-
-		/**
-		 * Within the first 5 minutes of computation, use quicker batches, but gradually grow to 1 min batches.
-		 * Good for long-running computations when we want to minimize overhead.
-		 */
-		Efficient {
-			@Override
-			public long workMs(Stopwatch stopwatch) {
-				return Math.max(500L, (long)(Math.min(stopwatch.getTimeM()/5.0, 1.0)*60_000));
-			}
-		};
-
-		public abstract long workMs(Stopwatch stopwatch);
 	}
 
 	public final MultiStateConfSpace confSpace;
@@ -196,7 +170,8 @@ public class PfuncDirector implements Coffee.Director {
 
 			// what's the best precision we could ever get given the nodes we've already dropped?
 			double gWidthMin = Math.abs(gcalc.calc(
-				processor.seqdb.bigMath()
+				// NOTE: using the full seqdb precision here is quite slow!
+				new BigMath(gcalc.mathContext)
 					.set(statez.zSumBounds.upper)
 					.sub(statez.zSumDropped)
 					.recip()
