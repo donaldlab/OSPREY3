@@ -18,6 +18,7 @@ public class BatchCorrectionMinimizer {
     public final int CostThreshold = 100;
     public final int[] costs = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
     private Batch batch = null;
+    private Queue<Batch> batches;
     private UpdatingEnergyMatrix.TupleTrie submittedConfs;
     private UpdatingEnergyMatrix correctionMatrix;
     public EnergyMatrix minimizingEnergyMatrix;
@@ -31,6 +32,7 @@ public class BatchCorrectionMinimizer {
         this.minimizingEnergyMatrix = minimizingEnergyMatrix;
         this.submittedConfs = new UpdatingEnergyMatrix.TupleTrie(confEcalc.confSpace.positions);
         this.waitingQueue = new LinkedList<>();
+        this.batches = new LinkedList<>();
     }
 
     public void addTuple(RCTuple tuple) {
@@ -55,23 +57,24 @@ public class BatchCorrectionMinimizer {
     }
 
     public void makeBatch(){
-        this.batch = new Batch();
+        Batch newBatch = new Batch();
         int batchCost = 0;
         while(batchCost < CostThreshold){
             synchronized(this){
                 RCTuple frag = waitingQueue.poll();
                 batchCost += costs[frag.size()];
                 waitingCost -= costs[frag.size()];
-                this.batch.fragments.add(frag);
+                newBatch.fragments.add(frag);
             }
+        }
+        synchronized(this) {
+            this.batches.add(newBatch);
         }
     }
 
     public Batch acquireBatch(){
         synchronized(this){
-            Batch toReturn = this.batch;
-            this.batch = null;
-            return toReturn;
+            return this.batches.poll();
         }
     }
 
