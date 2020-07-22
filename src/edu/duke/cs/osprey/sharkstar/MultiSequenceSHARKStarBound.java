@@ -276,16 +276,14 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         System.out.println("Creating new pfunc for sequence "+seq);
         System.out.println("Full RCs: "+fullRCs);
         System.out.println("Sequence RCs: "+newBound.seqRCs);
-        computeFringeForSequence(newBound, this.rootNode);
+        //computeFringeForSequence(newBound, this.rootNode);
 
-        /*
         // Compute the fringe in parallel
         List<MultiSequenceSHARKStarNode> scoredFringe = computeFringeForSequenceParallel(newBound.sequence, newBound.seqRCs);
         if(scoredFringe.size()==0)
             scoredFringe.add(this.rootNode);
         debugPrint(String.format("[Normal fringe # nodes, Parallel fringe # nodes] = [%d, %d]",newBound.fringeNodes.size(), scoredFringe.size()));
         newBound.fringeNodes.addAll(scoredFringe);
-         */
 
         //rootNode.updateSubtreeBounds(seq);
         newBound.updateBound();
@@ -1036,6 +1034,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 case Partial: {
                     System.out.println("Computing partial mins");
                     BatchCorrectionMinimizer.Batch batch = theBatcher.acquireBatch();
+                    if(batch == null)
+                        break;
                     loopTasks.submit(
                             () -> {
                                 PartialMinimizationResult result = new PartialMinimizationResult();
@@ -1043,8 +1043,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
                                 // calculate all the fragment energies
                                 Map<RCTuple, EnergyCalculator.EnergiedParametricMolecule> confs = new HashMap<>();
-                                for (RCTuple frag : batch.fragments) {
-
+                                for (int i =0; i< batch.fragments.size(); i++) {
+                                    RCTuple frag = batch.fragments.get(i);
                                     double energy;
 
                                     // are there any RCs are from two different backbone states that can't connect?
@@ -1875,11 +1875,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 leafLoop.stop();
                 leafLoop.reset();
                 leafLoop.start();
-                System.out.println(String.format("Processed %d, %s so far. Bounds are now [%12.6e,%12.6e]",
-                        numNodes,
-                        overallLoop.getTime(2),
-                        rootNode.getLowerBound(bound.sequence),
-                        rootNode.getUpperBound(bound.sequence)));
+                //System.out.println(String.format("Processed %d, %s so far. Bounds are now [%12.6e,%12.6e]",
+                        //numNodes,
+                        //overallLoop.getTime(2),
+                        //rootNode.getLowerBound(bound.sequence),
+                        //rootNode.getUpperBound(bound.sequence)));
             }
         }
         generatedNodes.addAll(newNodes);
