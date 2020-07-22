@@ -280,7 +280,9 @@ val defaultPython by lazy {
 		?: throw Error("No python detected")
 }
 
-println("""
+// only log this message when passed --info (or --debug, etc.) flag
+logger.info("""
+	|  Python versions found:
 	|         Pythons:  ${pythons.map { it.cmd }}
 	|        Python 2:  ${if (python2 != null) "✓" else "✗"}
 	|        Python 3:  ${if (python3 != null) "✓" else "✗"}
