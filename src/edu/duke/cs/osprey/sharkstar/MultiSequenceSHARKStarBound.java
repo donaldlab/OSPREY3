@@ -715,7 +715,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 // Early termination
                     curEps = sequenceBound.state.calcDelta();
 
-                System.out.println(String.format("Epsilon: %.9f, Bounds:[%1.3e, %1.3e]",
+                debugPrint(String.format("Epsilon: %.9f, Bounds:[%1.3e, %1.3e]",
                         //sequenceBound.getSequenceEpsilon(),
                         //sequenceBound.getLowerBound(),
                         //sequenceBound.getUpperBound()
@@ -729,10 +729,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         !isStable(stabilityThreshold, sequenceBound)
                 ){
                     if(workDone() - previousConfCount >= maxNumConfs)
-                        System.out.println("Exiting loop because of work");
+                        debugPrint("Exiting loop because of work");
 
                     if(!isStable(stabilityThreshold, sequenceBound)) {
-                        System.out.println("Exiting loop due to stablity, thresh: " + stabilityThreshold);
+                        debugPrint("Exiting loop due to stablity, thresh: " + stabilityThreshold);
                         sequenceBound.setStatus(Status.Unstable);
                     }
                     break;
@@ -836,10 +836,20 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         return minimizeNode(toMinimize, sequenceBound.sequence);
                             },
                             (result) -> {
+                                if (result.deltaLB.compareTo(BigDecimal.ZERO) < 0)
+                                    throw new RuntimeException("Lower bound is decreasing");
+                                if (result.deltaUB.compareTo(BigDecimal.ZERO) > 0)
+                                    throw new RuntimeException("Upper bound is increasing");
+                                double delta = 2.0;
+                                long fringeSize = 0;
                                 synchronized(sequenceBound.state) {
                                     // Update partition function values
                                     sequenceBound.state.upperBound = sequenceBound.state.upperBound.add(result.deltaUB, PartitionFunction.decimalPrecision);
                                     sequenceBound.state.lowerBound = sequenceBound.state.lowerBound.add(result.deltaLB, PartitionFunction.decimalPrecision);
+                                    // Compute reporting things
+                                    delta = sequenceBound.state.calcDelta();
+                                    fringeSize = sequenceBound.fringeNodes.size();
+
                                     if(result.didMinimize){
                                         sequenceBound.state.numEnergiedConfs++;
                                         sequenceBound.state.totalTimeEnergy+=result.timeS;
@@ -860,13 +870,15 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                         this.state.totalTimeEnergy += result.timeS;
                                         this.state.numRoundsEnergy++;
 
+                                        // report leaf
+                                        this.progress.reportLeafNode(result.minimizedNode.getConfSearchNode().getPartialConfLowerBound(), fringeSize,delta);
+
                                         //recordReduction(oldConfLower, oldConfUpper, energy);
                                         //printMinimizationOutput(node, newConfLower, oldgscore, bound);
                                         sequenceBound.addFinishedNode(result.minimizedNode);
 
-                                        progress.reportLeafNode(result.minimizedNode.getConfSearchNode().getPartialConfLowerBound(), sequenceBound.fringeNodes.size(), sequenceBound.getSequenceEpsilon());
                                         leafTimeAverage = result.timeS;
-                                        System.out.println("Processed 1 leaf in " + result.timeS + " seconds.");
+                                        debugPrint("Processed 1 leaf in " + result.timeS + " seconds.");
                                     }else{
                                         synchronized(sequenceBound.fringeNodes){
                                             sequenceBound.fringeNodes.add(result.minimizedNode);
@@ -973,7 +985,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 case ExpandInBatches: {
                     List<MultiSequenceSHARKStarNode> toExpand = internalNodes;
                     numNodes = toExpand.size();
-                    System.out.println("Processing " + numNodes + " internal nodes...");
+                    debugPrint("Processing " + numNodes + " internal nodes...");
 
                     loopTasks.submitExpecting(
                             () -> {
@@ -1021,6 +1033,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                 return result;
                             },
                             (result) -> {
+                                double delta = 2.0;
+                                long fringeSize = 0;
                                 synchronized(sequenceBound.state) {
                                     // Update partition function values
                                     sequenceBound.state.upperBound = sequenceBound.state.upperBound.add(result.deltaUB, PartitionFunction.decimalPrecision);
@@ -1028,17 +1042,28 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                     sequenceBound.state.numExpansions += result.numExpanded;
                                     sequenceBound.state.totalTimeExpansion += result.timeS;
                                     sequenceBound.state.numRoundsExpand++;
+                                    delta = sequenceBound.state.calcDelta();
+                                    fringeSize = sequenceBound.fringeNodes.size();
                                 }
 
                                 synchronized (this) {
                                     this.state.numExpansions += result.numExpanded;
                                     this.state.totalTimeExpansion += result.timeS;
                                     this.state.numRoundsExpand++;
-                                    System.out.println("Got " + result.newNodes.size() +" internal nodes.");
+                                    debugPrint("Got " + result.newNodes.size() +" internal nodes.");
                                     internalTimeSum = internalTime.getTimeS();
                                     internalTimeAverage = internalTimeSum / Math.max(1, toExpand.size());
                                     debugPrint("Internal node time :" + internalTimeSum + ", average " + internalTimeAverage);
                                     numInternalNodesProcessed += internalNodes.size();
+                                    for (int i = 0; i< result.newNodes.size(); i++){
+                                        MultiSequenceSHARKStarNode node = result.newNodes.get(i);
+                                        this.progress.reportInternalNode(node.getConfSearchNode().getLevel(),
+                                                node.getConfSearchNode().getGScore(),
+                                                node.getConfLowerBound(sequenceBound.sequence) - node.getConfSearchNode().getGScore(),
+                                                fringeSize,
+                                                result.newNodes.size(),
+                                                delta);
+                                    }
                                     synchronized (sequenceBound.fringeNodes) {
                                         sequenceBound.fringeNodes.addAll(result.newNodes);
 
@@ -1050,7 +1075,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     break;
                 }
                 case Partial: {
-                    System.out.println("Computing partial mins");
+                    debugPrint("Computing partial mins");
                     BatchCorrectionMinimizer.Batch batch = theBatcher.acquireBatch();
                     if(batch == null)
                         break;
@@ -1097,15 +1122,18 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                 }
 
                                 // Record stats
+                                double delta = 2.0;
                                 synchronized(sequenceBound.state){
                                     sequenceBound.state.numPartialMinimizations += result.numPartials;
                                     sequenceBound.state.totalTimePartialMin += result.timeS;
                                     sequenceBound.state.numRoundsPartialMin++;
+                                    delta = sequenceBound.state.calcDelta();
                                 }
                                 synchronized(this){
                                     this.state.numPartialMinimizations += result.numPartials;
                                     this.state.totalTimePartialMin += result.timeS;
                                     this.state.numRoundsPartialMin++;
+                                    this.progress.reportPartialMinimization(result.numPartials, delta);
                                 }
                             }
                     );
@@ -1139,38 +1167,34 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             }
 
         }
-        System.out.println("exited loop");
-        System.out.println(sequenceBound.fringeNodes.size());
         loopTasks.waitForFinish();
-        System.out.println("Finished tasks");
-        System.out.println(sequenceBound.fringeNodes.size());
         sequenceBound.updateBound();
         curEps = sequenceBound.state.calcDelta();
-        System.out.println(String.format("Tracking Epsilon: %.9f, Bounds:[%1.9e, %1.9e]",
+        debugPrint(String.format("Tracking Epsilon: %.9f, Bounds:[%1.9e, %1.9e]",
                 curEps,
                 sequenceBound.state.lowerBound,
                 sequenceBound.state.upperBound
         ));
-        System.out.println(String.format("Epsilon: %.9f, Bounds:[%1.9e, %1.9e]",
+        debugPrint(String.format("Epsilon: %.9f, Bounds:[%1.9e, %1.9e]",
                 sequenceBound.getSequenceEpsilon(),
                 sequenceBound.getLowerBound(),
                 sequenceBound.getUpperBound()
         ));
-        System.out.println(String.format("Minimized %d nodes, %d nodes in fringe.",
+        debugPrint(String.format("Minimized %d nodes, %d nodes in fringe.",
                 sequenceBound.finishedNodes.size(),
                 sequenceBound.fringeNodes.size()));
 
-        System.out.println(String.format("--- Minimizations --- #: %d, Avg time: %1.3e s, Avg time per round: %1.3e s",
+        debugPrint(String.format("--- Minimizations --- #: %d, Avg time: %1.3e s, Avg time per round: %1.3e s",
                 this.state.numEnergiedConfs,
                 this.state.totalTimeEnergy / this.state.numEnergiedConfs,
                 this.state.totalTimeEnergy / this.state.numRoundsEnergy
                 ));
-        System.out.println(String.format("--- Expansions --- #: %d, Avg time: %1.3e s, Avg time per round: %1.3e s",
+        debugPrint(String.format("--- Expansions --- #: %d, Avg time: %1.3e s, Avg time per round: %1.3e s",
                 this.state.numExpansions,
                 this.state.totalTimeExpansion / this.state.numExpansions,
                 this.state.totalTimeExpansion / this.state.numRoundsExpand
         ));
-        System.out.println(String.format("--- Partials --- #: %d, Avg time: %1.3e s, Avg time per round: %1.3e s",
+        debugPrint(String.format("--- Partials --- #: %d, Avg time: %1.3e s, Avg time per round: %1.3e s",
                 this.state.numPartialMinimizations,
                 this.state.totalTimePartialMin / this.state.numPartialMinimizations,
                 this.state.totalTimePartialMin / this.state.numRoundsPartialMin
@@ -2051,7 +2075,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         historyString = String.format("%s: previous lower bound (none), g score %f, hscore %f, f score %f corrected score %f, from %s",
                                 node.confToString(), curNode.getConfLowerBound(bound.sequence), diff, hdiff, diff + hdiff, confCorrection, getStackTrace());
                     }
-                    progress.reportInternalNode(child.level, child.getPartialConfLowerBound(), confLowerBound, queue.size(), children.size(), bound.getSequenceEpsilon());
+                    //progress.reportInternalNode(child.level, child.getPartialConfLowerBound(), confLowerBound, queue.size(), children.size(), bound.getSequenceEpsilon());
                     resultingLower = confLowerBound;
                     resultingUpper= confUpperbound;
                 }
@@ -2076,7 +2100,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     child.setBoundsFromConfLowerAndUpper(confCorrection, confRigid);
                     child.setPartialConfLowerAndUpper(confCorrection, confRigid);
                     numConfsScored++;
-                    progress.reportLeafNode(child.getPartialConfLowerBound(), queue.size(), bound.getSequenceEpsilon());
+                    //progress.reportLeafNode(child.getPartialConfLowerBound(), queue.size(), bound.getSequenceEpsilon());
                     resultingLower= confCorrection;
                     resultingUpper= confRigid;
                 }

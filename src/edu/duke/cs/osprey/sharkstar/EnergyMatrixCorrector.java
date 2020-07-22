@@ -109,7 +109,7 @@ public class EnergyMatrixCorrector {
                     multiSequenceSHARKStarBound.minList.set(tuple.size() - 1, multiSequenceSHARKStarBound.minList.get(tuple.size() - 1) + 1);
                     scheduledMinimizations.add(tuple);
                     multiSequenceSHARKStarBound.setNumPartialMinimizations(multiSequenceSHARKStarBound.getNumPartialMinimizations() + 1);
-                    multiSequenceSHARKStarBound.getProgress().reportPartialMinimization(1, 2.0);
+                    //multiSequenceSHARKStarBound.getProgress().reportPartialMinimization(1, 2.0);
                 }
             }
             recursePartialCorrection(conf, diff, minTupleDiff, maxTupleSize, tuple, scheduledMinimizations);
@@ -141,7 +141,7 @@ public class EnergyMatrixCorrector {
                 localMinimizations++;
             }
             multiSequenceSHARKStarBound.setNumPartialMinimizations(multiSequenceSHARKStarBound.getNumPartialMinimizations() + localMinimizations);
-            multiSequenceSHARKStarBound.getProgress().reportPartialMinimization(localMinimizations, epsilonBound);
+            //multiSequenceSHARKStarBound.getProgress().reportPartialMinimization(localMinimizations, epsilonBound);
         }
     }
 
@@ -214,12 +214,12 @@ public class EnergyMatrixCorrector {
             return;
         double pairwiseLower = multiSequenceSHARKStarBound.getMinimizingEmat().getInternalEnergy(overlap);
         double partiallyMinimizedLower = ecalc.calcEnergy(overlap).energy;
-        multiSequenceSHARKStarBound.getProgress().reportPartialMinimization(1, epsilonBound);
+        //multiSequenceSHARKStarBound.getProgress().reportPartialMinimization(1, epsilonBound);
         if (partiallyMinimizedLower > pairwiseLower)
             synchronized (multiSequenceSHARKStarBound.getCorrectionMatrix()) {
                 multiSequenceSHARKStarBound.getCorrectionMatrix().setHigherOrder(overlap, partiallyMinimizedLower - pairwiseLower);
             }
-        multiSequenceSHARKStarBound.getProgress().reportPartialMinimization(1, epsilonBound);
+        //multiSequenceSHARKStarBound.getProgress().reportPartialMinimization(1, epsilonBound);
     }
 
     List<MultiSequenceSHARKStarNode> getTopConfs(PriorityQueue<MultiSequenceSHARKStarNode> queue, int numConfs) {
