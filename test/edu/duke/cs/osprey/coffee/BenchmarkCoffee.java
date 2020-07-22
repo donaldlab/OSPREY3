@@ -466,6 +466,7 @@ public class BenchmarkCoffee {
 		var director = new PfuncDirector.Builder(msConfSpace, state, seq)
 			.setGWidthMax(gWidthMax)
 			.setTiming(Timing.Precise)
+			.setReportProgress(true)
 			.build();
 
 		var result = new Result();
@@ -478,13 +479,8 @@ public class BenchmarkCoffee {
 			}
 
 			@Override
-			public void init(Directions directions, NodeProcessor processor) {
-				result.ematStopwatch.stop();
-				director.init(directions, processor);
-			}
-
-			@Override
 			public void direct(Directions directions, NodeProcessor processor) {
+				result.ematStopwatch.stop();
 				result.pfuncStopwatch = new Stopwatch().start();
 				director.direct(directions, processor);
 				result.pfuncStopwatch.stop();

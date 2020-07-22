@@ -613,26 +613,102 @@ public class TestCoffee {
 		}
 	}
 
-	@Test
-	public void design_affinity_6ov7_2mut4flex() {
+	private void assertFreeEnergies_2m4f_design(Collection<SeqFreeEnergies> obsgs, int designi) {
 
-		var confSpace = TestCoffee.affinity_6ov7_2mut4flex();
+		var expgs = new HashMap<String,Double>();
 
-		var posInterDist = PosInterDist.DesmetEtAl1992;
+		expgs.put("8 THR=thr 10 VAL=val", -143.431);
 
-		Coffee coffee = new Coffee.Builder(confSpace)
-			.setParallelism(Parallelism.makeCpu(Parallelism.getMaxNumCPUs()))
-			.configEachState((config, ecalc) -> config.posInterGen = new PosInterGen(posInterDist, null))
-			.build();
+		expgs.put("8 THR=ASN 10 VAL=val", -148.725);
+		expgs.put("8 THR=ASP 10 VAL=val", -147.593);
+		expgs.put("8 THR=GLN 10 VAL=val", -149.007);
+		expgs.put("8 THR=GLU 10 VAL=val", -147.765);
+		expgs.put("8 THR=GLY 10 VAL=val", -137.280);
+		expgs.put("8 THR=SER 10 VAL=val", -142.320);
 
-		var director = new AffinityDirector.Builder(confSpace, "complex", "design", "target")
-			.setK(28) // just the sequences that are quick to get... the other 21 sequences have high energies and VERY loose bounds
-			.setTiming(Timing.Precise)
-			.build();
-		coffee.run(director);
+		expgs.put("8 THR=thr 10 VAL=ALA", -140.970);
+		expgs.put("8 THR=thr 10 VAL=ILE", -141.569);
+		expgs.put("8 THR=thr 10 VAL=LEU", -143.159);
+		expgs.put("8 THR=thr 10 VAL=PHE", -142.346);
+		expgs.put("8 THR=thr 10 VAL=TRP", -147.089);
+		expgs.put("8 THR=thr 10 VAL=TYR", -146.971);
 
-		assertFreeEnergies_2m4f_complex(director.bestSeqs, confSpace.getState("complex").index);
-		// TODO: design bounds?
-		// TODO: target bounds?
+		expgs.put("8 THR=ASN 10 VAL=ALA", -146.348);
+		expgs.put("8 THR=ASN 10 VAL=ILE", -146.877);
+		expgs.put("8 THR=ASN 10 VAL=LEU", -148.286);
+		expgs.put("8 THR=ASN 10 VAL=PHE", -148.076);
+		expgs.put("8 THR=ASN 10 VAL=TRP", -152.489);
+		expgs.put("8 THR=ASN 10 VAL=TYR", -152.787);
+
+		expgs.put("8 THR=ASP 10 VAL=ALA", -145.224);
+		expgs.put("8 THR=ASP 10 VAL=ILE", -145.740);
+		expgs.put("8 THR=ASP 10 VAL=LEU", -147.204);
+		expgs.put("8 THR=ASP 10 VAL=PHE", -146.404);
+		expgs.put("8 THR=ASP 10 VAL=TRP", -151.039);
+		expgs.put("8 THR=ASP 10 VAL=TYR", -151.053);
+
+		expgs.put("8 THR=GLN 10 VAL=ALA", -146.489);
+		expgs.put("8 THR=GLN 10 VAL=ILE", -147.141);
+		expgs.put("8 THR=GLN 10 VAL=LEU", -148.775);
+		expgs.put("8 THR=GLN 10 VAL=PHE", -148.251);
+		expgs.put("8 THR=GLN 10 VAL=TRP", -152.825);
+		expgs.put("8 THR=GLN 10 VAL=TYR", -152.965);
+
+		expgs.put("8 THR=GLU 10 VAL=ALA", -145.423);
+		expgs.put("8 THR=GLU 10 VAL=ILE", -145.906);
+		expgs.put("8 THR=GLU 10 VAL=LEU", -147.484);
+		expgs.put("8 THR=GLU 10 VAL=PHE", -147.278);
+		expgs.put("8 THR=GLU 10 VAL=TRP", -152.043);
+		expgs.put("8 THR=GLU 10 VAL=TYR", -152.471);
+
+		expgs.put("8 THR=GLY 10 VAL=ALA", -135.107);
+		expgs.put("8 THR=GLY 10 VAL=ILE", -135.442);
+		expgs.put("8 THR=GLY 10 VAL=LEU", -136.811);
+		expgs.put("8 THR=GLY 10 VAL=PHE", -136.723);
+		expgs.put("8 THR=GLY 10 VAL=TRP", -140.940);
+		expgs.put("8 THR=GLY 10 VAL=TYR", -141.269);
+
+		expgs.put("8 THR=SER 10 VAL=ALA", -140.033);
+		expgs.put("8 THR=SER 10 VAL=ILE", -140.475);
+		expgs.put("8 THR=SER 10 VAL=LEU", -141.909);
+		expgs.put("8 THR=SER 10 VAL=PHE", -141.767);
+		expgs.put("8 THR=SER 10 VAL=TRP", -146.227);
+		expgs.put("8 THR=SER 10 VAL=TYR", -146.424);
+
+		final double epsilon = 1e-3;
+
+		for (var seqg : obsgs) {
+			double expg = expgs.get(seqg.seq.toString());
+			assertThat("unexpected sequence: " + seqg.seq, expg, is(not(nullValue())));
+			assertThat("wrong free energy for: " + seqg.seq, seqg.freeEnergies[designi], isAbsoluteBound(expg, epsilon));
+		}
 	}
+
+	private void design_affinity_6ov7_2mut4flex(int numMembers, int numThreads) {
+		withPseudoCluster(numMembers, cluster -> {
+			var confSpace = TestCoffee.affinity_6ov7_2mut4flex();
+
+			Coffee coffee = new Coffee.Builder(confSpace)
+				.setCluster(cluster)
+				.setParallelism(Parallelism.makeCpu(numThreads))
+				.configEachState((config, ecalc) -> config.posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null))
+				.build();
+
+			var director = new AffinityDirector.Builder(confSpace, "complex", "design", "target")
+				.setK(28) // just the sequences that are quick to get... the other 21 sequences have high energies and VERY loose bounds
+				.setTiming(Timing.Precise)
+				.build();
+			coffee.run(director);
+
+			if (cluster.nodeId == 0) {
+				assertFreeEnergies_2m4f_complex(director.bestSeqs, confSpace.getState("complex").index);
+				assertFreeEnergies_2m4f_design(director.bestSeqs, confSpace.getState("design").index);
+				assertThat(director.targetFreeEnergy, isAbsoluteBound(-1187.609, 1e-3));
+			}
+		});
+	}
+
+	@Test public void design_affinity_6ov7_2mut4flex_1x4() { design_affinity_6ov7_2mut4flex(1, 4); }
+	@Test public void design_affinity_6ov7_2mut4flex_2x2() { design_affinity_6ov7_2mut4flex(2, 2); }
+	@Test public void design_affinity_6ov7_2mut4flex_4x1() { design_affinity_6ov7_2mut4flex(4, 1); }
 }

@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.coffee;
 
+import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.coffee.directions.Directions;
 import edu.duke.cs.osprey.coffee.nodedb.NodeDB;
@@ -566,6 +567,31 @@ public class NodeProcessor implements AutoCloseable {
 
 		// start the drop thread
 		dropThread = new DropThread(directions);
+	}
+
+	public void initRootNode(int statei, RCs tree) {
+
+		var stateInfo = stateInfos[statei];
+
+		// get a (possibly) multi-sequence Z bound on the root node
+		ConfIndex index = stateInfo.makeConfIndex();
+		BigExp zSumUpper = stateInfo.zSumUpper(index, tree).normalize(true);
+
+		// init the node database
+		var node = new NodeIndex.Node(statei, Conf.make(index), zSumUpper, zSumUpper);
+		nodedb.addLocal(node);
+		nodedb.broadcast();
+
+		// init sequence database, if needed
+		if (seqdb != null) {
+			var batch = seqdb.batch();
+			batch.addZSumUpper(
+				stateInfo.config.state,
+				makeSeq(statei, node.conf),
+				node.score
+			);
+			batch.save();
+		}
 	}
 
 	public int getMinimizationQueueSize(int statei) {

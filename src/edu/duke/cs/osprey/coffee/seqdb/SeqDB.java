@@ -380,8 +380,10 @@ public class SeqDB implements AutoCloseable {
 
 	public List<ConfSearch.EnergiedConf> getBestConfs(MultiStateConfSpace.State state, Sequence seq) {
 
-		if (state.sequencedIndex < 0) {
-			throw new IllegalArgumentException("state " + state.name + " must be sequenced");
+		if (state.isSequenced && seq != null) {
+			throw new IllegalArgumentException("state " + state.name + " requires a sequence");
+		} else if (!state.isSequenced) {
+			return getBestConfs(state);
 		}
 
 		var seqInfo = sequencedSums.get(seq.rtIndices);

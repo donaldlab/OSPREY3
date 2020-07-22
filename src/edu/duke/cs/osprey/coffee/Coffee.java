@@ -54,7 +54,10 @@ public class Coffee {
 		private long nodedbFileBytes = 0;
 		private long nodedbMemBytes = 2*1024*1024; // 2 MiB
 		private File seqdbFile = null;
-		private MathContext seqdbMathContext = new MathContext(128, RoundingMode.HALF_UP);
+		// NOTE: SeqDB needs a LOT of precision to keep the bounds acccurate,
+		// since we're adding/subtracting numbers with very different exponents
+		// empirical testing shows anything higher than 512 starts to show noticeable performance penalties
+		private MathContext seqdbMathContext = new MathContext(512, RoundingMode.HALF_UP);
 		private boolean includeStaticStatic = true;
 		private Double tripleCorrectionThreshold = null;
 		private BoltzmannCalculator.Conditions conditions = BoltzmannCalculator.Conditions.Classic; // don't rock the boat
@@ -232,11 +235,6 @@ public class Coffee {
 		}
 
 		/**
-		 * Prepare all the databases and cluster members for computation.
-		 */
-		void init(Directions directions, NodeProcessor processor);
-
-		/**
 		 * Start the computation, manage the cluster members, and finish the computation.
 		 */
 		void direct(Directions directions, NodeProcessor processor);
@@ -340,24 +338,33 @@ public class Coffee {
 							var directions = new Directions(confSpace, member);
 							member.barrier(5, TimeUnit.MINUTES);
 
-							// initialize the computation
-							if (member.isDirector()) {
-								director.init(directions, nodeProcessor);
-								initRootNodes(directions, nodeProcessor);
-							}
-
-							// wait for the root nodes calculation to finish
-							// TODO: do we need to configure the init time here for different init procedures?
-							member.barrier(5, TimeUnit.MINUTES);
-
-							// prep complete! now we can start the real computation
+							// start the node threads
 							nodeProcessor.start(parallelism.numThreads, directions);
-							if (member.isDirector()) {
-								director.direct(directions, nodeProcessor);
+							try {
+
+								// prep complete! now we can start the real computation
+								if (member.isDirector()) {
+									director.direct(directions, nodeProcessor);
+								} else {
+									directions.waitForStop();
+								}
+
+								member.log0("Computation finished, cleaning up resources ...");
+
+							} catch (Throwable t) {
+
+								// catch and report errors before calling close() on the node processor
+								// since calling close() without cleaning up gracefully can cause deadlock
+
+								t.printStackTrace(System.err);
+
+								member.log("Error encountered, stopping cluster ...");
 							}
+
+							// ask the cluster to stop nicely
+							directions.stop();
 
 							// wait for the computation to finish before cleaning up databases
-							member.log0("Computation finished, cleaning up resources ...");
 							member.barrier(5, TimeUnit.MINUTES);
 
 						} // node processor
@@ -368,35 +375,6 @@ public class Coffee {
 			member.log0("COFFEE Finished in %s", stopwatch.getTime(2));
 
 		} // cluster member
-	}
-
-	private void initRootNodes(Directions directions, NodeProcessor processor) {
-
-		// compute bounds on free energies at the root nodes
-		var batch = processor.seqdb.batch();
-		for (int statei=0; statei<confSpace.states.size(); statei++) {
-			var stateInfo = infos[statei];
-
-			// get a (possibly) multi-sequence Z bound on the root node
-			ConfIndex index = stateInfo.makeConfIndex();
-			var tree = directions.getTreeOrThrow(statei);
-			BigExp zSumUpper = stateInfo.zSumUpper(index, tree).normalize(true);
-
-			// init the node database
-			var node = new NodeIndex.Node(statei, Conf.make(index), zSumUpper, zSumUpper);
-			processor.nodedb.addLocal(node);
-
-			// init sequence database
-			batch.addZSumUpper(
-				stateInfo.config.state,
-				stateInfo.config.state.isSequenced ? confSpace.seqSpace.makeUnassignedSequence() : null,
-				node.score
-			);
-		}
-		batch.save();
-
-		// let the rest of the cluster know right away we have the root nodes
-		processor.nodedb.broadcast();
 	}
 
 	/**

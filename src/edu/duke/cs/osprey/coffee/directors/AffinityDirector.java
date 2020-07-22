@@ -98,6 +98,7 @@ public class AffinityDirector implements Coffee.Director {
 	public final Timing timing;
 
 	public final List<SeqFreeEnergies> bestSeqs;
+	public DoubleBounds targetFreeEnergy;
 
 	private final BestSet<SeqFreeEnergies> bestSeqsByLower;
 	private final BestSet<SeqFreeEnergies> bestSeqsByUpper;
@@ -113,33 +114,33 @@ public class AffinityDirector implements Coffee.Director {
 		this.timing = timing;
 
 		bestSeqs = new ArrayList<>();
+		targetFreeEnergy = null;
 		bestSeqsByLower = new BestSet<>(K, seq -> seq.freeEnergies[complex.index].lower);
 		bestSeqsByUpper = new BestSet<>(K, seq -> seq.freeEnergies[complex.index].upper);
 	}
 
-	public void init(Directions directions, NodeProcessor processor) {
-
-		// set the node trees to the whole space
-		directions.setTrees(confSpace.states.stream()
-			.map(state -> new RCs(state.confSpace))
-			.toArray(RCs[]::new)
-		);
-	}
-
+	@Override
 	public void direct(Directions directions, NodeProcessor processor) {
 
 		directions.member.log("Searching for low free energy sequences in state %s", complex.name);
 		Stopwatch stopwatch = new Stopwatch().start();
 
+		bestSeqs.clear();
+		targetFreeEnergy = null;
+
+		// init the cluster with the complex state, all sequences
+		directions.focus(complex.index);
+		var tree = new RCs(complex.confSpace);
+		directions.setTree(complex.index, tree);
+		processor.initRootNode(complex.index, tree);
+
 		var gcalc = new FreeEnergyCalculator();
-		var ignoredSequences = new HashSet<>();
 		var finishedSequences = new HashSet<Sequence>();
 		var newlyFinishedSequences = new HashSet<Sequence>();
 
-		// focus on the complex state
+		// first, find the sequences with the best complex free energies
 		directions.focus(complex.index);
-
-		// TODO: add fail-safe to exit early if we somehow ran out of nodes to process
+		// TODO: add fail-safe to exit early if we somehow ran out of nodes to process?
 		while (true) {
 
 			// wait a bit before checking progress
@@ -150,12 +151,6 @@ public class AffinityDirector implements Coffee.Director {
 			synchronized (processor.seqdb) {
 				for (var entry : processor.seqdb.getSequenced()) {
 					Sequence seq = entry.getKey();
-
-					// but skip sequences we've already proven aren't in the best K
-					// TODO: poplate this set?
-					if (ignoredSequences.contains(seq)) {
-						continue;
-					}
 
 					SeqInfo seqInfo = entry.getValue();
 					seqs.put(seq, seqInfo.statezs);
@@ -285,16 +280,35 @@ public class AffinityDirector implements Coffee.Director {
 			// nope, not done yet. write out the most promising sequences and keep going
 			reportProgress(directions, processor, finishedSequences, stopwatch);
 		}
-
-		// TODO: design
-		// TODO: target
-
-		// all done, stop the computation
-		directions.stop();
+		processor.nodedb.clear(complex.index);
 
 		// put the best sequences in some reasonable order
 		bestSeqs.sort(Comparator.comparing(seqg -> seqg.freeEnergies[complex.index].lower));
 
+		// next, compute the design state free energies for the best sequences
+		directions.member.log("Computing design state free energies for %d sequences ...", bestSeqs.size());
+		for (var seqg : bestSeqs) {
+			processor.nodedb.clear(design.index);
+			var pfunc = new PfuncDirector.Builder(confSpace, design, seqg.seq)
+				.setGWidthMax(gWidthMax)
+				.setTiming(timing)
+				.setReportProgress(true) // TODO: expose setting
+				.build();
+			seqg.freeEnergies[design.index] = pfunc.calc(directions, processor);
+		}
+
+		// finally, compute the target state free energy
+		directions.member.log("Computing target state free energies ...");
+		processor.nodedb.clear(target.index);
+		var pfunc = new PfuncDirector.Builder(confSpace, target)
+			.setGWidthMax(gWidthMax)
+			.setTiming(timing)
+			.setReportProgress(true) // TODO: expose setting
+			.build();
+		targetFreeEnergy = pfunc.calc(directions, processor);
+
+		// all done
+		directions.member.log("All three states complete in %s", stopwatch.getTime(2));
 		directions.member.log(report());
 	}
 

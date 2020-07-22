@@ -8,9 +8,10 @@ import edu.duke.cs.osprey.confspace.Sequence;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 
@@ -22,14 +23,19 @@ public class Directions {
 	public final ClusterMember member;
 
 	private final AtomicBoolean isRunning = new AtomicBoolean(true);
+	private final CountDownLatch runningLatch = new CountDownLatch(1);
 	private final AtomicInteger focusedStatei = new AtomicInteger(-1);
-	private final AtomicReference<RCs[]> trees = new AtomicReference<>(null);
+	private final List<RCs> trees;
 	private final List<Set<Sequence>> finishedSeqs;
 
 	public Directions(MultiStateConfSpace confSpace, ClusterMember member) {
 
 		this.confSpace = confSpace;
 		this.member = member;
+
+		trees = confSpace.states.stream()
+			.map(state -> (RCs)null)
+			.collect(Collectors.toList());
 
 		finishedSeqs = confSpace.sequencedStates.stream()
 			.map(state -> new HashSet<Sequence>())
@@ -49,10 +55,21 @@ public class Directions {
 
 	void receiveStop() {
 		isRunning.set(false);
+		runningLatch.countDown();
 	}
 
 	public boolean isRunning() {
 		return isRunning.get();
+	}
+
+	public void waitForStop() {
+		try {
+			while (isRunning.get()) {
+				runningLatch.await(1, TimeUnit.SECONDS);
+			}
+		} catch (InterruptedException ex) {
+			throw new RuntimeException(ex);
+		}
 	}
 
 	/**
@@ -74,25 +91,21 @@ public class Directions {
 	/**
 	 * Tell all cluster members the node tree topology for each state.
 	 */
-	public void setTrees(RCs[] trees) {
-		receiveTrees(trees);
-		member.sendToOthers(() -> new TreesOperation(trees));
+	public void setTree(int statei, RCs tree) {
+		receiveTree(statei, tree);
+		member.sendToOthers(() -> new TreeOperation(statei, tree));
 	}
 
-	void receiveTrees(RCs[] trees) {
-		this.trees.set(trees);
+	void receiveTree(int statei, RCs tree) {
+		synchronized (trees) {
+			trees.set(statei, tree);
+		}
 	}
 
 	public RCs getTree(int statei) {
-		return trees.get()[statei];
-	}
-
-	public RCs getTreeOrThrow(int statei) {
-		RCs tree = getTree(statei);
-		if (tree != null) {
-			return tree;
+		synchronized (trees) {
+			return trees.get(statei);
 		}
-		throw new IllegalStateException("no node tree set for state " + statei);
 	}
 
 	/**

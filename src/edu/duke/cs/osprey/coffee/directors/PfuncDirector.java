@@ -19,6 +19,8 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static edu.duke.cs.osprey.tools.Log.log;
+
 
 public class PfuncDirector implements Coffee.Director {
 
@@ -39,9 +41,19 @@ public class PfuncDirector implements Coffee.Director {
 		private TimeUnit ensembleUpdateUnit = TimeUnit.SECONDS;
 
 		public Builder(MultiStateConfSpace confSpace, MultiStateConfSpace.State state, Sequence seq) {
+
+			if (!state.isSequenced && seq != null) {
+				log("WARNING: Ignoring sequence given for unsequenced state %s", state.name);
+				seq = null;
+			}
+
 			this.confSpace = confSpace;
 			this.state = state;
 			this.seq = seq;
+		}
+
+		public Builder(MultiStateConfSpace confSpace, MultiStateConfSpace.State state) {
+			this(confSpace, state, null);
 		}
 
 		/**
@@ -123,31 +135,32 @@ public class PfuncDirector implements Coffee.Director {
 	}
 
 	@Override
-	public void init(Directions directions, NodeProcessor processor) {
-
-		// set the node trees for each state to just the specified sequence
-		directions.setTrees(confSpace.states.stream()
-			.map(state -> seq.makeRCs(state.confSpace))
-			.toArray(RCs[]::new)
-		);
-	}
-
-	@Override
 	public void direct(Directions directions, NodeProcessor processor) {
-
-		// tell the cluster to focus on this state
-		directions.focus(state.index);
-
 		freeEnergy = calc(directions, processor);
-
-		// all done, stop the computation
-		directions.stop();
 	}
 
 	DoubleBounds calc(Directions directions, NodeProcessor processor) {
 
-		directions.member.log("Processing state %s", state.name);
+		if (seq != null) {
+			directions.member.log("Processing state %s, sequence [%s]", state.name, seq);
+		} else {
+			directions.member.log("Processing state %s", state.name);
+		}
 		Stopwatch stopwatch = new Stopwatch().start();
+
+		// get the tree for this pfunc
+		RCs tree;
+		if (seq != null) {
+			tree = seq.makeRCs(state.confSpace);
+		} else {
+			tree = new RCs(state.confSpace);
+		}
+
+		// tell the cluster to focus on this state, and just this sequence
+		directions.focus(state.index);
+		directions.setTree(state.index, tree);
+		processor.initRootNode(state.index, tree);
+		// TODO: does this race on a real cluster when multiple pfuncs are called in a loop?
 
 		long lastEnsembleNs = stopwatch.getTimeNs();
 
