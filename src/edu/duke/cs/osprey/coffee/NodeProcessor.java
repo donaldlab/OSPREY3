@@ -1,8 +1,8 @@
 package edu.duke.cs.osprey.coffee;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
-import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.coffee.directions.Directions;
+import edu.duke.cs.osprey.coffee.nodedb.NodeTree;
 import edu.duke.cs.osprey.coffee.nodedb.NodeDB;
 import edu.duke.cs.osprey.coffee.nodedb.NodeIndex;
 import edu.duke.cs.osprey.coffee.seqdb.Batch;
@@ -110,7 +110,7 @@ public class NodeProcessor implements AutoCloseable {
 				}
 
 				// get the tree for this state
-				RCs tree = directions.getTree(statei);
+				NodeTree tree = directions.getTree(statei);
 				if (tree == null) {
 					waitABit.run();
 					continue;
@@ -569,7 +569,7 @@ public class NodeProcessor implements AutoCloseable {
 		dropThread = new DropThread(directions);
 	}
 
-	public void initRootNode(int statei, RCs tree) {
+	public void initRootNode(int statei, NodeTree tree) {
 
 		var stateInfo = stateInfos[statei];
 
@@ -634,10 +634,10 @@ public class NodeProcessor implements AutoCloseable {
 	private static class NodeInfo {
 
 		final NodeIndex.Node node;
-		final RCs tree;
+		final NodeTree tree;
 		final long aquisitionNs;
 
-		NodeInfo(NodeIndex.Node node, RCs tree, long aquisitionNs) {
+		NodeInfo(NodeIndex.Node node, NodeTree tree, long aquisitionNs) {
 			this.node = node;
 			this.tree = tree;
 			this.aquisitionNs = aquisitionNs;
@@ -776,7 +776,7 @@ public class NodeProcessor implements AutoCloseable {
 		return energiedCoords;
 	}
 
-	public void expand(NodeIndex.Node node, RCs tree, List<NodeIndex.Node> nodeBatch) {
+	public void expand(NodeIndex.Node node, NodeTree tree, List<NodeIndex.Node> nodeBatch) {
 		var nodeInfo = new NodeInfo(node, tree, 0);
 		expand(null, nodeInfo, null, nodeBatch);
 	}
@@ -812,18 +812,23 @@ public class NodeProcessor implements AutoCloseable {
 		int posi = stateInfo.posPermutation[confIndex.numDefined];
 
 		// expand the node at the picked position
-		for (int confi : nodeInfo.tree.get(posi)) {
+		for (int confi : nodeInfo.tree.rcs.get(posi)) {
 			confIndex.assignInPlace(posi, confi);
 
 			var conf = Conf.make(confIndex);
 			var seq = makeSeq(statei, conf);
 
-			// skip this node if it's from a finished sequence
-			if (seq != null && directions != null && directions.isFinished(stateInfo.config.state.sequencedIndex, seq)) {
+			// skip sequences with too many mutations
+			if (seq != null && nodeInfo.tree.maxSimultaneousMutations != null && seq.countMutations() > nodeInfo.tree.maxSimultaneousMutations) {
+				confIndex.unassignInPlace(posi);
 				continue;
 			}
 
-			// TODO: prune assignments based on filters? eg, max simultaneous mutations?
+			// skip this node if it's from a finished sequence
+			if (seq != null && directions != null && directions.isFinished(stateInfo.config.state.sequencedIndex, seq)) {
+				confIndex.unassignInPlace(posi);
+				continue;
+			}
 
 			// compute an upper bound for the assignment
 			var zSumUpper = stateInfo.zSumUpper(confIndex, nodeInfo.tree).normalize(true);

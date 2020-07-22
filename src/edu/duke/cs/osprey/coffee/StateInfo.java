@@ -1,10 +1,10 @@
 package edu.duke.cs.osprey.coffee;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
-import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.coffee.bounds.Bounder;
 import edu.duke.cs.osprey.coffee.bounds.PairwiseBounder;
 import edu.duke.cs.osprey.coffee.bounds.TriplewiseBounder;
+import edu.duke.cs.osprey.coffee.nodedb.NodeTree;
 import edu.duke.cs.osprey.coffee.zmat.ClusterZMatrix;
 import edu.duke.cs.osprey.confspace.SeqSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
@@ -104,7 +104,7 @@ public class StateInfo {
 		return index;
 	}
 
-	public BigExp leavesBySequenceUpper(ConfIndex index, RCs rcs) {
+	public BigExp leavesBySequenceUpper(ConfIndex index, NodeTree tree) {
 
 		BigExp count = new BigExp(1.0);
 
@@ -118,7 +118,7 @@ public class StateInfo {
 
 				// count the confs by type
 				int[] counts = new int[numTypes];
-				for (int confi : rcs.get(posi)) {
+				for (int confi : tree.rcs.get(posi)) {
 					int confCount = ++counts[typesByConfByPos[posi][confi]];
 					maxCount = Math.max(maxCount, confCount);
 				}
@@ -126,7 +126,7 @@ public class StateInfo {
 			} else {
 
 				// all confs are the same type
-				maxCount = rcs.getNum(posi);
+				maxCount = tree.rcs.getNum(posi);
 			}
 
 			count.mult(maxCount);
@@ -135,16 +135,16 @@ public class StateInfo {
 		return count;
 	}
 
-	public BigExp zSumUpper(ConfIndex index, RCs rcs) {
+	public BigExp zSumUpper(ConfIndex index, NodeTree tree) {
 		BigExp out = zPathHead(index);
-		out.mult(zPathTailUpper(index, rcs));
-		out.mult(leavesBySequenceUpper(index, rcs));
+		out.mult(zPathTailUpper(index, tree));
+		out.mult(leavesBySequenceUpper(index, tree));
 		return out;
 	}
 
-	public BigExp zPathUpper(ConfIndex index, RCs rcs) {
+	public BigExp zPathUpper(ConfIndex index, NodeTree tree) {
 		BigExp out = zPathHead(index);
-		out.mult(zPathTailUpper(index, rcs));
+		out.mult(zPathTailUpper(index, tree));
 		return out;
 	}
 
@@ -152,7 +152,7 @@ public class StateInfo {
 		return bounder.g(index);
 	}
 
-	public BigExp zPathTailUpper(ConfIndex index, RCs rcs) {
-		return bounder.h(index, rcs);
+	public BigExp zPathTailUpper(ConfIndex index, NodeTree tree) {
+		return bounder.h(index, tree);
 	}
 }

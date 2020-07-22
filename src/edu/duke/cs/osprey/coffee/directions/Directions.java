@@ -1,7 +1,7 @@
 package edu.duke.cs.osprey.coffee.directions;
 
-import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.coffee.ClusterMember;
+import edu.duke.cs.osprey.coffee.nodedb.NodeTree;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
 
@@ -25,7 +25,7 @@ public class Directions {
 	private final AtomicBoolean isRunning = new AtomicBoolean(true);
 	private final CountDownLatch runningLatch = new CountDownLatch(1);
 	private final AtomicInteger focusedStatei = new AtomicInteger(-1);
-	private final List<RCs> trees;
+	private final List<NodeTree> trees;
 	private final List<Set<Sequence>> finishedSeqs;
 
 	public Directions(MultiStateConfSpace confSpace, ClusterMember member) {
@@ -34,7 +34,7 @@ public class Directions {
 		this.member = member;
 
 		trees = confSpace.states.stream()
-			.map(state -> (RCs)null)
+			.map(state -> (NodeTree)null)
 			.collect(Collectors.toList());
 
 		finishedSeqs = confSpace.sequencedStates.stream()
@@ -91,18 +91,18 @@ public class Directions {
 	/**
 	 * Tell all cluster members the node tree topology for each state.
 	 */
-	public void setTree(int statei, RCs tree) {
+	public void setTree(int statei, NodeTree tree) {
 		receiveTree(statei, tree);
 		member.sendToOthers(() -> new TreeOperation(statei, tree));
 	}
 
-	void receiveTree(int statei, RCs tree) {
+	void receiveTree(int statei, NodeTree tree) {
 		synchronized (trees) {
 			trees.set(statei, tree);
 		}
 	}
 
-	public RCs getTree(int statei) {
+	public NodeTree getTree(int statei) {
 		synchronized (trees) {
 			return trees.get(statei);
 		}

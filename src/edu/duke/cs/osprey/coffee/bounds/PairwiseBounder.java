@@ -1,7 +1,7 @@
 package edu.duke.cs.osprey.coffee.bounds;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
-import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.coffee.nodedb.NodeTree;
 import edu.duke.cs.osprey.coffee.zmat.ClusterZMatrix;
 import edu.duke.cs.osprey.tools.BigExp;
 
@@ -66,7 +66,7 @@ public class PairwiseBounder implements Bounder {
 	}
 
 	@Override
-	public BigExp h(ConfIndex index, RCs rcs) {
+	public BigExp h(ConfIndex index, NodeTree tree) {
 
 		// this is the classic A* heuristic
 
@@ -83,7 +83,7 @@ public class PairwiseBounder implements Bounder {
 
 			// optimize over possible assignments to pos1
 			BigExp zpos1 = new BigExp(Double.NEGATIVE_INFINITY);
-			for (int confi1 : rcs.get(posi1)) {
+			for (int confi1 : tree.rcs.get(posi1)) {
 
 				BigExp zrc1 = new BigExp(zmat.single(posi1, confi1));
 

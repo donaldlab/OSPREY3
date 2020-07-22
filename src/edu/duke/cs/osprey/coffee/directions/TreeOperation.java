@@ -4,6 +4,7 @@ import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.coffee.nodedb.NodeTree;
 
 import java.io.IOException;
 
@@ -11,7 +12,7 @@ import java.io.IOException;
 public class TreeOperation extends Operation {
 
 	private int statei;
-	private RCs tree;
+	private NodeTree tree;
 
 	@SuppressWarnings("unused") // used by hazelcast
 	public TreeOperation() {
@@ -19,7 +20,8 @@ public class TreeOperation extends Operation {
 		tree = null;
 	}
 
-	public TreeOperation(int statei, RCs tree) {
+	public TreeOperation(int statei, NodeTree tree) {
+		this.statei = statei;
 		this.tree = tree;
 	}
 
@@ -39,14 +41,19 @@ public class TreeOperation extends Operation {
 		super.writeInternal(out);
 
 		out.writeInt(statei);
-		assert (tree.getPruneMat() == null);
-		out.writeInt(tree.getNumPos());
-		for (int posi=0; posi<tree.getNumPos(); posi++) {
-			int[] confs = tree.get(posi);
+		assert (tree.rcs.getPruneMat() == null);
+		out.writeInt(tree.rcs.getNumPos());
+		for (int posi=0; posi<tree.rcs.getNumPos(); posi++) {
+			int[] confs = tree.rcs.get(posi);
 			out.writeInt(confs.length);
 			for (int conf : confs) {
 				out.writeInt(conf);
 			}
+		}
+		if (tree.maxSimultaneousMutations != null) {
+			out.writeInt(tree.maxSimultaneousMutations);
+		} else {
+			out.writeInt(-1);
 		}
 	}
 
@@ -64,7 +71,11 @@ public class TreeOperation extends Operation {
 				rcs[confi] = in.readInt();
 			}
 		}
-		tree = new RCs(rcsAtPos);
+		Integer maxSimultaneousMutations = in.readInt();
+		if (maxSimultaneousMutations <= 0) {
+			maxSimultaneousMutations = null;
+		}
+		tree = new NodeTree(new RCs(rcsAtPos), maxSimultaneousMutations);
 	}
 
 	@Override

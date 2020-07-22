@@ -5,7 +5,7 @@ import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 import static edu.duke.cs.osprey.TestBase.isRelatively;
 
-import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.coffee.nodedb.NodeTree;
 import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
@@ -160,7 +160,7 @@ public class TestLeafNodeBounds {
 		final int numNodes = 50;
 
 		// get some confs
-		RCs tree = confSpace.seqSpace.makeWildTypeSequence().makeRCs(state.confSpace);
+		var tree = new NodeTree(confSpace.seqSpace.makeWildTypeSequence().makeRCs(state.confSpace));
 		var nodes = coffee.findHighZNodes(state.index, zmat, tree, numNodes);
 
 		try (var ecalc = new CPUConfEnergyCalculator(stateConfig.confSpace)) {

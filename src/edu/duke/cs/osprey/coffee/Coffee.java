@@ -1,10 +1,10 @@
 package edu.duke.cs.osprey.coffee;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
-import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.coffee.directions.Directions;
 import edu.duke.cs.osprey.coffee.nodedb.NodeDB;
 import edu.duke.cs.osprey.coffee.nodedb.NodeIndex;
+import edu.duke.cs.osprey.coffee.nodedb.NodeTree;
 import edu.duke.cs.osprey.coffee.seqdb.SeqDB;
 import edu.duke.cs.osprey.coffee.zmat.ClusterZMatrix;
 import edu.duke.cs.osprey.confspace.Conf;
@@ -403,7 +403,7 @@ public class Coffee {
 	 * Quickly get a few nodes with high Z values.
 	 * Mostly only useful for debugging.
 	 */
-	public List<NodeIndex.Node> findHighZNodes(int statei, ClusterZMatrix zmat, RCs tree, int count) {
+	public List<NodeIndex.Node> findHighZNodes(int statei, ClusterZMatrix zmat, NodeTree tree, int count) {
 
 		var leafNodes = new ArrayList<NodeIndex.Node>(count);
 

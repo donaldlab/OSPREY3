@@ -696,11 +696,13 @@ public class TestCoffee {
 
 			var director = new AffinityDirector.Builder(confSpace, "complex", "design", "target")
 				.setK(28) // just the sequences that are quick to get... the other 21 sequences have high energies and VERY loose bounds
+				.setMaxSimultaneousMutations(null)
 				.setTiming(Timing.Precise)
 				.build();
 			coffee.run(director);
 
 			if (cluster.nodeId == 0) {
+				assertThat(director.bestSeqs.size(), is(28));
 				assertFreeEnergies_2m4f_complex(director.bestSeqs, confSpace.getState("complex").index);
 				assertFreeEnergies_2m4f_design(director.bestSeqs, confSpace.getState("design").index);
 				assertThat(director.targetFreeEnergy, isAbsoluteBound(-1187.609, 1e-3));
@@ -711,4 +713,30 @@ public class TestCoffee {
 	@Test public void design_affinity_6ov7_2mut4flex_1x4() { design_affinity_6ov7_2mut4flex(1, 4); }
 	@Test public void design_affinity_6ov7_2mut4flex_2x2() { design_affinity_6ov7_2mut4flex(2, 2); }
 	@Test public void design_affinity_6ov7_2mut4flex_4x1() { design_affinity_6ov7_2mut4flex(4, 1); }
+
+	@Test
+	public void design_affinity_6ov7_2mut4flex_1x4_1mut() {
+		var confSpace = TestCoffee.affinity_6ov7_2mut4flex();
+
+		Coffee coffee = new Coffee.Builder(confSpace)
+			.setParallelism(Parallelism.makeCpu(4))
+			.configEachState((config, ecalc) -> config.posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null))
+			.build();
+
+		var director = new AffinityDirector.Builder(confSpace, "complex", "design", "target")
+			.setK(11) // the other 2 single-mutation sequences have high energies and take forever to find
+			.setMaxSimultaneousMutations(1)
+			.setTiming(Timing.Precise)
+			.build();
+		coffee.run(director);
+
+		assertThat(director.bestSeqs.size(), is(11));
+		for (var seqg : director.bestSeqs) {
+			assertThat(seqg.seq.toString(), seqg.seq.countMutations(), lessThanOrEqualTo(1));
+		}
+
+		assertFreeEnergies_2m4f_complex(director.bestSeqs, confSpace.getState("complex").index);
+		assertFreeEnergies_2m4f_design(director.bestSeqs, confSpace.getState("design").index);
+		assertThat(director.targetFreeEnergy, isAbsoluteBound(-1187.609, 1e-3));
+	}
 }

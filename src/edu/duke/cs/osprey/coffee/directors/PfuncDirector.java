@@ -5,6 +5,7 @@ import edu.duke.cs.osprey.coffee.Coffee;
 import edu.duke.cs.osprey.coffee.FreeEnergyCalculator;
 import edu.duke.cs.osprey.coffee.NodeProcessor;
 import edu.duke.cs.osprey.coffee.directions.Directions;
+import edu.duke.cs.osprey.coffee.nodedb.NodeTree;
 import edu.duke.cs.osprey.coffee.seqdb.StateZ;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
@@ -149,12 +150,13 @@ public class PfuncDirector implements Coffee.Director {
 		Stopwatch stopwatch = new Stopwatch().start();
 
 		// get the tree for this pfunc
-		RCs tree;
+		RCs rcs;
 		if (seq != null) {
-			tree = seq.makeRCs(state.confSpace);
+			rcs = seq.makeRCs(state.confSpace);
 		} else {
-			tree = new RCs(state.confSpace);
+			rcs = new RCs(state.confSpace);
 		}
+		var tree = new NodeTree(rcs);
 
 		// tell the cluster to focus on this state, and just this sequence
 		directions.focus(state.index);

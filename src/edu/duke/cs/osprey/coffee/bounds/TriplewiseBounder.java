@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.coffee.bounds;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.coffee.nodedb.NodeTree;
 import edu.duke.cs.osprey.coffee.zmat.ClusterZMatrix;
 import edu.duke.cs.osprey.tools.BigExp;
 
@@ -59,7 +60,7 @@ public class TriplewiseBounder implements Bounder {
 	}
 
 	@Override
-	public BigExp h(ConfIndex index, RCs rcs) {
-		return pairwiseBounder.h(index, rcs);
+	public BigExp h(ConfIndex index, NodeTree tree) {
+		return pairwiseBounder.h(index, tree);
 	}
 }

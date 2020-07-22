@@ -5,6 +5,7 @@ import edu.duke.cs.osprey.coffee.Coffee;
 import edu.duke.cs.osprey.coffee.FreeEnergyCalculator;
 import edu.duke.cs.osprey.coffee.NodeProcessor;
 import edu.duke.cs.osprey.coffee.directions.Directions;
+import edu.duke.cs.osprey.coffee.nodedb.NodeTree;
 import edu.duke.cs.osprey.coffee.seqdb.SeqFreeEnergies;
 import edu.duke.cs.osprey.coffee.seqdb.SeqInfo;
 import edu.duke.cs.osprey.coffee.seqdb.StateZ;
@@ -36,6 +37,7 @@ public class AffinityDirector implements Coffee.Director {
 
 		private int K = 5;
 		private double gWidthMax = 1.0;
+		private Integer maxSimultaneousMutations = 1;
 		private Timing timing = Timing.Efficient;
 
 		public Builder(MultiStateConfSpace confSpace, MultiStateConfSpace.State complex, MultiStateConfSpace.State design, MultiStateConfSpace.State target) {
@@ -76,6 +78,11 @@ public class AffinityDirector implements Coffee.Director {
 			return this;
 		}
 
+		public Builder setMaxSimultaneousMutations(Integer val) {
+			maxSimultaneousMutations = val;
+			return this;
+		}
+
 		public Builder setTiming(Timing val) {
 			timing = val;
 			return this;
@@ -84,7 +91,7 @@ public class AffinityDirector implements Coffee.Director {
 		public AffinityDirector build() {
 			return new AffinityDirector(
 				confSpace, complex, design, target,
-				K, gWidthMax, timing
+				K, gWidthMax, maxSimultaneousMutations, timing
 			);
 		}
 	}
@@ -95,6 +102,7 @@ public class AffinityDirector implements Coffee.Director {
 	public final MultiStateConfSpace.State target;
 	public final int K;
 	public final double gWidthMax;
+	public final Integer maxSimultaneousMutations;
 	public final Timing timing;
 
 	public final List<SeqFreeEnergies> bestSeqs;
@@ -103,7 +111,7 @@ public class AffinityDirector implements Coffee.Director {
 	private final BestSet<SeqFreeEnergies> bestSeqsByLower;
 	private final BestSet<SeqFreeEnergies> bestSeqsByUpper;
 
-	private AffinityDirector(MultiStateConfSpace confSpace, MultiStateConfSpace.State complex, MultiStateConfSpace.State design, MultiStateConfSpace.State target, int K, double gWidthMax, Timing timing) {
+	private AffinityDirector(MultiStateConfSpace confSpace, MultiStateConfSpace.State complex, MultiStateConfSpace.State design, MultiStateConfSpace.State target, int K, double gWidthMax, Integer maxSimultaneousMutations, Timing timing) {
 
 		this.confSpace = confSpace;
 		this.complex = complex;
@@ -111,6 +119,7 @@ public class AffinityDirector implements Coffee.Director {
 		this.target = target;
 		this.K = K;
 		this.gWidthMax = gWidthMax;
+		this.maxSimultaneousMutations = maxSimultaneousMutations;
 		this.timing = timing;
 
 		bestSeqs = new ArrayList<>();
@@ -130,7 +139,7 @@ public class AffinityDirector implements Coffee.Director {
 
 		// init the cluster with the complex state, all sequences
 		directions.focus(complex.index);
-		var tree = new RCs(complex.confSpace);
+		var tree = new NodeTree(new RCs(complex.confSpace), maxSimultaneousMutations);
 		directions.setTree(complex.index, tree);
 		processor.initRootNode(complex.index, tree);
 
