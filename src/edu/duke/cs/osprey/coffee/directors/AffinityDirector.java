@@ -12,10 +12,12 @@ import edu.duke.cs.osprey.coffee.seqdb.StateZ;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.parallelism.ThreadTools;
+import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
+import java.io.File;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -39,6 +41,11 @@ public class AffinityDirector implements Coffee.Director {
 		private double gWidthMax = 1.0;
 		private Integer maxSimultaneousMutations = 1;
 		private Timing timing = Timing.Efficient;
+		private int ensembleSize = 0;
+		private File ensembleDir = null;
+		private long ensembleUpdate = 5;
+		private TimeUnit ensembleUpdateUnit = TimeUnit.MINUTES;
+
 
 		public Builder(MultiStateConfSpace confSpace, MultiStateConfSpace.State complex, MultiStateConfSpace.State design, MultiStateConfSpace.State target) {
 
@@ -88,10 +95,30 @@ public class AffinityDirector implements Coffee.Director {
 			return this;
 		}
 
+		/**
+		 * Tracks the lowest-energy conformations for the best sequences
+		 * and periodically writes out ensemble PDB files to the specified directory.
+		 */
+		public Builder setEnsembleTracking(int size, File dir) {
+			ensembleSize = size;
+			ensembleDir = dir;
+			return this;
+		}
+
+		/**
+		 * Sets the minimum interval for writing the next lowest-energy ensemble PDB files.
+		 */
+		public Builder setEnsembleMinUpdate(long update, TimeUnit updateUnit) {
+			ensembleUpdate = update;
+			ensembleUpdateUnit = updateUnit;
+			return this;
+		}
+
 		public AffinityDirector build() {
 			return new AffinityDirector(
 				confSpace, complex, design, target,
-				K, gWidthMax, maxSimultaneousMutations, timing
+				K, gWidthMax, maxSimultaneousMutations, timing,
+				ensembleSize, ensembleDir, ensembleUpdate, ensembleUpdateUnit
 			);
 		}
 	}
@@ -104,6 +131,10 @@ public class AffinityDirector implements Coffee.Director {
 	public final double gWidthMax;
 	public final Integer maxSimultaneousMutations;
 	public final Timing timing;
+	public final int ensembleSize;
+	public final File ensembleDir;
+	public final long ensembleUpdate;
+	public final TimeUnit ensembleUpdateUnit;
 
 	public final List<SeqFreeEnergies> bestSeqs;
 	public DoubleBounds targetFreeEnergy;
@@ -111,7 +142,7 @@ public class AffinityDirector implements Coffee.Director {
 	private final BestSet<SeqFreeEnergies> bestSeqsByLower;
 	private final BestSet<SeqFreeEnergies> bestSeqsByUpper;
 
-	private AffinityDirector(MultiStateConfSpace confSpace, MultiStateConfSpace.State complex, MultiStateConfSpace.State design, MultiStateConfSpace.State target, int K, double gWidthMax, Integer maxSimultaneousMutations, Timing timing) {
+	private AffinityDirector(MultiStateConfSpace confSpace, MultiStateConfSpace.State complex, MultiStateConfSpace.State design, MultiStateConfSpace.State target, int K, double gWidthMax, Integer maxSimultaneousMutations, Timing timing, int ensembleSize, File ensembleDir, long ensembleUpdate, TimeUnit ensembleUpdateUnit) {
 
 		this.confSpace = confSpace;
 		this.complex = complex;
@@ -121,11 +152,20 @@ public class AffinityDirector implements Coffee.Director {
 		this.gWidthMax = gWidthMax;
 		this.maxSimultaneousMutations = maxSimultaneousMutations;
 		this.timing = timing;
+		this.ensembleSize = ensembleSize;
+		this.ensembleDir = ensembleDir;
+		this.ensembleUpdate = ensembleUpdate;
+		this.ensembleUpdateUnit = ensembleUpdateUnit;
 
 		bestSeqs = new ArrayList<>();
 		targetFreeEnergy = null;
 		bestSeqsByLower = new BestSet<>(K, seq -> seq.freeEnergies[complex.index].lower);
 		bestSeqsByUpper = new BestSet<>(K, seq -> seq.freeEnergies[complex.index].upper);
+	}
+
+	@Override
+	public int numBestConfs() {
+		return ensembleSize;
 	}
 
 	@Override
@@ -146,6 +186,8 @@ public class AffinityDirector implements Coffee.Director {
 		var gcalc = new FreeEnergyCalculator();
 		var finishedSequences = new HashSet<Sequence>();
 		var newlyFinishedSequences = new HashSet<Sequence>();
+
+		long lastEnsembleNs = stopwatch.getTimeNs();
 
 		// first, find the sequences with the best complex free energies
 		directions.focus(complex.index);
@@ -233,6 +275,12 @@ public class AffinityDirector implements Coffee.Director {
 				}
 			}
 
+			// should we save ensembles now?
+			if (ensembleUpdate > 0 && stopwatch.getTimeNs() >= lastEnsembleNs + ensembleUpdateUnit.toNanos(ensembleUpdate)) {
+				saveEnsemble(directions, processor, bestSeqsByLower.toList());
+				lastEnsembleNs = stopwatch.getTimeNs();
+			}
+
 			// are we done yet?
 
 			// to be done, all the best sequences must have finite bounds
@@ -293,6 +341,9 @@ public class AffinityDirector implements Coffee.Director {
 
 		// put the best sequences in some reasonable order
 		bestSeqs.sort(Comparator.comparing(seqg -> seqg.freeEnergies[complex.index].lower));
+
+		// save the last ensembles
+		saveEnsemble(directions, processor, bestSeqs);
 
 		// next, compute the design state free energies for the best sequences
 		directions.member.log("Computing design state free energies for %d sequences ...", bestSeqs.size());
@@ -364,5 +415,55 @@ public class AffinityDirector implements Coffee.Director {
 		}
 		// TODO: target?
 		return buf.toString();
+	}
+
+	private void saveEnsemble(Directions directions, NodeProcessor processor, List<SeqFreeEnergies> seqgs) {
+
+		// skip if ensemble saving is disabled
+		if (ensembleDir == null) {
+			return;
+		}
+
+		// keep only fully-assigned sequences
+		seqgs = seqgs.stream()
+			.filter(seqg -> seqg.seq.isFullyAssigned())
+			.collect(Collectors.toList());
+
+		var stopwatch = new Stopwatch().start();
+		directions.member.log("Writing ensembles for %d sequences ...", seqgs.size());
+		ensembleDir.mkdirs();
+
+		for (var seqg : seqgs) {
+
+			// pick a name for the ensemble file
+			String seqstr = seqg.seq.toString(Sequence.Renderer.ResTypeMutations)
+				.replace(' ', '-');
+			File ensembleFile = new File(ensembleDir, String.format("seq.%s.pdb", seqstr));
+
+			// get the confs, if any
+			List<int[]> bestConfs;
+			synchronized (processor.seqdb) {
+				bestConfs = processor.seqdb.getBestConfs(complex, seqg.seq).stream()
+					.map(econf -> econf.getAssignments())
+					.collect(Collectors.toList());
+			}
+			if (bestConfs.isEmpty()) {
+				// no structures, write an empty file
+				PDBIO.writeFileEcoords(Collections.emptyList(), ensembleFile, "No structures for this sequence");
+				continue;
+			}
+
+			// minimize them
+			// TODO: optimize somehow? cache structures?
+			var energiedCoords = processor.minimizeCoords(complex.index, bestConfs);
+
+			// write the PDB file
+			String comment = String.format("Ensemble of %d conformations for:\n\t   State  %s\n\tSequence  [%s]",
+				energiedCoords.size(), complex.name, seqg.seq.toString(Sequence.Renderer.AssignmentMutations)
+			);
+			PDBIO.writeFileEcoords(energiedCoords, ensembleFile, comment);
+		}
+
+		directions.member.log("Saved ensembles to %s in %s", ensembleDir.getAbsolutePath(), stopwatch.getTime(2));
 	}
 }

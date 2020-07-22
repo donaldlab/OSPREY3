@@ -282,7 +282,6 @@ public class PfuncDirector implements Coffee.Director {
 		}
 
 		// minimize them
-		// TODO: how to handle parallelism here?
 		var energiedCoords = processor.minimizeCoords(state.index, bestConfs);
 
 		// write the PDB file

@@ -8,6 +8,9 @@ import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
+import java.io.File;
+import java.util.concurrent.TimeUnit;
+
 
 public class CoffeeLab {
 
@@ -42,8 +45,11 @@ public class CoffeeLab {
 
 		var director = new AffinityDirector.Builder(confSpace, "complex", "design", "target")
 			//.setK(49)
-			.setK(28)
+			//.setK(28)
+			.setK(10)
 			.setTiming(Timing.Precise)
+			.setEnsembleTracking(5, new File("ensembles"))
+			.setEnsembleMinUpdate(30, TimeUnit.SECONDS)
 			.build();
 		coffee.run(director);
 	}
