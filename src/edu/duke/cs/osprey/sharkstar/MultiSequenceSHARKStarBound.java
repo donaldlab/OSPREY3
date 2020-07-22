@@ -359,6 +359,12 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             precomputedFringe.add(node);
         }
     }
+
+    private static class FringeResult{
+        boolean isFringe;
+        List<MultiSequenceSHARKStarNode> nodes = new ArrayList<>();
+    }
+
     private List<MultiSequenceSHARKStarNode> computeFringeForSequenceParallel(Sequence seq, RCs seqRCs) {
         List<MultiSequenceSHARKStarNode> scoredSeqFringe = Collections.synchronizedList(new ArrayList<>());
         ConcurrentLinkedQueue<MultiSequenceSHARKStarNode> unscoredSeqFringe = new ConcurrentLinkedQueue<>(precomputedFringe);
@@ -367,14 +373,14 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         if(unscoredSeqFringe.isEmpty())
             unscoredSeqFringe.add(this.rootNode);
 
-        while(!unscoredSeqFringe.isEmpty() || loopTasks.isWorking()){
-            loopTasks.submit(
+        while(!unscoredSeqFringe.isEmpty() || loopTasks.isExpecting()){
+            MultiSequenceSHARKStarNode node = unscoredSeqFringe.poll();
+            if(node == null)
+                continue;
+
+            loopTasks.submitExpecting(
                 ()->{
-                    MultiSequenceSHARKStarNode node = unscoredSeqFringe.poll();
-                    // If queue is empty, just return
-                    if(node == null)
-                        return null;
-                    // Else, do things
+                    FringeResult result = new FringeResult();
                     try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
                         ScoreContext context = checkout.get();
 
@@ -386,32 +392,44 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         }
 
                         // Get the children
-                        List<MultiSequenceSHARKStarNode> children = node.getOrMakeChildren(seq);
+                        List<MultiSequenceSHARKStarNode> children = node.getChildren(seq);
                         // If we are at a leaf, score the node
-                        if(!children.isEmpty()) {
+                        if(children != null && !children.isEmpty()) {
                             // if there are children, just add them to queue, since we only want the fringe
-                            unscoredSeqFringe.addAll(children);
+                            result.isFringe = false;
+                            result.nodes.addAll(children);
+                            //unscoredSeqFringe.addAll(children);
                         }else{
                             double confCorrection = correctionMatrix.confE(confNode.assignments);
                             double gscore = context.partialConfLowerBoundScorer.calc(context.index, seqRCs);
                             double hscore = context.lowerBoundScorer.calc(context.index, seqRCs);
                             double confLowerBound = confNode.getPartialConfLowerBound() + context.lowerBoundScorer.calc(context.index, seqRCs);
                             double confUpperBound = confNode.getPartialConfUpperBound() + context.upperBoundScorer.calc(context.index, seqRCs);
-                            String historyString = String.format("%s: previous lower bound %f, g score %f, hscore %f, f score %f corrected score %f, from %s",
-                                    confNode.confToString(), node.getConfLowerBound(seq), gscore, hscore, gscore + hscore, confCorrection, getStackTrace());
+                            String historyString = "";
+                            if(debug){
+                                historyString = String.format("%s: previous lower bound %f, g score %f, hscore %f, f score %f corrected score %f, from %s",
+                                        confNode.confToString(), node.getConfLowerBound(seq), gscore, hscore, gscore + hscore, confCorrection, getStackTrace());
+                            }
                             node.setBoundsFromConfLowerAndUpperWithHistory(confLowerBound, confUpperBound, seq, historyString);
 
                             if (node.getChildren(null).isEmpty())
                                 correctionMatrix.setHigherOrder(node.toTuple(), confNode.getPartialConfLowerBound()
                                         - minimizingEmat.confE(confNode.assignments));
 
+                            result.isFringe = true;
+                            result.nodes.add(node);
                             //bound.fringeNodes.add(node);
-                            scoredSeqFringe.add(node);
+                            //scoredSeqFringe.add(node);
                         }
                     }
-                    return null;
+                    return result;
                 },
-                (ignored)->{}
+                (FringeResult result)->{
+                    if (result.isFringe)
+                        scoredSeqFringe.addAll(result.nodes);
+                    else
+                        unscoredSeqFringe.addAll(result.nodes);
+                }
             );
         }
         loopTasks.waitForFinish();
