@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.sharkstar;
 
 import edu.duke.cs.osprey.confspace.Sequence;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.math.BigDecimal;
@@ -48,8 +49,8 @@ class SHARKStarQueue extends PriorityQueue<MultiSequenceSHARKStarNode> {
     public MultiSequenceSHARKStarNode poll() {
         MultiSequenceSHARKStarNode node = super.poll();
         debugCheck();
-        partitionFunctionUpperSum = partitionFunctionUpperSum.subtract(node.getUpperBound(seq));
-        partitionFunctionLowerSum = partitionFunctionLowerSum.subtract(node.getLowerBound(seq));
+        partitionFunctionUpperSum = partitionFunctionUpperSum.subtract(node.getUpperBound(seq), PartitionFunction.decimalPrecision);
+        partitionFunctionLowerSum = partitionFunctionLowerSum.subtract(node.getLowerBound(seq), PartitionFunction.decimalPrecision);
         debugCheck();
         return node;
     }

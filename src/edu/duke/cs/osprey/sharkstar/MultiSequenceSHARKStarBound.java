@@ -694,8 +694,14 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         }
 
         // Initialize state
-        sequenceBound.state.upperBound = sequenceBound.getUpperBound();
-        sequenceBound.state.lowerBound = sequenceBound.getLowerBound();
+
+        sequenceBound.state.upperBound = sequenceBound.fringeNodes.stream().map(n -> n.getUpperBound(sequenceBound.sequence)).
+                reduce(BigDecimal.ZERO, (a,b) -> a.add(b, PartitionFunction.decimalPrecision));
+        sequenceBound.state.lowerBound = sequenceBound.fringeNodes.stream().map(n -> n.getLowerBound(sequenceBound.sequence)).
+                reduce(BigDecimal.ZERO, (a,b) -> a.add(b, PartitionFunction.decimalPrecision));
+
+        //sequenceBound.state.upperBound = sequenceBound.getUpperBound();
+        //sequenceBound.state.lowerBound = sequenceBound.getLowerBound();
         double curEps = sequenceBound.state.calcDelta();
 
         Step step = Step.None;
@@ -1026,6 +1032,27 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
                                 result.deltaLB = endLB.subtract(startLB, PartitionFunction.decimalPrecision);
                                 result.deltaUB = endUB.subtract(startUB, PartitionFunction.decimalPrecision);
+
+                                BigDecimal lbAccuracyCutoff = startLB.multiply(BigDecimal.valueOf(-1e-10));
+                                BigDecimal ubAccuracyCutoff = startUB.multiply(BigDecimal.valueOf(1e-10));
+
+                                if (result.deltaLB.compareTo(BigDecimal.ZERO) < 0) {
+                                    System.err.println(String.format("WARNING: Expansion of %s resulted in LB decrease of %1.9e",
+                                            toExpand.get(0).toString(),
+                                            result.deltaLB
+                                            ));
+                                    if (result.deltaLB.compareTo(lbAccuracyCutoff) < 0)
+                                        throw new RuntimeException("Lower bound is decreasing");
+
+                                }
+                                if (result.deltaUB.compareTo(BigDecimal.ZERO) > 0) {
+                                    System.err.println(String.format("WARNING: Expansion of %s resulted in UB increase of %1.9e",
+                                            toExpand.get(0).toString(),
+                                            result.deltaUB
+                                    ));
+                                    if (result.deltaUB.compareTo(ubAccuracyCutoff) > 0)
+                                        throw new RuntimeException("Upper bound is increasing");
+                                }
 
                                 internalTime.stop();
                                 result.timeS = internalTime.getTimeS();
