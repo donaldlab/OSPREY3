@@ -9,6 +9,7 @@ import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.gmec.ConfAnalyzer;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -81,14 +82,52 @@ public class TestConfEnergyCalculator extends TestBase {
 
     @Test
     public void testLowerBounds(){
-        System.out.println(String.format("Problematic triple: %s, LB: %.9f, Min E: %.9f",
+        ConfAnalyzer analyzer = new ConfAnalyzer(confEcalc);
+        double tripleLB = emat.getInternalEnergy(problematicTriple);
+        double tripleE = confEcalc.calcEnergy(problematicTriple).energy;
+        double tripleCorrection = tripleE-tripleLB;
+        System.out.println(String.format("Problematic triple: %s, LB: %.9f, Min E: %.9f, Correction %.9f",
                 problematicTriple.toString(),
-                emat.getInternalEnergy(problematicTriple),
-                confEcalc.calcEnergy(problematicTriple).energy
+                tripleLB,
+                tripleE,
+                tripleCorrection
                 ));
         for (ConfSearch.ScoredConf conf : confs){
             System.out.println(conf);
             System.out.println(confEcalc.calcEnergy(conf));
+            ConfAnalyzer.ConfAnalysis analysis = analyzer.analyze(conf);
+            EnergyMatrix energyAnalysis = analysis.breakdownEnergyByPosition(ResidueForcefieldBreakdown.Type.All);
+            EnergyMatrix scoreAnalysis = analysis.breakdownScoreByPosition(emat);
+            EnergyMatrix diff = energyAnalysis.diff(scoreAnalysis);
+
+            /*
+            for (int pos = 0; pos < diff.getNumPos(); pos++) {
+                for (int rc = 0; rc < diff.getNumConfAtPos(pos); rc++) {
+                    for (int pos2 = 0; pos2 < diff.getNumPos(); pos2++) {
+                        for (int rc2 = 0; rc2 < diff.getNumConfAtPos(pos2); rc2++) {
+                            if (pos >= pos2)
+                                continue;
+                            double sum = 0;
+                            sum += diff.getOneBody(pos, rc);
+                            sum += diff.getPairwise(pos, rc, pos2, rc2);
+                            sum += diff.getOneBody(pos2, rc2);
+                            System.out.println(sum);
+                        }
+                    }
+                }
+            }
+             */
+            double diffSum = 0;
+            for(int i : problematicTriple.pos){
+                diffSum += diff.getOneBody(i,0);
+                for (int j : problematicTriple.pos){
+                    if (i>=j)
+                        continue;
+                    diffSum += diff.getPairwise(i,0, j, 0);
+                }
+            }
+            System.out.println(String.format("Diff Sum: %f",diffSum));
+            System.out.println(String.format("Corrected LB: %f", conf.getScore()+ tripleCorrection));
 
         }
     }
