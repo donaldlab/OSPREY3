@@ -100,5 +100,9 @@ public class TupE implements Comparable<TupE> {
         }
         return value;
     }
+
+    public int size(){
+        return this.tup.size();
+    }
     
 }

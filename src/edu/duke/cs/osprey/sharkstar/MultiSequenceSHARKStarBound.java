@@ -677,7 +677,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     }
 
     public void computeForSequenceParallel(int maxNumConfs, SingleSequenceSHARKStarBound sequenceBound){
-        System.out.println("Tightening bound for "+sequenceBound.sequence);
+        System.out.println("Tightening bound for "+sequenceBound.sequence + " " + this.stateName);
 
         // Test to make sure that we have a valid pfunc
         sequenceBound.updateBound();
@@ -695,13 +695,16 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
         // Initialize state
 
+        /*
         sequenceBound.state.upperBound = sequenceBound.fringeNodes.stream().map(n -> n.getUpperBound(sequenceBound.sequence)).
                 reduce(BigDecimal.ZERO, (a,b) -> a.add(b, PartitionFunction.decimalPrecision));
         sequenceBound.state.lowerBound = sequenceBound.fringeNodes.stream().map(n -> n.getLowerBound(sequenceBound.sequence)).
                 reduce(BigDecimal.ZERO, (a,b) -> a.add(b, PartitionFunction.decimalPrecision));
 
-        //sequenceBound.state.upperBound = sequenceBound.getUpperBound();
-        //sequenceBound.state.lowerBound = sequenceBound.getLowerBound();
+         */
+
+        sequenceBound.state.upperBound = sequenceBound.getUpperBound();
+        sequenceBound.state.lowerBound = sequenceBound.getLowerBound();
         double curEps = sequenceBound.state.calcDelta();
 
         Step step = Step.None;
@@ -719,7 +722,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 sequenceBound.updateBound();
 
                 // Early termination
-                    curEps = sequenceBound.state.calcDelta();
+                double newEps = sequenceBound.state.calcDelta();
+                if(newEps > curEps){
+                    //throw new RuntimeException("ERROR: Epsilon is increasing");
+                }
+                curEps = newEps;
 
                 debugPrint(String.format("Epsilon: %.9f, Bounds:[%1.3e, %1.3e]",
                         //sequenceBound.getSequenceEpsilon(),
@@ -844,8 +851,17 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                             (result) -> {
                                 if (result.deltaLB.compareTo(BigDecimal.ZERO) < 0)
                                     throw new RuntimeException("Lower bound is decreasing");
-                                if (result.deltaUB.compareTo(BigDecimal.ZERO) > 0)
+                                if (result.deltaUB.compareTo(BigDecimal.ZERO) > 0) {
+                                    try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+                                        ScoreContext context = checkout.get();
+                                        result.minimizedNode.getConfSearchNode().index(context.index);
+                                        System.err.println(String.format("Uncorrected g: %.3f, Corrected g: %.3f",
+                                                context.partialConfLowerBoundScorer.calc(context.index,sequenceBound.seqRCs),
+                                                correctionMatrix.confE(result.minimizedNode.getConfSearchNode().assignments)
+                                        ));
+                                    }
                                     throw new RuntimeException("Upper bound is increasing");
+                                }
                                 double delta = 2.0;
                                 long fringeSize = 0;
                                 synchronized(sequenceBound.state) {
@@ -1037,21 +1053,55 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                 BigDecimal ubAccuracyCutoff = startUB.multiply(BigDecimal.valueOf(1e-10));
 
                                 if (result.deltaLB.compareTo(BigDecimal.ZERO) < 0) {
-                                    System.err.println(String.format("WARNING: Expansion of %s resulted in LB decrease of %1.9e",
-                                            toExpand.get(0).toString(),
-                                            result.deltaLB
-                                            ));
-                                    if (result.deltaLB.compareTo(lbAccuracyCutoff) < 0)
-                                        throw new RuntimeException("Lower bound is decreasing");
+                                    //if the lower bound is decreasing at all
+                                    //log it or something
 
+                                    // If the wrong move magnitude is more than one
+                                    if (result.deltaLB.compareTo(BigDecimal.valueOf(-1.0)) < 0) {
+
+                                        // If the wrong move magnitude is more than a factor of 1e-10 of the original bound (and more than one), throw an exception
+                                        if (result.deltaLB.compareTo(lbAccuracyCutoff) < 0) {
+                                            System.out.println(String.format("ERROR: Expansion of %s resulted in increased UB\n\tdeltaLB: %1.9e, Starting LB: %1.9e, cutoff: %1.9e",
+                                                    toExpand.get(0).toString(),
+                                                    result.deltaLB,
+                                                    startLB,
+                                                    lbAccuracyCutoff
+                                            ));
+                                            throw new RuntimeException("Lower bound is decreasing");
+                                        // If the wrong move magnitude is more than one but less than the cutoff, just warn
+                                        } else {
+                                            System.err.println(String.format("WARNING: Expansion of %s resulted in LB decrease of %1.9e",
+                                                    toExpand.get(0).toString(),
+                                                    result.deltaLB
+                                            ));
+                                        }
+
+                                    }
                                 }
                                 if (result.deltaUB.compareTo(BigDecimal.ZERO) > 0) {
-                                    System.err.println(String.format("WARNING: Expansion of %s resulted in UB increase of %1.9e",
-                                            toExpand.get(0).toString(),
-                                            result.deltaUB
-                                    ));
-                                    if (result.deltaUB.compareTo(ubAccuracyCutoff) > 0)
-                                        throw new RuntimeException("Upper bound is increasing");
+                                    // if upper bound is increasing at all
+                                    // log or something here
+
+                                    // if the upper bound is increasing by magnitude greater than one
+                                    if (result.deltaUB.compareTo(BigDecimal.ONE) > 0) {
+
+                                        // If the wrong move magnitude is more than a factor of 1e-10 of the original bound (and more than one), throw an exception
+                                        if (result.deltaUB.compareTo(ubAccuracyCutoff) > 0) {
+                                            System.out.println(String.format("ERROR: Expansion of %s resulted in increased UB \n\tdeltaUB: %1.9e, Starting UB: %1.9e, cutoff: %1.9e",
+                                                    toExpand.get(0).toString(),
+                                                    result.deltaUB,
+                                                    startUB,
+                                                    ubAccuracyCutoff
+                                            ));
+                                            throw new RuntimeException("Upper bound is increasing");
+                                        // If the wrong move magnitude is more than one but less than the cutoff, just warn
+                                        }else{
+                                            System.err.println(String.format("WARNING: Expansion of %s resulted in UB increase of %1.9e",
+                                                    toExpand.get(0).toString(),
+                                                    result.deltaUB
+                                            ));
+                                        }
+                                    }
                                 }
 
                                 internalTime.stop();
@@ -1112,13 +1162,13 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                 Stopwatch partialMinTime = new Stopwatch().start();
 
                                 // calculate all the fragment energies
-                                Map<RCTuple, EnergyCalculator.EnergiedParametricMolecule> confs = new HashMap<>();
+                                Map<BatchCorrectionMinimizer.PartialMinimizationTuple, EnergyCalculator.EnergiedParametricMolecule> confs = new HashMap<>();
                                 for (int i =0; i< batch.fragments.size(); i++) {
-                                    RCTuple frag = batch.fragments.get(i);
+                                    BatchCorrectionMinimizer.PartialMinimizationTuple frag = batch.fragments.get(i);
                                     double energy;
 
                                     // are there any RCs are from two different backbone states that can't connect?
-                                    if (theBatcher.isParametricallyIncompatible(frag)) {
+                                    if (theBatcher.isParametricallyIncompatible(frag.tup)) {
 
                                         // yup, give this frag an infinite energy so we never choose it
                                         energy = Double.POSITIVE_INFINITY;
@@ -1126,7 +1176,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                     } else {
 
                                         // nope, calculate the usual fragment energy
-                                        confs.put(frag, theBatcher.confEcalc.calcEnergy(frag));
+                                        confs.put(frag, theBatcher.confEcalc.calcEnergy(frag.tup));
                                     }
                                 }
                                 partialMinTime.stop();
@@ -1138,14 +1188,27 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                             },
                             (PartialMinimizationResult result) -> {
                                 // update the energy matrix
-                                for(RCTuple tuple : result.confs.keySet()) {
-                                    double lowerbound = theBatcher.minimizingEnergyMatrix.getInternalEnergy(tuple);
+                                for(BatchCorrectionMinimizer.PartialMinimizationTuple tuple : result.confs.keySet()) {
+                                    double lowerbound = theBatcher.minimizingEnergyMatrix.getInternalEnergy(tuple.tup);
+                                    double uncorrectedParentConfLB = theBatcher.minimizingEnergyMatrix.getInternalEnergy(tuple.parentConf);
                                     double tupleEnergy = result.confs.get(tuple).energy;
-                                    if (tupleEnergy - lowerbound > 0) {
-                                        double correction = tupleEnergy - lowerbound;
-                                        correctionMatrix.setHigherOrder(tuple, correction);
+                                    double correction = tupleEnergy - lowerbound;
+                                    // Check to make sure that the tuple correction is not a minimizer error
+                                    if (uncorrectedParentConfLB + correction > tuple.E) {
+                                        System.err.println(String.format("WARNING: minimizer bug:\n\t%s has a correction of %f, but this would cause \n\tparent conf (%s) LB: %f (or %f?) -> %f > parent conf E: %f",
+                                                tuple.tup.toString(),
+                                                correction,
+                                                tuple.parentConf.toString(),
+                                                tuple.parentConfLB,
+                                                uncorrectedParentConfLB,
+                                                correction+uncorrectedParentConfLB,
+                                                tuple.E
+                                                ));
+                                    // Check to make sure that the tuple correction is positive
+                                    }else if (tupleEnergy - lowerbound > 0) {
+                                        correctionMatrix.setHigherOrder(tuple.tup, correction);
                                     } else
-                                        System.err.println("Negative correction for " + tuple.stringListing());
+                                        System.err.println("Negative correction for " + tuple.tup.stringListing());
                                 }
 
                                 // Record stats
@@ -1241,7 +1304,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     }
 
     private static class PartialMinimizationResult{
-        Map<RCTuple, EnergyCalculator.EnergiedParametricMolecule> confs;
+        Map<BatchCorrectionMinimizer.PartialMinimizationTuple, EnergyCalculator.EnergiedParametricMolecule> confs;
         int numPartials;
         double timeS;
     }
@@ -1532,7 +1595,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
 
         newNodes.clear();
-        System.out.println("Found a leaf!");
+        debugPrint("Found a leaf!");
         //rootNode.computeEpsilonErrorBounds(bound.sequence);
         nonZeroLower = true;
     }
@@ -1911,7 +1974,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     protected void boundLowestBoundConfUnderNode(SingleSequenceSHARKStarBound bound, MultiSequenceSHARKStarNode startNode,
                                                  List<MultiSequenceSHARKStarNode> generatedNodes) {
-        System.out.println("Bounding "+startNode.toSeqString(bound.sequence));
+        debugPrint("Bounding "+startNode.toSeqString(bound.sequence));
         Comparator<MultiSequenceSHARKStarNode> confBoundComparator = Comparator.comparingDouble(o -> o.getConfLowerBound(bound.sequence));
         RCs RCs = bound.seqRCs;
         PriorityQueue<MultiSequenceSHARKStarNode> drillQueue = new PriorityQueue<>(confBoundComparator);
