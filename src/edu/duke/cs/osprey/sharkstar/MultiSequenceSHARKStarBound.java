@@ -850,14 +850,23 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                             },
                             (result) -> {
                                 if (result.deltaLB.compareTo(BigDecimal.ZERO) < 0)
-                                    throw new RuntimeException("Lower bound is decreasing");
+                                    try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+                                        ScoreContext context = checkout.get();
+                                        result.minimizedNode.getConfSearchNode().index(context.index);
+                                        System.err.println(String.format("Uncorrected g ub: %f, Energy %f",
+                                                context.partialConfUpperBoundScorer.calc(context.index, sequenceBound.seqRCs),
+                                                result.energy
+                                        ));
+                                        throw new RuntimeException("Lower bound is decreasing");
+                                    }
                                 if (result.deltaUB.compareTo(BigDecimal.ZERO) > 0) {
                                     try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
                                         ScoreContext context = checkout.get();
                                         result.minimizedNode.getConfSearchNode().index(context.index);
-                                        System.err.println(String.format("Uncorrected g: %.3f, Corrected g: %.3f",
+                                        System.err.println(String.format("Uncorrected g lb: %f, Corrected g lb: %f, Energy %f",
                                                 context.partialConfLowerBoundScorer.calc(context.index,sequenceBound.seqRCs),
-                                                correctionMatrix.confE(result.minimizedNode.getConfSearchNode().assignments)
+                                                correctionMatrix.confE(result.minimizedNode.getConfSearchNode().assignments),
+                                                result.energy
                                         ));
                                     }
                                     throw new RuntimeException("Upper bound is increasing");
@@ -1049,8 +1058,16 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                 result.deltaLB = endLB.subtract(startLB, PartitionFunction.decimalPrecision);
                                 result.deltaUB = endUB.subtract(startUB, PartitionFunction.decimalPrecision);
 
-                                BigDecimal lbAccuracyCutoff = startLB.multiply(BigDecimal.valueOf(-1e-10));
-                                BigDecimal ubAccuracyCutoff = startUB.multiply(BigDecimal.valueOf(1e-10));
+                                BigDecimal lbAccuracyCutoff = startLB.multiply(BigDecimal.valueOf(-1e-13));
+                                BigDecimal ubAccuracyCutoff = startUB.multiply(BigDecimal.valueOf(1e-13));
+
+                                BigDecimal lbProportion = BigDecimal.ZERO;
+                                BigDecimal ubProportion = BigDecimal.ZERO;
+                                if(startLB.compareTo(BigDecimal.ZERO) > 0 && startUB.compareTo(BigDecimal.ZERO) > 0) {
+                                    lbProportion = result.deltaLB.divide(startLB, PartitionFunction.decimalPrecision);
+                                    ubProportion = result.deltaUB.divide(startUB, PartitionFunction.decimalPrecision);
+                                }
+
 
                                 if (result.deltaLB.compareTo(BigDecimal.ZERO) < 0) {
                                     //if the lower bound is decreasing at all
@@ -1070,9 +1087,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                             throw new RuntimeException("Lower bound is decreasing");
                                         // If the wrong move magnitude is more than one but less than the cutoff, just warn
                                         } else {
-                                            System.err.println(String.format("WARNING: Expansion of %s resulted in LB decrease of %1.9e",
+                                            System.err.println(String.format("WARNING: Expansion of %s resulted in LB decrease of %1.9e, a factor of %1.3e of the starting bound. This is likely just a numerical precision issue",
                                                     toExpand.get(0).toString(),
-                                                    result.deltaLB
+                                                    result.deltaLB,
+                                                    lbProportion
                                             ));
                                         }
 
@@ -1096,9 +1114,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                             throw new RuntimeException("Upper bound is increasing");
                                         // If the wrong move magnitude is more than one but less than the cutoff, just warn
                                         }else{
-                                            System.err.println(String.format("WARNING: Expansion of %s resulted in UB increase of %1.9e",
+                                            System.err.println(String.format("WARNING: Expansion of %s resulted in UB increase of %1.9e, a factor of %1.3e of the starting bound. This is likely just a numerical precision issue",
                                                     toExpand.get(0).toString(),
-                                                    result.deltaUB
+                                                    result.deltaUB,
+                                                    ubProportion
                                             ));
                                         }
                                     }
