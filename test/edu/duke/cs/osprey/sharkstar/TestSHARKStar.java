@@ -262,7 +262,7 @@ public class TestSHARKStar {
 					strandBuilderMap.put("strand1", new Strand.Builder(mol).setTemplateLibrary(templateLib));
 					break;
 				case "strand_defs":
-					Pattern definitionPattern = Pattern.compile("\\'(strand\\d)\\': \\[(\\'\\w+\\', ?\\'\\w+\\')\\]");
+					Pattern definitionPattern = Pattern.compile("\\'(strand\\d)\\': \\[(\\'[-a-zA-Z0-9]+\\', ?\\'[-a-zA-Z0-9]+\\')\\]");
 					Matcher matcher = definitionPattern.matcher(parts[1]);
 					while(matcher.find()) {
 						String strandNum = matcher.group(1);
@@ -279,21 +279,24 @@ public class TestSHARKStar {
 				case "strand_flex":
 					String content = parts[1];
 					boolean match0 = content.matches(".*\\'strand\\d\\'.*");
-					boolean match1 = content.matches(".*'strand\\d': ?\\{'\\w+': ?\\['\\w+',.*");
-					boolean match2 = content.matches(".*'strand\\d': ?\\{'\\w+': ?\\[(('\\w+', ?)*)'\\w+'\\].*");
-					definitionPattern = Pattern.compile("'(strand\\d)': ?\\{(('\\w+': ?\\[(('\\w+', ?)*)'\\w+'], ?)*'\\w+': ?\\[(('\\w+', ?)*)'\\w+']+\\s*)}");
+					boolean match1 = content.matches(".*'strand\\d': ?\\{'[-a-zA-Z0-9]+': ?\\['[-a-zA-Z0-9]+',.*");
+					boolean match2 = content.matches(".*'strand\\d': ?\\{'[-a-zA-Z0-9]+': ?\\[(('[-a-zA-Z0-9]+', ?)*)'[-a-zA-Z0-9]+'\\].*");
+					definitionPattern = Pattern.compile("'(strand\\d)': ?\\{(('[-a-zA-Z0-9]+': ?\\[(('[-a-zA-Z0-9]+', ?)*)'[-a-zA-Z0-9]+'], ?)*'[-a-zA-Z0-9]+': ?\\[(('[-a-zA-Z0-9]+', ?)*)'[-a-zA-Z0-9]+']+\\s*)}");
 					matcher = definitionPattern.matcher(parts[1]);
 					while(matcher.find()) {
 					    String strandNum = matcher.group(1);
 					    String strandResDefs = matcher.group(2);
-					    Pattern resDefPattern = Pattern.compile("'(\\w+)': ?\\[(('\\w+', ?)*'\\w+')]");
+					    Pattern resDefPattern = Pattern.compile("'([-a-zA-Z0-9]+)': ?\\[(('[-a-zA-Z0-9]+', ?)*'[-a-zA-Z0-9]+')]");
 					    Matcher resDefMatcher = resDefPattern.matcher(strandResDefs);
 					    while(resDefMatcher.find()) {
 							String resNum = resDefMatcher.group(1);
 							String allowedAAs = resDefMatcher.group(2);
 							allowedAAs = allowedAAs.replaceAll("'","");
+							List<String> resTypes = new ArrayList<>();
+							resTypes.add(Strand.WildType);
+							resTypes.addAll(Arrays.asList(allowedAAs.split(", ?")));
 							strandMap.get(strandNum).flexibility.get(resNum)
-									.setLibraryRotamers(allowedAAs.split(", ?"))
+									.setLibraryRotamers(resTypes)
 									.addWildTypeRotamers();
 							if (minimize){
 								strandMap.get(strandNum).flexibility.get(resNum)
@@ -1664,7 +1667,7 @@ public class TestSHARKStar {
 	public void test2rfeA(){
 		try {
 			ConfSpaces confSpaces = loadFromCFS("test-resources/2rfe_A_6res_2.302E+07.cfs");
-			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.68, null, 5, TestBBKStar.Impls.SHARK);
+			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.68, null, 5, TestBBKStar.Impls.MARK);
 			for (KStar.ScoredSequence sequence : results.sequences){
 				System.out.println(String.format("%s : [%1.9e, %1.9e]",
 						sequence.sequence,
@@ -1685,7 +1688,25 @@ public class TestSHARKStar {
 	public void test4wyqE(){
 		try {
 			ConfSpaces confSpaces = loadFromCFS("test-resources/4wyq_E_6res_2.819E+08.cfs");
-			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.68, null, 5, TestBBKStar.Impls.MARK);
+			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.68, null, 5, TestBBKStar.Impls.SHARK);
+			for (KStar.ScoredSequence sequence : results.sequences){
+				System.out.println(String.format("%s : [%1.9e, %1.9e]",
+						sequence.sequence,
+						sequence.score.lowerBound,
+						sequence.score.upperBound
+				));
+			}
+
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
+
+	@Test
+	public void test4wyuA(){
+		try {
+			ConfSpaces confSpaces = loadFromCFS("test-resources/4wyu_A_3res_6.090E+03.cfs");
+			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.68, null, 5, TestBBKStar.Impls.SHARK);
 			for (KStar.ScoredSequence sequence : results.sequences){
 				System.out.println(String.format("%s : [%1.9e, %1.9e]",
 						sequence.sequence,

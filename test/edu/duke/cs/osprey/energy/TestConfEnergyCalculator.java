@@ -18,7 +18,9 @@ import org.junit.Test;
 
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import static edu.duke.cs.osprey.sharkstar.TestSHARKStar.loadFromCFS;
@@ -36,8 +38,6 @@ public class TestConfEnergyCalculator extends TestBase {
 
     @BeforeClass
     public static void beforeClass() {
-
-
         // get a conf space
         Molecule mol = PDBIO.readFile("examples/python.KStar/4wyq_prepped.pdb");
         Strand strand1 = new Strand.Builder(mol)
@@ -130,5 +130,79 @@ public class TestConfEnergyCalculator extends TestBase {
             System.out.println(String.format("Corrected LB: %f", conf.getScore()+ tripleCorrection));
 
         }
+    }
+
+    @Test
+    /**
+     * These are conformations for which I am seeing pairwise-minimized lower bounds that do not properly bound minimized energy.
+     * The behavior looks non-deterministic, as repeated running of this test results in different outcomes.
+     */
+    public void problemConfs4wyuA(){
+        // get a conf space
+        Molecule mol = PDBIO.readFile("examples/python.KStar/4wyu_prepped.pdb");
+        Strand strand1 = new Strand.Builder(mol)
+                .setResidues("D-6", "D0")
+                .build();
+        Strand strand0 = new Strand.Builder(mol)
+                .setResidues("A3", "A203")
+                .build();
+        strand1.flexibility.get("D-4").setLibraryRotamers(Strand.WildType, "PHE").addWildTypeRotamers().setContinuous();
+        strand0.flexibility.get("A176").setLibraryRotamers(Strand.WildType, "LEU").addWildTypeRotamers().setContinuous();
+        strand0.flexibility.get("A177").setLibraryRotamers(Strand.WildType, "ALA", "VAL", "LEU", "ILE", "PHE", "TYR", "TRP", "CYS", "MET", "SER", "THR", "LYS", "ARG", "HIP", "HIE", "HID", "ASP", "GLU", "ASN", "GLN", "GLY").addWildTypeRotamers().setContinuous();
+        SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand0).build();
+
+        ForcefieldParams ffparams = new ForcefieldParams();
+
+        /*
+        try {
+            confSpace = loadFromCFS("test-resources/4wyu_A_3res_6.090E+03.cfs").protein;
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+         */
+
+        // get an energy matrix
+        EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams)
+                .setParallelism(Parallelism.makeCpu(4))
+                .setIsMinimizing(true)
+                .build();
+        ConfEnergyCalculator confEcalc= new ConfEnergyCalculator.Builder(confSpace, ecalc)
+                .setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
+                        .build()
+                        .calcReferenceEnergies()
+                )
+                .build();
+        EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
+                .build()
+                .calcEnergyMatrix();
+
+        ConfAnalyzer analyzer = new ConfAnalyzer(confEcalc);
+
+        List<int[]> confs = new ArrayList<>();
+        confs.add(new int[]{1,8});
+        confs.add(new int[]{3,6});
+        confs.add(new int[]{3,60});
+        confs.add(new int[]{3,62});
+        confs.add(new int[]{3,152});
+        confs.add(new int[]{3,155});
+        confs.add(new int[]{5,155});
+        confs.add(new int[]{3,168});
+        confs.add(new int[]{3,176});
+        confs.add(new int[]{4,176});
+
+
+        for (int[] conf : confs){
+            double lb = emat.confE(conf);
+            //double energy = analyzer.analyze(new ConfSearch.ScoredConf(conf, lb)).epmol.energy;
+            double energy = confEcalc.calcEnergy(new ConfSearch.ScoredConf(conf, lb)).getEnergy();
+            System.out.println(String.format("For %s, test whether LB: %f <= E: %f --> %b",
+                    Arrays.toString(conf),
+                    lb,
+                    energy,
+                    lb <= energy
+                    ));
+            //assert(lb < energy);
+        }
+
     }
 }

@@ -868,6 +868,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                                 correctionMatrix.confE(result.minimizedNode.getConfSearchNode().assignments),
                                                 result.energy
                                         ));
+                                        System.err.println(String.format("Min Emat score: %f",
+                                                minimizingEmat.getInternalEnergy(new RCTuple(result.minimizedNode.getConfSearchNode().assignments))
+                                                ));
                                     }
                                     throw new RuntimeException("Upper bound is increasing");
                                 }
