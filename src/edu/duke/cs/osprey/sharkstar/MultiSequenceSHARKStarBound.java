@@ -52,6 +52,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     private Sequence precomputedSequence;
     protected double targetEpsilon = 1;
     public static final boolean debug = false;
+    public static final boolean suppressPrecisionWarnings = true;
     public boolean profileOutput = false;
     private Status status = null;
 
@@ -1038,11 +1039,13 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                             throw new RuntimeException("Lower bound is decreasing");
                                         // If the wrong move magnitude is more than one but less than the cutoff, just warn
                                         } else {
-                                            System.err.println(String.format("WARNING: Expansion of %s resulted in LB decrease of %1.9e, a factor of %1.3e of the starting bound. This is likely just a numerical precision issue",
-                                                    toExpand.get(0).toString(),
-                                                    result.deltaLB,
-                                                    lbProportion
-                                            ));
+                                            if(!suppressPrecisionWarnings) {
+                                                System.err.println(String.format("WARNING: Expansion of %s resulted in LB decrease of %1.9e, a factor of %1.3e of the starting bound. This is likely just a numerical precision issue",
+                                                        toExpand.get(0).toString(),
+                                                        result.deltaLB,
+                                                        lbProportion
+                                                ));
+                                            }
                                         }
 
                                     }
@@ -1065,11 +1068,13 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                             throw new RuntimeException("Upper bound is increasing");
                                         // If the wrong move magnitude is more than one but less than the cutoff, just warn
                                         }else{
-                                            System.err.println(String.format("WARNING: Expansion of %s resulted in UB increase of %1.9e, a factor of %1.3e of the starting bound. This is likely just a numerical precision issue",
-                                                    toExpand.get(0).toString(),
-                                                    result.deltaUB,
-                                                    ubProportion
-                                            ));
+                                            if(!suppressPrecisionWarnings) {
+                                                System.err.println(String.format("WARNING: Expansion of %s resulted in UB increase of %1.9e, a factor of %1.3e of the starting bound. This is likely just a numerical precision issue",
+                                                        toExpand.get(0).toString(),
+                                                        result.deltaUB,
+                                                        ubProportion
+                                                ));
+                                            }
                                         }
                                     }
                                 }
