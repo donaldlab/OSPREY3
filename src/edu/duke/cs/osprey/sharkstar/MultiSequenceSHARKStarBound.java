@@ -1010,8 +1010,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                 result.deltaLB = endLB.subtract(startLB, PartitionFunction.decimalPrecision);
                                 result.deltaUB = endUB.subtract(startUB, PartitionFunction.decimalPrecision);
 
-                                BigDecimal lbAccuracyCutoff = startLB.multiply(BigDecimal.valueOf(-1e-13));
-                                BigDecimal ubAccuracyCutoff = startUB.multiply(BigDecimal.valueOf(1e-13));
+                                BigDecimal lbAccuracyCutoff = startLB.multiply(BigDecimal.valueOf(-1e-10));
+                                BigDecimal ubAccuracyCutoff = startUB.multiply(BigDecimal.valueOf(1e-10));
 
                                 BigDecimal lbProportion = BigDecimal.ZERO;
                                 BigDecimal ubProportion = BigDecimal.ZERO;
