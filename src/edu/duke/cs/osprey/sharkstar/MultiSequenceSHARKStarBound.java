@@ -52,7 +52,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     private Sequence precomputedSequence;
     protected double targetEpsilon = 1;
     public static final boolean debug = false;
-    public static final boolean batcher = true;
     public boolean profileOutput = false;
     private Status status = null;
 
@@ -609,17 +608,24 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         return numInternalNodesProcessed + numConfsEnergied + numConfsScored + numPartialMinimizations;
     }
 
+    private class CorrectionResult{
+       boolean didCorrect = false;
+       BigDecimal deltaUB;
+       double correctionSize;
+       MultiSequenceSHARKStarNode correctedNode;
+    }
+
     /**
      * Try to apply corrections to node.
      */
-    private boolean correctNodeOrFalse(MultiSequenceSHARKStarNode node, SingleSequenceSHARKStarBound bound) {
-        boolean corrected = false;
+    private CorrectionResult correctNodeOrFalse(MultiSequenceSHARKStarNode node, SingleSequenceSHARKStarBound bound) {
+        CorrectionResult result = new CorrectionResult();
         double confCorrection = correctionMatrix.confE(node.getConfSearchNode().assignments);
         double oldg = node.getConfSearchNode().getPartialConfLowerBound();
         double correctionDiff = confCorrection - oldg;
 
         if ( correctionDiff > 1e-5) {
-            corrected = true;
+            result.didCorrect = true;
 
             BigDecimal oldZUpperBound = node.getUpperBound(bound.sequence);
             double oldConfLowerBound = node.getConfLowerBound(bound.sequence);
@@ -633,7 +639,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             // update the node total scores
             node.setBoundsFromConfLowerAndUpperWithHistory(oldConfLowerBound + correctionDiff, node.getConfUpperBound(bound.sequence), bound.sequence, historyString);
             node.markUpdated();
-            System.out.println("Correcting " + node.toSeqString(bound.sequence) +" correction ="+(correctionDiff) );
+            debugPrint("Correcting " + node.toSeqString(bound.sequence) +" correction ="+(correctionDiff) );
 
             BigDecimal newUpperBound = node.getUpperBound(bound.sequence);
             BigDecimal diffUB = newUpperBound.subtract(oldZUpperBound, PartitionFunction.decimalPrecision);
@@ -647,11 +653,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         ));
                 throw new RuntimeException();
             }
-            synchronized(bound.state){
-                bound.state.upperBound = bound.state.upperBound.add(diffUB, PartitionFunction.decimalPrecision);
-            }
+
+            result.deltaUB = diffUB;
+            result.correctedNode = node;
         }
-        return corrected;
+        return result;
     }
 
     @Override
@@ -715,7 +721,12 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
          */
         this.numConfsEnergiedThisLoop = 0;
 
+        int numIters = 0;
         while( (!sequenceBound.fringeNodes.isEmpty() || loopTasks.isExpecting())){
+            numIters++;
+            if(numIters> 10000){
+                break;
+            }
 
             synchronized(sequenceBound) {
                 //TODO: apply partial minimizations
@@ -846,80 +857,17 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     MultiSequenceSHARKStarNode toMinimize = loosestLeaf;
 
                     loopTasks.submit( () -> {
-                        return minimizeNode(toMinimize, sequenceBound.sequence);
+                        CorrectionResult correctionResult = correctNodeOrFalse(toMinimize, sequenceBound);
+                        if(correctionResult.didCorrect)
+                            return correctionResult;
+                        else
+                            return minimizeNode(toMinimize, sequenceBound.sequence, sequenceBound.seqRCs);
                             },
                             (result) -> {
-                                if (result.deltaLB.compareTo(BigDecimal.ZERO) < 0)
-                                    try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
-                                        ScoreContext context = checkout.get();
-                                        result.minimizedNode.getConfSearchNode().index(context.index);
-                                        System.err.println(String.format("Uncorrected g ub: %f, Energy %f",
-                                                context.partialConfUpperBoundScorer.calc(context.index, sequenceBound.seqRCs),
-                                                result.energy
-                                        ));
-                                        throw new RuntimeException("Lower bound is decreasing");
-                                    }
-                                if (result.deltaUB.compareTo(BigDecimal.ZERO) > 0) {
-                                    try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
-                                        ScoreContext context = checkout.get();
-                                        result.minimizedNode.getConfSearchNode().index(context.index);
-                                        System.err.println(String.format("Uncorrected g lb: %f, Corrected g lb: %f, Energy %f",
-                                                context.partialConfLowerBoundScorer.calc(context.index,sequenceBound.seqRCs),
-                                                correctionMatrix.confE(result.minimizedNode.getConfSearchNode().assignments),
-                                                result.energy
-                                        ));
-                                        System.err.println(String.format("Min Emat score: %f",
-                                                minimizingEmat.getInternalEnergy(new RCTuple(result.minimizedNode.getConfSearchNode().assignments))
-                                                ));
-                                    }
-                                    throw new RuntimeException("Upper bound is increasing");
-                                }
-                                double delta = 2.0;
-                                long fringeSize = 0;
-                                synchronized(sequenceBound.state) {
-                                    // Update partition function values
-                                    sequenceBound.state.upperBound = sequenceBound.state.upperBound.add(result.deltaUB, PartitionFunction.decimalPrecision);
-                                    sequenceBound.state.lowerBound = sequenceBound.state.lowerBound.add(result.deltaLB, PartitionFunction.decimalPrecision);
-                                    // Compute reporting things
-                                    delta = sequenceBound.state.calcDelta();
-                                    fringeSize = sequenceBound.fringeNodes.size();
-
-                                    if(result.didMinimize){
-                                        sequenceBound.state.numEnergiedConfs++;
-                                        sequenceBound.state.totalTimeEnergy+=result.timeS;
-                                        sequenceBound.state.numRoundsEnergy++;
-                                    }
-                                }
-
-                                synchronized (this) { // don't race the main thread
-                                    if(result.didMinimize) {
-                                        if (precomputedSequence.equals(confSpace.makeUnassignedSequence()))
-                                            correctionMatrix.setHigherOrder(result.minimizedNode.toTuple(),
-                                                    result.energy - minimizingEmat.confE(result.minimizedNode.getConfSearchNode().assignments));
-                                        numConfsEnergied++;
-                                        this.numConfsEnergiedThisLoop++;
-                                        minList.set(result.conf.getAssignments().length - 1, minList.get(result.conf.getAssignments().length - 1) + 1);
-
-                                        this.state.numEnergiedConfs++;
-                                        this.state.totalTimeEnergy += result.timeS;
-                                        this.state.numRoundsEnergy++;
-
-                                        // report leaf
-                                        this.progress.reportLeafNode(result.minimizedNode.getConfSearchNode().getPartialConfLowerBound(), fringeSize,delta);
-
-                                        //recordReduction(oldConfLower, oldConfUpper, energy);
-                                        //printMinimizationOutput(node, newConfLower, oldgscore, bound);
-                                        sequenceBound.addFinishedNode(result.minimizedNode);
-
-                                        leafTimeAverage = result.timeS;
-                                        debugPrint("Processed 1 leaf in " + result.timeS + " seconds.");
-                                    }else{
-                                        synchronized(sequenceBound.fringeNodes){
-                                            sequenceBound.fringeNodes.add(result.minimizedNode);
-
-                                        }
-                                    }
-                                }
+                        if (result.getClass() == CorrectionResult.class)
+                            onCorrection((CorrectionResult) result, sequenceBound);
+                        else
+                            onMinimization((MinimizationResult) result, sequenceBound);
                             }
                     );
                     break;
@@ -1331,119 +1279,189 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         double timeS;
     }
 
-    private MinimizationResult minimizeNode(MultiSequenceSHARKStarNode node, Sequence sequence) {
+    private void onExpansion(ExpansionResult result, SingleSequenceSHARKStarBound sequenceBound){
+
+    }
+
+    private void onMinimization(MinimizationResult result, SingleSequenceSHARKStarBound sequenceBound){
+        // first, do some error checking
+        if (result.deltaLB.compareTo(BigDecimal.ZERO) < 0)
+            // print out some potentially useful information
+            try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+                ScoreContext context = checkout.get();
+                result.minimizedNode.getConfSearchNode().index(context.index);
+                System.err.println(String.format("Uncorrected g ub: %f, Energy %f",
+                        context.partialConfUpperBoundScorer.calc(context.index, sequenceBound.seqRCs),
+                        result.energy
+                ));
+                throw new RuntimeException("Lower bound is decreasing");
+            }
+        if (result.deltaUB.compareTo(BigDecimal.ZERO) > 0) {
+            double uncorrectedLowerBound = 0;
+            double correctedLowerBound = 0;
+            try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+                ScoreContext context = checkout.get();
+                result.minimizedNode.getConfSearchNode().index(context.index);
+                uncorrectedLowerBound = context.partialConfLowerBoundScorer.calc(context.index, sequenceBound.seqRCs);
+                correctedLowerBound = correctionMatrix.confE(result.minimizedNode.getConfSearchNode().assignments);
+            }
+            throw new RuntimeException("Upper bound is increasing");
+        }
+
+        // initialize reporting things
+        double delta = 2.0;
+        long fringeSize = 0;
+        synchronized(sequenceBound.state) {
+            // Update partition function values
+            sequenceBound.state.upperBound = sequenceBound.state.upperBound.add(result.deltaUB, PartitionFunction.decimalPrecision);
+            sequenceBound.state.lowerBound = sequenceBound.state.lowerBound.add(result.deltaLB, PartitionFunction.decimalPrecision);
+            // Compute reporting things
+            delta = sequenceBound.state.calcDelta();
+            fringeSize = sequenceBound.fringeNodes.size();
+
+            // report minimization
+            sequenceBound.state.numEnergiedConfs++;
+            sequenceBound.state.totalTimeEnergy+=result.timeS;
+            sequenceBound.state.numRoundsEnergy++;
+        }
+
+        synchronized (this) { // don't race the main thread
+            if (precomputedSequence.equals(confSpace.makeUnassignedSequence()))
+                correctionMatrix.setHigherOrder(result.minimizedNode.toTuple(),
+                        result.energy - minimizingEmat.confE(result.minimizedNode.getConfSearchNode().assignments));
+            numConfsEnergied++;
+            this.numConfsEnergiedThisLoop++;
+            minList.set(result.conf.getAssignments().length - 1, minList.get(result.conf.getAssignments().length - 1) + 1);
+
+            this.state.numEnergiedConfs++;
+            this.state.totalTimeEnergy += result.timeS;
+            this.state.numRoundsEnergy++;
+
+            // report leaf
+            this.progress.reportLeafNode(result.minimizedNode.getConfSearchNode().getPartialConfLowerBound(), fringeSize,delta);
+
+            sequenceBound.addFinishedNode(result.minimizedNode);
+
+            leafTimeAverage = result.timeS;
+            debugPrint("Processed 1 leaf in " + result.timeS + " seconds.");
+        }
+    }
+
+    private void onCorrection(CorrectionResult result, SingleSequenceSHARKStarBound sequenceBound){
+        synchronized(sequenceBound.state){
+            sequenceBound.state.upperBound = sequenceBound.state.upperBound.add(result.deltaUB, PartitionFunction.decimalPrecision);
+        }
+        synchronized(sequenceBound.fringeNodes){
+            sequenceBound.fringeNodes.add(result.correctedNode);
+        }
+
+    }
+
+    private void onPartialMinimization(PartialMinimizationResult result, SingleSequenceSHARKStarBound sequenceBound){
+
+    }
+
+    private MinimizationResult minimizeNode(MultiSequenceSHARKStarNode node, Sequence sequence, RCs seqRCs) {
         MinimizationResult result = new MinimizationResult();
         Stopwatch minTimer = new Stopwatch().start();
 
+        // Record starting bounds
         BigDecimal startingLB = node.getLowerBound(sequence);
         BigDecimal startingUB = node.getUpperBound(sequence);
 
-        // First, try to correct the node instead of minimize it
-        boolean corrected = false;
-        double confCorrection = correctionMatrix.confE(node.getConfSearchNode().assignments);
-        double oldg = node.getConfSearchNode().getPartialConfLowerBound();
-        double correctionDiff = confCorrection - oldg;
 
-        if ( correctionDiff > 1e-5) {
-            corrected = true;
+        // Get the uncorrected lower bound again for debugging purposes
+        // TODO: remove the need for this extra work
+        double uncorrectedLowerBound;
+        try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+            ScoreContext context = checkout.get();
+            node.index(context.index);
 
-            BigDecimal oldZUpperBound = node.getUpperBound(sequence);
-            double oldConfLowerBound = node.getConfLowerBound(sequence);
-
-            // update the node gscore
-            node.getConfSearchNode().setPartialConfLowerAndUpper(confCorrection, node.getConfSearchNode().getPartialConfUpperBound());
-            String historyString = String.format("%s: correction from %f to %f, from ",
-                    node.getConfSearchNode().confToString(), oldg, confCorrection);
-
-            // update the node total scores
-            node.setBoundsFromConfLowerAndUpperWithHistory(oldConfLowerBound + correctionDiff, node.getConfUpperBound(sequence), sequence, historyString);
-            node.markUpdated();
-            //System.out.println("Correcting " + node.toSeqString(sequence) + " correction =" + (correctionDiff));
-
-            BigDecimal newUpperBound = node.getUpperBound(sequence);
-            BigDecimal diffUB = newUpperBound.subtract(oldZUpperBound, PartitionFunction.decimalPrecision);
-            if (diffUB.compareTo(BigDecimal.ZERO) > 0) {
-                throw new RuntimeException();
-            }
-            if (node.getUpperBound(sequence).compareTo(node.getLowerBound(sequence)) < 0) {
-                System.err.println(String.format("Insane bounds: UB (%1.9e) < LB (%1.9e)",
-                        node.getUpperBound(sequence),
-                        node.getLowerBound(sequence)
-                ));
-                throw new RuntimeException();
-            }
-            minTimer.stop();
-
-            result.minimizedNode = node;
-            result.didMinimize = false;
-            result.timeS = minTimer.getTimeS();
-            result.deltaLB = BigDecimal.ZERO;
-            result.deltaUB = diffUB;
-
-        }else{
-
-            // now, try to minimize it if the correction failed
-            try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
-                ScoreContext context = checkout.get();
-                node.index(context.index);
-
-                //System.out.println("Minmized "+curNode.toSeqString(bound.sequence));
-                ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.getConfSearchNode().assignments, node.getConfLowerBound(sequence));
-                ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
-
-                if (batcher) {
-                    energyMatrixCorrector.scheduleEnergyCorrection(analysis, conf,
-                            theBatcher);
-                } else {
-                    //computeEnergyCorrectionWithoutBatcher(analysis, conf, context.ecalc);
-                }
-
-
-                double energy = analysis.epmol.energy;
-                double newConfUpper = energy;
-                double newConfLower = energy;
-                // Record pre-minimization bounds so we can parse out how much minimization helped for upper and lower bounds
-                double oldConfUpper = node.getConfUpperBound(sequence);
-                double oldConfLower = node.getConfLowerBound(sequence);
-                if (newConfUpper > oldConfUpper) {
-                    System.err.println("Upper bounds got worse after minimization:" + newConfUpper
-                            + " > " + (oldConfUpper) + ". Rejecting minimized energy.");
-                    System.err.println("Node info: " + node.toSeqString(sequence));
-
-                    newConfUpper = oldConfUpper;
-                    newConfLower = oldConfUpper;
-                }
-
-                String historyString = "";
-                if (debug) {
-                    historyString = String.format("minimimized %s to %s from %s",
-                            node.getConfSearchNode().confToString(), energy, getStackTrace());
-                }
-
-                node.setBoundsFromConfLowerAndUpperWithHistory(newConfLower, newConfUpper, sequence, historyString);
-                double oldgscore = node.getConfSearchNode().getPartialConfLowerBound();
-                node.getConfSearchNode().setPartialConfLowerAndUpper(newConfLower, newConfUpper);
-                String out = "Energy = " + String.format("%6.3e", energy) + ", [" + (node.getConfLowerBound(sequence)) + "," + (node.getConfUpperBound(sequence)) + "]";
-                debugPrint(out);
-                node.markUpdated();
-
-                BigDecimal endLB = node.getLowerBound(sequence);
-                BigDecimal endUB = node.getUpperBound(sequence);
-
-                minTimer.stop();
-
-                result.didMinimize = true;
-                result.minimizedNode = node;
-                result.energy = energy;
-                result.analysis = analysis;
-                result.conf = conf;
-                result.timeS = minTimer.getTimeS();
-                result.deltaLB = endLB.subtract(startingLB, PartitionFunction.decimalPrecision);
-                result.deltaUB = endUB.subtract(startingUB, PartitionFunction.decimalPrecision);
-
-            }
-
+            uncorrectedLowerBound = context.partialConfLowerBoundScorer.calc(context.index, seqRCs);
         }
+
+        // Actually minimize the node
+        ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.getConfSearchNode().assignments, node.getConfLowerBound(sequence));
+        ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
+
+        //Submit conf for partial minimization
+        energyMatrixCorrector.scheduleEnergyCorrection(analysis, conf, theBatcher);
+
+        /* DEBUG CHECKS
+        Sometimes a bug will cause the minimized energy to exceed the bounds. We must catch this to retain provable bounds.
+         */
+        double energy = analysis.epmol.energy;
+        double newConfUpper = energy;
+        double newConfLower = energy;
+        // Record pre-minimization bounds so we can parse out how much minimization helped for upper and lower bounds
+        double oldConfUpper = node.getConfUpperBound(sequence);
+        double oldConfLower = node.getConfLowerBound(sequence);
+
+        /* Case 1: minimized energy goes above energy upper bound
+         */
+        if (newConfUpper > oldConfUpper) {
+            System.err.println(String.format("WARNING: Minimized energy exceeds upper bound: %s -> E: %f > UB: %f. Rejecting minimized energy.",
+                    Arrays.toString(node.getConfSearchNode().assignments),
+                    newConfUpper,
+                    oldConfUpper
+                    ));
+            // Set energy to old conf upper bound
+            newConfUpper = oldConfUpper;
+            newConfLower = oldConfUpper;
+        /* Case 2: minimized energy goes below uncorrected conf lower bound
+         */
+        }else if(newConfLower < uncorrectedLowerBound){
+            System.err.println(String.format("WARNING: Minimized energy exceeds lower bound: %s -> E: %f < LB: %f. Rejecting minimized energy.",
+                    Arrays.toString(node.getConfSearchNode().assignments),
+                    newConfLower,
+                    uncorrectedLowerBound
+            ));
+            // Set energy to old conf upper bound
+            newConfUpper = uncorrectedLowerBound;
+            newConfLower = uncorrectedLowerBound;
+        /* Case 3: minimized energy goes below the corrected conf lower bound. This means the correction is bad
+
+         */
+        }else if(newConfLower < oldConfLower){
+            System.err.println(String.format("WARNING: Bad correction: %s -> E: %f < LB: %f. Accepting minimized energy.",
+                    Arrays.toString(node.getConfSearchNode().assignments),
+                    newConfLower,
+                    oldConfLower
+            ));
+            //TODO: remove correction from pool if necessary
+        }
+
+        String historyString = "";
+        if (debug) {
+            historyString = String.format("minimimized %s to %s from %s",
+                    node.getConfSearchNode().confToString(), energy, getStackTrace());
+        }
+        // END DEBUG CHECKS
+
+        node.setBoundsFromConfLowerAndUpperWithHistory(newConfLower, newConfUpper, sequence, historyString);
+        node.getConfSearchNode().setPartialConfLowerAndUpper(newConfLower, newConfUpper);
+        debugPrint(String.format("Energy = %.6f, [%.6f, %.6f]",
+                energy,
+                oldConfLower,
+                oldConfUpper
+                ));
+        node.markUpdated();
+
+        // record the change in pfunc bounds
+        BigDecimal endLB = node.getLowerBound(sequence);
+        BigDecimal endUB = node.getUpperBound(sequence);
+
+        minTimer.stop();
+
+        result.didMinimize = true;
+        result.minimizedNode = node;
+        result.energy = energy;
+        result.analysis = analysis;
+        result.conf = conf;
+        result.timeS = minTimer.getTimeS();
+        result.deltaLB = endLB.subtract(startingLB, PartitionFunction.decimalPrecision);
+        result.deltaUB = endUB.subtract(startingUB, PartitionFunction.decimalPrecision);
+
         return result;
     }
 
@@ -2313,12 +2331,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.assignments, curNode.getConfLowerBound(bound.sequence));
                         ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
                         Stopwatch correctionTimer = new Stopwatch().start();
-                        if(batcher){
-                            energyMatrixCorrector.scheduleEnergyCorrection(analysis, conf,
-                                theBatcher);
-                        }else{
-                            computeEnergyCorrectionWithoutBatcher(analysis, conf, context.ecalc);
-                        }
+                        energyMatrixCorrector.scheduleEnergyCorrection(analysis, conf,
+                            theBatcher);
 
                         double energy = analysis.epmol.energy;
                         double newConfUpper = energy;
