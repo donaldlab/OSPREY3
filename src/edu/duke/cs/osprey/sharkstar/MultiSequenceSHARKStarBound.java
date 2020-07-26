@@ -1299,7 +1299,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         context.partialConfUpperBoundScorer.calc(context.index, sequenceBound.seqRCs),
                         result.energy
                 ));
-                throw new RuntimeException("Lower bound is decreasing");
+                System.err.println(String.format("FATAL ERROR: Lower bound is decreasing with %1.9e for %s",
+                        result.deltaLB,
+                        Arrays.toString(result.minimizedNode.getConfSearchNode().assignments)
+                        ));
             }
         if (result.deltaUB.compareTo(BigDecimal.ZERO) > 0) {
             double uncorrectedLowerBound = 0;
@@ -1310,7 +1313,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 uncorrectedLowerBound = context.partialConfLowerBoundScorer.calc(context.index, sequenceBound.seqRCs);
                 correctedLowerBound = correctionMatrix.confE(result.minimizedNode.getConfSearchNode().assignments);
             }
-            throw new RuntimeException("Upper bound is increasing");
+            System.err.println(String.format("FATAL ERROR: Upper bound is increasing with %1.9e for %s",
+                    result.deltaUB,
+                    Arrays.toString(result.minimizedNode.getConfSearchNode().assignments)
+            ));
         }
 
         // initialize reporting things
