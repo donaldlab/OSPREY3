@@ -32,7 +32,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     private MultiSequenceSHARKStarNode parent;
     private List<MultiSequenceSHARKStarNode> children;
     private Node confSearchNode;
-    private SimpleConfSpace fullConfSpace;
     public final int level;
     private static BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
     public final SimpleConfSpace.Position designPosition;
@@ -51,9 +50,8 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     private Map<Sequence, List<String>> nodeHistory = new HashMap<>();
     private double lastEpsilon = nodeEpsilon;
 
-    private MultiSequenceSHARKStarNode(Node confNode, MultiSequenceSHARKStarNode parent, SimpleConfSpace fullConfSpace,
+    private MultiSequenceSHARKStarNode(Node confNode, MultiSequenceSHARKStarNode parent,
                                        SimpleConfSpace.Position designPosition, SimpleConfSpace.Position nextDesignPosition){
-        this.fullConfSpace = fullConfSpace;
         this.confSearchNode = confNode;
         this.level = confSearchNode.getLevel();
         this.children = new ArrayList<>();
@@ -270,7 +268,8 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
     public MultiSequenceSHARKStarNode makeOrUpdateChild(Node child, Sequence seq, double lowerBound, double upperBound,
                                                         SimpleConfSpace.Position designPosition,
-                                                        SimpleConfSpace.Position nextDesignPosition) {
+                                                        SimpleConfSpace.Position nextDesignPosition,
+                                                        RCs seqRCs) {
         checkChildren(seq);
         MultiSequenceSHARKStarNode newChild = makeOrGetChild(child, designPosition, nextDesignPosition);
         newChild.computeEpsilonErrorBounds(seq);
@@ -279,7 +278,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             System.err.println("Re-exploring processed internal node for "+seq);
         }
          */
-        if(!getOrMakeChildren(seq).contains(newChild))
+        if(!getOrMakeChildren(seq, seqRCs).contains(newChild))
             getChildren(seq).add(newChild);
         newChild.setBoundsFromConfLowerAndUpper(lowerBound, upperBound, seq);
         newChild.errorBound = getErrorBound(seq);
@@ -291,7 +290,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
                                                     SimpleConfSpace.Position nextDesignPosition) {
         if(!childrenByRC.containsKey(child.rc)) {
             MultiSequenceSHARKStarNode newChild = new MultiSequenceSHARKStarNode(child, this,
-                this.fullConfSpace, designPosition, nextDesignPosition);
+                designPosition, nextDesignPosition);
         childrenByRC.put(child.rc, newChild);
             children.add(newChild);
         }
@@ -347,11 +346,11 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
                 !childrenBySequence.get(seq).isEmpty();
     }
 
-    public List<MultiSequenceSHARKStarNode> getOrMakeChildren(Sequence seq) {
+    public List<MultiSequenceSHARKStarNode> getOrMakeChildren(Sequence seq, RCs seqRCs) {
         if(seq == null)
             return children;
         if(!hasChildren(seq))
-            initChildren(seq);
+            initChildren(seq, seqRCs);
         if(debug)
             checkChildren(seq);
         return childrenBySequence.get(seq);
@@ -373,17 +372,21 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         return AA;
     }
 
-    private void initChildren(Sequence seq) {
+    private void initChildren(Sequence seq, RCs seqRCs) {
         if(isDebugConf(confSearchNode.assignments))
             System.out.println("Adding children for "+seq+" at "+toSeqString(seq));
         if(!childrenBySequence.containsKey(seq)) {
+            /*
+            TODO: Possible bug here?
             if (level >= fullConfSpace.positions.size()) {
                 childrenBySequence.put(seq, new ArrayList<>());
                 return;
             }
+
+             */
             String AA = getAllowedAA(seq);
             if (!childrenByAA.containsKey(AA) || childrenByAA.get(AA).isEmpty())
-                childrenByAA.put(AA, populateChildren(seq));
+                childrenByAA.put(AA, populateChildren(seqRCs));
             childrenBySequence.put(seq, childrenByAA.get(AA));
         }
     }
@@ -418,10 +421,9 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         checkAllChildren();
     }
 
-    private List<MultiSequenceSHARKStarNode> populateChildren(Sequence seq) {
+    private List<MultiSequenceSHARKStarNode> populateChildren(RCs seqRCs) {
         List<MultiSequenceSHARKStarNode> childrenForSeq = new ArrayList<>();
         Set<Integer> rcs = new HashSet<>();
-        RCs seqRCs =  seq.makeRCs(fullConfSpace);
         //int maxChildren = seqRCs.get(confSearchNode.pos+1).length;
         if(nextDesignPosition == null)
             return null;
@@ -443,10 +445,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         return childrenForSeq;
     }
 
-    private RCs RCsForResType(String seq, SimpleConfSpace.Position qpos) {
-        return new RCs(fullConfSpace, (pos, resConf) -> seq.equals(resConf.template.name) && qpos.index == pos.index);
-    }
-
     public boolean isLeaf() {
         return isLeaf(null);
     }
@@ -455,13 +453,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         if(seq == null)
             return children == null || children.size() < 1;
         return getChildren(seq) == null || getChildren(seq).size() < 1;
-    }
-
-    public void setNewConfSpace(SimpleConfSpace confSpace) {
-        if(fullConfSpace == confSpace) return;
-        fullConfSpace = confSpace;
-        for(MultiSequenceSHARKStarNode child: children)
-            child.setNewConfSpace(confSpace);
     }
 
     public double getConfLowerBound(Sequence seq) {
@@ -505,7 +496,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
     public static MultiSequenceSHARKStarNode makeRoot(Node rootNode, SimpleConfSpace fullConfSpace,
                                                       SimpleConfSpace.Position nextDesignPosition) {
-        return new MultiSequenceSHARKStarNode(rootNode, null, fullConfSpace, null,
+        return new MultiSequenceSHARKStarNode(rootNode, null, null,
                 nextDesignPosition);
     }
 
@@ -560,19 +551,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         }
     }
 
-
-    public String toFancySeqString(Sequence seq) {
-        String out = fullConfSpace.formatConfRotamersWithResidueNumbers(confSearchNode.assignments);
-        BigDecimal subtreeLowerBound = getLowerBound(seq);
-        BigDecimal subtreeUpperBound = getUpperBound(seq);
-        out += "Energy:" + String.format("%4.2f", confSearchNode.getPartialConfLowerBound()) + "*" + confSearchNode.numConfs;
-        if (!isMinimized(seq))
-            out += " in [" + String.format("%4.4e,%4.4e", getSequenceConfBounds(seq).lower, getSequenceConfBounds(seq).upper)
-                    + "]->[" + convertMagicBigDecimalToString(subtreeLowerBound) + "," + convertMagicBigDecimalToString(subtreeUpperBound) + "]";
-        else
-            out += " (minimized) -> " + convertMagicBigDecimalToString(subtreeLowerBound);
-        return out;
-    }
 
     public String toSeqString(Sequence seq) {
         String out = confSearchNode.confToString();//fullConfSpace.formatConfRotamersWithResidueNumbers(confSearchNode.assignments);//

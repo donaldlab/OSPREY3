@@ -350,7 +350,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private void updatePrecomputedNode(MultiSequenceSHARKStarNode node, int[] permutation, int size) {
         node.makeNodeCompatibleWithConfSpace(permutation, size, this.fullRCs);
-        node.setNewConfSpace(confSpace);
         if (node.hasChildren(precomputedSequence)) {
             for (MultiSequenceSHARKStarNode child : node.getChildren(precomputedSequence)) {
                 updatePrecomputedNode(child, permutation, size);
@@ -449,7 +448,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             }
         }
         // Get the children
-        List<MultiSequenceSHARKStarNode> children = curNode.getOrMakeChildren(bound.sequence);
+        List<MultiSequenceSHARKStarNode> children = curNode.getOrMakeChildren(bound.sequence, bound.seqRCs);
         // If we are at a leaf, score the node
         if(children.isEmpty()){
             try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
@@ -2004,7 +2003,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 if(nextDesignIndex >=0)
                     nextDesignPos = confSpace.positions.get(nextDesignIndex);
                 MultiSequenceSHARKStarNode MultiSequenceSHARKStarNodeChild = curNode.makeOrUpdateChild(child, bound.sequence,
-                        confLowerBound, confUpperBound, designPos, nextDesignPos);
+                        confLowerBound, confUpperBound, designPos, nextDesignPos, bound.seqRCs);
                 MultiSequenceSHARKStarNodeChild.setBoundsFromConfLowerAndUpperWithHistory(confLowerBound, confUpperBound, bound.sequence, historyString);
                 if (Double.isNaN(child.getPartialConfUpperBound()))
                     System.out.println("Huh!?");
@@ -2255,7 +2254,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 if (nextDesignIndex >= 0)
                     nextDesignPos = confSpace.positions.get(nextDesignIndex);
                 MultiSequenceSHARKStarNode newChild = curNode.makeOrUpdateChild(child,
-                        bound.sequence, resultingLower, resultingUpper, designPos, nextDesignPos);
+                        bound.sequence, resultingLower, resultingUpper, designPos, nextDesignPos, bound.seqRCs);
                 newChild.setBoundsFromConfLowerAndUpperWithHistory(resultingLower,
                         resultingUpper, bound.sequence, historyString);
                 //System.out.println("Created new child "+MultiSequenceSHARKStarNodeChild.toSeqString(bound.sequence));
