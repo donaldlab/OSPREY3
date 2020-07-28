@@ -33,7 +33,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     private List<MultiSequenceSHARKStarNode> children;
     private Node confSearchNode;
     public final int level;
-    private static BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
     public final SimpleConfSpace.Position designPosition;
     public SimpleConfSpace.Position nextDesignPosition;
 
@@ -267,6 +266,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
     public MultiSequenceSHARKStarNode makeOrUpdateChild(Node child, Sequence seq, double lowerBound, double upperBound,
+                                                        BigDecimal ZUB, BigDecimal ZLB,
                                                         SimpleConfSpace.Position designPosition,
                                                         SimpleConfSpace.Position nextDesignPosition,
                                                         RCs seqRCs) {
@@ -280,7 +280,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
          */
         if(!getOrMakeChildren(seq, seqRCs).contains(newChild))
             getChildren(seq).add(newChild);
-        newChild.setBoundsFromConfLowerAndUpper(lowerBound, upperBound, seq);
+        newChild.setBoundsFromConfLowerAndUpper(lowerBound, upperBound, ZUB, ZLB, seq);
         newChild.errorBound = getErrorBound(seq);
         checkChildren(seq);
         return newChild;
@@ -297,14 +297,14 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         return childrenByRC.get(child.rc);
     }
 
-    public void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound, Sequence seq) {
+    public void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound, BigDecimal ZUB, BigDecimal ZLB, Sequence seq) {
         if(isDebugConf(confSearchNode.assignments))
             System.out.println("Gotcha-boundset");
         MathTools.BigDecimalBounds bounds = getSequenceBounds(seq);
         BigDecimal subtreeLowerBound = bounds.lower;
         BigDecimal subtreeUpperBound = bounds.upper;
-        BigDecimal tighterLower = bc.calc(upperBound);
-        BigDecimal tighterUpper = bc.calc(lowerBound);
+        BigDecimal tighterLower = ZLB;
+        BigDecimal tighterUpper = ZUB;
         if(MathTools.isLessThan(tighterUpper, BigDecimal.ONE) && lowerBound < 0 && isDebugConf(confSearchNode.assignments))
             System.out.println("Setting "+toSeqString(seq)+" to ["+convertMagicBigDecimalToString(tighterLower)+","
                     +convertMagicBigDecimalToString(tighterUpper)+"] for sequence"+seq);
@@ -468,11 +468,11 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             System.out.println("Already expanded node?");
     }
 
-    public void setBoundsFromConfLowerAndUpperWithHistory(double newConfLower, double newConfUpper, Sequence sequence, String confData) {
+    public void setBoundsFromConfLowerAndUpperWithHistory(double newConfLower, double newConfUpper, BigDecimal ZUB, BigDecimal ZLB, Sequence sequence, String confData) {
         if(!nodeHistory.containsKey(sequence))
             nodeHistory.put(sequence, new ArrayList<>());
         nodeHistory.get(sequence).add(confData);
-        setBoundsFromConfLowerAndUpper(newConfLower, newConfUpper, sequence);
+        setBoundsFromConfLowerAndUpper(newConfLower, newConfUpper, ZUB, ZLB, sequence);
     }
 
     public void dumpHistory(Sequence sequence) {
