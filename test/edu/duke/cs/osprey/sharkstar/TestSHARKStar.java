@@ -1719,4 +1719,27 @@ public class TestSHARKStar {
 			e.printStackTrace();
 		}
 	}
+
+	@Test
+	/**
+		On the cluster this takes MARK* only 4 seconds to complete, while taking SHARK* 100s.
+	 	Interestingly, all non-wildtype sequences have negative kstar scores.
+	 	This indicated that SHARK* does poorly on really bad sequences, minimizing very high-energy conformations.
+	 */
+	public void test2rf9A(){
+		try {
+			ConfSpaces confSpaces = loadFromCFS("test-resources/2rf9_A_5res_7.308E+04.cfs");
+			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.68, null, 5, TestBBKStar.Impls.SHARK);
+			for (KStar.ScoredSequence sequence : results.sequences){
+				System.out.println(String.format("%s : [%1.9e, %1.9e]",
+						sequence.sequence,
+						sequence.score.lowerBound,
+						sequence.score.upperBound
+				));
+			}
+
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
 }
