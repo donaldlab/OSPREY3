@@ -789,7 +789,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                      */
                     if(node.getConfSearchNode().getLevel() >= fullRCs.getNumPos()){
                         if(node.getErrorBound(sequenceBound.sequence).compareTo(BigDecimal.ONE) < 0){
-                            debugPrint("Out of loose nodes!?");
+                            System.err.println("Out of loose nodes!?");
                             sequenceBound.fringeNodes.add(node);
                             continue;
                         }else {
@@ -1034,8 +1034,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                     double tupleEnergy = result.confs.get(tuple).energy;
                                     double correction = tupleEnergy - lowerbound;
                                     // Check to make sure that the tuple correction is not a minimizer error
-                                    if (uncorrectedParentConfLB + correction > tuple.E) {
-                                        System.err.println(String.format("WARNING: minimizer bug:\n\t%s has a correction of %f, but this would cause \n\tparent conf (%s) LB: %f (or %f?) -> %f > parent conf E: %f",
+                                    if (uncorrectedParentConfLB + correction - tuple.E > 1e-10) {
+                                        System.err.println(String.format("WARNING: minimizer bug:\n\t%s has a correction of %f, but this would cause \n\tparent conf (%s) LB: %f (uncorrected %f) -> %f > parent conf E: %f",
                                                 tuple.tup.toString(),
                                                 correction,
                                                 tuple.parentConf.toString(),
