@@ -1742,4 +1742,26 @@ public class TestSHARKStar {
 			e.printStackTrace();
 		}
 	}
+
+	@Test
+	/**
+	 On the cluster this takes MARK* only 36 seconds to complete, while taking SHARK* 600+s.
+	 */
+	public void test2rfeF(){
+		try {
+			ConfSpaces confSpaces = loadFromCFS("test-resources/2rfe_F_6res_5.934E+07.cfs");
+			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.68, null, 5, TestBBKStar.Impls.SHARK);
+			for (KStar.ScoredSequence sequence : results.sequences){
+				System.out.println(String.format("%s : [%1.9e, %1.9e]",
+						sequence.sequence,
+						sequence.score.lowerBound,
+						sequence.score.upperBound
+				));
+			}
+
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
+
 }
