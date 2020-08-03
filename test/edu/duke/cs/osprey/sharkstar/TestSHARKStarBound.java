@@ -13,6 +13,7 @@ import edu.duke.cs.osprey.kstar.TestKStar;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunctionFactory;
+import edu.duke.cs.osprey.markstar.MARKStar;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBoundFastQueues;
 import edu.duke.cs.osprey.parallelism.Parallelism;
@@ -24,6 +25,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -992,6 +994,49 @@ public class TestSHARKStarBound extends TestBase {
         MARKStarBound bound= makeMARKStarPfuncForConfSpace(confSpace, wildType, epsilon);
         bound.init(epsilon);
         bound.compute();
+    }
+
+    @Test
+    public void test2rfeF_singleseqComplexSHARK() throws FileNotFoundException {
+        TestKStar.ConfSpaces confSpaces = loadFromCFS("test-resources/2rfe_F_6res_5.934E+07.cfs");
+        Sequence wildType = confSpaces.complex.makeWildTypeSequence();
+        MultiSequenceSHARKStarBound bound= makeSHARKStarPfuncForConfSpace(confSpaces.complex, wildType, 0.01, null, null);
+        PartitionFunction ssbound = bound.getPartitionFunctionForSequence(wildType);
+        ssbound.compute();
+        System.out.println(String.format("Final bounds for seq %s: [%1.3e, %1.3e]",
+                wildType,
+                ssbound.getValues().qstar,
+                ssbound.getValues().pstar
+                ));
+    }
+
+    @Test
+    public void test2rfeF_singleseqComplexMARK() throws FileNotFoundException {
+        TestKStar.ConfSpaces confSpaces = loadFromCFS("test-resources/2rfe_F_6res_5.934E+07.cfs");
+        Sequence wildType = confSpaces.complex.makeWildTypeSequence();
+        double epsilon = 0.01;
+        MARKStarBound bound= makeMARKStarPfuncForConfSpace(confSpaces.complex, wildType, epsilon);
+        bound.init(epsilon);
+        bound.compute();
+        System.out.println(String.format("Final bounds for seq %s: [%1.3e, %1.3e]",
+                wildType,
+                bound.getValues().qstar,
+                bound.getValues().pstar
+        ));
+    }
+
+    @Test
+    public void test2rfeF_singleseqComplexGDC() throws FileNotFoundException {
+        TestKStar.ConfSpaces confSpaces = loadFromCFS("test-resources/2rfe_F_6res_5.934E+07.cfs");
+        Sequence wildType = confSpaces.complex.makeWildTypeSequence();
+        double epsilon = 0.01;
+        PartitionFunction bound= makeGradientDescentPfuncForConfSpace(confSpaces.complex, wildType, epsilon);
+        bound.compute();
+        System.out.println(String.format("Final bounds for seq %s: [%1.3e, %1.3e]",
+                wildType,
+                bound.getValues().calcLowerBound(),
+                bound.getValues().calcUpperBound()
+        ));
     }
 }
 
