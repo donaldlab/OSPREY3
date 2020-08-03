@@ -644,7 +644,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         if(lastEps == 0)
             System.err.println("Epsilon is ZERO??! And we are still tightening the bound!?");
 
-        int previousConfCount = workDone();
+        long previousConfCount = sequenceBound.state.workDone();
 
         // Run to populate the queues a little bit
         /*
@@ -693,10 +693,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 ));
 
                 if (lastEps < targetEpsilon ||
-                        numConfsEnergiedThisLoop >= maxNumConfs ||
+                        sequenceBound.state.workDone() - previousConfCount >= maxNumConfs ||
                         !isStable(stabilityThreshold, sequenceBound)
                 ){
-                    if(workDone() - previousConfCount >= maxNumConfs)
+                    if(sequenceBound.state.workDone() - previousConfCount >= maxNumConfs)
                         debugPrint("Exiting loop because of work");
 
                     if(!isStable(stabilityThreshold, sequenceBound)) {

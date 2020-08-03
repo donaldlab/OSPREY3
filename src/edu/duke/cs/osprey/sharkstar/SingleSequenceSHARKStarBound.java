@@ -298,5 +298,9 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
                     .get()
                     .doubleValue();
         }
+
+        long workDone(){
+            return numExpansions + numEnergiedConfs + numPartialMinimizations;
+        }
     }
 }
