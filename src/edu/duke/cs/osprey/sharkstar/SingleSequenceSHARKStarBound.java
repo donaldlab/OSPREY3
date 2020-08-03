@@ -239,6 +239,7 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
     @Override
     public void printStats() {
         multisequenceBound.printEnsembleAnalysis();
+        multisequenceBound.printTimePerSequence();
     }
     public boolean errors() {
         return errors;

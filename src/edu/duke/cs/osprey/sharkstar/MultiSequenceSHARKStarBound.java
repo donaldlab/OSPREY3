@@ -629,6 +629,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     public void computeForSequenceParallel(int maxNumConfs, SingleSequenceSHARKStarBound sequenceBound){
         System.out.println("Tightening bound for "+sequenceBound.sequence + " " + this.stateName);
+        Stopwatch computeWatch = new Stopwatch().start();
 
         // Initialize the state based on the queues
         sequenceBound.updateBound();
@@ -1141,6 +1142,14 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         }
         loopTasks.waitForFinish();
         sequenceBound.updateBound();
+        double timeElapsed = computeWatch.stop().getTimeS();
+
+        if(this.state.secondsPerSeq.containsKey(sequenceBound.sequence))
+            this.state.secondsPerSeq.replace(sequenceBound.sequence, this.state.secondsPerSeq.get(sequenceBound.sequence) + timeElapsed);
+        else
+            this.state.secondsPerSeq.put(sequenceBound.sequence, timeElapsed);
+
+
         lastEps = sequenceBound.state.calcDelta();
         debugPrint(String.format("Tracking Epsilon: %.9f, Bounds:[%1.9e, %1.9e]",
                 lastEps,
@@ -1953,6 +1962,18 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 .collect(Collectors.joining("\n"));
     }
 
+    public void printTimePerSequence(){
+        System.out.println(String.format("For ID: %s, %d expanded, %d minimized, %d partials",
+                this.cachePattern,
+                this.state.numExpansions,
+                this.state.numEnergiedConfs,
+                this.state.numPartialMinimizations
+                ));
+        this.state.secondsPerSeq.forEach(
+                (seq, time) -> System.out.println(String.format("Time spent computing for %s: %1.3e seconds",
+                        seq, time)));
+    }
+
 
 
     static class MultiSequenceState{
@@ -1967,6 +1988,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         long numRoundsEnergy = 0; // number of rounds of full minimization
         long numRoundsExpand = 0; // number of rounds of expansion
         long numRoundsPartialMin = 0; // number of rounds of partial minimization
+
+        Map<Sequence, Double> secondsPerSeq = new HashMap<>();
     }
 
 }

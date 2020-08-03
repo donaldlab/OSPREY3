@@ -621,6 +621,8 @@ public class BBKStar {
 
 			// Ensemble stat hack
 			PartitionFunction lastPfunc = null;
+			// Hack for Time
+			SingleSequenceNode lastNode = null;
 
 			// start searching the tree
 			System.out.println("computing K* scores for the " + bbkstarSettings.numBestSequences + " best sequences to epsilon = " + kstarSettings.epsilon + " ...");
@@ -640,6 +642,7 @@ public class BBKStar {
 
 							// sequence is finished, return it!
 							reportSequence(ssnode, scoredSequences);
+							lastNode = ssnode;
 							lastPfunc = ssnode.complex;
 
 						break;
@@ -682,8 +685,14 @@ public class BBKStar {
 					throw new Error("BBK* ended, but the tree isn't empty and we didn't return enough sequences. This is a bug.");
 				}
 			}
-			System.out.println("Trying to print ensemble stats.");
-			lastPfunc.printStats();
+
+			System.out.println("Trying to print ensemble stats for protein.");
+			lastNode.protein.printStats();
+			System.out.println("Trying to print ensemble stats for ligand.");
+			lastNode.ligand.printStats();
+			System.out.println("Trying to print ensemble stats for complex.");
+			lastNode.complex.printStats();
+			//lastPfunc.printStats();
 		}
 
 		return scoredSequences;
