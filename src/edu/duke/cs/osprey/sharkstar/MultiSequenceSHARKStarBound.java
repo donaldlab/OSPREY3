@@ -46,6 +46,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     public static final boolean debug = false;
     public static final boolean suppressPrecisionWarnings = true;
     public static final boolean diveForLeaves = false;
+    public static final boolean doCorrections = true;
     public boolean profileOutput = false;
     private Status status = null;
 
@@ -557,7 +558,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         double oldg = node.getConfSearchNode().getPartialConfLowerBound();
         double correctionDiff = confCorrection - oldg;
 
-        if ( correctionDiff > 1e-5) {
+        if ( correctionDiff > 1e-5 && doCorrections) {
             result.didCorrect = true;
 
             BigDecimal oldZUpperBound = node.getUpperBound(bound.sequence);
@@ -730,7 +731,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 //Figure out what step to make and get nodes
                 computePartials = theBatcher.canBatch();
 
-                if(computePartials)
+                if(computePartials && doCorrections)
                     theBatcher.makeBatch();
                     step = Step.Partial;
             }
@@ -1683,7 +1684,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
                 // score the child node differentially against the parent node
                 if (child.getLevel() < RCs.getNumPos()) {
-                    double confCorrection = correctionMatrix.confE(child.assignments);
+                    double confCorrection = Double.NEGATIVE_INFINITY;
+                    if(doCorrections)
+                        confCorrection = correctionMatrix.confE(child.assignments);
                     double diff = Math.max(confCorrection,
                             context.partialConfLowerBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc));
                     double rigiddiff = context.partialConfUpperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
@@ -1719,22 +1722,25 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
                     child.computeNumConformations(RCs); // Shouldn't this always eval to 1, given that we are looking at leaf nodes?
                     double confLower = context.partialConfLowerBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
-                    double confCorrection = correctionMatrix.confE(child.assignments);
+                    double confCorrection = Double.NEGATIVE_INFINITY;
+                    if(doCorrections)
+                        confCorrection = correctionMatrix.confE(child.assignments);
                     double lowerbound = Math.max(minimizingEmat.confE(child.assignments), confLower);
 
                     if (lowerbound < confCorrection) {
                         recordCorrection(lowerbound, confCorrection - lowerbound);
                     }
-                    checkBounds(confCorrection, confRigid);
+                    double correctedLowerBound = Math.max(lowerbound, confCorrection);
+                    checkBounds(correctedLowerBound, confRigid);
                     if (debug) {
                         historyString = String.format("%s: previous lower bound (none), confLower score %f, confCorrected score %f from %s",
-                                node.confToString(), curNode.getConfLowerBound(bound.sequence), confLower, confCorrection, getStackTrace());
+                                node.confToString(), curNode.getConfLowerBound(bound.sequence), confLower, correctedLowerBound, getStackTrace());
                     }
-                    child.setBoundsFromConfLowerAndUpper(confCorrection, confRigid);
-                    child.setPartialConfLowerAndUpper(confCorrection, confRigid);
+                    child.setBoundsFromConfLowerAndUpper(correctedLowerBound, confRigid);
+                    child.setPartialConfLowerAndUpper(correctedLowerBound, confRigid);
                     numConfsScored++;
                     //progress.reportLeafNode(child.getPartialConfLowerBound(), queue.size(), bound.getSequenceEpsilon());
-                    resultingLower= confCorrection;
+                    resultingLower= correctedLowerBound;
                     resultingUpper= confRigid;
                 }
 
