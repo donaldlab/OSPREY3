@@ -287,6 +287,8 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
             BigDecimal upperBound = getUpperBound();
             if (MathTools.isZero(upperBound) || MathTools.isInf(upperBound)) {
                 return 1.0;
+            }else if (upperBound.subtract(lowerBound).compareTo(BigDecimal.ONE) < 1) {
+                return 0.0;
             }
             return new BigMath(PartitionFunction.decimalPrecision)
                     .set(upperBound)
