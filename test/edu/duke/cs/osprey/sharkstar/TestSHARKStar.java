@@ -1625,7 +1625,7 @@ public class TestSHARKStar {
 	public void test4wwiA(){
 		try {
 			ConfSpaces confSpaces = loadFromCFS("test-resources/4wwi_A_3res_4.547E+04.cfs");
-			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.68, null, 5, TestBBKStar.Impls.MARK);
+			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.68, null, 5, TestBBKStar.Impls.SHARK);
 			for (KStar.ScoredSequence sequence : results.sequences){
 				System.out.println(String.format("%s : [%1.9e, %1.9e]",
 						sequence.sequence,
@@ -1747,7 +1747,7 @@ public class TestSHARKStar {
 	/**
 	 On the cluster this takes MARK* only 36 seconds to complete, while taking SHARK* 600+s.
 	 */
-	public void test2rfeF(){
+	public void test2rfeF_full(){
 		try {
 			ConfSpaces confSpaces = loadFromCFS("test-resources/2rfe_F_6res_5.934E+07.cfs");
 			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.68, null, 5, TestBBKStar.Impls.SHARK);
@@ -1763,5 +1763,66 @@ public class TestSHARKStar {
 			e.printStackTrace();
 		}
 	}
+
+	@Test
+	/**
+	 */
+	public void test2rfeF_2_seq(){
+		try {
+			ConfSpaces confSpaces = loadFromCFS("test-resources/2rfe_F_6res_2seq.cfs");
+			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.68, null, 5, TestBBKStar.Impls.MARK);
+			for (KStar.ScoredSequence sequence : results.sequences){
+				System.out.println(String.format("%s : [%1.9e, %1.9e]",
+						sequence.sequence,
+						sequence.score.lowerBound,
+						sequence.score.upperBound
+				));
+			}
+
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
+
+	@Test
+	/**
+	 */
+	public void test2rfeF_16_seq(){
+		try {
+			ConfSpaces confSpaces = loadFromCFS("test-resources/2rfe_F_6res_16seq.cfs");
+			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.68, null, 5, TestBBKStar.Impls.SHARK);
+			for (KStar.ScoredSequence sequence : results.sequences){
+				System.out.println(String.format("%s : [%1.9e, %1.9e]",
+						sequence.sequence,
+						sequence.score.lowerBound,
+						sequence.score.upperBound
+				));
+			}
+
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
+
+	@Test
+	/**
+	 */
+	public void test2rfeF_64_seq(){
+		try {
+			ConfSpaces confSpaces = loadFromCFS("test-resources/2rfe_F_6res_64seq.cfs");
+			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.68, null, 5, TestBBKStar.Impls.SHARK);
+			for (KStar.ScoredSequence sequence : results.sequences){
+				System.out.println(String.format("%s : [%1.9e, %1.9e]",
+						sequence.sequence,
+						sequence.score.lowerBound,
+						sequence.score.upperBound
+				));
+			}
+
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
+
 
 }
