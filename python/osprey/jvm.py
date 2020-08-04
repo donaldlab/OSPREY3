@@ -66,8 +66,7 @@ def setNativesDir(path):
 	_nativesDir = path
 
 
-def start(jrePath, heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=None, garbageSizeMiB=None, allowRemoteManagement=False, attachJvmDebugger=False):
-
+def start_with_args(jrePath, jvmArgs):
 	# if no path to a JRE was given, assume Java is installed somewhere,
 	# and try to determine the path automatically
 	if jrePath is None:
@@ -76,9 +75,29 @@ def start(jrePath, heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=None, 
 	# build JVM launch args
 	args = [
 		jrePath,
-		'-Xmx%dM' % heapSizeMiB,
 		'-Djava.class.path=%s' % makeClasspath()
 	]
+
+	args += jvmArgs
+
+	# start the JVM
+	try:
+		jpype.startJVM(*args, convertStrings=True)
+	except TypeError:
+		# JPype-py2 doesn't support the convertStrings kwarg
+		jpype.startJVM(*args)
+
+	# set up class factories
+	global c
+	c = Packages()
+	c.java = jpype.JPackage('java')
+	c.javax = jpype.JPackage('javax')
+
+
+def start(jrePath, heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=None, garbageSizeMiB=None, allowRemoteManagement=False, attachJvmDebugger=False):
+
+	args = ['-Xmx%dM' % heapSizeMiB]
+
 	if enableAssertions:
 		args.append("-ea")
 	if stackSizeMiB is not None:
@@ -101,24 +120,10 @@ def start(jrePath, heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=None, 
 		args.append("-Xnoagent")
 		args.append("-Xrunjdwp:transport=dt_socket,server=y,address=12999,suspend=n")
 
-
-	# start the JVM
-	try:
-		jpype.startJVM(*args, convertStrings=True)
-	except TypeError:
-		# JPype-py2 doesn't support the convertStrings kwarg
-		jpype.startJVM(*args)
+	start_with_args(jrePath, args)
 
 	if attachJvmDebugger:
-	    input("Attach the JVM debugger now, set your breakpoints, and hit [enter] to continue:")
-
-	
-
-	# set up class factories
-	global c
-	c = Packages()
-	c.java = jpype.JPackage('java')
-	c.javax = jpype.JPackage('javax')
+		input("Attach the JVM debugger now, set your breakpoints, and hit [enter] to continue:")
 
 
 def shutdown():
