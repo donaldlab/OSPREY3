@@ -45,6 +45,8 @@ import edu.duke.cs.osprey.tools.MathTools;
 import java.io.File;
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 
 /**
@@ -76,6 +78,14 @@ public class BBKStar {
 			 */
 			private int numConfsPerBatch = 8;
 
+			/**
+			 * The maximum number of conformations to evaluate per batch of partition function refinement
+			 *
+			 * For best results, make this a multiple of the available parallelism. e.g., if using 4 threads,
+			 * try a batch size of 4, 8, 12, 16, etc.
+			 */
+			private int maxNumConfsPerBatch = 8;
+
 			public Builder setNumBestSequences(int val) {
 				numBestSequences = val;
 				return this;
@@ -86,6 +96,11 @@ public class BBKStar {
 				return this;
 			}
 
+			public Builder setMaxNumConfsPerBatch(int val) {
+				maxNumConfsPerBatch = val;
+				return this;
+			}
+
 			public Settings build() {
 				return new Settings(numBestSequences, numConfsPerBatch);
 			}
@@ -93,10 +108,17 @@ public class BBKStar {
 
 		public final int numBestSequences;
 		public final int numConfsPerBatch;
+		private final int maxNumConfsPerBatch;
 
 		public Settings(int numBestSequences, int numConfsPerBatch) {
 			this.numBestSequences = numBestSequences;
 			this.numConfsPerBatch = numConfsPerBatch;
+			this.maxNumConfsPerBatch = numConfsPerBatch;
+		}
+		public Settings(int numBestSequences, int numConfsPerBatch, int maxNumConfsPerBatch) {
+			this.numBestSequences = numBestSequences;
+			this.numConfsPerBatch = numConfsPerBatch;
+			this.maxNumConfsPerBatch = maxNumConfsPerBatch;
 		}
 	}
 
@@ -169,6 +191,9 @@ public class BBKStar {
 
 		/** signals whether or not partition function values are allowed the stability threshold */
 		public boolean isUnboundUnstable;
+
+		/** counts how many estimations the node has completed*/
+		public long numComputeCycles = 0;
 
 		protected Node(Sequence sequence, ConfDB.DBs confDBs) {
 			this.sequence = sequence;
@@ -377,6 +402,7 @@ public class BBKStar {
 		public final PartitionFunction ligand;
 		public final PartitionFunction complex;
 
+
 		public SingleSequenceNode(Sequence sequence, ConfDB.DBs confDBs) {
 			super(sequence, confDBs);
 
@@ -431,9 +457,24 @@ public class BBKStar {
 				return;
 			}
 
+			/* Determine how long we want to compute for.
+			There is a trade-off -- computing for longer on bad sequences will take more time,
+			but computing for less time wastes resources
+			 */
+
+			Function<Long, Integer> weightFunc = (a) ->{
+				if (a >= 5)
+					return bbkstarSettings.maxNumConfsPerBatch;
+				else
+					return bbkstarSettings.numConfsPerBatch;
+			};
+
+			int numConfsToCompute = weightFunc.apply(numComputeCycles);
+
 			// refine the pfuncs if needed
 			if (protein.getStatus().canContinue()) {
-				protein.compute(bbkstarSettings.numConfsPerBatch);
+				//protein.compute(bbkstarSettings.numConfsPerBatch);
+				protein.compute(numConfsToCompute);
 
 				// tank the sequence if the unbound protein is unstable
 				if (protein.getStatus() == PartitionFunction.Status.Unstable) {
@@ -444,7 +485,8 @@ public class BBKStar {
 			}
 
 			if (ligand.getStatus().canContinue()) {
-				ligand.compute(bbkstarSettings.numConfsPerBatch);
+				//ligand.compute(bbkstarSettings.numConfsPerBatch);
+				ligand.compute(numConfsToCompute);
 
 				// tank the sequence if the unbound ligand is unstable
 				if (ligand.getStatus() == PartitionFunction.Status.Unstable) {
@@ -455,7 +497,8 @@ public class BBKStar {
 			}
 
 			if (complex.getStatus().canContinue()) {
-				complex.compute(bbkstarSettings.numConfsPerBatch);
+				//complex.compute(bbkstarSettings.numConfsPerBatch);
+				complex.compute(numConfsToCompute);
 			}
 
 			// update the score
@@ -466,6 +509,9 @@ public class BBKStar {
 			if (getStatus() == PfuncsStatus.Blocked && score == Double.POSITIVE_INFINITY) {
 				score = Double.NEGATIVE_INFINITY;
 			}
+
+			// Increment the numComputeCycles counter
+			this.numComputeCycles+= numConfsToCompute / bbkstarSettings.numConfsPerBatch;
 		}
 
 		public KStarScore computeScore() {
@@ -587,6 +633,8 @@ public class BBKStar {
 		complexPfuncs.clear();
 
 		List<KStar.ScoredSequence> scoredSequences = new ArrayList<>();
+		PriorityQueue<Node> tree;
+		List<Node> finishedNodes = new ArrayList<>();
 
 		// open the conf databases if needed
 		try (ConfDB.DBs confDBs = new ConfDB.DBs()
@@ -616,7 +664,7 @@ public class BBKStar {
 			}
 
 			// start the BBK* tree with the root node
-			PriorityQueue<Node> tree = new PriorityQueue<>();
+			tree = new PriorityQueue<>();
 			tree.add(new MultiSequenceNode(complex.confSpace.makeUnassignedSequence(), confDBs));
 
 			// Ensemble stat hack
@@ -644,6 +692,7 @@ public class BBKStar {
 							reportSequence(ssnode, scoredSequences);
 							lastNode = ssnode;
 							lastPfunc = ssnode.complex;
+							finishedNodes.add(ssnode);
 
 						break;
 						case Estimating:
@@ -694,6 +743,8 @@ public class BBKStar {
 			lastNode.complex.printStats();
 			//lastPfunc.printStats();
 		}
+		countCycles(tree, finishedNodes);
+
 
 		return scoredSequences;
 	}
@@ -709,5 +760,18 @@ public class BBKStar {
 			ssnode.sequence,
 			kstarScore
 		));
+	}
+
+	private void countCycles(PriorityQueue<Node> tree, List<Node> finishedNodes){
+		List<Node> nodes = new ArrayList<>(tree);
+		nodes.sort(new Comparator<Node>() {
+			@Override
+			public int compare(Node o1, Node o2) {
+				return Long.compare(o1.numComputeCycles, o2.numComputeCycles);
+			}
+		});
+		nodes.forEach((n) -> System.out.println(String.format("%s: %d", n.sequence, n.numComputeCycles)));
+		finishedNodes.forEach((n) -> System.out.println(String.format("%s: %d", n.sequence, n.numComputeCycles)));
+
 	}
 }
