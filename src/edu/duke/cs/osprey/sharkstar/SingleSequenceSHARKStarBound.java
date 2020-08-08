@@ -300,7 +300,7 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
         }
 
         long workDone(){
-            return numExpansions + numEnergiedConfs + numPartialMinimizations;
+            return numExpansions + numEnergiedConfs;
         }
     }
 }

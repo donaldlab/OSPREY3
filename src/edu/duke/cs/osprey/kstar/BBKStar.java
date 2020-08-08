@@ -402,6 +402,11 @@ public class BBKStar {
 		public final PartitionFunction ligand;
 		public final PartitionFunction complex;
 
+		/** The last change in the log10 kstar upper bound*/
+		public double lastScoreChange = 0;
+		/** The last number of conformations done to achieve the last score change*/
+		public int lastNumConfsToCompute = 0;
+
 
 		public SingleSequenceNode(Sequence sequence, ConfDB.DBs confDBs) {
 			super(sequence, confDBs);
@@ -444,8 +449,28 @@ public class BBKStar {
 			return pfunc;
 		}
 
+		public int calcNumConfsToCompute(double targetChange, double lastChange, int lastNumConfs){
+			if (lastNumConfs <=0 || targetChange == 0 || Double.isInfinite(targetChange))
+				return bbkstarSettings.numConfsPerBatch;
+			//figure out ideally how much we would do
+			int numConfsIdeal = (int) Math.floor(targetChange / (lastChange / lastNumConfs));
+			if (numConfsIdeal <= bbkstarSettings.numConfsPerBatch)
+				return bbkstarSettings.numConfsPerBatch;
+			else if (numConfsIdeal >= bbkstarSettings.maxNumConfsPerBatch)
+				return bbkstarSettings.maxNumConfsPerBatch;
+			else
+				return numConfsIdeal;
+		}
+
 		@Override
-		public void estimateScore() {
+		public void estimateScore(){
+			estimateScore(0);
+		};
+
+		public void estimateScore(double targetChange) {
+
+		    // record the last score
+			double lastScore = Math.log10(makeKStarScore().upperBound.doubleValue());
 
 			// tank the sequence if either unbound strand is unstable
 			// yeah, we haven't refined any pfuncs yet this estimation,
@@ -470,6 +495,9 @@ public class BBKStar {
 			};
 
 			int numConfsToCompute = weightFunc.apply(numComputeCycles);
+			System.out.println(targetChange);
+			numConfsToCompute = calcNumConfsToCompute(targetChange, lastScoreChange, lastNumConfsToCompute);
+			System.out.println(numConfsToCompute);
 
 			// refine the pfuncs if needed
 			if (protein.getStatus().canContinue()) {
@@ -504,6 +532,9 @@ public class BBKStar {
 			// update the score
 			score = Math.log10(makeKStarScore().upperBound.doubleValue());
 			isUnboundUnstable = false;
+
+			lastScoreChange = lastScore - score;
+			lastNumConfsToCompute = numConfsToCompute;
 
 			// tank sequences that have no useful K* bounds, and are blocked
 			if (getStatus() == PfuncsStatus.Blocked && score == Double.POSITIVE_INFINITY) {
@@ -683,6 +714,17 @@ public class BBKStar {
 				Node node = tree.poll();
                 System.out.println("Refining sequence "+node.sequence);
 
+				// get the target score for dropping it below the nth best node
+				List<Node> tempList = new ArrayList<>();
+				while(!tree.isEmpty() && tempList.size() < bbkstarSettings.numBestSequences - 1){
+					tempList.add(tree.poll());
+				}
+				double targetChange = 0;
+				if(tree.peek() != null)
+					targetChange = node.score - tree.peek().score;
+				tree.addAll(tempList);
+
+
 				if (node instanceof SingleSequenceNode) {
 					SingleSequenceNode ssnode = (SingleSequenceNode)node;
 
@@ -700,7 +742,7 @@ public class BBKStar {
 						case Estimating:
 
 							// needs more estimation, catch-and-release
-							ssnode.estimateScore();
+							ssnode.estimateScore(targetChange);
 							if (!ssnode.isUnboundUnstable) {
 								tree.add(ssnode);
 							}
