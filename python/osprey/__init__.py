@@ -1064,7 +1064,7 @@ def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJava
 	if numConfsPerBatch is not useJavaDefault:
 		bbkstarSettingsBuilder.setNumConfsPerBatch(numConfsPerBatch)
 	if maxNumConfsPerBatch is not useJavaDefault:
-		bbkstarSettingsBuilder.setMaxNumConfsPerBatch(numConfsPerBatch)
+		bbkstarSettingsBuilder.setMaxNumConfsPerBatch(maxNumConfsPerBatch)
 	bbkstarSettings = bbkstarSettingsBuilder.build()
 
 	return c.kstar.BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, kstarSettings, bbkstarSettings)
