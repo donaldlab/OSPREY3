@@ -628,7 +628,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     }
 
     public void computeForSequenceParallel(int maxNumConfs, SingleSequenceSHARKStarBound sequenceBound){
-        System.out.println("Tightening bound for "+sequenceBound.sequence + " " + this.stateName);
+        System.out.println("Tightening bound for "+sequenceBound.sequence + " " + this.cachePattern);
         Stopwatch computeWatch = new Stopwatch().start();
 
         // Initialize the state based on the queues
@@ -674,7 +674,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         while( (!sequenceBound.internalQueue.isEmpty() || !sequenceBound.leafQueue.isEmpty() || loopTasks.isExpecting())){
             synchronized(lock) {
                 //TODO: apply partial minimizations
-                sequenceBound.updateBound();
+                //sequenceBound.updateBound();
 
                 // Early termination
                 double newEps = sequenceBound.state.calcDelta();
@@ -751,7 +751,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     if (!sequenceBound.leafQueue.isEmpty())
                         leafError = sequenceBound.leafQueue.peek().getErrorBound(sequenceBound.sequence);
                     if (!sequenceBound.internalQueue.isEmpty())
-                        internalError = sequenceBound.internalQueue.peek().getErrorBound(sequenceBound.sequence);
+                        internalError = sequenceBound.internalQueue.peek().getErrorBound(sequenceBound.sequence)
+                            .multiply(BigDecimal.valueOf(1e3));
 
                     /*
                     System.out.println(String.format("Internal error: %1.3e, %d nodes, Leaf error: %1.3e, %d nodes, eps: %f, bounds: [%1.6e, %1.6e]",
@@ -828,7 +829,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 sequenceBound.fringeNodes.addAll(internalNodes);
             }
              */
-                    if (leafError.compareTo(internalError.multiply(BigDecimal.valueOf(100))) > 0) {
+                    if (leafError.compareTo(internalError) > 0) {
                         if(leafError.compareTo(BigDecimal.ZERO) > 0) {
                             loosestLeaf = sequenceBound.leafQueue.poll();
                             step = Step.Energy;
@@ -848,7 +849,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 }else{
 
                  */
-                    } else if (leafError.compareTo(internalError.multiply(BigDecimal.valueOf(100))) <= 0 /*&& internalError.compareTo(BigDecimal.ZERO) > 0*/) {
+                    } else if (leafError.compareTo(internalError) <= 0 /*&& internalError.compareTo(BigDecimal.ZERO) > 0*/) {
                         internalNodes.add(sequenceBound.internalQueue.poll());
                         step = Step.ExpandInBatches;
                     } else {
