@@ -102,7 +102,7 @@ public class BBKStar {
 			}
 
 			public Settings build() {
-				return new Settings(numBestSequences, numConfsPerBatch);
+				return new Settings(numBestSequences, numConfsPerBatch, maxNumConfsPerBatch);
 			}
 		}
 
