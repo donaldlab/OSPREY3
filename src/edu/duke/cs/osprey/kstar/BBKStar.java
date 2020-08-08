@@ -518,13 +518,15 @@ public class BBKStar {
 
 			// refine the pfuncs until done
 			while (protein.getStatus().canContinue()) {
-				protein.compute(bbkstarSettings.numConfsPerBatch);
+				//protein.compute(bbkstarSettings.numConfsPerBatch);
+				protein.compute();
 			}
 			while (ligand.getStatus().canContinue()) {
-				ligand.compute(bbkstarSettings.numConfsPerBatch);
+				//ligand.compute(bbkstarSettings.numConfsPerBatch);
+				ligand.compute();
 			}
 			while (complex.getStatus().canContinue()) {
-				complex.compute(bbkstarSettings.numConfsPerBatch);
+				complex.compute();
 			}
 
 			// update the score
