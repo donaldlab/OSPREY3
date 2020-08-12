@@ -636,7 +636,7 @@ public class BBKStar {
 
 		List<KStar.ScoredSequence> scoredSequences = new ArrayList<>();
 		PriorityQueue<Node> tree;
-		List<Node> finishedNodes = new ArrayList<>();
+		List<SingleSequenceNode> finishedNodes = new ArrayList<>();
 
 		// open the conf databases if needed
 		try (ConfDB.DBs confDBs = new ConfDB.DBs()
@@ -746,6 +746,14 @@ public class BBKStar {
 			//lastPfunc.printStats();
 		}
 		countCycles(tree, finishedNodes);
+		finishedNodes.forEach((SingleSequenceNode n) -> {
+			System.out.println(String.format("%s protein:", n.sequence));
+		    n.protein.printStats();
+			System.out.println(String.format("%s ligand:", n.sequence));
+			n.ligand.printStats();
+			System.out.println(String.format("%s complex:", n.sequence));
+			n.complex.printStats();
+		});
 
 
 		return scoredSequences;
@@ -764,7 +772,7 @@ public class BBKStar {
 		));
 	}
 
-	private void countCycles(PriorityQueue<Node> tree, List<Node> finishedNodes){
+	private void countCycles(PriorityQueue<Node> tree, List<SingleSequenceNode> finishedNodes){
 		List<Node> nodes = new ArrayList<>(tree);
 		nodes.sort(new Comparator<Node>() {
 			@Override

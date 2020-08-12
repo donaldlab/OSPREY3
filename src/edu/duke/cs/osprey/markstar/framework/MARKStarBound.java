@@ -1198,4 +1198,12 @@ public class MARKStarBound implements PartitionFunction {
         }
         return false;
     }
+
+    public void printStats(){
+        System.out.println(String.format("State eps: %.9f, [%1.9e, %1.9e]",
+                this.epsilonBound,
+                this.values.calcLowerBound(),
+                this.values.calcUpperBound()
+        ));
+    }
 }
