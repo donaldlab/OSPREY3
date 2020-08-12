@@ -1000,14 +1000,32 @@ public class TestSHARKStarBound extends TestBase {
     public void test2rfeF_singleseqComplexSHARK() throws FileNotFoundException {
         TestKStar.ConfSpaces confSpaces = loadFromCFS("test-resources/2rfe_F_6res_5.934E+07.cfs");
         Sequence wildType = confSpaces.complex.makeWildTypeSequence();
+        List<String> seqList = new ArrayList<>();
+        seqList.add("ARG");
+        seqList.add("PRO");
+        Sequence second = confSpaces.complex.seqSpace.makeSequence(seqList);
         MultiSequenceSHARKStarBound bound= makeSHARKStarPfuncForConfSpace(confSpaces.complex, wildType, 0.01, null, null);
-        PartitionFunction ssbound = bound.getPartitionFunctionForSequence(wildType);
+        SingleSequenceSHARKStarBound ssbound = (SingleSequenceSHARKStarBound) bound.getPartitionFunctionForSequence(wildType);
         ssbound.compute();
+        SingleSequenceSHARKStarBound ssbound_two = (SingleSequenceSHARKStarBound) bound.getPartitionFunctionForSequence(second);
+        ssbound_two.compute();
         System.out.println(String.format("Final bounds for seq %s: [%1.3e, %1.3e]",
                 wildType,
                 ssbound.getValues().qstar,
                 ssbound.getValues().pstar
                 ));
+
+        MultiSequenceSHARKStarBound.loopTasks.waitForFinish();
+        System.out.println(String.format("State eps: %.9f, [%1.9e, %1.9e]",
+                ssbound_two.state.calcDelta(),
+                ssbound_two.state.getLowerBound(),
+                ssbound_two.state.getUpperBound()
+        ));
+        System.out.println(String.format("Queue eps: %.9f, [%1.9e, %1.9e]",
+                ssbound_two.getEpsFromQueues(),
+                ssbound_two.getLowerFromQueues(),
+                ssbound_two.getUpperFromQueues()
+        ));
     }
 
     @Test
