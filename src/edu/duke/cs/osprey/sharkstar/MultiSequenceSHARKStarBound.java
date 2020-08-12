@@ -277,7 +277,13 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         }
 
         //rootNode.updateSubtreeBounds(seq);
-        newBound.updateBound();
+        //newBound.updateBound();
+        newBound.updateStateFromQueues();
+        debugPrint(String.format("Created pfunc with eps: %.6f, [%1.3e, %1.3e]",
+                newBound.state.calcDelta(),
+                newBound.state.getLowerBound(),
+                newBound.state.getUpperBound()
+                ));
         if(newBound.getSequenceEpsilon() == 0)
             System.err.println("Perfectly bounded sequence? how?");
         //rootNode.updateSubtreeBounds(seq);
@@ -483,10 +489,21 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         PartitionFunction flexBound =
                 precompFlex.getPartitionFunctionForSequence(unassignedFlex);
         SingleSequenceSHARKStarBound bound = (SingleSequenceSHARKStarBound) flexBound;
-        flexBound.compute();
+        bound.compute();
         loopTasks.waitForFinish(); // we really do need this to finish before we can start on the other sequences
         precompFlex.printEnsembleAnalysis();
         processPrecomputedFlex(precompFlex);
+        // Check to make sure bounds are the same as the queue bounds
+        debugPrint(String.format("State eps: %.9f, [%1.9e, %1.9e]",
+                bound.state.calcDelta(),
+                bound.state.getLowerBound(),
+                bound.state.getUpperBound()
+                ));
+        debugPrint(String.format("Queue eps: %.9f, [%1.9e, %1.9e]",
+                bound.getEpsFromQueues(),
+                bound.getLowerFromQueues(),
+                bound.getUpperFromQueues()
+        ));
         return precompFlex;
     }
 
@@ -637,6 +654,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         Stopwatch computeWatch = new Stopwatch().start();
 
         // Initialize the state based on the queues
+        // this is done earlier
+        /*
         sequenceBound.updateBound();
         double queueEps = sequenceBound.getSequenceEpsilon();
         sequenceBound.state.upperBound = sequenceBound.getUpperBound();
@@ -645,6 +664,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         debugPrint(String.format("Eps from queue: %f, Eps from state: %f", queueEps, stateEps));
         //assert(Math.abs(queueEps - stateEps) < 1e-9);
         double lastEps = stateEps;
+         */
+        double lastEps = sequenceBound.state.calcDelta();
 
         if(lastEps == 0)
             System.err.println("Epsilon is ZERO??! And we are still tightening the bound!?");

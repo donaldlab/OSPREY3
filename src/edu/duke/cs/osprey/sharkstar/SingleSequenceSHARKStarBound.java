@@ -101,7 +101,11 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
 
     @Override
     public Values getValues() {
-        return this.values;
+        //return this.values;
+        Values values = new Values();
+        values.pstar = this.state.getUpperBound();
+        values.qstar = this.state.getLowerBound();
+        return values;
     }
 
     @Override
@@ -118,10 +122,10 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
     public void compute(int maxNumConfs) {
             //multisequenceBound.computeForSequence(maxNumConfs, this);
         multisequenceBound.computeForSequenceParallel(maxNumConfs, this);
-        updateBound();
+        //updateBound();
         if (getSequenceEpsilon() < multiSequenceSHARKStarBound.targetEpsilon) {
             setStatus(Status.Estimated);
-            if (values.qstar.compareTo(BigDecimal.ZERO) == 0) {
+            if (state.getLowerBound().compareTo(BigDecimal.ZERO) == 0) {
                 setStatus(Status.Unstable);
             }
         }
@@ -152,11 +156,43 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
     }
 
     public BigDecimal getUpperBound(){
-        return values.pstar;
+        //return values.pstar;
+        return state.getUpperBound();
     }
 
     public BigDecimal getLowerBound(){
-        return values.qstar;
+        //return values.qstar;
+        return state.getLowerBound();
+    }
+
+    /**
+     * Note: Because nodes are pulled from the queues asynchronously, it is NOT
+     * a guarantee that the bounds are correct if any nodes are being processed.
+     * Be very careful with when this method is called.
+     */
+    public void updateStateFromQueues(){
+        BigDecimal lastUpper = state.getUpperBound();
+        BigDecimal lastLower = state.getLowerBound();
+        BigDecimal upperBound = fringeNodes.getPartitionFunctionUpperBound()
+                .add(internalQueue.getPartitionFunctionUpperBound())
+                .add(leafQueue.getPartitionFunctionUpperBound())
+                .add(finishedNodeZ);
+        BigDecimal lowerBound = fringeNodes.getPartitionFunctionLowerBound()
+                .add(internalQueue.getPartitionFunctionLowerBound())
+                .add(leafQueue.getPartitionFunctionLowerBound())
+                .add(finishedNodeZ);
+
+        if(MathTools.isLessThan(lowerBound, lastLower) && ! MathTools.isRelativelySame(lowerBound, lastLower, PartitionFunction.decimalPrecision, 10)) {
+            System.err.println("Bounds getting looser. Lower bound is getting lower...");
+            errors = true;
+        }
+        if(MathTools.isGreaterThan(upperBound, lastUpper) && ! MathTools.isRelativelySame(upperBound, lastUpper, PartitionFunction.decimalPrecision, 10)) {
+            System.err.println("Bounds getting looser. Upper bound is getting bigger...");
+            errors = true;
+        }
+
+        state.upperBound = upperBound;
+        state.lowerBound = lowerBound;
     }
 
     public void updateBound() {
@@ -238,15 +274,53 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
 
     @Override
     public void printStats() {
-        multisequenceBound.printEnsembleAnalysis();
-        multisequenceBound.printTimePerSequence();
+        //multisequenceBound.printEnsembleAnalysis();
+        //multisequenceBound.printTimePerSequence();
+        System.out.println(String.format("State eps: %.9f, [%1.9e, %1.9e], Queue eps: %.9f, [%1.9e, %1.9e]",
+                this.state.calcDelta(),
+                this.state.getLowerBound(),
+                this.state.getUpperBound(),
+                getEpsFromQueues(),
+                getLowerFromQueues(),
+                getUpperFromQueues()
+        ));
     }
     public boolean errors() {
         return errors;
     }
 
     public double getSequenceEpsilon() {
-        return sequenceEpsilon;
+        //return sequenceEpsilon;
+        return state.calcDelta();
+    }
+
+    public BigDecimal getLowerFromQueues(){
+        return fringeNodes.getPartitionFunctionLowerBound()
+                .add(internalQueue.getPartitionFunctionLowerBound())
+                .add(leafQueue.getPartitionFunctionLowerBound())
+                .add(finishedNodeZ);
+    }
+
+    public BigDecimal getUpperFromQueues(){
+        return fringeNodes.getPartitionFunctionUpperBound()
+                .add(internalQueue.getPartitionFunctionUpperBound())
+                .add(leafQueue.getPartitionFunctionUpperBound())
+                .add(finishedNodeZ);
+    }
+
+    public double getEpsFromQueues(){
+        BigDecimal upperBound = getUpperFromQueues();
+        if (MathTools.isZero(upperBound) || MathTools.isInf(upperBound)) {
+            return 1.0;
+        }else if (upperBound.subtract(getLowerFromQueues()).compareTo(BigDecimal.ONE) < 1) {
+            return 0.0;
+        }
+        return new BigMath(PartitionFunction.decimalPrecision)
+                .set(upperBound)
+                .sub(getLowerBound())
+                .div(upperBound)
+                .get()
+                .doubleValue();
     }
 
 
