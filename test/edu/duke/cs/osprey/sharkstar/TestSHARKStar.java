@@ -1824,5 +1824,68 @@ public class TestSHARKStar {
 		}
 	}
 
+	@Test
+	/**
+	 Occasional nullpointer errors?
+	 */
+	public void test5a6yB(){
+		try {
+			ConfSpaces confSpaces = loadFromCFS("test-resources/5a6y_B_4res_7.714E+04.cfs");
+			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.01, null, 5, TestBBKStar.Impls.SHARK);
+			for (KStar.ScoredSequence sequence : results.sequences){
+				System.out.println(String.format("%s : [%1.9e, %1.9e]",
+						sequence.sequence,
+						sequence.score.lowerBound,
+						sequence.score.upperBound
+				));
+			}
+
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
+
+	@Test
+	/**
+	 Occasional nullpointer errors?
+	 */
+	public void test2rl0D(){
+		try {
+			ConfSpaces confSpaces = loadFromCFS("test-resources/2rl0_D_4res_1.488E+07.cfs");
+			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.01, null, 5, TestBBKStar.Impls.SHARK);
+			for (KStar.ScoredSequence sequence : results.sequences){
+				System.out.println(String.format("%s : [%1.9e, %1.9e]",
+						sequence.sequence,
+						sequence.score.lowerBound,
+						sequence.score.upperBound
+				));
+			}
+
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
+
+	@Test
+	/**
+	 Occasional nullpointer errors?
+	 */
+	public void test2rf9D(){
+		try {
+			ConfSpaces confSpaces = loadFromCFS("test-resources/2rf9_D_8res_9.231E+07.cfs");
+			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.68, null, 5, TestBBKStar.Impls.SHARK);
+			for (KStar.ScoredSequence sequence : results.sequences){
+				System.out.println(String.format("%s : [%1.9e, %1.9e]",
+						sequence.sequence,
+						sequence.score.lowerBound,
+						sequence.score.upperBound
+				));
+			}
+
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
+
 
 }
