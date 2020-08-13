@@ -1758,17 +1758,24 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         resultingUpper, msBound.bc.calc(resultingLower), msBound.bc.calc(resultingUpper), bound.sequence, historyString);
                 //System.out.println("Created new child "+MultiSequenceSHARKStarNodeChild.toSeqString(bound.sequence));
                 // collect the possible children
-                    if (newChild.getConfLowerBound(bound.sequence) < 0 || true) {
+                if (newChild.getConfLowerBound(bound.sequence) < 0 || true) { //TODO: could this be a memory suck?
                     children.add(newChild);
-
                 }
-                if (!newChild.isMinimized(bound.sequence)) {
-                    newNodes.add(newChild);
-                } else {
+
+                if (newChild.isMinimized(bound.sequence)) {
                     //newChild.computeEpsilonErrorBounds(bound.sequence);
                     //bound.addFinishedNode(newChild);
-                    throw new RuntimeException();
+                    System.err.println(String.format("WARNING: perfectly bounded internal node: Seq %s %s, state %s, node %s: energy [%.3f, %.3f]",
+                            bound.sequence,
+                            bound.seqRCs,
+                            this.cachePattern,
+                            Arrays.toString(newChild.getConfSearchNode().assignments),
+                            newChild.getConfLowerBound(bound.sequence),
+                            newChild.getConfUpperBound(bound.sequence)
+                            ));
                 }
+
+                newNodes.add(newChild);
 
                 //curNode.updateSubtreeBounds(bound.sequence);
                 //printTree(bound.sequence, curNode);
