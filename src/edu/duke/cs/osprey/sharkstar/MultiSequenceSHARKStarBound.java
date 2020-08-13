@@ -280,7 +280,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         //newBound.updateBound();
         newBound.updateStateFromQueues();
         debugPrint(String.format("Created pfunc with eps: %.6f, [%1.3e, %1.3e]",
-                newBound.state.calcDelta(),
+                newBound.state.getDelta(),
                 newBound.state.getLowerBound(),
                 newBound.state.getUpperBound()
                 ));
@@ -495,7 +495,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         processPrecomputedFlex(precompFlex);
         // Check to make sure bounds are the same as the queue bounds
         debugPrint(String.format("State eps: %.9f, [%1.9e, %1.9e]",
-                bound.state.calcDelta(),
+                bound.state.getDelta(),
                 bound.state.getLowerBound(),
                 bound.state.getUpperBound()
                 ));
@@ -665,7 +665,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         //assert(Math.abs(queueEps - stateEps) < 1e-9);
         double lastEps = stateEps;
          */
-        double lastEps = sequenceBound.state.calcDelta();
+        double lastEps = sequenceBound.state.getDelta();
 
         if(lastEps == 0)
             System.err.println("Epsilon is ZERO??! And we are still tightening the bound!?");
@@ -703,7 +703,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 //sequenceBound.updateBound();
 
                 // Early termination
-                double newEps = sequenceBound.state.calcDelta();
+                double newEps = sequenceBound.state.getDelta();
                 if(newEps > lastEps){
                     //throw new RuntimeException("ERROR: Epsilon is increasing");
                 }
@@ -714,8 +714,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         //sequenceBound.getLowerBound(),
                         //sequenceBound.getUpperBound()
                         lastEps,
-                        sequenceBound.state.lowerBound,
-                        sequenceBound.state.upperBound
+                        sequenceBound.state.getLowerBound(),
+                        sequenceBound.state.getUpperBound()
                 ));
 
                 if (lastEps < targetEpsilon ||
@@ -900,7 +900,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     MultiSequenceSHARKStarBound multiSequencePfunc = this;
 
                     debugPrint(String.format("Minimizing node with lower bound %f and pfunc error %1.3e",
-                            loosestLeaf.getConfLowerBound(singleSequencePfunc.sequence),
+                            loosestLeaf.getConfLowerBound(singleSequencePfunc.sequence), //TODO: fix the null-pointer exception thrown here
                             loosestLeaf.getErrorBound(singleSequencePfunc.sequence)
                             ));
 
@@ -946,9 +946,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
                                     internalNode.checkDescendents(singleSequencePfunc.sequence);
                                     if (diveForLeaves && !MathTools.isGreaterThan(internalNode.getLowerBound(singleSequencePfunc.sequence), BigDecimal.ONE) &&
-                                            (singleSequencePfunc.state.upperBound.compareTo(BigDecimal.ONE) < 0 ||
+                                            (singleSequencePfunc.state.getUpperBound().compareTo(BigDecimal.ONE) < 0 ||
                                             MathTools.isGreaterThan(
-                                                    MathTools.bigDivide(internalNode.getUpperBound(singleSequencePfunc.sequence), singleSequencePfunc.state.upperBound,
+                                                    MathTools.bigDivide(internalNode.getUpperBound(singleSequencePfunc.sequence), singleSequencePfunc.state.getUpperBound(),
                                                             PartitionFunction.decimalPrecision),
                                                     new BigDecimal(1 - multiSequencePfunc.targetEpsilon)))
                                     ) {
@@ -1108,11 +1108,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             this.state.secondsPerSeq.put(sequenceBound.sequence, timeElapsed);
 
 
-        lastEps = sequenceBound.state.calcDelta();
+        lastEps = sequenceBound.state.getDelta();
         debugPrint(String.format("Tracking Epsilon: %.9f, Bounds:[%1.9e, %1.9e]",
                 lastEps,
-                sequenceBound.state.lowerBound,
-                sequenceBound.state.upperBound
+                sequenceBound.state.getLowerBound(),
+                sequenceBound.state.getUpperBound()
         ));
         debugPrint(String.format("Epsilon: %.9f, Bounds:[%1.9e, %1.9e]",
                 sequenceBound.getSequenceEpsilon(),
@@ -1167,12 +1167,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         long fringeSize = 0;
         synchronized(result.msBound.lock) {
             // Update partition function values
-            result.sequenceBound.state.upperBound = result.sequenceBound.state.upperBound.add(result.deltaUB, PartitionFunction.decimalPrecision);
-            result.sequenceBound.state.lowerBound = result.sequenceBound.state.lowerBound.add(result.deltaLB, PartitionFunction.decimalPrecision);
+            result.sequenceBound.state.updateBounds(result.deltaLB, result.deltaUB);
             result.sequenceBound.state.numExpansions += result.numExpanded;
             result.sequenceBound.state.totalTimeExpansion += result.timeS;
             result.sequenceBound.state.numRoundsExpand++;
-            delta = result.sequenceBound.state.calcDelta();
+            delta = result.sequenceBound.state.getDelta();
             fringeSize = result.sequenceBound.internalQueue.size() + result.sequenceBound.leafQueue.size();
 
             // update the tracking variables
@@ -1243,10 +1242,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         long fringeSize = 0;
         synchronized(result.msBound.lock) {
             // Update partition function values
-            result.sequenceBound.state.upperBound = result.sequenceBound.state.upperBound.add(result.deltaUB, PartitionFunction.decimalPrecision);
-            result.sequenceBound.state.lowerBound = result.sequenceBound.state.lowerBound.add(result.deltaLB, PartitionFunction.decimalPrecision);
+            result.sequenceBound.state.updateBounds(result.deltaLB, result.deltaUB);
             // Compute reporting things
-            delta = result.sequenceBound.state.calcDelta();
+            delta = result.sequenceBound.state.getDelta();
             fringeSize = result.sequenceBound.internalQueue.size() + result.sequenceBound.leafQueue.size();
 
             // report minimization
@@ -1278,7 +1276,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private void onCorrection(CorrectionResult result){
         synchronized(lock){
-            result.sequenceBound.state.upperBound = result.sequenceBound.state.upperBound.add(result.deltaUB, PartitionFunction.decimalPrecision);
+            result.sequenceBound.state.updateBounds(BigDecimal.ZERO, result.deltaUB);
 
             result.sequenceBound.leafQueue.add(result.correctedNode);
         }
@@ -1316,7 +1314,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             result.sequenceBound.state.numPartialMinimizations += result.numPartials;
             result.sequenceBound.state.totalTimePartialMin += result.timeS;
             result.sequenceBound.state.numRoundsPartialMin++;
-            delta = result.sequenceBound.state.calcDelta();
+            delta = result.sequenceBound.state.getDelta();
 
             // update tracking vars
             result.msBound.state.numPartialMinimizations += result.numPartials;

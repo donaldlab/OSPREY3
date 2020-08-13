@@ -55,6 +55,8 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
         this.leafQueue = new SHARKStarQueue(seq);
 
         this.state = new State();
+        this.state.bound = this;
+        this.state.targetEpsilon = multiSequenceSHARKStarBound.targetEpsilon;
         this.state.lowerBound = BigDecimal.ZERO;
         this.state.upperBound = BigDecimal.ZERO;
     }
@@ -191,8 +193,7 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
             errors = true;
         }
 
-        state.upperBound = upperBound;
-        state.lowerBound = lowerBound;
+        state.setBounds(lowerBound, upperBound);
     }
 
     public void updateBound() {
@@ -335,8 +336,13 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
     }
 
     public static class State{
-        BigDecimal upperBound; // pfunc upper bound
-        BigDecimal lowerBound; // pfunc lower bound
+        private SingleSequenceSHARKStarBound bound; // pointer to the bound
+
+        private BigDecimal upperBound; // pfunc upper bound
+        private BigDecimal lowerBound; // pfunc lower bound
+
+        private double delta; // running epsilon
+        private double targetEpsilon;
 
         long numEnergiedConfs = 0; // number of conformations fully minimized
         long numExpansions = 0; // number of internal nodes expanded
@@ -358,7 +364,18 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
             return lowerBound;
         }
 
-        double calcDelta() {
+        void setBounds(BigDecimal lower, BigDecimal upper){
+            this.lowerBound = lower;
+            this.upperBound = upper;
+            this.delta = calcDelta();
+            updateStatus();
+        }
+
+        double getDelta(){
+            return delta;
+        }
+
+        private double calcDelta() {
             BigDecimal upperBound = getUpperBound();
             if (MathTools.isZero(upperBound) || MathTools.isInf(upperBound)) {
                 return 1.0;
@@ -373,8 +390,24 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
                     .doubleValue();
         }
 
-        long workDone(){
+        public long workDone(){
             return numExpansions + numEnergiedConfs;
+        }
+
+        public void updateBounds(BigDecimal lowerAddend, BigDecimal upperAddend){
+            this.lowerBound = this.lowerBound.add(lowerAddend, PartitionFunction.decimalPrecision);
+            this.upperBound = this.upperBound.add(upperAddend, PartitionFunction.decimalPrecision);
+            this.delta = calcDelta();
+            updateStatus();
+        }
+
+        private void updateStatus(){
+            if (getDelta() < this.targetEpsilon) {
+                this.bound.setStatus(Status.Estimated);
+                if (this.getLowerBound().compareTo(BigDecimal.ZERO) == 0) {
+                    this.bound.setStatus(Status.Unstable);
+                }
+            }
         }
     }
 }

@@ -1017,7 +1017,7 @@ public class TestSHARKStarBound extends TestBase {
 
         MultiSequenceSHARKStarBound.loopTasks.waitForFinish();
         System.out.println(String.format("State eps: %.9f, [%1.9e, %1.9e]",
-                ssbound_two.state.calcDelta(),
+                ssbound_two.state.getDelta(),
                 ssbound_two.state.getLowerBound(),
                 ssbound_two.state.getUpperBound()
         ));
