@@ -598,7 +598,23 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         double oldg = node.getConfSearchNode().getPartialConfLowerBound();
         double correctionDiff = confCorrection - oldg;
 
-        if ( correctionDiff > 1e-5 && msBound.doCorrections) {
+        // Make sure to check that we do not overcorrect
+        boolean overcorrecting = false;
+        double oldGUpper = node.getConfSearchNode().getPartialConfUpperBound();
+        if(confCorrection > oldGUpper) {
+            System.err.println(String.format("Attempted overcorrection of %s for seq %s: [%.9f, %.9f] -> + %.9f -> [%.9f, %.9f]",
+                    Arrays.toString(node.getConfSearchNode().assignments),
+                    bound.sequence,
+                    oldg,
+                    oldGUpper,
+                    correctionDiff,
+                    confCorrection,
+                    oldGUpper
+                    ));
+            overcorrecting = true;
+        }
+
+        if ( correctionDiff > 1e-5 && !overcorrecting && doCorrections) {
             result.didCorrect = true;
 
             BigDecimal oldZUpperBound = node.getUpperBound(bound.sequence);
