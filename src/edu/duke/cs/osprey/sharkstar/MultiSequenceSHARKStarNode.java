@@ -297,7 +297,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         return childrenByRC.get(child.rc);
     }
 
-    public void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound, BigDecimal ZUB, BigDecimal ZLB, Sequence seq) {
+    public synchronized void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound, BigDecimal ZUB, BigDecimal ZLB, Sequence seq) {
         if(isDebugConf(confSearchNode.assignments))
             System.out.println("Gotcha-boundset");
         MathTools.BigDecimalBounds bounds = getSequenceBounds(seq);
@@ -722,7 +722,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             return partialConfUpperBound;
         }
 
-        public void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound) {
+        public synchronized void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound) {
             if(level == assignments.length) {
                 partialConfLowerBound = lowerBound;
                 partialConfUpperBound = upperBound;
