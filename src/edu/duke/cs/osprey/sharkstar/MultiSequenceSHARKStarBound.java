@@ -731,9 +731,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             }
 
 
-            // Make lists
+            // Make variables to pass to the child threads
             List<MultiSequenceSHARKStarNode> internalNodes = new ArrayList<>();
             MultiSequenceSHARKStarNode loosestLeaf = null;
+            BatchCorrectionMinimizer.Batch batch = null;
 
             // Make stopwatches
             Stopwatch loopWatch = new Stopwatch();
@@ -748,6 +749,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 // If we have partial minimizations to do, do them with highest priority
                 if (computePartials && doCorrections) {
                     theBatcher.makeBatch();
+                    batch = theBatcher.getBatch();
                     step = Step.Partial;
                 // If we have nodes in either the leaf or internal queues, process them
                 } else if (sequenceBound.leafQueue.size() > 0 || sequenceBound.internalQueue.size() > 0) {
@@ -943,12 +945,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     break;
                 }
                 case Partial: {
-                    SingleSequenceSHARKStarBound singleSequencePfunc = sequenceBound;
-                    MultiSequenceSHARKStarBound multiSequencePfunc = this;
+                    final SingleSequenceSHARKStarBound singleSequencePfunc = sequenceBound;
+                    final MultiSequenceSHARKStarBound multiSequencePfunc = this;
+                    final BatchCorrectionMinimizer.Batch theFinalBatch = batch;
                     debugPrint("Computing partial mins");
-                    BatchCorrectionMinimizer.Batch batch = multiSequencePfunc.theBatcher.acquireBatch();
-                    if(batch == null)
-                        break;
                     loopTasks.submit(
                             () -> {
                                 PartialMinimizationResult result = new PartialMinimizationResult();
@@ -958,8 +958,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
                                 // calculate all the fragment energies
                                 Map<BatchCorrectionMinimizer.PartialMinimizationTuple, EnergyCalculator.EnergiedParametricMolecule> confs = new HashMap<>();
-                                for (int i =0; i< batch.fragments.size(); i++) {
-                                    BatchCorrectionMinimizer.PartialMinimizationTuple frag = batch.fragments.get(i);
+                                for (int i =0; i< theFinalBatch.fragments.size(); i++) {
+                                    BatchCorrectionMinimizer.PartialMinimizationTuple frag = theFinalBatch.fragments.get(i);
                                     double energy;
 
                                     // are there any RCs are from two different backbone states that can't connect?

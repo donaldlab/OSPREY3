@@ -17,13 +17,13 @@ public class BatchCorrectionMinimizer {
     public final ConfEnergyCalculator confEcalc;
     public final int CostThreshold = 100;
     public final int[] costs = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
-    private Batch batch = null;
     private Queue<Batch> batches;
     private UpdatingEnergyMatrix.TupleTrie submittedConfs;
     private UpdatingEnergyMatrix correctionMatrix;
     public EnergyMatrix minimizingEnergyMatrix;
     private final Queue<PartialMinimizationTuple> waitingQueue;
     private int waitingCost = 0;
+    private final Object lock = new Object();
 
     public BatchCorrectionMinimizer(ConfEnergyCalculator confEcalc, UpdatingEnergyMatrix correctionMatrix,
                                     EnergyMatrix minimizingEnergyMatrix) {
@@ -36,24 +36,18 @@ public class BatchCorrectionMinimizer {
         this.batches = new LinkedList<>();
     }
 
-    public void addTuple(PartialMinimizationTuple tuple) {
-        synchronized (this) {
-            if (submittedConfs.contains(tuple.tup))
-                return;
-            submittedConfs.insert(new TupE(tuple.tup, 0));
-            int tupleSize = tuple.size();
-            if(costs[tupleSize] < 0)
-                costs[tupleSize] = confEcalc.makeFragInters(tuple.tup).size();
-            waitingQueue.add(tuple);
-            waitingCost += costs[tupleSize];
-        }
+    public synchronized void addTuple(PartialMinimizationTuple tuple) {
+        if (submittedConfs.contains(tuple.tup))
+            return;
+        submittedConfs.insert(new TupE(tuple.tup, 0));
+        int tupleSize = tuple.size();
+        if(costs[tupleSize] < 0)
+            costs[tupleSize] = confEcalc.makeFragInters(tuple.tup).size();
+        waitingQueue.add(tuple);
+        waitingCost += costs[tupleSize];
     }
 
-    public boolean isFull(){
-        return batch!= null && batch.cost >= CostThreshold;
-    }
-
-    public boolean canBatch(){
+    public synchronized boolean canBatch(){
         return waitingCost >= CostThreshold;
     }
 
@@ -61,108 +55,28 @@ public class BatchCorrectionMinimizer {
         Batch newBatch = new Batch();
         int batchCost = 0;
         while(batchCost < CostThreshold){
-            synchronized(this){
+            synchronized(lock){
                 PartialMinimizationTuple frag = waitingQueue.poll();
                 batchCost += costs[frag.size()];
                 waitingCost -= costs[frag.size()];
                 newBatch.fragments.add(frag);
             }
         }
-        synchronized(this) {
+        synchronized(lock) {
             this.batches.add(newBatch);
         }
     }
 
-    public Batch acquireBatch(){
-        synchronized(this){
+    public Batch getBatch(){
+        synchronized(lock){
             return this.batches.poll();
         }
     }
 
-    /*
-    public Batch getBatch() {
-            if (batch == null) {
-                batch = new Batch();
-            }
-            return batch;
-        }
-
-     */
-
-    public void submitIfFull(TaskExecutor taskExecutor) {
-            if ( isFull() )
-                submit(taskExecutor);
-        }
-
-    public void submit(TaskExecutor taskExecutor) {
-            if (batch != null) {
-                batch.submitTask(taskExecutor);
-                batch = null;
-            }
-        submittedConfs.clear();
-    }
-
-    public class Batch {
-
+    public static class Batch {
         public List<PartialMinimizationTuple> fragments = new ArrayList<>();
         int cost = 0;
-
-        public void addTuple(PartialMinimizationTuple tuple) {
-            synchronized (this) {
-                if (submittedConfs.contains(tuple.tup))
-                    return;
-                submittedConfs.insert(new TupE(tuple.tup, 0));
-            }
-            int tupleSize = tuple.size();
-            if(costs[tupleSize] < 0)
-                costs[tupleSize] = confEcalc.makeFragInters(tuple.tup).size();
-            fragments.add(tuple);
-            cost += costs[tupleSize];
-        }
-
-        void submitTask(TaskExecutor taskExecutor) {
-            taskExecutor.submit(
-                    () -> {
-
-                        // calculate all the fragment energies
-                        Map<PartialMinimizationTuple, EnergyCalculator.EnergiedParametricMolecule> confs = new HashMap<>();
-                        for (PartialMinimizationTuple frag : fragments) {
-
-                            double energy;
-
-                            // are there any RCs are from two different backbone states that can't connect?
-                            if (isParametricallyIncompatible(frag.tup)) {
-
-                                // yup, give this frag an infinite energy so we never choose it
-                                energy = Double.POSITIVE_INFINITY;
-
-                            } else {
-
-                                // nope, calculate the usual fragment energy
-                                confs.put(frag, confEcalc.calcEnergy(frag.tup));
-                            }
-                        }
-                        return confs;
-                    },
-                    (Map<PartialMinimizationTuple, EnergyCalculator.EnergiedParametricMolecule> confs) -> {
-                        // update the energy matrix
-                        for(PartialMinimizationTuple tuple : confs.keySet()) {
-                            double lowerbound = minimizingEnergyMatrix.getInternalEnergy(tuple.tup);
-                            double tupleEnergy = confs.get(tuple).energy;
-                            if (tupleEnergy - lowerbound > 0) {
-                                double correction = tupleEnergy - lowerbound;
-                                correctionMatrix.setHigherOrder(tuple.tup, correction);
-                            } else
-                                System.err.println("Negative correction for " + tuple.tup.stringListing());
-
-
-                        }
-                    }
-            );
-        }
     }
-
-
 
     public boolean isParametricallyIncompatible(RCTuple tuple) {
         for (int i1=0; i1<tuple.size(); i1++) {
