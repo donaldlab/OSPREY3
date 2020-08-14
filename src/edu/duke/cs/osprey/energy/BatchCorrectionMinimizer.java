@@ -17,18 +17,16 @@ public class BatchCorrectionMinimizer {
     public final ConfEnergyCalculator confEcalc;
     public final int CostThreshold = 100;
     public final int[] costs = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
-    private Queue<Batch> batches;
-    private UpdatingEnergyMatrix.TupleTrie submittedConfs;
-    private UpdatingEnergyMatrix correctionMatrix;
+    private final Queue<Batch> batches;
+    private final UpdatingEnergyMatrix.TupleTrie submittedConfs;
     public EnergyMatrix minimizingEnergyMatrix;
     private final Queue<PartialMinimizationTuple> waitingQueue;
     private int waitingCost = 0;
     private final Object lock = new Object();
 
-    public BatchCorrectionMinimizer(ConfEnergyCalculator confEcalc, UpdatingEnergyMatrix correctionMatrix,
+    public BatchCorrectionMinimizer(ConfEnergyCalculator confEcalc,
                                     EnergyMatrix minimizingEnergyMatrix) {
         this.confEcalc = confEcalc;
-        this.correctionMatrix = correctionMatrix;
         this.minimizingEnergyMatrix = minimizingEnergyMatrix;
         this.submittedConfs = new UpdatingEnergyMatrix.TupleTrie(confEcalc.confSpace.positions);
         //TODO: redo the tupleTrie like was in the other branch
@@ -49,6 +47,10 @@ public class BatchCorrectionMinimizer {
 
     public synchronized boolean canBatch(){
         return waitingCost >= CostThreshold;
+    }
+
+    public synchronized boolean canProcess(){
+        return !this.batches.isEmpty();
     }
 
     public void makeBatch(){

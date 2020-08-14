@@ -66,7 +66,7 @@ public class TestParallelMinimization {
         minimizingConfEcalc = mssharkbound.minimizingEcalc;
         confAnalyzer = new ConfAnalyzer(minimizingConfEcalc);
         ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
-        BatchCorrectionMinimizer batcher = new BatchCorrectionMinimizer(minimizingConfEcalc, mssharkbound.correctionMatrix,
+        BatchCorrectionMinimizer batcher = new BatchCorrectionMinimizer(minimizingConfEcalc,
                 mssharkbound.minimizingEmat);
         energyMatrixCorrector.scheduleEnergyCorrection(analysis, conf, batcher);
     }

@@ -193,7 +193,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
             return context;
         });
-        this.theBatcher = new BatchCorrectionMinimizer(minimizingConfEcalc, correctionMatrix, minimizingEmat);
+        this.theBatcher = new BatchCorrectionMinimizer(minimizingConfEcalc, minimizingEmat);
 
         progress = new MARKStarProgress(fullRCs.getNumPos());
         //confAnalyzer = new ConfAnalyzer(minimizingConfEcalc, minimizingEmat);
@@ -745,10 +745,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
             synchronized(lock) {
                 //Figure out what step to make and get nodes
-                boolean computePartials = theBatcher.canBatch();
+                boolean computePartials = theBatcher.canProcess();
                 // If we have partial minimizations to do, do them with highest priority
                 if (computePartials && doCorrections) {
-                    theBatcher.makeBatch();
                     batch = theBatcher.getBatch();
                     step = Step.Partial;
                 // If we have nodes in either the leaf or internal queues, process them
@@ -1109,7 +1108,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     }
 
     private void onMinimization(MinimizationResult result){
-        // first, do some error checking
+        // Try to make a batch of partial minimizations TODO: should this go here or elsewhere?
+        if(result.msBound.theBatcher.canBatch())
+            result.msBound.theBatcher.makeBatch();
+        // do some error checking
         if (result.deltaLB.compareTo(BigDecimal.ZERO) < 0)
             // print out some potentially useful information
             try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
