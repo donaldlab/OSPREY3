@@ -365,11 +365,11 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
 
-    public double getConfLowerBound(Sequence seq) {
+    public synchronized double getConfLowerBound(Sequence seq) {
         return getSequenceConfBounds(seq).lower;
     }
 
-    public double getConfUpperBound(Sequence seq) {
+    public synchronized double getConfUpperBound(Sequence seq) {
         return getSequenceConfBounds(seq).upper;
     }
 
