@@ -1506,8 +1506,17 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 SimpleConfSpace.Position nextDesignPos = null;
                 if(nextDesignIndex >=0)
                     nextDesignPos = msBound.confSpace.positions.get(nextDesignIndex);
-                MultiSequenceSHARKStarNode MultiSequenceSHARKStarNodeChild = curNode.makeOrUpdateChild(child, bound.sequence,
-                        confLowerBound, confUpperBound, msBound.bc.calc(confLowerBound), msBound.bc.calc(confUpperBound), designPos, nextDesignPos, bound.seqRCs);
+                //MultiSequenceSHARKStarNode MultiSequenceSHARKStarNodeChild = curNode.makeOrUpdateChild(child, bound.sequence,
+                        //confLowerBound, confUpperBound, msBound.bc.calc(confLowerBound), msBound.bc.calc(confUpperBound), designPos, nextDesignPos, bound.seqRCs);
+                MultiSequenceSHARKStarNode MultiSequenceSHARKStarNodeChild;
+                if(curNode.hasExistingChild(child)){
+                    MultiSequenceSHARKStarNodeChild = curNode.getExistingChild(child);
+                }else{
+                    MultiSequenceSHARKStarNodeChild = new MultiSequenceSHARKStarNode(child, curNode, designPos, nextDesignPos);
+                    curNode.addChild(MultiSequenceSHARKStarNodeChild, bound.sequence);
+                }
+                MultiSequenceSHARKStarNodeChild.setBoundsFromConfLowerAndUpperWithHistory(confLowerBound,
+                        confUpperBound, msBound.bc.calc(confLowerBound), msBound.bc.calc(confUpperBound), bound.sequence, historyString);
                 MultiSequenceSHARKStarNodeChild.setBoundsFromConfLowerAndUpperWithHistory(confLowerBound, confUpperBound, msBound.bc.calc(confLowerBound), msBound.bc.calc(confUpperBound), bound.sequence, historyString);
                 if (Double.isNaN(child.getPartialConfUpperBound()))
                     System.out.println("Huh!?");
@@ -1759,8 +1768,18 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 SimpleConfSpace.Position nextDesignPos = null;
                 if (nextDesignIndex >= 0)
                     nextDesignPos = msBound.confSpace.positions.get(nextDesignIndex);
+                /*
                 MultiSequenceSHARKStarNode newChild = curNode.makeOrUpdateChild(child,
                         bound.sequence, resultingLower, resultingUpper, msBound.bc.calc(resultingLower), msBound.bc.calc(resultingUpper), designPos, nextDesignPos, bound.seqRCs);
+
+                 */
+                MultiSequenceSHARKStarNode newChild;
+                if(curNode.hasExistingChild(child)){
+                    newChild = curNode.getExistingChild(child);
+                }else{
+                    newChild = new MultiSequenceSHARKStarNode(child, curNode, designPos, nextDesignPos);
+                    curNode.addChild(newChild, bound.sequence);
+                }
                 newChild.setBoundsFromConfLowerAndUpperWithHistory(resultingLower,
                         resultingUpper, msBound.bc.calc(resultingLower), msBound.bc.calc(resultingUpper), bound.sequence, historyString);
                 //System.out.println("Created new child "+MultiSequenceSHARKStarNodeChild.toSeqString(bound.sequence));
