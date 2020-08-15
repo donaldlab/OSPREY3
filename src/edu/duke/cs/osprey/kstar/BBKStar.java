@@ -677,7 +677,25 @@ public class BBKStar {
 			// start searching the tree
 			System.out.println("computing K* scores for the " + bbkstarSettings.numBestSequences + " best sequences to epsilon = " + kstarSettings.epsilon + " ...");
 			kstarSettings.scoreWriters.writeHeader();
-			while (!tree.isEmpty() && scoredSequences.size() < bbkstarSettings.numBestSequences) {
+			while (!tree.isEmpty()) {
+				// termination criterion
+				if(scoredSequences.size() >= bbkstarSettings.numBestSequences){
+					// Since it is no longer guaranteed that partition function calculation is synchronous, we may return
+					// sequences in the wrong order if we use a more asynchronous pfunc calculator. So, we check.
+					scoredSequences.sort((a, b) -> Double.compare(b.score.upperBoundLog10(), a.score.upperBoundLog10()));
+					scoredSequences.forEach(System.out::println);
+					double worstFinishedUB = scoredSequences.get(bbkstarSettings.numBestSequences-1).score.upperBoundLog10();
+					Node bestUnfinishedNode = tree.peek();
+					double bestUnfinishedUB = bestUnfinishedNode.score; // this is actually the upper bound
+					System.out.println(String.format("Worst finished UB: %s --> %.6f, Best unfinished UB: %s --> %.6f",
+							scoredSequences.get(bbkstarSettings.numBestSequences-1).sequence,
+							worstFinishedUB,
+							bestUnfinishedNode.sequence,
+							bestUnfinishedUB
+							));
+					if(worstFinishedUB >= bestUnfinishedUB)
+						break;
+				}
 
 				// get the next node
 				Node node = tree.poll();
