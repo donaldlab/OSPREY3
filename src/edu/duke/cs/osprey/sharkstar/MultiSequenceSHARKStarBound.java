@@ -262,7 +262,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         //computeFringeForSequence(newBound, this.rootNode);
 
         // Compute the fringe in parallel
-        List<MultiSequenceSHARKStarNode> scoredFringe = computeFringeForSequenceParallel(newBound.sequence, newBound.seqRCs);
+        List<MultiSequenceSHARKStarNode> scoredFringe = computeFringeForSequenceParallel(newBound, this);
         if(scoredFringe.size()==0)
             scoredFringe.add(this.rootNode);
         debugPrint(String.format("[Normal fringe # nodes, Parallel fringe # nodes] = [%d, %d]",newBound.fringeNodes.size(), scoredFringe.size()));
@@ -368,34 +368,36 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         List<MultiSequenceSHARKStarNode> nodes = new ArrayList<>();
     }
 
-    private List<MultiSequenceSHARKStarNode> computeFringeForSequenceParallel(Sequence seq, RCs seqRCs) {
-        List<MultiSequenceSHARKStarNode> scoredSeqFringe = Collections.synchronizedList(new ArrayList<>());
-        ConcurrentLinkedQueue<MultiSequenceSHARKStarNode> unscoredSeqFringe = new ConcurrentLinkedQueue<>(precomputedFringe);
+    private List<MultiSequenceSHARKStarNode> computeFringeForSequenceParallel(SingleSequenceSHARKStarBound singleSequencePfunc, MultiSequenceSHARKStarBound multiSequencePfunc) {
+        final SingleSequenceSHARKStarBound seqBound = singleSequencePfunc;
+        final MultiSequenceSHARKStarBound msBound = multiSequencePfunc;
+        final List<MultiSequenceSHARKStarNode> scoredSeqFringe = Collections.synchronizedList(new ArrayList<>());
+        final ConcurrentLinkedQueue<MultiSequenceSHARKStarNode> unscoredSeqFringe = new ConcurrentLinkedQueue<>(msBound.precomputedFringe);
 
         // Sometimes the precomputedFringe will be empty. It really shouldn't be, but for now just add the root Node if it is
         if(unscoredSeqFringe.isEmpty())
-            unscoredSeqFringe.add(this.rootNode);
+            unscoredSeqFringe.add(msBound.rootNode);
 
-        while(!unscoredSeqFringe.isEmpty() || loopTasks.isExpecting()){
-            MultiSequenceSHARKStarNode node = unscoredSeqFringe.poll();
-            if(node == null)
+        while(!unscoredSeqFringe.isEmpty() || loopTasks.isExpecting(1)){ // here 1 refers to the fringe computation
+            final MultiSequenceSHARKStarNode node = unscoredSeqFringe.poll();
+            if(node == null) // this is probably bad practice, but w/e TODO: fix this loop and make it less terrible
                 continue;
 
             loopTasks.submitExpecting(
                 ()->{
                     FringeResult result = new FringeResult();
-                    try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+                    try (ObjectPool.Checkout<ScoreContext> checkout = msBound.contexts.autoCheckout()) {
                         ScoreContext context = checkout.get();
 
                         // Fix issue where nextDesignPosition can be null
                         MultiSequenceSHARKStarNode.Node confNode = node.getConfSearchNode();
                         confNode.index(context.index);
-                        if (node.nextDesignPosition == null && node.level < confSpace.positions.size()) {
-                            node.nextDesignPosition = confSpace.positions.get(order.getNextPos(context.index, seqRCs));
+                        if (node.nextDesignPosition == null && node.level < msBound.confSpace.positions.size()) {
+                            node.nextDesignPosition = msBound.confSpace.positions.get(msBound.order.getNextPos(context.index, seqBound.seqRCs));
                         }
 
                         // Get the children
-                        List<MultiSequenceSHARKStarNode> children = node.getChildren(seq);
+                        List<MultiSequenceSHARKStarNode> children = node.getChildren(seqBound.sequence);
                         // If we are at a leaf, score the node
                         if(children != null && !children.isEmpty()) {
                             // if there are children, just add them to queue, since we only want the fringe
@@ -403,21 +405,26 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                             result.nodes.addAll(children);
                             //unscoredSeqFringe.addAll(children);
                         }else{
-                            double confCorrection = correctionMatrix.confE(confNode.assignments);
-                            double gscore = context.partialConfLowerBoundScorer.calc(context.index, seqRCs);
-                            double hscore = context.lowerBoundScorer.calc(context.index, seqRCs);
-                            double confLowerBound = confNode.getPartialConfLowerBound() + context.lowerBoundScorer.calc(context.index, seqRCs);
-                            double confUpperBound = confNode.getPartialConfUpperBound() + context.upperBoundScorer.calc(context.index, seqRCs);
+                            double confCorrection = msBound.correctionMatrix.confE(confNode.assignments);
+                            double gscore = context.partialConfLowerBoundScorer.calc(context.index, seqBound.seqRCs);
+                            double hscore = context.lowerBoundScorer.calc(context.index, seqBound.seqRCs);
+                            double confLowerBound = confNode.getPartialConfLowerBound() + context.lowerBoundScorer.calc(context.index, seqBound.seqRCs);
+                            double confUpperBound = confNode.getPartialConfUpperBound() + context.upperBoundScorer.calc(context.index, seqBound.seqRCs);
                             String historyString = "";
                             if(debug){
                                 historyString = String.format("%s: previous lower bound %f, g score %f, hscore %f, f score %f corrected score %f, from %s",
-                                        confNode.confToString(), node.getConfLowerBound(seq), gscore, hscore, gscore + hscore, confCorrection, getStackTrace());
+                                        confNode.confToString(), node.getConfLowerBound(seqBound.sequence), gscore, hscore, gscore + hscore, confCorrection, getStackTrace());
                             }
-                            node.setBoundsFromConfLowerAndUpperWithHistory(confLowerBound, confUpperBound,bc.calc(confLowerBound), bc.calc(confUpperBound),  seq, historyString);
+                            node.setBoundsFromConfLowerAndUpperWithHistory(confLowerBound,
+                                    confUpperBound,
+                                    msBound.bc.calc(confLowerBound),
+                                    msBound.bc.calc(confUpperBound),
+                                    seqBound.sequence,
+                                    historyString);
 
                             if (node.getChildren(null).isEmpty())
-                                correctionMatrix.setHigherOrder(node.toTuple(), confNode.getPartialConfLowerBound()
-                                        - minimizingEmat.confE(confNode.assignments));
+                                msBound.correctionMatrix.setHigherOrder(node.toTuple(), confNode.getPartialConfLowerBound()
+                                        - msBound.minimizingEmat.confE(confNode.assignments));
 
                             result.isFringe = true;
                             result.nodes.add(node);
@@ -432,10 +439,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         scoredSeqFringe.addAll(result.nodes);
                     else
                         unscoredSeqFringe.addAll(result.nodes);
-                }
+                },
+                    1 // here 1 refers to the fringe computation
             );
         }
-        loopTasks.waitForFinish();
+        loopTasks.waitForFinishExpecting(1);
         return scoredSeqFringe;
 
     }
@@ -698,7 +706,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
          */
         this.numConfsEnergiedThisLoop = 0;
 
-        computation: while( (!sequenceBound.internalQueue.isEmpty() || !sequenceBound.leafQueue.isEmpty() || loopTasks.isExpecting())){
+        computation: while( (!sequenceBound.internalQueue.isEmpty() || !sequenceBound.leafQueue.isEmpty() || loopTasks.isExpecting(0))){ // here, 0 refers to the pfunc computation
             synchronized(lock) {
                 step = Step.None;
                 // Record starting delta
@@ -938,7 +946,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                 result.numExpanded = toExpand.size();
                                 return result;
                             },
-                            this::onExpansion
+                            this::onExpansion,
+                            1// here, 0 refers to the pfunc computation
                     );
 
                     break;

@@ -41,6 +41,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.concurrent.atomic.AtomicReference;
 
 import edu.duke.cs.tpie.Cleaner;
@@ -120,8 +121,8 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 	private AtomicReference<TaskException> exception;
 	private Signal taskSignal;
 
-	private AtomicLong numTasksStartedExpecting;
-	private AtomicLong numTasksFinishedExpecting;
+	private AtomicLongArray numTasksStartedExpecting;
+	private AtomicLongArray numTasksFinishedExpecting;
 	
 	public ThreadPoolTaskExecutor() {
 		threads = null;
@@ -130,8 +131,8 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 		exception = new AtomicReference<>(null);
 		taskSignal = new Signal();
 
-		numTasksStartedExpecting = new AtomicLong(0);
-		numTasksFinishedExpecting = new AtomicLong(0);
+		numTasksStartedExpecting = new AtomicLongArray(new long[] {0,0});
+		numTasksFinishedExpecting = new AtomicLongArray(new long[] {0,0});
 	}
 	
 	public void start(int numThreads) {
@@ -174,18 +175,20 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 	}
 
 	@Override
-	public boolean isExpecting(){
-		return getNumRunningTasksExpected() > 0;
+	public boolean isExpecting(int flag){
+		return getNumRunningTasksExpected(flag) > 0;
 	}
 
 	/**
-	 * Submit a task with a special flag
+	 * Submit a task with a special flag.
+	 * The number of flags is specified by the length of the AtomicLongArrays
+	 * numTasksStartedExpecting and numTasksFinishedExpecting
 	 * @param task
 	 * @param listener
 	 * @param <T>
 	 */
 	@Override
-	public <T> void submitExpecting(Task<T> task, TaskListener<T> listener) {
+	public <T> void submitExpecting(Task<T> task, TaskListener<T> listener, int flag) {
 		try {
 
 			boolean wasAdded = false;
@@ -219,14 +222,14 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 							}
 
 							// tell anyone waiting that we finished a task
-							finishedTaskExpecting();
+							finishedTaskExpecting(flag);
 						});
 
 					} catch (Throwable t) {
 						recordException(task, listener, t);
 
 						// the task failed, but still report finish
-						finishedTaskExpecting();
+						finishedTaskExpecting(flag);
 					}
 
 				}, 400, TimeUnit.MILLISECONDS);
@@ -234,7 +237,7 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 
 			// the task was started successfully, hooray!
 			numTasksStarted.incrementAndGet();
-			numTasksStartedExpecting.incrementAndGet();
+			numTasksStartedExpecting.incrementAndGet(flag);
 
 		} catch (InterruptedException ex) {
 			throw new Error(ex);
@@ -314,7 +317,28 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 			throw t;
 		}
 	}
-	
+
+	@Override
+	/**
+	 * Wait for tasks with the specific flag to finish
+	 */
+	public void waitForFinishExpecting(int flag) {
+
+		long numTasks = numTasksStartedExpecting.get(flag);
+
+		while (numTasksFinishedExpecting.get(flag) < numTasks) {
+
+			// wait a bit before checking again, unless a task finishes
+			taskSignal.waitForSignal(100);
+		}
+
+		// check for exceptions
+		TaskException t = exception.get();
+		if (t != null) {
+			throw t;
+		}
+	}
+
 	public long getNumRunningTasks() {
 		return numTasksStarted.get() - numTasksFinished.get();
 	}
@@ -331,12 +355,12 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 		taskSignal.sendSignal();
 	}
 
-	private void finishedTaskExpecting(){
-		numTasksFinishedExpecting.incrementAndGet();
+	private void finishedTaskExpecting(int flag){
+		numTasksFinishedExpecting.incrementAndGet(flag);
 		finishedTask();
 	}
 
-	public long getNumRunningTasksExpected(){
-		return numTasksStartedExpecting.get() - numTasksFinishedExpecting.get();
+	public long getNumRunningTasksExpected(int flag){
+		return numTasksStartedExpecting.get(flag) - numTasksFinishedExpecting.get(flag);
 	}
 }
