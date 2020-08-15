@@ -202,11 +202,11 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
     }
 
-    public BigDecimal getUpperBound(Sequence seq){
+    public synchronized BigDecimal getUpperBound(Sequence seq){
         return getSequenceBounds(seq).upper;
     }
 
-    public BigDecimal getLowerBound(Sequence seq){
+    public synchronized BigDecimal getLowerBound(Sequence seq){
         return getSequenceBounds(seq).lower;
     }
 
@@ -224,7 +224,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
      * @param child The MultiSequenceSHARKStarNode.Node or "ConfSearchNode"
      * @return a MultiSequenceSHARKStarNode instance,  or null
      */
-    public MultiSequenceSHARKStarNode getExistingChild(Node child){
+    public synchronized MultiSequenceSHARKStarNode getExistingChild(Node child){
         return childrenByRC.get(child.rc);
     }
 
@@ -235,7 +235,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
      * @param child The MultiSequenceSHARKStarNode.Node or "ConfSearchNode"
      * @return a MultiSequenceSHARKStarNode instance,  or null
      */
-    public boolean hasExistingChild(Node child){
+    public synchronized boolean hasExistingChild(Node child){
         return childrenByRC.containsKey(child.rc);
     }
 
@@ -244,7 +244,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
      * @param child The MultiSequenceSHARKStarNode child
      * @param seq The sequence associated with the child
      */
-    public void addChild(MultiSequenceSHARKStarNode child, Sequence seq){
+    public synchronized void addChild(MultiSequenceSHARKStarNode child, Sequence seq){
         if(seq == null){
             children.add(child);
         }else {
@@ -418,7 +418,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         throw new UnsupportedOperationException("You can't compare multisequence nodes without a sequence.");
     }
 
-    public BigDecimal getErrorBound(Sequence seq) {
+    public synchronized BigDecimal getErrorBound(Sequence seq) {
         return errorBounds.get(seq);
     }
 
