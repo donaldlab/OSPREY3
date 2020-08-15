@@ -90,6 +90,13 @@ public class JvmMem {
 			.orElseThrow(() -> new NoSuchElementException("no memory pool named " + name));
 	}
 
+	private static MemoryPoolMXBean getEitherPool(String a, String b){
+		return ManagementFactory.getMemoryPoolMXBeans().stream()
+				.filter((pool) -> pool.getName().equals(a) || pool.getName().equals(b))
+				.findFirst()
+				.orElseThrow(() -> new NoSuchElementException("no memory pool named " + a +" or " + b));
+	}
+
 	public static MemInfo getEdenPool() {
 		return new MemInfo(getPool("PS Eden Space"));
 	}
@@ -103,6 +110,6 @@ public class JvmMem {
 	}
 
 	public static MemInfo getOldPool() {
-		return new MemInfo(getPool("PS Old Gen"));
+		return new MemInfo(getEitherPool("PS Old Gen", "G1 Old Gen"));
 	}
 }
