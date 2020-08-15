@@ -6,17 +6,14 @@ import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.math.RoundingMode;
 import java.util.*;
 import java.util.Map;
 
-import static edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound.confMatch;
 import static edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound.isDebugConf;
 import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStatistics.*;
 
@@ -24,30 +21,27 @@ import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStati
 public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARKStarNode> {
 
 
-    static boolean debug = false;
-    private boolean updated = true;
+    static boolean debug = MultiSequenceSHARKStarBound.debug;
+    static double bigDecimalBoundTolerance = 0.01;
 
-    private BigDecimal errorBound = BigDecimal.ONE;
-    private double nodeEpsilon = 1;
-    private MultiSequenceSHARKStarNode parent;
-    private List<MultiSequenceSHARKStarNode> children;
-    private Node confSearchNode;
+    private final MultiSequenceSHARKStarNode parent;
+    private final List<MultiSequenceSHARKStarNode> children;
+    private final Node confSearchNode;
     public final int level;
     public final SimpleConfSpace.Position designPosition;
     public SimpleConfSpace.Position nextDesignPosition;
 
     // Information for MultiSequence SHARK* Nodes
     private final Map<Sequence, BigDecimal> errorBounds = new HashMap<>();
-    private Map<Sequence, MathTools.BigDecimalBounds> sequenceBounds = new HashMap<>();
-    private Map<String, List<MultiSequenceSHARKStarNode>> childrenByAA= new HashMap<>(); // probably should override the children list
-    private Map<Sequence, List<MultiSequenceSHARKStarNode>> childrenBySequence = new HashMap<>(); // probably should override the children list
-    private Map<Sequence, MathTools.DoubleBounds> confBounds = new HashMap<>();
-    private Map<Integer,MultiSequenceSHARKStarNode> childrenByRC;
+    private final Map<Sequence, MathTools.BigDecimalBounds> sequenceBounds = new HashMap<>();
+    private final Map<String, List<MultiSequenceSHARKStarNode>> childrenByAA= new HashMap<>(); // probably should override the children list
+    private final Map<Sequence, List<MultiSequenceSHARKStarNode>> childrenBySequence = new HashMap<>(); // probably should override the children list
+    private final Map<Sequence, MathTools.DoubleBounds> confBounds = new HashMap<>();
+    private final Map<Integer,MultiSequenceSHARKStarNode> childrenByRC;
 
     // Debugging variables
-    private Map<Sequence, MathTools.BigDecimalBounds> lastSequenceBounds = new HashMap<>();
-    private Map<Sequence, List<String>> nodeHistory = new HashMap<>();
-    private double lastEpsilon = nodeEpsilon;
+    private final Map<Sequence, MathTools.BigDecimalBounds> lastSequenceBounds = new HashMap<>();
+    private Map<Sequence, List<String>> nodeHistory = null;
 
     private MultiSequenceSHARKStarNode(Node confNode, MultiSequenceSHARKStarNode parent,
                                        SimpleConfSpace.Position designPosition, SimpleConfSpace.Position nextDesignPosition){
@@ -58,6 +52,10 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         this.designPosition = designPosition;
         this.nextDesignPosition = nextDesignPosition;
         this.childrenByRC = new HashMap<>();
+
+        if(debug){
+            nodeHistory = new HashMap<>();
+        }
     }
 
     /**
@@ -84,7 +82,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
         // Compute the number of conformations
         this.getConfSearchNode().computeNumConformations(RCs);
-        this.updated = true;
     }
 
     public BigInteger getNumConfs()
@@ -92,28 +89,16 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         return confSearchNode.numConfs;
     }
 
-    public void markUpdated()
-    {
-        updated = true;
-        if(level > 0)
-            parent.markUpdated();
-    }
-
     public RCTuple toTuple() {
         return new RCTuple(confSearchNode.assignments);
     }
 
-    public BigDecimal getErrorBound(){
-        return errorBound;
-    }
-
     private void setSubtreeBounds(Sequence seq, BigDecimal lower, BigDecimal upper) {
-        double tolerance = 0.01;
         if(isDebugConf(confSearchNode.assignments) && MathTools.isLessThan(upper, BigDecimal.ONE))
             System.out.println("Zeroing out our problem node.");
 
-        if(MathTools.isRelativelySame(getSequenceBounds(seq).lower, lower, PartitionFunction.decimalPrecision, tolerance)
-            && MathTools.isRelativelySame(getSequenceBounds(seq).upper, upper, PartitionFunction.decimalPrecision, tolerance))
+        if(MathTools.isRelativelySame(getSequenceBounds(seq).lower, lower, PartitionFunction.decimalPrecision, bigDecimalBoundTolerance)
+            && MathTools.isRelativelySame(getSequenceBounds(seq).upper, upper, PartitionFunction.decimalPrecision, bigDecimalBoundTolerance))
             return;
         //System.out.println("Updating "+toSeqString(seq)+" for sequence "+seq);
         getLastSequenceBounds(seq).upper = getSequenceBounds(seq).upper;
@@ -166,38 +151,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             setSubtreeBounds(seq, errorLowerBound, errorUpperBound);
         }
     }
-
-    private double computeEpsilon(MathTools.BigDecimalBounds bounds) {
-        BigDecimal diff = MathTools.bigSubtract(bounds.upper,bounds.lower, PartitionFunction.decimalPrecision);
-        if (diff.compareTo(BigDecimal.ONE) < 1)
-            return 0;
-        else
-            return MathTools.bigDivide(diff, bounds.upper, PartitionFunction.decimalPrecision).doubleValue();
-    }
-
-    public double computeEpsilonErrorBounds(Sequence seq) {
-        if(children == null || children.size() <1) {
-            return nodeEpsilon;
-        }
-        if(!updated)
-            return nodeEpsilon;
-        double epsilonBound = 0;
-        updateSubtreeBounds(seq);
-        if(MathTools.isLessThan(getUpperBound(seq), getLowerBound(seq)))
-        {
-            return 0;
-        }
-        if(level == 0) {
-            epsilonBound = computeEpsilon(getSequenceBounds(seq));
-            debugChecks(seq);
-            lastEpsilon = nodeEpsilon;
-            nodeEpsilon = epsilonBound;
-            if(debug && false)
-                printBoundBreakDown(seq, this);
-        }
-        return nodeEpsilon;
-    }
-
 
     private void debugChecks(Sequence seq) {
         debugChecks(seq, false);
@@ -272,7 +225,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
                                                         RCs seqRCs) {
         checkChildren(seq);
         MultiSequenceSHARKStarNode newChild = makeOrGetChild(child, designPosition, nextDesignPosition);
-        newChild.computeEpsilonErrorBounds(seq);
         /*
         if(getChildren(seq).contains(newChild) || getChildren(seq).stream().anyMatch((node)->node.confSearchNode.rc == child.rc)){
             System.err.println("Re-exploring processed internal node for "+seq);
@@ -281,7 +233,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         if(!getOrMakeChildren(seq, seqRCs).contains(newChild))
             getChildren(seq).add(newChild);
         newChild.setBoundsFromConfLowerAndUpper(lowerBound, upperBound, ZUB, ZLB, seq);
-        newChild.errorBound = getErrorBound(seq);
         checkChildren(seq);
         return newChild;
     }
@@ -445,16 +396,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         return childrenForSeq;
     }
 
-    public boolean isLeaf() {
-        return isLeaf(null);
-    }
-
-    public boolean isLeaf(Sequence seq) {
-        if(seq == null)
-            return children == null || children.size() < 1;
-        return getChildren(seq) == null || getChildren(seq).size() < 1;
-    }
-
     public double getConfLowerBound(Sequence seq) {
         return getSequenceConfBounds(seq).lower;
     }
@@ -469,9 +410,11 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
     public void setBoundsFromConfLowerAndUpperWithHistory(double newConfLower, double newConfUpper, BigDecimal ZUB, BigDecimal ZLB, Sequence sequence, String confData) {
-        if(!nodeHistory.containsKey(sequence))
-            nodeHistory.put(sequence, new ArrayList<>());
-        nodeHistory.get(sequence).add(confData);
+        if(debug) {
+            if (!nodeHistory.containsKey(sequence))
+                nodeHistory.put(sequence, new ArrayList<>());
+            nodeHistory.get(sequence).add(confData);
+        }
         setBoundsFromConfLowerAndUpper(newConfLower, newConfUpper, ZUB, ZLB, sequence);
     }
 
@@ -508,20 +451,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
     public BigDecimal getErrorBound(Sequence seq) {
         return errorBounds.get(seq);
-        /* Old, GTH
-        if(isMinimized(seq))
-            return BigDecimal.ZERO;
-        if(getChildren(seq) == null || !hasChildren(seq)) {
-            return MathTools.bigSubtract(getUpperBound(seq), getLowerBound(seq), PartitionFunction.decimalPrecision);
-        }
-        BigDecimal errorSum = BigDecimal.ZERO;
-        for(MultiSequenceSHARKStarNode childNode: getChildren(seq)) {
-            errorSum = MathTools.bigAdd(errorSum, childNode.getErrorBound(seq), PartitionFunction.decimalPrecision);
-        }
-        errorBound = errorSum;
-        return errorBound;
-
-         */
     }
 
     public MathTools.BigDecimalBounds getSequenceBounds(Sequence seq) {

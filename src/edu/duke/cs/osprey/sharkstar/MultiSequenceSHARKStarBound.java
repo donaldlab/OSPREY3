@@ -636,7 +636,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
             // update the node total scores
             node.setBoundsFromConfLowerAndUpperWithHistory(oldConfLowerBound + correctionDiff, node.getConfUpperBound(bound.sequence), bc.calc(oldConfLowerBound+correctionDiff), msBound.bc.calc(node.getConfUpperBound(bound.sequence)), bound.sequence, historyString);
-            node.markUpdated();
             debugPrint("Correcting " + node.toSeqString(bound.sequence) +" correction ="+(correctionDiff) );
 
             BigDecimal newUpperBound = node.getUpperBound(bound.sequence);
@@ -859,7 +858,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
                                         processPartialConfNode(singleSequencePfunc, multiSequencePfunc, result.newNodes, internalNode, internalNode.getConfSearchNode());
                                     }
-                                    internalNode.markUpdated();
                                 }
 
                                 BigDecimal endLB = result.newNodes.stream()
@@ -1323,7 +1321,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 oldConfLower,
                 oldConfUpper
                 ));
-        node.markUpdated();
 
         // record the change in pfunc bounds
         BigDecimal endLB = node.getLowerBound(result.sequenceBound.sequence);
@@ -1514,7 +1511,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 MultiSequenceSHARKStarNodeChild.setBoundsFromConfLowerAndUpperWithHistory(confLowerBound, confUpperBound, msBound.bc.calc(confLowerBound), msBound.bc.calc(confUpperBound), bound.sequence, historyString);
                 if (Double.isNaN(child.getPartialConfUpperBound()))
                     System.out.println("Huh!?");
-                MultiSequenceSHARKStarNodeChild.markUpdated();
                 if (confLowerBound < bestChildLower) {
                     bestChild = MultiSequenceSHARKStarNodeChild;
                 }
@@ -1790,7 +1786,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
                 //curNode.updateSubtreeBounds(bound.sequence);
                 //printTree(bound.sequence, curNode);
-                curNode.markUpdated();
             }
         }
     }
