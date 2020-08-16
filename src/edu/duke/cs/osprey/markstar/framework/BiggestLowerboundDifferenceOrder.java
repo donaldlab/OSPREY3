@@ -33,7 +33,9 @@
 package edu.duke.cs.osprey.markstar.framework;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
+import edu.duke.cs.osprey.astar.conf.PartialConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
@@ -41,11 +43,10 @@ import edu.duke.cs.osprey.tools.MathTools;
 
 import java.math.BigDecimal;
 
-public class BiggestLowerboundDifferenceOrder implements edu.duke.cs.osprey.astar.conf.order.AStarOrder {
+public class BiggestLowerboundDifferenceOrder<T extends PartialConfAStarNode> implements AStarOrder<T> {
 
 	public final MathTools.Optimizer optimizer;
-	private BoltzmannCalculator calculator = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
-
+	private final BoltzmannCalculator calculator = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
 	public BiggestLowerboundDifferenceOrder() {
 		this(MathTools.Optimizer.Maximize);
 	}
@@ -54,11 +55,11 @@ public class BiggestLowerboundDifferenceOrder implements edu.duke.cs.osprey.asta
 		this.optimizer = optimizer;
 	}
 
-	private AStarScorer gscorer;
-	private AStarScorer hscorer;
+	private AStarScorer<T> gscorer;
+	private AStarScorer<T> hscorer;
 
 	@Override
-	public void setScorers(AStarScorer gscorer, AStarScorer hscorer) {
+	public void setScorers(AStarScorer<T> gscorer, AStarScorer<T> hscorer) {
 		this.gscorer = gscorer;
 		this.hscorer = hscorer;
 	}
@@ -69,7 +70,7 @@ public class BiggestLowerboundDifferenceOrder implements edu.duke.cs.osprey.asta
 	}
 
 	@Override
-	public int getNextPos(ConfIndex confIndex, RCs rcs) {
+	public int getNextPos(ConfIndex<T> confIndex, RCs rcs) {
 
 		int bestPos = -1;
 		BigDecimal bestScore = BigDecimal.ZERO;
@@ -93,11 +94,9 @@ public class BiggestLowerboundDifferenceOrder implements edu.duke.cs.osprey.asta
 		return confIndex.undefinedPos[0];
 	}
 
-	BigDecimal scorePos(ConfIndex confIndex, RCs rcs, int pos) {
+	BigDecimal scorePos(ConfIndex<T> confIndex, RCs rcs, int pos) {
 
 		// check all the RCs at this pos and aggregate the energies
-		double parentScore = confIndex.node.getScore();
-		double reciprocalSum = 0;
 		BigDecimal maxUpper = MathTools.BigNegativeInfinity;
 		BigDecimal minUpper = MathTools.BigPositiveInfinity;
 		for (int rc : rcs.get(pos)) {

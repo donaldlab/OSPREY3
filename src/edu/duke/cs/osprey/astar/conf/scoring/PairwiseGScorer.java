@@ -33,11 +33,12 @@
 package edu.duke.cs.osprey.astar.conf.scoring;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
+import edu.duke.cs.osprey.astar.conf.PartialConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.tools.MathTools;
 
-public class PairwiseGScorer implements AStarScorer {
+public class PairwiseGScorer<T extends PartialConfAStarNode> implements AStarScorer<T> {
 	
 	public final EnergyMatrix emat;
 	public final MathTools.Optimizer optimizer;
@@ -52,12 +53,12 @@ public class PairwiseGScorer implements AStarScorer {
 	}
 	
 	@Override
-	public PairwiseGScorer make() {
-		return new PairwiseGScorer(emat, optimizer);
+	public PairwiseGScorer<T> make() {
+		return new PairwiseGScorer<>(emat, optimizer);
 	}
 
 	@Override
-	public double calc(ConfIndex confIndex, RCs rcs) {
+	public double calc(ConfIndex<T> confIndex, RCs rcs) {
 		
 		// constant term
     	double gscore = emat.getConstTerm();
@@ -87,7 +88,7 @@ public class PairwiseGScorer implements AStarScorer {
 	}
 
 	@Override
-	public double calcDifferential(ConfIndex confIndex, RCs rcs, int nextPos, int nextRc) {
+	public double calcDifferential(ConfIndex<T> confIndex, RCs rcs, int nextPos, int nextRc) {
 
     	// modify the parent node's g-score
     	double gscore = confIndex.node.getGScore(optimizer);

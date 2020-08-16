@@ -35,13 +35,10 @@ package edu.duke.cs.osprey.astar.conf;
 import edu.duke.cs.osprey.astar.OptimizableAStarNode;
 
 
-public interface ConfAStarNode extends OptimizableAStarNode, Comparable<ConfAStarNode> {
+public interface ConfAStarNode extends OptimizableAStarNode, PartialConfAStarNode, Comparable<ConfAStarNode> {
 
 	ConfAStarNode assign(int pos, int rc);
 
-	void getConf(int[] conf);
-	void index(ConfIndex index);
-	
 	default int[] makeConf(int numPos) {
 		int[] conf = new int[numPos];
 		getConf(conf);

@@ -32,12 +32,13 @@
 
 package edu.duke.cs.osprey.astar.conf.order;
 
+import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.tools.MathTools;
 
-public class DynamicHMeanAStarOrder implements AStarOrder {
+public class DynamicHMeanAStarOrder implements AStarOrder<ConfAStarNode> {
 
 	public final MathTools.Optimizer optimizer;
 
@@ -49,11 +50,11 @@ public class DynamicHMeanAStarOrder implements AStarOrder {
 		this.optimizer = optimizer;
 	}
 
-	private AStarScorer gscorer;
-	private AStarScorer hscorer;
+	private AStarScorer<ConfAStarNode> gscorer;
+	private AStarScorer<ConfAStarNode> hscorer;
 	
 	@Override
-	public void setScorers(AStarScorer gscorer, AStarScorer hscorer) {
+	public void setScorers(AStarScorer<ConfAStarNode> gscorer, AStarScorer<ConfAStarNode> hscorer) {
 		this.gscorer = gscorer;
 		this.hscorer = hscorer;
 	}
@@ -64,7 +65,7 @@ public class DynamicHMeanAStarOrder implements AStarOrder {
 	}
 
 	@Override
-	public int getNextPos(ConfIndex confIndex, RCs rcs) {
+	public int getNextPos(ConfIndex<ConfAStarNode> confIndex, RCs rcs) {
 		
 		int bestPos = -1;
 		double bestScore = optimizer.initDouble();
@@ -89,7 +90,7 @@ public class DynamicHMeanAStarOrder implements AStarOrder {
 		return confIndex.undefinedPos[0];
 	}
 
-	double scorePos(ConfIndex confIndex, RCs rcs, int pos) {
+	double scorePos(ConfIndex<ConfAStarNode> confIndex, RCs rcs, int pos) {
 		
 		// check all the RCs at this pos and aggregate the energies
 		double parentScore = confIndex.node.getScore();

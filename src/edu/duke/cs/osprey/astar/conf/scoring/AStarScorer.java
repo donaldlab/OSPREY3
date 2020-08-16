@@ -33,14 +33,15 @@
 package edu.duke.cs.osprey.astar.conf.scoring;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
+import edu.duke.cs.osprey.astar.conf.PartialConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.RCs;
 
-public interface AStarScorer {
+public interface AStarScorer<T extends PartialConfAStarNode> {
 
-	AStarScorer make();
-	double calc(ConfIndex confIndex, RCs rcs);
+	AStarScorer<T> make();
+	double calc(ConfIndex<T> confIndex, RCs rcs);
 	
-	default double calcDifferential(ConfIndex confIndex, RCs rcs, int nextPos, int nextRc) {
+	default double calcDifferential(ConfIndex<T> confIndex, RCs rcs, int nextPos, int nextRc) {
 
 		// TODO: is the memory allocation inside ConfIndex.assign() slowing down the heuristics that don't implement calcDifferential?
 		// just punt to calc() by default

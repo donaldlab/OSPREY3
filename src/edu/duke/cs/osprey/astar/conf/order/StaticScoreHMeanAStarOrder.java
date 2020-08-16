@@ -39,14 +39,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 
-public class StaticScoreHMeanAStarOrder implements AStarOrder {
+public class StaticScoreHMeanAStarOrder implements AStarOrder<ConfAStarNode> {
 	
-	private AStarScorer gscorer;
-	private AStarScorer hscorer;
+	private AStarScorer<ConfAStarNode> gscorer;
+	private AStarScorer<ConfAStarNode> hscorer;
 	private List<Integer> posOrder;
 	
 	public StaticScoreHMeanAStarOrder() {
@@ -54,7 +55,7 @@ public class StaticScoreHMeanAStarOrder implements AStarOrder {
 	}
 	
 	@Override
-	public void setScorers(AStarScorer gscorer, AStarScorer hscorer) {
+	public void setScorers(AStarScorer<ConfAStarNode> gscorer, AStarScorer<ConfAStarNode> hscorer) {
 		this.gscorer = gscorer;
 		this.hscorer = hscorer;
 	}
@@ -65,14 +66,14 @@ public class StaticScoreHMeanAStarOrder implements AStarOrder {
 	}
 
 	@Override
-	public int getNextPos(ConfIndex confIndex, RCs rcs) {
+	public int getNextPos(ConfIndex<ConfAStarNode> confIndex, RCs rcs) {
 		if (posOrder == null) {
 			posOrder = calcPosOrder(confIndex, rcs);
 		}
 		return posOrder.get(confIndex.node.getLevel());
 	}
 	
-	private List<Integer> calcPosOrder(ConfIndex confIndex, RCs rcs) {
+	private List<Integer> calcPosOrder(ConfIndex<ConfAStarNode> confIndex, RCs rcs) {
 		
 		// init permutation array with only undefined positions and score them
 		List<Integer> undefinedOrder = new ArrayList<Integer>();
@@ -106,7 +107,7 @@ public class StaticScoreHMeanAStarOrder implements AStarOrder {
 		return order;
 	}
 
-	double scorePos(ConfIndex confIndex, RCs rcs, int pos) {
+	double scorePos(ConfIndex<ConfAStarNode> confIndex, RCs rcs, int pos) {
 		
 		// check all the RCs at this pos and aggregate the energies
 		double parentScore = confIndex.node.getScore();

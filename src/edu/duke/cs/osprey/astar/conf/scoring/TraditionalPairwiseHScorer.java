@@ -38,7 +38,7 @@ import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.tools.MathTools;
 
-public class TraditionalPairwiseHScorer implements AStarScorer {
+public class TraditionalPairwiseHScorer implements AStarScorer<ConfAStarNode> {
 	
 	public final EnergyMatrix emat;
 	public final RCs rcs;
@@ -97,7 +97,7 @@ public class TraditionalPairwiseHScorer implements AStarScorer {
 	}
 
 	@Override
-	public double calc(ConfIndex confIndex, RCs rcs) {
+	public double calc(ConfIndex<ConfAStarNode> confIndex, RCs rcs) {
 		
     	// bound energy of undefined conf
     	double hscore = 0;
@@ -121,7 +121,7 @@ public class TraditionalPairwiseHScorer implements AStarScorer {
 	}
 
 	@Override
-	public double calcDifferential(ConfIndex confIndex, RCs rcs, int nextPos, int nextRc) {
+	public double calcDifferential(ConfIndex<ConfAStarNode> confIndex, RCs rcs, int nextPos, int nextRc) {
 		
 		// OPTIMIZATION: this function gets hit a LOT!
 		// so even really pedantic optimizations can make an impact
@@ -173,7 +173,7 @@ public class TraditionalPairwiseHScorer implements AStarScorer {
     	return hscore;
 	}
 
-	private void calcCachedEnergies(ConfIndex confIndex, RCs rcs) {
+	private void calcCachedEnergies(ConfIndex<ConfAStarNode> confIndex, RCs rcs) {
 		
 		// for each undefined pos...
 		for (int i=0; i<confIndex.numUndefined; i++) {

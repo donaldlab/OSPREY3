@@ -33,12 +33,13 @@
 package edu.duke.cs.osprey.astar.conf.order;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
+import edu.duke.cs.osprey.astar.conf.PartialConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 
-public interface AStarOrder {
+public interface AStarOrder<T extends PartialConfAStarNode> {
 
-	void setScorers(AStarScorer gscorer, AStarScorer hscorer);
+	void setScorers(AStarScorer<T> gscorer, AStarScorer<T> hscorer);
 	boolean isDynamic();
-	int getNextPos(ConfIndex confIndex, RCs rcs);
+	int getNextPos(ConfIndex<T> confIndex, RCs rcs);
 }

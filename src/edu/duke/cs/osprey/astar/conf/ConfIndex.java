@@ -35,11 +35,11 @@ package edu.duke.cs.osprey.astar.conf;
 
 import java.util.Arrays;
 
-public class ConfIndex {
+public class ConfIndex <T extends ConfNode> {
 	
 	public final int numPos;
 	
-	public ConfAStarNode node;
+	public T node;
 	public int numDefined;
 	public final int[] definedPos;
 	public final int[] definedRCs;
@@ -56,7 +56,7 @@ public class ConfIndex {
         this.undefinedPos = new int[numPos];
 	}
 
-	public ConfIndex(ConfIndex other) {
+	public ConfIndex(ConfIndex<T> other) {
 		this.numPos = other.numPos;
 		this.numDefined = other.numDefined;
 		this.definedPos = other.definedPos.clone();
@@ -96,9 +96,9 @@ public class ConfIndex {
 		return -1;
 	}
 	
-	public ConfIndex assign(int nextPos, int nextRc) {
+	public ConfIndex<T> assign(int nextPos, int nextRc) {
 		
-		ConfIndex other = new ConfIndex(this);
+		ConfIndex<T> other = new ConfIndex<>(this);
 		other.assignInPlace(nextPos, nextRc);
 		
 		// init defaults for things we won't copy
@@ -126,9 +126,9 @@ public class ConfIndex {
 		updateUndefined();
 	}
 
-	public ConfIndex unassign(int pos) {
+	public ConfIndex<T> unassign(int pos) {
 
-		ConfIndex other = new ConfIndex(this);
+		ConfIndex<T> other = new ConfIndex<>(this);
 		other.unassignInPlace(pos);
 
 		// init defaults for things we won't copy

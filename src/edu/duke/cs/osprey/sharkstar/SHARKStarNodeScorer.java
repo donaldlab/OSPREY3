@@ -1,9 +1,9 @@
 package edu.duke.cs.osprey.sharkstar;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
+import edu.duke.cs.osprey.astar.conf.PartialConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
-import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
@@ -19,7 +19,7 @@ import java.util.Arrays;
 import static edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound.confMatch;
 import static edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound.debugConf;
 
-public class SHARKStarNodeScorer implements AStarScorer {
+public class SHARKStarNodeScorer implements AStarScorer<PartialConfAStarNode> {
     protected EnergyMatrix emat;
     protected MathTools.Optimizer opt = MathTools.Optimizer.Minimize;
     /*
@@ -71,21 +71,21 @@ public class SHARKStarNodeScorer implements AStarScorer {
     }
 
     @Override
-    public AStarScorer make() {
+    public AStarScorer<PartialConfAStarNode> make() {
         return new SHARKStarNodeScorer(emat, false);
     }
 
-    public double calc(ConfIndex confIndex, Sequence seq, SimpleConfSpace confSpace) {
+    public double calc(ConfIndex<PartialConfAStarNode> confIndex, Sequence seq, SimpleConfSpace confSpace) {
         return calc(confIndex, seq.makeRCs(confSpace));
     }
 
-    public BigDecimal calcGScore(ConfIndex confIndex, RCs rcs){
-        /** calcGScore
-         *
-         * Calculates the contribution to the partition function bound of the defined residues ONLY.
-         *
-         * Intended primarily for debugging upperBound error - GTH 200114
-         */
+    /** calcGScore
+     *
+     * Calculates the contribution to the partition function bound of the defined residues ONLY.
+     *
+     * Intended primarily for debugging upperBound error - GTH 200114
+     */
+    public BigDecimal calcGScore(ConfIndex<PartialConfAStarNode> confIndex, RCs rcs){
 
         BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
         BigDecimal pfuncBound = BigDecimal.ONE;
@@ -112,15 +112,15 @@ public class SHARKStarNodeScorer implements AStarScorer {
         return pfuncBound;
     }
 
-    public BigDecimal calcCombinedScore(ConfIndex confIndex, RCs rcs){
-        /**calcCombinedScore
-         *
-         * Calculates the bound on the partition function value at a node,
-         * bounding the sum of boltzmann-weighted energies of all conformations
-         * that are compatible with the given conformation.
-         *
-         * Intended primarily for debugging upperBound error - GTH 200114
-         */
+    /**calcCombinedScore
+     *
+     * Calculates the bound on the partition function value at a node,
+     * bounding the sum of boltzmann-weighted energies of all conformations
+     * that are compatible with the given conformation.
+     *
+     * Intended primarily for debugging upperBound error - GTH 200114
+     */
+    public BigDecimal calcCombinedScore(ConfIndex<PartialConfAStarNode> confIndex, RCs rcs){
 
         BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
         BigDecimal pfuncBound = BigDecimal.ONE;
@@ -175,7 +175,7 @@ public class SHARKStarNodeScorer implements AStarScorer {
      *  sum over all unassigned positions. Returns a lower bound on the ensemble energy.
      *  Note: I currently exponentiate and log for compatibilty. This could be optimized.*/
     @Override
-    public double calc(ConfIndex confIndex, RCs rcs) {
+    public double calc(ConfIndex<PartialConfAStarNode> confIndex, RCs rcs) {
         BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
         double freeEnergyBound = 0.0;
 
@@ -189,7 +189,7 @@ public class SHARKStarNodeScorer implements AStarScorer {
         }
         for (int undefinedPosIndex1 = 0; undefinedPosIndex1 < confIndex.numUndefined; undefinedPosIndex1++) {
             int undefinedPos1 = confIndex.undefinedPos[undefinedPosIndex1];
-            ArrayList <Double> rotEnergies = new ArrayList(); // ArrayList to use the log-sum-exp trick
+            ArrayList <Double> rotEnergies = new ArrayList<>(); // ArrayList to use the log-sum-exp trick
             for (int rot1 : rcs.get(undefinedPos1)) {
                 //Iterate over the residues, computing bounds on the log partition function contributions...
                 double rotEnergy = emat.getEnergy(undefinedPos1, rot1); // get the singletons
@@ -230,7 +230,7 @@ public class SHARKStarNodeScorer implements AStarScorer {
         }
         if(confMatch(conf, debugConf)){
             System.out.println("Gotcha-calc3");
-            System.out.println("End \'energy\': "+freeEnergyBound);
+            System.out.println("End 'energy': "+freeEnergyBound);
         }
         return freeEnergyBound;
     }

@@ -33,9 +33,8 @@
 package edu.duke.cs.osprey.astar;
 
 import edu.duke.cs.osprey.tools.MathTools;
-import edu.duke.cs.osprey.tools.UnpossibleError;
 
-public interface OptimizableAStarNode {
+public interface OptimizableAStarNode extends PartialOptimizableAStarNode{
 
 	double getGScore();
 	void setGScore(double val);
@@ -69,14 +68,4 @@ public interface OptimizableAStarNode {
 		return Tools.optimizeScore(getScore(), optimizer);
 	}
 
-	public static class Tools {
-
-		public static double optimizeScore(double score, MathTools.Optimizer optimizer) {
-			switch (optimizer) {
-				case Minimize: return score; // the pq is naturally a min-heap
-				case Maximize: return -score; // negate the score so the pq acts like a max-heap
-				default: throw new UnpossibleError();
-			}
-		}
-	}
 }
