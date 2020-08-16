@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.sharkstar;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
+import edu.duke.cs.osprey.astar.conf.PartialConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.Sequence;
@@ -24,9 +25,10 @@ import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStati
 public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARKStarNode> {
     // statics
     static boolean debug = true;
-    static double bigDecimalBoundTolerance = 0.01;
+    static BigDecimal bigDecimalBoundTolerance = BigDecimal.valueOf(1e-4);
 
     // MSSHARKSTAR Node stuff
+
     private final MultiSequenceSHARKStarNode parent;
     private final List<MultiSequenceSHARKStarNode> children;
     private final Node confSearchNode;
@@ -42,7 +44,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     private final Map<Integer,MultiSequenceSHARKStarNode> childrenByRC;
 
     // Debugging variables
-    private final Map<Sequence, MathTools.BigDecimalBounds> lastSequenceBounds = new HashMap<>();
     private Map<Sequence, List<String>> nodeHistory = null;
 
     MultiSequenceSHARKStarNode(Node confNode, MultiSequenceSHARKStarNode parent,
@@ -197,48 +198,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
     }
 
-    private void debugChecks(Sequence seq) {
-        debugChecks(seq, false);
-    }
-
-    private void debugChecks(Sequence seq, boolean showTree) {
-        if (!debug)
-            return;
-        if(showTree && MathTools.isGreaterThan(getUpperBound(seq), new BigDecimal(10)))
-            System.out.println(toSeqString(seq)+String.format(", previously [%12.4e,%12.4e]",getLastSequenceBounds(seq).lower.doubleValue(), getLastSequenceBounds(seq).upper.doubleValue()));
-        BigDecimal tolerance = new BigDecimal(0.0001);
-        BigDecimal lastUpper = getLastSequenceBounds(seq).upper;
-        BigDecimal lastLower = getLastSequenceBounds(seq).lower;
-        BigDecimal upperChange = MathTools.bigSubtract(getSequenceBounds(seq).upper, lastUpper, PartitionFunction.decimalPrecision);
-        if(lastUpper != null
-                && MathTools.isGreaterThan(getSequenceBounds(seq).upper,lastUpper)
-                && MathTools.isGreaterThan( upperChange,BigDecimal.TEN)
-                && MathTools.isGreaterThan(upperChange, tolerance.multiply(lastUpper))) {
-            System.err.println("Upper bound got bigger!?");
-            System.err.println("Previous: "+convertMagicBigDecimalToString(lastUpper)+", now "+convertMagicBigDecimalToString(getSequenceBounds(seq).upper));
-            System.err.println("Increased by "+convertMagicBigDecimalToString(upperChange));
-            System.out.println("Current Tree:");
-            printTree(seq, this);
-            System.out.println("Last Tree:");
-            printLastTree(seq, this);
-            UpperBoundException exception = new UpperBoundException("Exiting due to increasing upper bound! This is bad!");
-            exception.setOffendingNode(this);
-            throw exception;
-        }
-        if(lastLower != null
-                && MathTools.isLessThan(getSequenceBounds(seq).lower,lastLower)
-                && getSequenceBounds(seq).lower.subtract(lastLower).compareTo(BigDecimal.TEN) > 0
-                && lastLower.subtract(getSequenceBounds(seq).lower).compareTo(tolerance.multiply(lastLower)) > 0) {
-            System.err.println("Lower bound got smaller!?");
-            System.err.println("Decreased by "+lastLower.subtract(getSequenceBounds(seq).lower));
-            System.out.println("Current Tree:");
-            printTree(seq, this);
-            System.out.println("Last Tree:");
-            printLastTree(seq, this);
-            throw new RuntimeException("ERROR: Exiting due to decreasing lower bound! This is bad!");
-        }
-    }
-
     public synchronized BigDecimal getUpperBound(Sequence seq){
         return getSequenceBounds(seq).upper;
     }
@@ -253,6 +212,31 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
     public Node getConfSearchNode() {
         return confSearchNode;
+    }
+
+    private MathTools.DoubleBounds getSequenceConfBounds(Sequence seq) {
+        return confBounds.get(seq);
+    }
+
+    public synchronized double getConfLowerBound(Sequence seq) {
+        return getSequenceConfBounds(seq).lower;
+    }
+
+    public synchronized double getConfUpperBound(Sequence seq) {
+        return getSequenceConfBounds(seq).upper;
+    }
+
+    public boolean hasChildren(Sequence seq) {
+        return childrenBySequence.containsKey(seq) &&
+                !childrenBySequence.get(seq).isEmpty();
+    }
+
+    public List<MultiSequenceSHARKStarNode> getChildren(Sequence seq) {
+        if(seq == null)
+            return children;
+        if(debug)
+            checkChildren(seq);
+        return childrenBySequence.get(seq);
     }
 
     /**
@@ -305,23 +289,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             checkChildren(seq);
     }
 
-    private MathTools.DoubleBounds getSequenceConfBounds(Sequence seq) {
-        return confBounds.get(seq);
-    }
-
-    public boolean hasChildren(Sequence seq) {
-        return childrenBySequence.containsKey(seq) &&
-                !childrenBySequence.get(seq).isEmpty();
-    }
-
-    public List<MultiSequenceSHARKStarNode> getChildren(Sequence seq) {
-        if(seq == null)
-            return children;
-        if(debug)
-            checkChildren(seq);
-        return childrenBySequence.get(seq);
-    }
-
     private String getAllowedAA(Sequence seq) {
         String resNum = nextDesignPosition.resNum;
         String AA = nextDesignPosition.resTypes.get(0);
@@ -361,14 +328,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         checkAllChildren();
     }
 
-    public synchronized double getConfLowerBound(Sequence seq) {
-        return getSequenceConfBounds(seq).lower;
-    }
-
-    public synchronized double getConfUpperBound(Sequence seq) {
-        return getSequenceConfBounds(seq).upper;
-    }
-
     public void checkDescendents(Sequence seq) {
         if(hasChildren(seq))
             System.out.println("Already expanded node?");
@@ -398,7 +357,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
     @Override
-    public int compareTo(MultiSequenceSHARKStarNode other){
+    public int compareTo(@NotNull MultiSequenceSHARKStarNode other){
         throw new UnsupportedOperationException("You can't compare multisequence nodes without a sequence.");
     }
 
@@ -418,22 +377,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         }
         return sequenceBounds.get(seq);
     }
-
-    public MathTools.BigDecimalBounds getLastSequenceBounds(Sequence seq) {
-        if(!lastSequenceBounds.containsKey(seq)) {
-            lastSequenceBounds.put(seq, new MathTools.BigDecimalBounds(BigDecimal.ZERO, MathTools.BigPositiveInfinity));
-        }
-        return lastSequenceBounds.get(seq);
-    }
-
-    public void debugTree(Sequence seq) {
-        debugChecks(seq, false);
-        if(hasChildren(seq)){
-            for(MultiSequenceSHARKStarNode child: getChildren(seq))
-                child.debugTree(seq);
-        }
-    }
-
 
     public String toSeqString(Sequence seq) {
         String out = confSearchNode.confToString();//fullConfSpace.formatConfRotamersWithResidueNumbers(confSearchNode.assignments);//
@@ -459,7 +402,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         return confSearchNode.confToString();
     }
 
-    public static class Node implements ConfAStarNode {
+    public static class Node implements PartialConfAStarNode {
 
         private static final int Unassigned = -1;
         private double partialConfLowerBound = Double.NaN;
@@ -513,16 +456,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
         @Override
         public void setGScore(double val) {
-            throw new UnsupportedOperationException("Should not be set this way.");
-        }
-
-        @Override
-        public double getHScore() {
-            throw new UnsupportedOperationException("This is a multi-sequence node, so HScore is undefined without a sequence");
-        }
-
-        @Override
-        public void setHScore(double val) {
             throw new UnsupportedOperationException("Should not be set this way.");
         }
 

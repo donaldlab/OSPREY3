@@ -25,10 +25,6 @@ public class MultiSequenceSHARKStarNodeStatistics {
         return String.format("%12.6e", bd);
     }
 
-    public static void printLastTree(Sequence seq, MultiSequenceSHARKStarNode node) {
-        printTree("", null, null, seq, node, (node1)->node1.getLastSequenceBounds(seq));
-    }
-
     public static String treeString(String prefix, Sequence seq, MultiSequenceSHARKStarNode node) {
         BoundGetter boundGetter = (node1) -> node1.getSequenceBounds(seq);
         MathTools.BigDecimalBounds bounds = boundGetter.getBounds(node);

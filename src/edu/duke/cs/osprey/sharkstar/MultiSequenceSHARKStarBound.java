@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.sharkstar;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
+import edu.duke.cs.osprey.astar.conf.PartialConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.pruning.AStarPruner;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
@@ -77,17 +78,17 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     // We keep track of the root node for computing our K* bounds
     public MultiSequenceSHARKStarNode rootNode;
     // Heap of nodes for recursive expansion
-    private final ConfIndex confIndex;
+    private final ConfIndex<PartialConfAStarNode> confIndex;
     public StaticBiggestLowerboundDifferenceOrder order;
     public final AStarPruner pruner;
     // TODO: Implement new AStarPruner for MARK*?
     protected RCs fullRCs;
     protected Parallelism parallelism;
     public ObjectPool<ScoreContext> contexts;
-    private final ScorerFactory gscorerFactory;
-    private final ScorerFactory rigidgscorerFactory;
-    private final ScorerFactory hscorerFactory;
-    private final ScorerFactory nhscorerFactory;
+    private final ScorerFactory<PartialConfAStarNode> gscorerFactory;
+    private final ScorerFactory<PartialConfAStarNode> rigidgscorerFactory;
+    private final ScorerFactory<PartialConfAStarNode> hscorerFactory;
+    private final ScorerFactory<PartialConfAStarNode> nhscorerFactory;
 
     private final ConfAnalyzer confAnalyzer;
     EnergyMatrix minimizingEmat;
@@ -140,8 +141,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                        ConfEnergyCalculator minimizingConfEcalc, RCs rcs, Parallelism parallelism) {
         this.minimizingEcalc = minimizingConfEcalc;
         this.confSpace = confSpace;
-        gscorerFactory = (emats) -> new PairwiseGScorer(emats);
-        rigidgscorerFactory = (emats) -> new PairwiseRigidGScorer(emats);
+        gscorerFactory = PairwiseGScorer::new;
+        rigidgscorerFactory = PairwiseRigidGScorer::new;
 
 
         hscorerFactory = (emats) -> new SHARKStarNodeScorer(emats, false);
@@ -156,7 +157,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
         this.state = new MultiSequenceState();
 
-        confIndex = new ConfIndex(rcs.getNumPos());
+        confIndex = new ConfIndex<>(rcs.getNumPos());
         Node rootConfNode = new Node(confSpace.positions.size());
         rootConfNode.index(confIndex);
         double partialConfLowerbound = gscorerFactory.make(minimizingEmat).calc(confIndex, rcs);
@@ -188,11 +189,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
         this.contexts = new ObjectPool<>((lingored) -> {
             ScoreContext context = new ScoreContext();
-            context.index = new ConfIndex(rcs.getNumPos());
+            context.index = new ConfIndex<>(rcs.getNumPos());
             context.partialConfLowerBoundScorer = gscorerFactory.make(minimizingEmat);
             context.lowerBoundScorer = hscorerFactory.make(minimizingEmat);
             context.partialConfUpperBoundScorer = rigidgscorerFactory.make(rigidEmat);
-            /** These scoreres should match the scorers in the SHARKStarNode root - they perform the same calculations**/
             context.upperBoundScorer = nhscorerFactory.make(rigidEmat); //this is used for upper bounds, so we want it rigid
             context.ecalc = minimizingConfEcalc;
 
@@ -232,7 +232,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         mergeCorrections(precomputedFlex.correctionMatrix, genConfSpaceMapping());
 
         // Fix order issues
-        ConfIndex rootIndex = new ConfIndex(fullRCs.getNumPos());
+        ConfIndex<PartialConfAStarNode> rootIndex = new ConfIndex<>(fullRCs.getNumPos());
         this.rootNode.getConfSearchNode().index(rootIndex);
         this.order.updateForPrecomputedOrder(precomputedFlex.order, rootIndex, this.fullRCs, genConfSpaceMapping());
     }
@@ -1909,17 +1909,17 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
 
     protected static class ScoreContext {
-        public ConfIndex index;
-        public AStarScorer partialConfLowerBoundScorer;
-        public AStarScorer lowerBoundScorer;
-        public AStarScorer upperBoundScorer;
-        public AStarScorer partialConfUpperBoundScorer;
+        public ConfIndex<PartialConfAStarNode> index;
+        public AStarScorer<PartialConfAStarNode> partialConfLowerBoundScorer;
+        public AStarScorer<PartialConfAStarNode> lowerBoundScorer;
+        public AStarScorer<PartialConfAStarNode> upperBoundScorer;
+        public AStarScorer<PartialConfAStarNode> partialConfUpperBoundScorer;
         public ConfEnergyCalculator ecalc;
         public BatchCorrectionMinimizer batcher;
     }
 
-    public interface ScorerFactory {
-        AStarScorer make(EnergyMatrix emat);
+    public interface ScorerFactory<T extends PartialConfAStarNode> {
+        AStarScorer<T> make(EnergyMatrix emat);
     }
 
     public void setCachePattern(String pattern){
