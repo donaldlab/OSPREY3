@@ -638,6 +638,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
         if ( correctionDiff > 1e-5 && !overcorrecting && doCorrections) {
             result.didCorrect = true;
+            result.correctionSize = correctionDiff;
 
             BigDecimal oldZUpperBound = node.getUpperBound(bound.sequence);
             double oldConfLowerBound = node.getConfLowerBound(bound.sequence);
@@ -1706,6 +1707,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         }
     }
 
+    //TODO: Simplify and clean up this method
     protected void processPartialConfNode(SingleSequenceSHARKStarBound bound, MultiSequenceSHARKStarBound msBound,
                                           List<MultiSequenceSHARKStarNode> newNodes,
                                           MultiSequenceSHARKStarNode curNode, Node node) {
@@ -1731,63 +1733,35 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 node.index(context.index);
                 Node child = node.assign(nextPos, nextRc);
 
+                // Set up corrections
+                double confCorrection = Double.NEGATIVE_INFINITY;
+                if(doCorrections)
+                    confCorrection = msBound.correctionMatrix.confE(child.assignments);
+
                 // score the child node differentially against the parent node
-                if (child.getLevel() < RCs.getNumPos()) {
-                    double confCorrection = Double.NEGATIVE_INFINITY;
-                    if(doCorrections)
-                        confCorrection = msBound.correctionMatrix.confE(child.assignments);
-                    double diff = Math.max(confCorrection,
-                            context.partialConfLowerBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc));
-                    double rigiddiff = context.partialConfUpperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
-                    double hdiff = context.lowerBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
-                    double maxhdiff = context.upperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
-                    double checkNum = 0;
-                    //Correct for incorrect gscore.
-                    //rigiddiff = rigiddiff - node.partialConfLowerbound + node.partialConfUpperBound;
-                    child.setPartialConfLowerAndUpper(diff, rigiddiff);
+                double gScoreLB = context.partialConfLowerBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                double gScoreUB = context.partialConfUpperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                double hScoreLB = context.lowerBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                double hScoreUB = context.upperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
 
-                    double confLowerBound = child.getPartialConfLowerBound() + hdiff;
-                    double confUpperbound = rigiddiff + maxhdiff;
-                    //double lowerbound = minimizingEmat.confE(child.assignments);
-                    if (diff < confCorrection) {
-                        recordCorrection(confLowerBound, confCorrection - diff);
-                        confLowerBound = confCorrection + hdiff;
-                    }
-                    if (debug) {
-                        historyString = String.format("%s: previous lower bound (none), g score %f, hscore %f, f score %f corrected score %f, from %s",
-                                node.confToString(), curNode.getConfLowerBound(bound.sequence), diff, hdiff, diff + hdiff, confCorrection, getStackTrace());
-                    }
-                    //progress.reportInternalNode(child.level, child.getPartialConfLowerBound(), confLowerBound, queue.size(), children.size(), bound.getSequenceEpsilon());
-                    resultingLower = confLowerBound;
-                    resultingUpper= confUpperbound;
+                //Check to make sure our correction is reasonable
+                if(gScoreLB < confCorrection && confCorrection < gScoreUB) {
+                    //TODO: Warn on overcorrection?
+                    child.setPartialConfLowerAndUpper(confCorrection, gScoreUB);
+                    recordCorrection(gScoreLB+ hScoreLB, confCorrection - gScoreLB);
+                }else
+                    child.setPartialConfLowerAndUpper(gScoreLB, gScoreUB);
+
+                double confLowerBound = child.getPartialConfLowerBound() + hScoreLB;
+                double confUpperbound = child.getPartialConfUpperBound() + hScoreUB;
+                //double lowerbound = minimizingEmat.confE(child.assignments);
+                if (debug) {
+                    historyString = String.format("%s: previous lower bound (none), g score %f, hscore %f, f score %f corrected score %f, from %s",
+                            node.confToString(), curNode.getConfLowerBound(bound.sequence), gScoreLB, hScoreLB, gScoreLB + hScoreLB, confCorrection, getStackTrace());
                 }
-
-                if (child.getLevel() == RCs.getNumPos()) {
-                    double confRigid = context.partialConfUpperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
-                    //confRigid = confRigid - node.partialConfLowerbound + node.partialConfUpperBound;
-
-                    double confLower = context.partialConfLowerBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
-                    double confCorrection = Double.NEGATIVE_INFINITY;
-                    if(doCorrections)
-                        confCorrection = msBound.correctionMatrix.confE(child.assignments);
-                    double lowerbound = Math.max(msBound.minimizingEmat.confE(child.assignments), confLower);
-
-                    if (lowerbound < confCorrection) {
-                        recordCorrection(lowerbound, confCorrection - lowerbound);
-                    }
-                    double correctedLowerBound = Math.max(lowerbound, confCorrection);
-                    checkBounds(correctedLowerBound, confRigid);
-                    if (debug) {
-                        historyString = String.format("%s: previous lower bound (none), confLower score %f, confCorrected score %f from %s",
-                                node.confToString(), curNode.getConfLowerBound(bound.sequence), confLower, correctedLowerBound, getStackTrace());
-                    }
-                    child.setPartialConfLowerAndUpper(correctedLowerBound, confRigid);
-                    msBound.numConfsScored++;
-                    //progress.reportLeafNode(child.getPartialConfLowerBound(), queue.size(), bound.getSequenceEpsilon());
-                    resultingLower= correctedLowerBound;
-                    resultingUpper= confRigid;
-                }
-
+                //progress.reportInternalNode(child.level, child.getPartialConfLowerBound(), confLowerBound, queue.size(), children.size(), bound.getSequenceEpsilon());
+                resultingLower = confLowerBound;
+                resultingUpper= confUpperbound;
                 // Make the MSSHARK node
 
                 child.index(context.index);
