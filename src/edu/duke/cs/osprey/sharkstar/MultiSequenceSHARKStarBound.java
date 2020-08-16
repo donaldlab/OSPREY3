@@ -157,13 +157,12 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         this.state = new MultiSequenceState();
 
         confIndex = new ConfIndex(rcs.getNumPos());
-        Node rootConfNode = new Node(confSpace.positions.size(), 0, new MathTools.DoubleBounds());
+        Node rootConfNode = new Node(confSpace.positions.size());
         rootConfNode.index(confIndex);
         double partialConfLowerbound = gscorerFactory.make(minimizingEmat).calc(confIndex, rcs);
         double partialConfUpperBound = rigidgscorerFactory.make(rigidEmat).calc(confIndex, rcs);
-        rootConfNode.computeNumConformations(rcs);
 
-        rootConfNode.setBoundsFromConfLowerAndUpper(partialConfLowerbound, partialConfUpperBound);
+        rootConfNode.setPartialConfLowerAndUpper(partialConfLowerbound, partialConfUpperBound);
 
         // Initialize residue ordering
         this.order = new StaticBiggestLowerboundDifferenceOrder();
@@ -174,12 +173,18 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         // No precomputed sequence means the "precomputed" sequence is empty
         this.precomputedSequence = confSpace.makeUnassignedSequence();
 
-        this.rootNode = MultiSequenceSHARKStarNode.makeRoot(rootConfNode, confSpace,
+        this.rootNode = MultiSequenceSHARKStarNode.makeRoot(rootConfNode,
                 confSpace.positions.get(order.getNextPos(confIndex, rcs)));
-        double confLowerBound = partialConfLowerbound + hscorerFactory.make(minimizingEmat).calc(confIndex, rcs);
-        double confUpperBound = partialConfUpperBound + nhscorerFactory.make(rigidEmat).calc(confIndex, rcs);
+        //double confLowerBound = partialConfLowerbound + hscorerFactory.make(minimizingEmat).calc(confIndex, rcs);
+        //double confUpperBound = partialConfUpperBound + nhscorerFactory.make(rigidEmat).calc(confIndex, rcs);
+        MathTools.DoubleBounds confBounds = new MathTools.DoubleBounds(
+                partialConfLowerbound + hscorerFactory.make(minimizingEmat).calc(confIndex, rcs),
+                partialConfUpperBound + nhscorerFactory.make(rigidEmat).calc(confIndex, rcs)
+                );
 
-        rootNode.setBoundsFromConfLowerAndUpperWithHistory(confLowerBound, confUpperBound, bc.calc(confLowerBound), bc.calc(confUpperBound), precomputedSequence, "(root initialization)");
+        //rootNode.setBoundsFromConfLowerAndUpperWithHistory(confLowerBound, confUpperBound, bc.calc(confLowerBound), bc.calc(confUpperBound), precomputedSequence, "(root initialization)");
+        rootNode.setConfBounds(confBounds, this.precomputedSequence, "root initialization");
+        rootNode.setPfuncBounds(confBounds.boltzmannWeight(this.bc), this.precomputedSequence, "root initialization");
 
         this.contexts = new ObjectPool<>((lingored) -> {
             ScoreContext context = new ScoreContext();
@@ -353,7 +358,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     }
 
     private void updatePrecomputedNode(MultiSequenceSHARKStarNode node, int[] permutation, int size) {
-        node.makeNodeCompatibleWithConfSpace(permutation, size, this.fullRCs);
+        node.makeNodeCompatibleWithConfSpace(permutation, size);
         if (node.hasChildren(precomputedSequence)) {
             for (MultiSequenceSHARKStarNode child : node.getChildren(precomputedSequence)) {
                 updatePrecomputedNode(child, permutation, size);
@@ -410,17 +415,26 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                             double hscore = context.lowerBoundScorer.calc(context.index, seqBound.seqRCs);
                             double confLowerBound = confNode.getPartialConfLowerBound() + context.lowerBoundScorer.calc(context.index, seqBound.seqRCs);
                             double confUpperBound = confNode.getPartialConfUpperBound() + context.upperBoundScorer.calc(context.index, seqBound.seqRCs);
+                            MathTools.DoubleBounds confBounds = new MathTools.DoubleBounds(confLowerBound, confUpperBound);
                             String historyString = "";
                             if(debug){
                                 historyString = String.format("%s: previous lower bound %f, g score %f, hscore %f, f score %f corrected score %f, from %s",
                                         confNode.confToString(), node.getConfLowerBound(seqBound.sequence), gscore, hscore, gscore + hscore, confCorrection, getStackTrace());
                             }
+                            /*
                             node.setBoundsFromConfLowerAndUpperWithHistory(confLowerBound,
                                     confUpperBound,
                                     msBound.bc.calc(confLowerBound),
                                     msBound.bc.calc(confUpperBound),
                                     seqBound.sequence,
                                     historyString);
+                             */
+                            node.setConfBounds(confBounds,
+                                    seqBound.sequence,
+                                    "fringe");
+                            node.setPfuncBounds(confBounds.boltzmannWeight(msBound.bc),
+                                    seqBound.sequence,
+                                    "fringe");
 
                             if (node.getChildren(null).isEmpty())
                                 msBound.correctionMatrix.setHigherOrder(node.toTuple(), confNode.getPartialConfLowerBound()
@@ -635,7 +649,16 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     node.getConfSearchNode().confToString(), oldg, confCorrection);
 
             // update the node total scores
-            node.setBoundsFromConfLowerAndUpperWithHistory(oldConfLowerBound + correctionDiff, node.getConfUpperBound(bound.sequence), bc.calc(oldConfLowerBound+correctionDiff), msBound.bc.calc(node.getConfUpperBound(bound.sequence)), bound.sequence, historyString);
+            MathTools.DoubleBounds confBounds = new MathTools.DoubleBounds(
+                    oldConfLowerBound + correctionDiff,
+                    node.getConfUpperBound(bound.sequence));
+            node.setConfBounds(confBounds,
+                    bound.sequence,
+                    "correction");
+            node.setPfuncBounds(confBounds.boltzmannWeight(msBound.bc),
+                    bound.sequence,
+                    "correction");
+            //node.setBoundsFromConfLowerAndUpperWithHistory(oldConfLowerBound + correctionDiff, node.getConfUpperBound(bound.sequence), bc.calc(oldConfLowerBound+correctionDiff), msBound.bc.calc(node.getConfUpperBound(bound.sequence)), bound.sequence, historyString);
             debugPrint("Correcting " + node.toSeqString(bound.sequence) +" correction ="+(correctionDiff) );
 
             BigDecimal newUpperBound = node.getUpperBound(bound.sequence);
@@ -1314,7 +1337,14 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         }
         // END DEBUG CHECKS
 
-        node.setBoundsFromConfLowerAndUpperWithHistory(newConfLower, newConfUpper, msBound.bc.calc(newConfLower), msBound.bc.calc(newConfUpper), result.sequenceBound.sequence, historyString);
+        MathTools.DoubleBounds confBounds = new MathTools.DoubleBounds(newConfLower, newConfUpper);
+        node.setConfBounds(confBounds,
+                sequenceBound.sequence,
+                "minimization");
+        node.setPfuncBounds(confBounds.boltzmannWeight(msBound.bc),
+                sequenceBound.sequence,
+                "minimization");
+        //node.setBoundsFromConfLowerAndUpperWithHistory(newConfLower, newConfUpper, msBound.bc.calc(newConfLower), msBound.bc.calc(newConfUpper), result.sequenceBound.sequence, historyString);
         node.getConfSearchNode().setPartialConfLowerAndUpper(newConfLower, newConfUpper);
         debugPrint(String.format("Energy = %.6f, [%.6f, %.6f]",
                 energy,
@@ -1466,7 +1496,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
                     confLowerBound = child.getPartialConfLowerBound() + hdiff;
                     confUpperBound = rigiddiff + maxhdiff;
-                    child.computeNumConformations(RCs);
                     if (diff < confCorrection) {
                         recordCorrection(confLowerBound, confCorrection - diff);
                         confLowerBound = confCorrection + hdiff;
@@ -1474,14 +1503,12 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
                     historyString = String.format("%s: previous lower bound (none), g score %f, hscore %f, f score %f corrected score %f, from %s",
                             child.confToString(), diff, hdiff, diff+hdiff, confCorrection, getStackTrace());
-                    child.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperBound);
                     msBound.progress.reportInternalNode(child.level, child.getPartialConfLowerBound(), confLowerBound, queue.size(), children.size(), bound.getSequenceEpsilon());
                 }
                 if (child.getLevel() == RCs.getNumPos()) {
                     double confRigid = context.partialConfUpperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                     //confRigid = confRigid - node.partialConfLowerbound + node.partialConfUpperBound;
 
-                    child.computeNumConformations(RCs); // Shouldn't this always eval to 1, given that we are looking at leaf nodes?
                     double confCorrection = msBound.correctionMatrix.confE(child.assignments);
                     double lowerbound = msBound.minimizingEmat.confE(child.assignments);
                     if (lowerbound < confCorrection) {
@@ -1490,7 +1517,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     checkBounds(confCorrection, confRigid);
                     historyString = String.format("%s: pairwise lower bound: %f, previous lower bound (none), correctedbound %f, from %s",
                             child.confToString(), lowerbound, confCorrection, getStackTrace());
-                    child.setBoundsFromConfLowerAndUpper(confCorrection, confRigid);
                     confLowerBound = confCorrection;
                     child.setPartialConfLowerAndUpper(confCorrection, confRigid);
                     confUpperBound = confRigid;
@@ -1512,12 +1538,19 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 if(curNode.hasExistingChild(child)){
                     MultiSequenceSHARKStarNodeChild = curNode.getExistingChild(child);
                 }else{
-                    MultiSequenceSHARKStarNodeChild = new MultiSequenceSHARKStarNode(child, curNode, designPos, nextDesignPos);
+                    MultiSequenceSHARKStarNodeChild = new MultiSequenceSHARKStarNode(child, curNode, nextDesignPos);
                     curNode.addChild(MultiSequenceSHARKStarNodeChild, bound.sequence);
                 }
-                MultiSequenceSHARKStarNodeChild.setBoundsFromConfLowerAndUpperWithHistory(confLowerBound,
-                        confUpperBound, msBound.bc.calc(confLowerBound), msBound.bc.calc(confUpperBound), bound.sequence, historyString);
-                MultiSequenceSHARKStarNodeChild.setBoundsFromConfLowerAndUpperWithHistory(confLowerBound, confUpperBound, msBound.bc.calc(confLowerBound), msBound.bc.calc(confUpperBound), bound.sequence, historyString);
+                MathTools.DoubleBounds confBounds = new MathTools.DoubleBounds(confLowerBound, confUpperBound);
+                MultiSequenceSHARKStarNodeChild.setConfBounds(confBounds,
+                        bound.sequence,
+                        "drill-down");
+                MultiSequenceSHARKStarNodeChild.setPfuncBounds(confBounds.boltzmannWeight(msBound.bc),
+                        bound.sequence,
+                        "drill-down");
+                //MultiSequenceSHARKStarNodeChild.setBoundsFromConfLowerAndUpperWithHistory(confLowerBound,
+                        //confUpperBound, msBound.bc.calc(confLowerBound), msBound.bc.calc(confUpperBound), bound.sequence, historyString);
+                //MultiSequenceSHARKStarNodeChild.setBoundsFromConfLowerAndUpperWithHistory(confLowerBound, confUpperBound, msBound.bc.calc(confLowerBound), msBound.bc.calc(confUpperBound), bound.sequence, historyString);
                 if (Double.isNaN(child.getPartialConfUpperBound()))
                     System.out.println("Huh!?");
                 if (confLowerBound < bestChildLower) {
@@ -1715,14 +1748,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
                     double confLowerBound = child.getPartialConfLowerBound() + hdiff;
                     double confUpperbound = rigiddiff + maxhdiff;
-                    child.computeNumConformations(RCs);
                     //double lowerbound = minimizingEmat.confE(child.assignments);
                     if (diff < confCorrection) {
                         recordCorrection(confLowerBound, confCorrection - diff);
                         confLowerBound = confCorrection + hdiff;
                     }
-                    child.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperbound);
-
                     if (debug) {
                         historyString = String.format("%s: previous lower bound (none), g score %f, hscore %f, f score %f corrected score %f, from %s",
                                 node.confToString(), curNode.getConfLowerBound(bound.sequence), diff, hdiff, diff + hdiff, confCorrection, getStackTrace());
@@ -1736,7 +1766,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     double confRigid = context.partialConfUpperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                     //confRigid = confRigid - node.partialConfLowerbound + node.partialConfUpperBound;
 
-                    child.computeNumConformations(RCs); // Shouldn't this always eval to 1, given that we are looking at leaf nodes?
                     double confLower = context.partialConfLowerBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                     double confCorrection = Double.NEGATIVE_INFINITY;
                     if(doCorrections)
@@ -1752,7 +1781,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         historyString = String.format("%s: previous lower bound (none), confLower score %f, confCorrected score %f from %s",
                                 node.confToString(), curNode.getConfLowerBound(bound.sequence), confLower, correctedLowerBound, getStackTrace());
                     }
-                    child.setBoundsFromConfLowerAndUpper(correctedLowerBound, confRigid);
                     child.setPartialConfLowerAndUpper(correctedLowerBound, confRigid);
                     msBound.numConfsScored++;
                     //progress.reportLeafNode(child.getPartialConfLowerBound(), queue.size(), bound.getSequenceEpsilon());
@@ -1777,11 +1805,18 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 if(curNode.hasExistingChild(child)){
                     newChild = curNode.getExistingChild(child);
                 }else{
-                    newChild = new MultiSequenceSHARKStarNode(child, curNode, designPos, nextDesignPos);
+                    newChild = new MultiSequenceSHARKStarNode(child, curNode, nextDesignPos);
                     curNode.addChild(newChild, bound.sequence);
                 }
-                newChild.setBoundsFromConfLowerAndUpperWithHistory(resultingLower,
-                        resultingUpper, msBound.bc.calc(resultingLower), msBound.bc.calc(resultingUpper), bound.sequence, historyString);
+                MathTools.DoubleBounds confBounds = new MathTools.DoubleBounds(resultingLower, resultingUpper);
+                newChild.setConfBounds(confBounds,
+                        bound.sequence,
+                        "expansion");
+                newChild.setPfuncBounds(confBounds.boltzmannWeight(msBound.bc),
+                        bound.sequence,
+                        "expansion");
+                //newChild.setBoundsFromConfLowerAndUpperWithHistory(resultingLower,
+                        //resultingUpper, msBound.bc.calc(resultingLower), msBound.bc.calc(resultingUpper), bound.sequence, historyString);
                 //System.out.println("Created new child "+MultiSequenceSHARKStarNodeChild.toSeqString(bound.sequence));
                 // collect the possible children
                 if (newChild.getConfLowerBound(bound.sequence) < 0 || true) { //TODO: could this be a memory suck?

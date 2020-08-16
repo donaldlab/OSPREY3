@@ -6,8 +6,11 @@ import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.tools.MathTools;
+import jdk.nashorn.internal.runtime.regexp.joni.exception.ValueException;
+import org.jetbrains.annotations.NotNull;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -19,17 +22,16 @@ import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStati
 
 
 public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARKStarNode> {
-
-
-    static boolean debug = false;
+    // statics
+    static boolean debug = true;
     static double bigDecimalBoundTolerance = 0.01;
 
+    // MSSHARKSTAR Node stuff
     private final MultiSequenceSHARKStarNode parent;
     private final List<MultiSequenceSHARKStarNode> children;
     private final Node confSearchNode;
-    public final int level;
-    public final SimpleConfSpace.Position designPosition;
     public SimpleConfSpace.Position nextDesignPosition;
+    public final int level;
 
     // Information for MultiSequence SHARK* Nodes
     private final Map<Sequence, BigDecimal> errorBounds = new HashMap<>();
@@ -44,12 +46,11 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     private Map<Sequence, List<String>> nodeHistory = null;
 
     MultiSequenceSHARKStarNode(Node confNode, MultiSequenceSHARKStarNode parent,
-                               SimpleConfSpace.Position designPosition, SimpleConfSpace.Position nextDesignPosition){
+                               SimpleConfSpace.Position nextDesignPosition){
         this.confSearchNode = confNode;
         this.level = confSearchNode.getLevel();
         this.children = new ArrayList<>();
         this.parent = parent;
-        this.designPosition = designPosition;
         this.nextDesignPosition = nextDesignPosition;
         this.childrenByRC = new HashMap<>();
 
@@ -65,9 +66,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
      *                      so, permutation[i] gives the new ConfSpace index for residue i.
      * @param size  The size of the new confSpace
      */
-    public void makeNodeCompatibleWithConfSpace(int[] permutation, int size, RCs RCs){
-        // first change the confSearch information
-
+    public void makeNodeCompatibleWithConfSpace(int[] permutation, int size){
         // we copy over the new RCs based on permutation information
         int[] newAssignments = new int[size];
         Arrays.fill(newAssignments, -1);
@@ -79,77 +78,123 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         if (this.getConfSearchNode().pos != -1){
             this.getConfSearchNode().pos = permutation[this.getConfSearchNode().pos];
         }
-
-        // Compute the number of conformations
-        this.getConfSearchNode().computeNumConformations(RCs);
-    }
-
-    public BigInteger getNumConfs()
-    {
-        return confSearchNode.numConfs;
     }
 
     public RCTuple toTuple() {
         return new RCTuple(confSearchNode.assignments);
     }
 
-    private void setSubtreeBounds(Sequence seq, BigDecimal lower, BigDecimal upper) {
-        if(isDebugConf(confSearchNode.assignments) && MathTools.isLessThan(upper, BigDecimal.ONE))
-            System.out.println("Zeroing out our problem node.");
-
-        if(MathTools.isRelativelySame(getSequenceBounds(seq).lower, lower, PartitionFunction.decimalPrecision, bigDecimalBoundTolerance)
-            && MathTools.isRelativelySame(getSequenceBounds(seq).upper, upper, PartitionFunction.decimalPrecision, bigDecimalBoundTolerance))
-            return;
-        //System.out.println("Updating "+toSeqString(seq)+" for sequence "+seq);
-        getLastSequenceBounds(seq).upper = getSequenceBounds(seq).upper;
-        getLastSequenceBounds(seq).lower = getSequenceBounds(seq).lower;
-        getSequenceBounds(seq).upper = upper;
-        getSequenceBounds(seq).lower = lower;
-        //System.out.println(toSeqString(seq)+String.format(", previously [%12.4e,%12.4e]",getLastSequenceBounds(seq).lower.doubleValue(), getLastSequenceBounds(seq).upper.doubleValue()));
-        debugChecks(seq);
+    /**
+     * Set the node's partition-function bounds to a specified interval
+     * @param bounds The bound interval
+     * @param seq The sequence associated with the bounds
+     * @param source A string describing the source of the bounds. Used for debug purposes
+     */
+    public synchronized void setPfuncBounds(MathTools.BigDecimalBounds bounds, Sequence seq, String source){
+        if(debug) {
+            // check the bounds for errors
+            checkPfuncBounds(bounds, seq);
+            // record the change
+            if (!nodeHistory.containsKey(seq))
+                nodeHistory.put(seq, new ArrayList<>());
+            String confData = String.format("%s - %s %s: [%s, %s] --> [%s, %s]",
+                    source,
+                    seq,
+                    this.confSearchNode.confToString(),
+                    convertMagicBigDecimalToString(this.sequenceBounds.getOrDefault(seq, new MathTools.BigDecimalBounds()).lower),
+                    convertMagicBigDecimalToString(this.sequenceBounds.getOrDefault(seq, new MathTools.BigDecimalBounds()).upper),
+                    convertMagicBigDecimalToString(bounds.lower),
+                    convertMagicBigDecimalToString(bounds.upper)
+                    );
+            nodeHistory.get(seq).add(confData);
+        }
+        this.sequenceBounds.put(seq, bounds);
+        this.errorBounds.put(seq, bounds.size(PartitionFunction.decimalPrecision));
     }
 
-    private void updateSubtreeBoundsAndLog(Sequence seq) {
-        List<MultiSequenceSHARKStarNode> childrenForSequence = getChildren(seq);
-        if(childrenForSequence != null && childrenForSequence.size() > 0) {
-            BigDecimal errorUpperBound = BigDecimal.ZERO;
-            BigDecimal errorLowerBound = BigDecimal.ZERO;
-            for(MultiSequenceSHARKStarNode child: childrenForSequence) {
-                child.updateSubtreeBounds(seq);
-                System.out.println("Adding "+formatBounds(child.getSequenceBounds(seq).lower,
-                        child.getSequenceBounds(seq).upper)+" to "+formatBounds(errorLowerBound, errorUpperBound));
-                errorUpperBound = MathTools.bigAdd(errorUpperBound, child.getSequenceBounds(seq).upper,
-                        PartitionFunction.decimalPrecision);
-                errorLowerBound = MathTools.bigAdd(errorLowerBound,child.getSequenceBounds(seq).lower,
-                        PartitionFunction.decimalPrecision);
-                System.out.println("Bounds are now "+formatBounds(errorLowerBound, errorUpperBound));
-            }
-            setSubtreeBounds(seq, errorLowerBound, errorUpperBound);
+    /**
+     * Set the node's conformation energy bounds to a specified interval
+     * @param bounds The bound interval
+     * @param seq The sequence associated with the bounds
+     * @param source A string describing the source of the bounds. Used for debug purposes
+     */
+    public synchronized void setConfBounds(MathTools.DoubleBounds bounds, Sequence seq, String source){
+        if(debug) {
+            // check the bounds for errors
+            checkConfBounds(bounds, seq);
+            // record the change
+            if (!nodeHistory.containsKey(seq))
+                nodeHistory.put(seq, new ArrayList<>());
+            String confData = String.format("%s - %s %s: [%.6f, %.6f] --> [%.6f, %.6f]",
+                    source,
+                    seq,
+                    this.confSearchNode.confToString(),
+                    this.confBounds.getOrDefault(seq, new MathTools.DoubleBounds()).lower,
+                    this.confBounds.getOrDefault(seq, new MathTools.DoubleBounds()).upper,
+                    bounds.lower,
+                    bounds.upper
+            );
+            nodeHistory.get(seq).add(confData);
         }
+        this.confBounds.put(seq, bounds);
     }
 
-    public void updateSubtreeBounds(Sequence seq) {
-        if(!hasChildren(seq))
-            return;
-        List<MultiSequenceSHARKStarNode> childrenForSequence = getChildren(seq);
-        if(childrenForSequence != null && childrenForSequence.size() > 0) {
-            BigDecimal errorUpperBound = BigDecimal.ZERO;
-            BigDecimal errorLowerBound = BigDecimal.ZERO;
-            for(MultiSequenceSHARKStarNode child: childrenForSequence) {
-                /*
-                // Don't bother with uninitialized children.
-                if(!MathTools.isFinite(child.getUpperBound(seq)))
-                    return;
-
-                 */
-                child.updateSubtreeBounds(seq);
-                errorUpperBound = MathTools.bigAdd(errorUpperBound, child.getSequenceBounds(seq).upper,
-                        PartitionFunction.decimalPrecision);
-                errorLowerBound = MathTools.bigAdd(errorLowerBound,child.getSequenceBounds(seq).lower,
-                        PartitionFunction.decimalPrecision);
-            }
-            setSubtreeBounds(seq, errorLowerBound, errorUpperBound);
+    /**
+     * Checks the bounds against the node's current conformation energy bounds, throwing errors if necessary
+     * @param bounds Conformation energy bounds to check
+     * @param seq The sequence associated with the bounds
+     */
+    private synchronized void checkConfBounds(MathTools.DoubleBounds bounds, Sequence seq){
+        if(!bounds.isValid()) {
+            System.err.println(String.format("Trying to update %s: %s with invalid bounds: [%.6f, %.6f]",
+                    seq,
+                    this.getConfSearchNode().confToString(),
+                    bounds.lower,
+                    bounds.upper
+            ));
+            throw new RuntimeException("Bounds are invalid. Exiting...");
+        } else if(this.confBounds.containsKey(seq) && !this.confBounds.get(seq).contains(bounds)){
+            System.err.println(String.format(
+                    "Trying to update %s: %s with looser bounds: [%.6f, %.6f] --> [%.6f, %.6f]",
+                    seq,
+                    this.getConfSearchNode().confToString(),
+                    bounds.lower,
+                    bounds.upper,
+                    this.confBounds.get(seq).lower,
+                    this.confBounds.get(seq).upper
+            ));
+            throw new RuntimeException("Bounds are increasing in size. Exiting...");
         }
+
+    }
+
+    /**
+     * Checks the bounds against the node's current partition-function bounds, throwing errors if necessary
+     * @param bounds Partition-function bounds to check
+     * @param seq The sequence associated with the bounds
+     */
+    private synchronized void checkPfuncBounds(MathTools.BigDecimalBounds bounds, Sequence seq){
+        if(!bounds.isValid()) {
+            System.err.println(String.format("Trying to update %s: %s with invalid bounds: [%1.6e, %1.6e]",
+                    seq,
+                    this.getConfSearchNode().confToString(),
+                    bounds.lower,
+                    bounds.upper
+                    ));
+            throw new RuntimeException("Bounds are invalid. Exiting...");
+        } else if(this.sequenceBounds.containsKey(seq) && !this.sequenceBounds.get(seq).contains(bounds)){
+            System.err.println(String.format(
+                    "Trying to update %s: %s with looser bounds: [%1.6e, %1.6e] --> [%1.6e, %1.6e]",
+                    seq,
+                    this.getConfSearchNode().confToString(),
+                    bounds.lower,
+                    bounds.upper,
+                    this.sequenceBounds.get(seq).lower,
+                    this.sequenceBounds.get(seq).upper
+            ));
+            throw new RuntimeException("Bounds are increasing in size. Exiting...");
+        }
+
     }
 
     private void debugChecks(Sequence seq) {
@@ -192,14 +237,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             printLastTree(seq, this);
             throw new RuntimeException("ERROR: Exiting due to decreasing lower bound! This is bad!");
         }
-        /* this check doesn't work across multiple sequences yet.
-        if(lastEpsilon < nodeEpsilon && nodeEpsilon - lastEpsilon > 0.0001) {
-            System.err.println("Epsilon got bigger. Error.");
-            System.err.println("UpperBound change: "+getSequenceBounds(seq).upper.subtract(lastUpper));
-            System.err.println("LowerBound change: "+getSequenceBounds(seq).lower.subtract(lastLower));
-        }
-        */
-
     }
 
     public synchronized BigDecimal getUpperBound(Sequence seq){
@@ -268,47 +305,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             checkChildren(seq);
     }
 
-    public synchronized void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound, BigDecimal ZUB, BigDecimal ZLB, Sequence seq) {
-        if(isDebugConf(confSearchNode.assignments))
-            System.out.println("Gotcha-boundset");
-        MathTools.BigDecimalBounds bounds = getSequenceBounds(seq);
-        BigDecimal subtreeLowerBound = bounds.lower;
-        BigDecimal subtreeUpperBound = bounds.upper;
-        BigDecimal tighterLower = ZLB;
-        BigDecimal tighterUpper = ZUB;
-        if(MathTools.isLessThan(tighterUpper, BigDecimal.ONE) && lowerBound < 0 && isDebugConf(confSearchNode.assignments))
-            System.out.println("Setting "+toSeqString(seq)+" to ["+convertMagicBigDecimalToString(tighterLower)+","
-                    +convertMagicBigDecimalToString(tighterUpper)+"] for sequence"+seq);
-        if (subtreeLowerBound != null && MathTools.isGreaterThan(subtreeLowerBound, tighterLower))
-            System.err.println("Updating subtree lower bound " + convertMagicBigDecimalToString(subtreeLowerBound)
-                    + " with " + tighterLower + ", which is lower!?");
-        if (subtreeUpperBound != null && MathTools.isLessThan(subtreeUpperBound, tighterUpper)) {
-            System.err.println("Updating subtree upper bound " + convertMagicBigDecimalToString(subtreeUpperBound)
-                    + " with " + convertMagicBigDecimalToString(tighterUpper) + ", which is greater!?");
-            updateSubtreeBoundsAndLog(seq);
-            printTree(seq, this);
-            printLastTree(seq, this);
-        }
-        getSequenceConfBounds(seq).lower = lowerBound;
-        getSequenceConfBounds(seq).upper = upperBound;
-        setSubtreeBounds(seq, tighterLower, tighterUpper);
-
-        // And, lastly, set the partition function error
-        if(this.isMinimized(seq)) {
-            this.errorBounds.put(seq, BigDecimal.ZERO);
-        }else{
-            this.errorBounds.put(seq, MathTools.bigSubtract(getUpperBound(seq), getLowerBound(seq), PartitionFunction.decimalPrecision));
-        }
-
-        if(MathTools.isLessThan(tighterUpper, BigDecimal.ONE) && lowerBound < 0)
-            for(Sequence boundedSeq: sequenceBounds.keySet())
-                System.out.println(toSeqString(seq)+"-"+boundedSeq+":"+sequenceBounds.get(boundedSeq));
-    }
-
     private MathTools.DoubleBounds getSequenceConfBounds(Sequence seq) {
-        if(!confBounds.containsKey(seq)) {
-            confBounds.put(seq, new MathTools.DoubleBounds(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY));
-        }
         return confBounds.get(seq);
     }
 
@@ -364,7 +361,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         checkAllChildren();
     }
 
-
     public synchronized double getConfLowerBound(Sequence seq) {
         return getSequenceConfBounds(seq).lower;
     }
@@ -378,21 +374,12 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             System.out.println("Already expanded node?");
     }
 
-    public synchronized void setBoundsFromConfLowerAndUpperWithHistory(double newConfLower, double newConfUpper, BigDecimal ZUB, BigDecimal ZLB, Sequence sequence, String confData) {
-        if(debug) {
-            if (!nodeHistory.containsKey(sequence))
-                nodeHistory.put(sequence, new ArrayList<>());
-            nodeHistory.get(sequence).add(confData);
-        }
-        setBoundsFromConfLowerAndUpper(newConfLower, newConfUpper, ZUB, ZLB, sequence);
-    }
-
     public synchronized void dumpHistory(Sequence sequence) {
         for(String history: nodeHistory.get(sequence))
             System.out.println(history);
     }
 
-    public static enum Type {
+    public enum Type {
         internal,
         boundedLeaf,
         minimizedLeaf
@@ -406,12 +393,9 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         return Type.minimizedLeaf;
     }
 
-    public static MultiSequenceSHARKStarNode makeRoot(Node rootNode, SimpleConfSpace fullConfSpace,
-                                                      SimpleConfSpace.Position nextDesignPosition) {
-        return new MultiSequenceSHARKStarNode(rootNode, null, null,
-                nextDesignPosition);
+    public static MultiSequenceSHARKStarNode makeRoot(Node rootNode, SimpleConfSpace.Position nextDesignPosition) {
+        return new MultiSequenceSHARKStarNode(rootNode, null, nextDesignPosition);
     }
-
 
     @Override
     public int compareTo(MultiSequenceSHARKStarNode other){
@@ -434,6 +418,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         }
         return sequenceBounds.get(seq);
     }
+
     public MathTools.BigDecimalBounds getLastSequenceBounds(Sequence seq) {
         if(!lastSequenceBounds.containsKey(seq)) {
             lastSequenceBounds.put(seq, new MathTools.BigDecimalBounds(BigDecimal.ZERO, MathTools.BigPositiveInfinity));
@@ -454,7 +439,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         String out = confSearchNode.confToString();//fullConfSpace.formatConfRotamersWithResidueNumbers(confSearchNode.assignments);//
         BigDecimal subtreeLowerBound = getLowerBound(seq);
         BigDecimal subtreeUpperBound = getUpperBound(seq);
-        out += "Energy:" + String.format("%4.2f", confSearchNode.getPartialConfLowerBound()) + "*" + confSearchNode.numConfs;
+        out += "Energy:" + String.format("%4.2f", confSearchNode.getPartialConfLowerBound());
         if (!isMinimized(seq))
             out += " in [" + String.format("%4.4e,%4.4e", getSequenceConfBounds(seq).lower, getSequenceConfBounds(seq).upper)
                     + "]->[" + convertMagicBigDecimalToString(subtreeLowerBound) + "," + convertMagicBigDecimalToString(subtreeUpperBound) + "]";
@@ -476,51 +461,25 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
     public static class Node implements ConfAStarNode {
 
-        private static int Unassigned = -1;
+        private static final int Unassigned = -1;
         private double partialConfLowerBound = Double.NaN;
         private double partialConfUpperBound = Double.NaN;
-        private double confLowerBound = Double.MAX_VALUE;
-        private double confUpperBound = Double.MIN_VALUE;
         public int[] assignments;
         public int pos = Unassigned;
         public int rc = Unassigned;
         public final int level;
-        public BigInteger numConfs = BigInteger.ZERO;
+
+        public Node(int size) {
+            this(size, 0);
+        }
 
         public Node(int size, int level) {
-            this(size, level, new MathTools.DoubleBounds());
-        }
-        public Node(int size, MathTools.DoubleBounds fullConfBounds) {
-            this(size, 0, fullConfBounds);
-        }
-
-        public Node(int size, int level, MathTools.DoubleBounds fullConfBounds) {
             assignments = new int[size];
             Arrays.fill(assignments, Unassigned);
             this.level = level;
-            confLowerBound = fullConfBounds.lower;
-            confUpperBound = fullConfBounds.upper;
             if(this.level == 0) {
                 partialConfUpperBound = 0;
                 partialConfLowerBound = 0;
-            }
-        }
-
-        private void updateConfLowerBound(double tighterLower) {
-            if (tighterLower < 10 && tighterLower - confLowerBound < -1e-5)
-                System.err.println("Updating conf lower bound of  " + confLowerBound
-                        + " with " + tighterLower + ", which is lower!?");
-            if (tighterLower > confLowerBound) {
-                confLowerBound = tighterLower;
-            }
-        }
-
-        private void updateConfUpperBound(double tighterUpper) {
-            if (tighterUpper < 10 && tighterUpper - confUpperBound > 1e-5)
-                System.err.println("Updating conf upper bound of  " + confUpperBound
-                        + " with " + tighterUpper + ", which is greater!?");
-            if (tighterUpper < confUpperBound) {
-                confUpperBound = tighterUpper;
             }
         }
 
@@ -559,7 +518,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
         @Override
         public double getHScore() {
-            return confLowerBound - getPartialConfLowerBound();
+            throw new UnsupportedOperationException("This is a multi-sequence node, so HScore is undefined without a sequence");
         }
 
         @Override
@@ -567,11 +526,13 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             throw new UnsupportedOperationException("Should not be set this way.");
         }
 
+        @Override
         public int getLevel() {
             return level;
         }
 
-        public void index(ConfIndex confIndex) {
+        @Override
+        public void index(@NotNull ConfIndex confIndex) {
             confIndex.numDefined = 0;
             confIndex.numUndefined = 0;
             for (int pos = 0; pos < assignments.length; pos++) {
@@ -589,22 +550,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         }
 
         public String confToString() {
-            String out = "(";
-            for (int i = 0; i < assignments.length; i++) {
-                out += assignments[i] + ", ";
-            }
-            out += ")";
-            return out;
-        }
-
-
-        public BigInteger getNumConformations() {
-            return numConfs;
-        }
-
-        public void computeNumConformations(RCs rcs) {
-            this.numConfs = rcs.getNumConformations();
-            assert (this.numConfs.compareTo(BigInteger.ZERO) > 0);
+            return Arrays.toString(this.assignments);
         }
 
         public double getPartialConfLowerBound() {
@@ -620,24 +566,5 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             return partialConfUpperBound;
         }
 
-        public synchronized void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound) {
-            if(level == assignments.length) {
-                partialConfLowerBound = lowerBound;
-                partialConfUpperBound = upperBound;
-            }
-            if(upperBound == Double.NaN)
-                System.err.println("????");
-            if (lowerBound - upperBound > 1e-5) {
-                if (debug)
-                    System.out.println("Incorrect conf bounds set.");
-                double temp = lowerBound;
-                lowerBound = upperBound;
-                upperBound = temp;
-                lowerBound = Math.min(0, lowerBound);
-                upperBound = Math.max(lowerBound, upperBound);
-            }
-            //updateConfLowerBound(lowerBound);
-            //updateConfUpperBound(upperBound);
-        }
     }
 }
