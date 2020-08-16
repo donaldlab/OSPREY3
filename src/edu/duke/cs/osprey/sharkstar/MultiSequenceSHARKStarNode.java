@@ -21,7 +21,7 @@ import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStati
 public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARKStarNode> {
 
 
-    static boolean debug = true;
+    static boolean debug = false;
     static double bigDecimalBoundTolerance = 0.01;
 
     private final MultiSequenceSHARKStarNode parent;
@@ -378,7 +378,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             System.out.println("Already expanded node?");
     }
 
-    public void setBoundsFromConfLowerAndUpperWithHistory(double newConfLower, double newConfUpper, BigDecimal ZUB, BigDecimal ZLB, Sequence sequence, String confData) {
+    public synchronized void setBoundsFromConfLowerAndUpperWithHistory(double newConfLower, double newConfUpper, BigDecimal ZUB, BigDecimal ZLB, Sequence sequence, String confData) {
         if(debug) {
             if (!nodeHistory.containsKey(sequence))
                 nodeHistory.put(sequence, new ArrayList<>());
@@ -387,7 +387,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         setBoundsFromConfLowerAndUpper(newConfLower, newConfUpper, ZUB, ZLB, sequence);
     }
 
-    public void dumpHistory(Sequence sequence) {
+    public synchronized void dumpHistory(Sequence sequence) {
         for(String history: nodeHistory.get(sequence))
             System.out.println(history);
     }
