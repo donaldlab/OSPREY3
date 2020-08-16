@@ -32,6 +32,8 @@
 
 package edu.duke.cs.osprey.tools;
 
+import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
@@ -819,6 +821,10 @@ public class MathTools {
 		public String toString(Integer precision, Integer width) {
 			String spec = "%" + (width != null ? width : "") + (precision != null ? "." + precision : "") + "f";
 			return String.format("[" + spec + "," + spec + "]", lower, upper);
+		}
+
+		public BigDecimalBounds boltzmannWeight(BoltzmannCalculator bc){
+			return new BigDecimalBounds(bc.calc(this.upper), bc.calc(this.lower));
 		}
 	}
 
