@@ -272,7 +272,7 @@ public class TestSHARKStarNodeScorer {
             }
             this.rcs = seq.makeRCs(confSpace);
             // Set the correct subtree rootnode
-            rootNode = new MultiSequenceSHARKStarNode.Node(confSpace.positions.size(), 0, new MathTools.DoubleBounds());
+            rootNode = new MultiSequenceSHARKStarNode.Node(confSpace.positions.size(), 0);
             for(int i = 0; i < subtreeRoot.length; i++){
                 rootNode = rootNode.assign(i, subtreeRoot[i]);
             }
