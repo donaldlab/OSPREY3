@@ -431,7 +431,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                             }
 
                             if (node.getChildren(null).isEmpty())
-                                msBound.correctionMatrix.setHigherOrder(node.toTuple(), node.getPartialConfLowerBound()
+                                msBound.correctionMatrix.setHigherOrder(new RCTuple(node.assignments), node.getPartialConfLowerBound()
                                         - msBound.minimizingEmat.confE(node.assignments));
 
                             result.isFringe = true;
@@ -1183,7 +1183,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
             //update tracking variables
             if (result.msBound.precomputedSequence.equals(confSpace.makeUnassignedSequence()))
-                result.msBound.correctionMatrix.setHigherOrder(result.minimizedNode.toTuple(),
+                result.msBound.correctionMatrix.setHigherOrder(new RCTuple(result.minimizedNode.assignments),
                         result.energy - result.msBound.minimizingEmat.confE(result.minimizedNode.assignments));
             result.msBound.numConfsEnergied++;
             result.msBound.numConfsEnergiedThisLoop++;
@@ -1629,7 +1629,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     private void captureSubtreeFullMinimizations(MultiSequenceSHARKStarNode subTreeRoot){
         if (!subTreeRoot.hasChildren(precomputedSequence)){
             if (subTreeRoot.isMinimized(precomputedSequence)){
-                RCTuple tuple = subTreeRoot.toTuple();
+                RCTuple tuple = new RCTuple(subTreeRoot.assignments);
                 double confEnergy = subTreeRoot.getConfLowerBound(precomputedSequence);
                 double lowerbound = this.minimizingEmat.getInternalEnergy(tuple);
                 if (lowerbound == confEnergy)

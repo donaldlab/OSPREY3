@@ -22,10 +22,9 @@ import static edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound.isDebugCo
 import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStatistics.*;
 
 
-public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARKStarNode>, PartialConfAStarNode {
+public class MultiSequenceSHARKStarNode implements PartialConfAStarNode {
     // statics
-    static boolean debug = true;
-    static BigDecimal bigDecimalBoundTolerance = BigDecimal.valueOf(1e-4);
+    static boolean debug = false;
 
     private static final int Unassigned = -1;
     private double partialConfLowerBound = Double.NaN;
@@ -96,10 +95,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         if (this.pos != -1){
             this.pos = permutation[this.pos];
         }
-    }
-
-    public RCTuple toTuple() {
-        return new RCTuple(this.assignments);
     }
 
     /**
@@ -215,6 +210,19 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
     }
 
+    public MathTools.BigDecimalBounds getSequenceBounds(Sequence seq) {
+        if(isDebugConf(this.assignments) && confBounds.containsKey(seq) && confBounds.get(seq).lower < 0
+                && sequenceBounds.containsKey(seq)
+                && MathTools.isLessThan(sequenceBounds.get(seq).upper, BigDecimal.ONE))
+            System.err.println("Impossible bounds. Something is wrong.");
+        if(!sequenceBounds.containsKey(seq)) {
+            if(isDebugConf(this.assignments))
+                System.out.println("Gotcha-getsequence");
+            sequenceBounds.put(seq, new MathTools.BigDecimalBounds(BigDecimal.ZERO, MathTools.BigPositiveInfinity));
+        }
+        return sequenceBounds.get(seq);
+    }
+
     public synchronized BigDecimal getUpperBound(Sequence seq){
         return getSequenceBounds(seq).upper;
     }
@@ -249,9 +257,9 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
     /**
-     * Returns an existing MultiSequenceSHARKStarNode child that corresponds to the Node, or null
+     * Returns an existing MultiSequenceSHARKStarNode child that corresponds to the given RC, or null
      *
-     * @param rc
+     * @param rc The RC defining a child of this node
      * @return a MultiSequenceSHARKStarNode instance,  or null
      */
     public synchronized MultiSequenceSHARKStarNode getExistingChild(int rc){
@@ -259,10 +267,10 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
     /**
-     * Returns true if this node has a MultiSequenceSHARKStarNode child that corresponds to the given Node,
+     * Returns true if this node has a MultiSequenceSHARKStarNode child that corresponds to the given RC,
      * false otherwise.
      *
-     * @param rc
+     * @param rc The RC defining a child of this node
      * @return a MultiSequenceSHARKStarNode instance,  or null
      */
     public synchronized boolean hasExistingChild(int rc){
@@ -290,7 +298,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         if(debug)
             checkChildren(seq);
     }
-
 
     private void checkAllChildren() {
         checkListForDupes(children, "(all sequences)");
@@ -347,26 +354,8 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         return Type.minimizedLeaf;
     }
 
-    @Override
-    public int compareTo(@NotNull MultiSequenceSHARKStarNode other){
-        throw new UnsupportedOperationException("You can't compare multisequence nodes without a sequence.");
-    }
-
     public synchronized BigDecimal getErrorBound(Sequence seq) {
         return errorBounds.get(seq);
-    }
-
-    public MathTools.BigDecimalBounds getSequenceBounds(Sequence seq) {
-        if(isDebugConf(this.assignments) && confBounds.containsKey(seq) && confBounds.get(seq).lower < 0
-                && sequenceBounds.containsKey(seq)
-                && MathTools.isLessThan(sequenceBounds.get(seq).upper, BigDecimal.ONE))
-            System.err.println("Impossible bounds. Something is wrong.");
-        if(!sequenceBounds.containsKey(seq)) {
-            if(isDebugConf(this.assignments))
-                System.out.println("Gotcha-getsequence");
-            sequenceBounds.put(seq, new MathTools.BigDecimalBounds(BigDecimal.ZERO, MathTools.BigPositiveInfinity));
-        }
-        return sequenceBounds.get(seq);
     }
 
     public String toSeqString(Sequence seq) {
@@ -415,7 +404,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
     @Override
     public int getLevel() {
-        return level;
+        return this.level;
     }
 
     @Override

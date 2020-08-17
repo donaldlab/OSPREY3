@@ -190,18 +190,18 @@ public class EnergyMatrixCorrector {
             queue.addAll(topConfs);
             return;
         }
-        RCTuple lowestBoundTuple = topConfs.get(0).toTuple();
+        RCTuple lowestBoundTuple = new RCTuple(topConfs.get(0).assignments);
         RCTuple overlap = findLargestOverlap(lowestBoundTuple, topConfs, 3);
         //Only continue if we have something to minimize
         for (MultiSequenceSHARKStarNode conf : topConfs) {
-            RCTuple confTuple = conf.toTuple();
+            RCTuple confTuple = new RCTuple(conf.assignments);
             if (multiSequenceSHARKStarBound.getMinimizingEmat().getInternalEnergy(confTuple) == multiSequenceSHARKStarBound.getRigidEmat().getInternalEnergy(confTuple))
                 continue;
             multiSequenceSHARKStarBound.setNumPartialMinimizations(multiSequenceSHARKStarBound.getNumPartialMinimizations() + 1);
             multiSequenceSHARKStarBound.minList.set(confTuple.size() - 1, multiSequenceSHARKStarBound.minList.get(confTuple.size() - 1) + 1);
             if (confTuple.size() > 2 && confTuple.size() < RCs.getNumPos()) {
                 multiSequenceSHARKStarBound.getMinimizingEcalc().tasks.submit(() -> {
-                    computeTupleCorrection(multiSequenceSHARKStarBound.getMinimizingEcalc(), conf.toTuple(), bound.getSequenceEpsilon());
+                    computeTupleCorrection(multiSequenceSHARKStarBound.getMinimizingEcalc(), confTuple, bound.getSequenceEpsilon());
                     return null;
                 }, (econf) -> {
                 });
@@ -244,7 +244,7 @@ public class EnergyMatrixCorrector {
     RCTuple findLargestOverlap(RCTuple conf, List<MultiSequenceSHARKStarNode> otherConfs, int minResidues) {
         RCTuple overlap = conf;
         for (MultiSequenceSHARKStarNode other : otherConfs) {
-            overlap = overlap.intersect(other.toTuple());
+            overlap = overlap.intersect(new RCTuple(other.assignments));
             if (overlap.size() < minResidues)
                 break;
         }

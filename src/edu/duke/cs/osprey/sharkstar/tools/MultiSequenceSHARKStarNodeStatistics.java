@@ -148,7 +148,7 @@ public class MultiSequenceSHARKStarNodeStatistics {
         if( childrenForSequence  != null &&  childrenForSequence .size() > 0) {
             BigDecimal upper = BigDecimal.ZERO;
             BigDecimal lower = BigDecimal.ZERO;
-            Collections.sort( childrenForSequence );
+            //Collections.sort( childrenForSequence );
             prefix+="+~~";
             for(MultiSequenceSHARKStarNode child:  childrenForSequence ) {
                 BigDecimal childUpper = child.getSequenceBounds(seq).upper;
