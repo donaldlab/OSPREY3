@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.sharkstar;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
+import edu.duke.cs.osprey.astar.conf.PartialConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
@@ -55,8 +56,8 @@ public class TestSHARKStarNodeScorer {
         ));
     }
 
-    private static List<MultiSequenceSHARKStarNode.Node> getLevelOne(TestContext testContext, MultiSequenceSHARKStarNode.Node rootNode){
-        List<MultiSequenceSHARKStarNode.Node> children = new ArrayList<>();
+    private static List<MultiSequenceSHARKStarNode> getLevelOne(TestContext testContext, MultiSequenceSHARKStarNode rootNode){
+        List<MultiSequenceSHARKStarNode> children = new ArrayList<>();
         int numUnassigned = 0;
         for(int i=0; i < testContext.subtreeRoot.length; i++){
             if (testContext.subtreeRoot[i]==-1) {
@@ -66,7 +67,7 @@ public class TestSHARKStarNodeScorer {
         int nextPosIndex = testContext.subtreeRoot.length - numUnassigned;
         int nextPos = testContext.order[nextPosIndex];
         for(int nextRC : testContext.rcs.get(nextPos)){
-            MultiSequenceSHARKStarNode.Node child = rootNode.assign(nextPos, nextRC);
+            MultiSequenceSHARKStarNode child = rootNode.assign(nextPos, nextRC);
             children.add(child);
         }
         return children;
@@ -130,8 +131,8 @@ public class TestSHARKStarNodeScorer {
         for (TestContext system : systems) {
             BigDecimal pfuncSum_upper = BigDecimal.ZERO;
             BigDecimal pfuncSum_lower = BigDecimal.ZERO;
-            List<MultiSequenceSHARKStarNode.Node> levelOne = getLevelOne(system, system.rootNode);
-            for (MultiSequenceSHARKStarNode.Node node : levelOne) {
+            List<MultiSequenceSHARKStarNode> levelOne = getLevelOne(system, system.rootNode);
+            for (MultiSequenceSHARKStarNode node : levelOne) {
                 node.index(system.confIndex);
                 double g_lb = system.lbGScorer.calc(system.confIndex, system.rcs);
                 double g_ub = system.ubGScorer.calc(system.confIndex, system.rcs);
@@ -153,8 +154,8 @@ public class TestSHARKStarNodeScorer {
         for (TestContext system : systems) {
             BigDecimal pfuncSum_upper = BigDecimal.ZERO;
             BigDecimal pfuncSum_lower = BigDecimal.ZERO;
-            List<MultiSequenceSHARKStarNode.Node> levelOne = getLevelOne(system, system.rootNode);
-            for (MultiSequenceSHARKStarNode.Node node : levelOne) {
+            List<MultiSequenceSHARKStarNode> levelOne = getLevelOne(system, system.rootNode);
+            for (MultiSequenceSHARKStarNode node : levelOne) {
                 node.index(system.confIndex);
                 BigDecimal pfuncUpper = system.lbScorer.calcCombinedScore(system.confIndex, system.rcs);
                 BigDecimal pfuncLower = system.ubScorer.calcCombinedScore(system.confIndex, system.rcs);
@@ -175,12 +176,12 @@ public class TestSHARKStarNodeScorer {
         private int[] order;
         private String correctionsCache;
 
-        private MultiSequenceSHARKStarNode.Node rootNode;
+        private MultiSequenceSHARKStarNode rootNode;
 
         private SimpleConfSpace confSpace;
         private RCs rcs;
         private BoltzmannCalculator bc;
-        private ConfIndex confIndex;
+        private ConfIndex<PartialConfAStarNode> confIndex;
 
         private SHARKStarNodeScorer lbScorer;
         private SHARKStarNodeScorer ubScorer;
@@ -272,7 +273,7 @@ public class TestSHARKStarNodeScorer {
             }
             this.rcs = seq.makeRCs(confSpace);
             // Set the correct subtree rootnode
-            rootNode = new MultiSequenceSHARKStarNode.Node(confSpace.positions.size(), 0);
+            rootNode = new MultiSequenceSHARKStarNode(confSpace.positions.size(), 0);
             for(int i = 0; i < subtreeRoot.length; i++){
                 rootNode = rootNode.assign(i, subtreeRoot[i]);
             }

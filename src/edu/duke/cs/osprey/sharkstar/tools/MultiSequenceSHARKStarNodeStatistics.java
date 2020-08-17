@@ -28,8 +28,7 @@ public class MultiSequenceSHARKStarNodeStatistics {
     public static String treeString(String prefix, Sequence seq, MultiSequenceSHARKStarNode node) {
         BoundGetter boundGetter = (node1) -> node1.getSequenceBounds(seq);
         MathTools.BigDecimalBounds bounds = boundGetter.getBounds(node);
-        MultiSequenceSHARKStarNode.Node confSearchNode = node.getConfSearchNode();
-        String confString = confSearchNode.confToString();
+        String confString = node.confToString();
         String out = prefix+confString+":"
                 +"["+node.getConfLowerBound(seq)+","+node.getConfUpperBound(seq)+"]->"
                 +"["+formatBound(bounds.lower)
@@ -57,10 +56,9 @@ public class MultiSequenceSHARKStarNodeStatistics {
             return;
          */
         MathTools.BigDecimalBounds bounds = boundGetter.getBounds(node);
-        MultiSequenceSHARKStarNode.Node confSearchNode = node.getConfSearchNode();
-        String confString = confSearchNode.confToString();
+        String confString = node.confToString();
         if(confSpace != null)
-            confString = confString+"->("+confSpace.formatConfRotamersWithResidueNumbers(confSearchNode.assignments)+")";
+            confString = confString+"->("+confSpace.formatConfRotamersWithResidueNumbers(node.assignments)+")";
         String out = prefix+confString+":"
                 +"["+node.getConfLowerBound(seq)+","+node.getConfUpperBound(seq)+"]->"
                 +"["+formatBound(bounds.lower)
@@ -139,10 +137,9 @@ public class MultiSequenceSHARKStarNodeStatistics {
 
     public static void printBoundBreakDown(Sequence seq, String prefix, MultiSequenceSHARKStarNode node)
     {
-        MultiSequenceSHARKStarNode.Node confSearchNode = node.getConfSearchNode();
         if(node.level == 0) {
             System.out.println("=====================BEGIN TREE INFO==================================");
-            System.out.println(prefix + confSearchNode + ": [" + setSigFigs(node.getSequenceBounds(seq).lower)
+            System.out.println(prefix + node + ": [" + setSigFigs(node.getSequenceBounds(seq).lower)
                     + "," + setSigFigs(node.getSequenceBounds(seq).upper) + "], errorBound =" + String.format("%3.3e",node.getErrorBound(seq)));
         }
 
@@ -156,7 +153,7 @@ public class MultiSequenceSHARKStarNodeStatistics {
             for(MultiSequenceSHARKStarNode child:  childrenForSequence ) {
                 BigDecimal childUpper = child.getSequenceBounds(seq).upper;
                 BigDecimal childLower = child.getSequenceBounds(seq).lower;
-                System.out.print(prefix+child.getConfSearchNode()+": ["+setSigFigs(childLower)
+                System.out.print(prefix+child+": ["+setSigFigs(childLower)
                         +","+setSigFigs(childUpper)+"], epsilon="+String.format("%3.3e",node.getErrorBound(seq)));
                 System.out.print("Upper: " + setSigFigs(upper) + " + "
                         + setSigFigs(childUpper) + " = "

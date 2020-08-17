@@ -22,23 +22,25 @@ import static edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound.isDebugCo
 import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStatistics.*;
 
 
-public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARKStarNode> {
+public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARKStarNode>, PartialConfAStarNode {
     // statics
     static boolean debug = true;
     static BigDecimal bigDecimalBoundTolerance = BigDecimal.valueOf(1e-4);
 
+    private static final int Unassigned = -1;
+    private double partialConfLowerBound = Double.NaN;
+    private double partialConfUpperBound = Double.NaN;
+    public int[] assignments;
+    public int pos = Unassigned;
+    public int rc = Unassigned;
+    public final int level;
     // MSSHARKSTAR Node stuff
 
-    private final MultiSequenceSHARKStarNode parent;
     private final List<MultiSequenceSHARKStarNode> children;
-    private final Node confSearchNode;
-    public SimpleConfSpace.Position nextDesignPosition;
-    public final int level;
 
     // Information for MultiSequence SHARK* Nodes
     private final Map<Sequence, BigDecimal> errorBounds = new HashMap<>();
     private final Map<Sequence, MathTools.BigDecimalBounds> sequenceBounds = new HashMap<>();
-    private final Map<String, List<MultiSequenceSHARKStarNode>> childrenByAA= new HashMap<>(); // probably should override the children list
     private final Map<Sequence, List<MultiSequenceSHARKStarNode>> childrenBySequence = new HashMap<>(); // probably should override the children list
     private final Map<Sequence, MathTools.DoubleBounds> confBounds = new HashMap<>();
     private final Map<Integer,MultiSequenceSHARKStarNode> childrenByRC;
@@ -46,18 +48,33 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     // Debugging variables
     private Map<Sequence, List<String>> nodeHistory = null;
 
-    MultiSequenceSHARKStarNode(Node confNode, MultiSequenceSHARKStarNode parent,
-                               SimpleConfSpace.Position nextDesignPosition){
-        this.confSearchNode = confNode;
-        this.level = confSearchNode.getLevel();
+    public MultiSequenceSHARKStarNode(int size) {
+        this(size, 0);
+    }
+
+    public MultiSequenceSHARKStarNode(int size, int level){
+        assignments = new int[size];
+        Arrays.fill(assignments, Unassigned);
+        this.level = level;
+        if(this.level == 0) {
+            partialConfUpperBound = 0;
+            partialConfLowerBound = 0;
+        }
         this.children = new ArrayList<>();
-        this.parent = parent;
-        this.nextDesignPosition = nextDesignPosition;
         this.childrenByRC = new HashMap<>();
 
         if(debug){
             nodeHistory = new HashMap<>();
         }
+    }
+
+    public MultiSequenceSHARKStarNode assign(int pos, int rc) {
+        MultiSequenceSHARKStarNode node = new MultiSequenceSHARKStarNode(assignments.length, level + 1);
+        node.pos = pos;
+        node.rc = rc;
+        System.arraycopy(assignments, 0, node.assignments, 0, assignments.length);
+        node.assignments[pos] = rc;
+        return node;
     }
 
     /**
@@ -71,18 +88,18 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         // we copy over the new RCs based on permutation information
         int[] newAssignments = new int[size];
         Arrays.fill(newAssignments, -1);
-        for (int i =0; i < this.getConfSearchNode().assignments.length; i++){
-            newAssignments[permutation[i]] = this.getConfSearchNode().assignments[i];
+        for (int i =0; i < this.assignments.length; i++){
+            newAssignments[permutation[i]] = this.assignments[i];
         }
         // Now I'm going to be hacky and just copy over the assignments
-        this.getConfSearchNode().assignments = newAssignments;
-        if (this.getConfSearchNode().pos != -1){
-            this.getConfSearchNode().pos = permutation[this.getConfSearchNode().pos];
+        this.assignments = newAssignments;
+        if (this.pos != -1){
+            this.pos = permutation[this.pos];
         }
     }
 
     public RCTuple toTuple() {
-        return new RCTuple(confSearchNode.assignments);
+        return new RCTuple(this.assignments);
     }
 
     /**
@@ -101,7 +118,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             String confData = String.format("%s - %s %s: [%s, %s] --> [%s, %s]",
                     source,
                     seq,
-                    this.confSearchNode.confToString(),
+                    this.confToString(),
                     convertMagicBigDecimalToString(this.sequenceBounds.getOrDefault(seq, new MathTools.BigDecimalBounds()).lower),
                     convertMagicBigDecimalToString(this.sequenceBounds.getOrDefault(seq, new MathTools.BigDecimalBounds()).upper),
                     convertMagicBigDecimalToString(bounds.lower),
@@ -129,7 +146,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             String confData = String.format("%s - %s %s: [%.6f, %.6f] --> [%.6f, %.6f]",
                     source,
                     seq,
-                    this.confSearchNode.confToString(),
+                    this.confToString(),
                     this.confBounds.getOrDefault(seq, new MathTools.DoubleBounds()).lower,
                     this.confBounds.getOrDefault(seq, new MathTools.DoubleBounds()).upper,
                     bounds.lower,
@@ -149,7 +166,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         if(!bounds.isValid()) {
             System.err.println(String.format("Trying to update %s: %s with invalid bounds: [%.6f, %.6f]",
                     seq,
-                    this.getConfSearchNode().confToString(),
+                    this.confToString(),
                     bounds.lower,
                     bounds.upper
             ));
@@ -158,7 +175,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             System.err.println(String.format(
                     "Trying to update %s: %s with looser bounds: [%.6f, %.6f] --> [%.6f, %.6f]",
                     seq,
-                    this.getConfSearchNode().confToString(),
+                    this.confToString(),
                     bounds.lower,
                     bounds.upper,
                     this.confBounds.get(seq).lower,
@@ -178,7 +195,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         if(!bounds.isValid()) {
             System.err.println(String.format("Trying to update %s: %s with invalid bounds: [%1.6e, %1.6e]",
                     seq,
-                    this.getConfSearchNode().confToString(),
+                    this.confToString(),
                     bounds.lower,
                     bounds.upper
                     ));
@@ -187,7 +204,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             System.err.println(String.format(
                     "Trying to update %s: %s with looser bounds: [%1.6e, %1.6e] --> [%1.6e, %1.6e]",
                     seq,
-                    this.getConfSearchNode().confToString(),
+                    this.confToString(),
                     bounds.lower,
                     bounds.upper,
                     this.sequenceBounds.get(seq).lower,
@@ -204,14 +221,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
     public synchronized BigDecimal getLowerBound(Sequence seq){
         return getSequenceBounds(seq).lower;
-    }
-
-    public void index(ConfIndex confIndex) {
-        confSearchNode.index(confIndex);
-    }
-
-    public Node getConfSearchNode() {
-        return confSearchNode;
     }
 
     private MathTools.DoubleBounds getSequenceConfBounds(Sequence seq) {
@@ -242,22 +251,22 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     /**
      * Returns an existing MultiSequenceSHARKStarNode child that corresponds to the Node, or null
      *
-     * @param child The MultiSequenceSHARKStarNode.Node or "ConfSearchNode"
+     * @param rc
      * @return a MultiSequenceSHARKStarNode instance,  or null
      */
-    public synchronized MultiSequenceSHARKStarNode getExistingChild(Node child){
-        return childrenByRC.get(child.rc);
+    public synchronized MultiSequenceSHARKStarNode getExistingChild(int rc){
+        return childrenByRC.get(rc);
     }
 
     /**
      * Returns true if this node has a MultiSequenceSHARKStarNode child that corresponds to the given Node,
      * false otherwise.
      *
-     * @param child The MultiSequenceSHARKStarNode.Node or "ConfSearchNode"
+     * @param rc
      * @return a MultiSequenceSHARKStarNode instance,  or null
      */
-    public synchronized boolean hasExistingChild(Node child){
-        return childrenByRC.containsKey(child.rc);
+    public synchronized boolean hasExistingChild(int rc){
+        return childrenByRC.containsKey(rc);
     }
 
     /**
@@ -270,32 +279,18 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             children.add(child);
         }else {
             // Add the child to the childrenByRC Map
-            childrenByRC.put(child.getConfSearchNode().rc, child);
+            childrenByRC.put(child.rc, child);
 
             // Ensure that the childrenBySequence Map and List have been initialized properly
             if (!childrenBySequence.containsKey(seq) || childrenBySequence.get(seq) == null)
                 childrenBySequence.put(seq, new ArrayList<>());
             // Add the child to the childrenBySequence Map
             childrenBySequence.get(seq).add(child);
-
-            // Ensure that the childrenByAA Map and List have been initialized properly
-            String AA = getAllowedAA(seq);
-            if (!childrenByAA.containsKey(AA) || childrenByAA.get(AA) == null)
-                childrenByAA.put(AA, new ArrayList<>());
-            // Add the child to the childrenByAA Map
-            childrenByAA.get(AA).add(child);
         }
         if(debug)
             checkChildren(seq);
     }
 
-    private String getAllowedAA(Sequence seq) {
-        String resNum = nextDesignPosition.resNum;
-        String AA = nextDesignPosition.resTypes.get(0);
-        if(seq.seqSpace.getResNums().contains(resNum))
-            AA = seq.get(resNum).name;
-        return AA;
-    }
 
     private void checkAllChildren() {
         checkListForDupes(children, "(all sequences)");
@@ -305,12 +300,12 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         Set<Integer> rcs = new HashSet<>();
         for(int i=0; i < list.size(); i++) {
             MultiSequenceSHARKStarNode node = list.get(i);
-            int rc = node.confSearchNode.assignments[node.confSearchNode.pos];
+            int rc = node.assignments[node.pos];
             if(rcs.contains(rc)) {
                 System.out.println("Dupe nodes for "+identifier+":");
                 for(MultiSequenceSHARKStarNode nodecheck: list) {
-                    if(nodecheck.confSearchNode.assignments[node.confSearchNode.pos] == rc)
-                        System.out.println(nodecheck+"-"+nodecheck.confSearchNode.confToString());
+                    if(node.assignments[node.pos] == rc)
+                        System.out.println(nodecheck+"-"+nodecheck.confToString());
                 }
             }
             rcs.add(rc);
@@ -352,10 +347,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         return Type.minimizedLeaf;
     }
 
-    public static MultiSequenceSHARKStarNode makeRoot(Node rootNode, SimpleConfSpace.Position nextDesignPosition) {
-        return new MultiSequenceSHARKStarNode(rootNode, null, nextDesignPosition);
-    }
-
     @Override
     public int compareTo(@NotNull MultiSequenceSHARKStarNode other){
         throw new UnsupportedOperationException("You can't compare multisequence nodes without a sequence.");
@@ -366,12 +357,12 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
     public MathTools.BigDecimalBounds getSequenceBounds(Sequence seq) {
-        if(isDebugConf(confSearchNode.assignments) && confBounds.containsKey(seq) && confBounds.get(seq).lower < 0
+        if(isDebugConf(this.assignments) && confBounds.containsKey(seq) && confBounds.get(seq).lower < 0
                 && sequenceBounds.containsKey(seq)
                 && MathTools.isLessThan(sequenceBounds.get(seq).upper, BigDecimal.ONE))
             System.err.println("Impossible bounds. Something is wrong.");
         if(!sequenceBounds.containsKey(seq)) {
-            if(isDebugConf(confSearchNode.assignments))
+            if(isDebugConf(this.assignments))
                 System.out.println("Gotcha-getsequence");
             sequenceBounds.put(seq, new MathTools.BigDecimalBounds(BigDecimal.ZERO, MathTools.BigPositiveInfinity));
         }
@@ -379,10 +370,10 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
     public String toSeqString(Sequence seq) {
-        String out = confSearchNode.confToString();//fullConfSpace.formatConfRotamersWithResidueNumbers(confSearchNode.assignments);//
+        String out = this.confToString();//fullConfSpace.formatConfRotamersWithResidueNumbers(confSearchNode.assignments);//
         BigDecimal subtreeLowerBound = getLowerBound(seq);
         BigDecimal subtreeUpperBound = getUpperBound(seq);
-        out += "Energy:" + String.format("%4.2f", confSearchNode.getPartialConfLowerBound());
+        out += "Energy:" + String.format("%4.2f", this.getPartialConfLowerBound());
         if (!isMinimized(seq))
             out += " in [" + String.format("%4.4e,%4.4e", getSequenceConfBounds(seq).lower, getSequenceConfBounds(seq).upper)
                     + "]->[" + convertMagicBigDecimalToString(subtreeLowerBound) + "," + convertMagicBigDecimalToString(subtreeUpperBound) + "]";
@@ -399,105 +390,67 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
     @Override
     public String toString(){
-        return confSearchNode.confToString();
+        return this.confToString();
     }
 
-    public static class Node implements PartialConfAStarNode {
-
-        private static final int Unassigned = -1;
-        private double partialConfLowerBound = Double.NaN;
-        private double partialConfUpperBound = Double.NaN;
-        public int[] assignments;
-        public int pos = Unassigned;
-        public int rc = Unassigned;
-        public final int level;
-
-        public Node(int size) {
-            this(size, 0);
-        }
-
-        public Node(int size, int level) {
-            assignments = new int[size];
-            Arrays.fill(assignments, Unassigned);
-            this.level = level;
-            if(this.level == 0) {
-                partialConfUpperBound = 0;
-                partialConfLowerBound = 0;
-            }
-        }
-
-        public boolean isLeaf() {
-            return level == assignments.length;
-        }
-
-        public Node assign(int pos, int rc) {
-            Node node = new Node(assignments.length, level + 1);
-            node.pos = pos;
-            node.rc = rc;
-            System.arraycopy(assignments, 0, node.assignments, 0, assignments.length);
-            node.assignments[pos] = rc;
-            return node;
-        }
-
-        @Override
-        public void getConf(int[] conf) {
-            System.arraycopy(assignments, 0, conf, 0, assignments.length);
-        }
-
-        @Override
-        public double getGScore() {
-            return getPartialConfLowerBound();
-        }
-
-        @Override
-        public double getRigidGScore() {
-            return getPartialConfUpperBound();
-        }
-
-        @Override
-        public void setGScore(double val) {
-            throw new UnsupportedOperationException("Should not be set this way.");
-        }
-
-        @Override
-        public int getLevel() {
-            return level;
-        }
-
-        @Override
-        public void index(@NotNull ConfIndex confIndex) {
-            confIndex.numDefined = 0;
-            confIndex.numUndefined = 0;
-            for (int pos = 0; pos < assignments.length; pos++) {
-                int rc = assignments[pos];
-                if (rc == -1) {
-                    confIndex.undefinedPos[confIndex.numUndefined] = pos;
-                    confIndex.numUndefined++;
-                } else {
-                    confIndex.definedPos[confIndex.numDefined] = pos;
-                    confIndex.definedRCs[confIndex.numDefined] = assignments[pos];
-                    confIndex.numDefined++;
-                }
-            }
-            confIndex.node = this;
-        }
-
-        public String confToString() {
-            return Arrays.toString(this.assignments);
-        }
-
-        public double getPartialConfLowerBound() {
-            return partialConfLowerBound;
-        }
-
-        public void setPartialConfLowerAndUpper(double partialConfLowerBound, double partialConfUpperBound) {
-            this.partialConfLowerBound = partialConfLowerBound;
-            this.partialConfUpperBound = partialConfUpperBound;
-        }
-
-        public double getPartialConfUpperBound() {
-            return partialConfUpperBound;
-        }
-
+    @Override
+    public void getConf(int[] conf) {
+        System.arraycopy(assignments, 0, conf, 0, assignments.length);
     }
+
+    @Override
+    public double getGScore() {
+        return getPartialConfLowerBound();
+    }
+
+    @Override
+    public double getRigidGScore() {
+        return getPartialConfUpperBound();
+    }
+
+    @Override
+    public void setGScore(double val) {
+        throw new UnsupportedOperationException("Should not be set this way.");
+    }
+
+    @Override
+    public int getLevel() {
+        return level;
+    }
+
+    @Override
+    public void index(@NotNull ConfIndex confIndex) {
+        confIndex.numDefined = 0;
+        confIndex.numUndefined = 0;
+        for (int pos = 0; pos < assignments.length; pos++) {
+            int rc = assignments[pos];
+            if (rc == -1) {
+                confIndex.undefinedPos[confIndex.numUndefined] = pos;
+                confIndex.numUndefined++;
+            } else {
+                confIndex.definedPos[confIndex.numDefined] = pos;
+                confIndex.definedRCs[confIndex.numDefined] = assignments[pos];
+                confIndex.numDefined++;
+            }
+        }
+        confIndex.node = this;
+    }
+
+    public String confToString() {
+        return Arrays.toString(this.assignments);
+    }
+
+    public double getPartialConfLowerBound() {
+        return partialConfLowerBound;
+    }
+
+    public void setPartialConfLowerAndUpper(double partialConfLowerBound, double partialConfUpperBound) {
+        this.partialConfLowerBound = partialConfLowerBound;
+        this.partialConfUpperBound = partialConfUpperBound;
+    }
+
+    public double getPartialConfUpperBound() {
+        return partialConfUpperBound;
+    }
+
 }
