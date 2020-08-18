@@ -31,6 +31,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
+import static edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound.loopTasks;
 import static edu.duke.cs.osprey.sharkstar.TestSHARKStar.loadFromCFS;
 import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStatistics.setSigFigs;
 import static org.hamcrest.Matchers.*;
@@ -1015,7 +1016,7 @@ public class TestSHARKStarBound extends TestBase {
                 ssbound.getValues().pstar
                 ));
 
-        MultiSequenceSHARKStarBound.loopTasks.waitForFinish();
+        loopTasks.waitForFinish();
         System.out.println(String.format("State eps: %.9f, [%1.9e, %1.9e]",
                 ssbound_two.state.getDelta(),
                 ssbound_two.state.getLowerBound(),
@@ -1054,6 +1055,38 @@ public class TestSHARKStarBound extends TestBase {
                 wildType,
                 bound.getValues().calcLowerBound(),
                 bound.getValues().calcUpperBound()
+        ));
+    }
+
+    @Test
+    public void test4u3sB_singleSeq() throws FileNotFoundException {
+        TestKStar.ConfSpaces confSpaces = loadFromCFS("test-resources/4u3s_B_10res_1.548E+11.cfs");
+        Sequence wildType = confSpaces.complex.makeWildTypeSequence();
+        List<String> seqList = new ArrayList<>();
+        seqList.add("VAL");
+        Sequence second = confSpaces.complex.seqSpace.makeSequence(seqList);
+        MultiSequenceSHARKStarBound bound= makeSHARKStarPfuncForConfSpace(confSpaces.complex, wildType, 0.99, null, null);
+        SingleSequenceSHARKStarBound ssbound = (SingleSequenceSHARKStarBound) bound.getPartitionFunctionForSequence(wildType);
+        ssbound.compute();
+        SingleSequenceSHARKStarBound ssbound_two = (SingleSequenceSHARKStarBound) bound.getPartitionFunctionForSequence(second);
+        ssbound_two.compute();
+        System.out.println(String.format("Final bounds for seq %s: [%1.3e, %1.3e]",
+                wildType,
+                ssbound.getValues().qstar,
+                ssbound.getValues().pstar
+        ));
+
+
+        loopTasks.waitForFinish();
+        System.out.println(String.format("State eps: %.9f, [%1.9e, %1.9e]",
+                ssbound_two.state.getDelta(),
+                ssbound_two.state.getLowerBound(),
+                ssbound_two.state.getUpperBound()
+        ));
+        System.out.println(String.format("Queue eps: %.9f, [%1.9e, %1.9e]",
+                ssbound_two.getEpsFromQueues(),
+                ssbound_two.getLowerFromQueues(),
+                ssbound_two.getUpperFromQueues()
         ));
     }
 }

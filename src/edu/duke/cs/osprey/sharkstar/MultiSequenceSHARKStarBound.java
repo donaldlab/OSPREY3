@@ -282,10 +282,13 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         //rootNode.updateSubtreeBounds(seq);
         //newBound.updateBound();
         newBound.updateStateFromQueues();
-        debugPrint(String.format("Created pfunc with eps: %.6f, [%1.3e, %1.3e]",
+        System.out.println(String.format("Created pfunc for %s with eps: %.6f, [%1.3e, %1.3e], %d nodes in the leaf queue, %d nodes in the internal queue",
+                newBound.sequence,
                 newBound.state.getDelta(),
                 newBound.state.getLowerBound(),
-                newBound.state.getUpperBound()
+                newBound.state.getUpperBound(),
+                newBound.leafQueue.size(),
+                newBound.internalQueue.size()
                 ));
         if(newBound.getSequenceEpsilon() == 0)
             System.err.println(String.format("Perfectly bounded sequence for %s %s, Eps: %.9f [%1.3e, %1.3e]",
@@ -295,7 +298,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     newBound.state.getLowerBound(),
                     newBound.state.getUpperBound()
                     ));
-        //rootNode.updateSubtreeBounds(seq);
         return newBound;
     }
 
