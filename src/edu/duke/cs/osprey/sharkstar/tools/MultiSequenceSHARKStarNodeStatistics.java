@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.sharkstar.tools;
 
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
@@ -25,7 +26,13 @@ public class MultiSequenceSHARKStarNodeStatistics {
         return String.format("%12.6e", bd);
     }
 
-    public static String treeString(String prefix, Sequence seq, MultiSequenceSHARKStarNode node) {
+    public static String treeString(String prefix, Sequence seq, SimpleConfSpace confSpace, MultiSequenceSHARKStarNode node) {
+        RCs seqRCs = seq.makeRCs(confSpace);
+        List<MultiSequenceSHARKStarNode> tempChildren = node.getAllChildren();
+        int nextPos = -1;
+        if(!tempChildren.isEmpty()){
+            nextPos = tempChildren.get(0).pos;
+        }
         BoundGetter boundGetter = (node1) -> node1.getSequenceBounds(seq);
         MathTools.BigDecimalBounds bounds = boundGetter.getBounds(node);
         String confString = node.confToString();
@@ -35,13 +42,13 @@ public class MultiSequenceSHARKStarNodeStatistics {
                 +","+formatBound(bounds.upper)+"]"+"\n";
         if(MathTools.isLessThan(node.getUpperBound(seq), BigDecimal.ZERO))
             return out;
-        List<MultiSequenceSHARKStarNode> children = node.getChildren(seq);
+        List<MultiSequenceSHARKStarNode> children = node.getChildren(seqRCs.get(nextPos));
         if( children != null && ! children.isEmpty()) {
             BoundGetter finalBoundGetter = boundGetter;
             Collections.sort( children, (a, b)->
                     -MathTools.compare(finalBoundGetter.getBounds(a).upper, finalBoundGetter.getBounds(b).upper));
             for (MultiSequenceSHARKStarNode child :  children)
-                out += treeString(prefix + "~+", seq, child);
+                out += treeString(prefix + "~+", seq, confSpace, child);
         }
         return out;
     }
@@ -49,6 +56,12 @@ public class MultiSequenceSHARKStarNodeStatistics {
     public static void printTree(String prefix, FileWriter writer, SimpleConfSpace confSpace, Sequence seq,
                                  MultiSequenceSHARKStarNode node, BoundGetter boundGetter)
     {
+        RCs seqRCs = seq.makeRCs(confSpace);
+        List<MultiSequenceSHARKStarNode> tempChildren = node.getAllChildren();
+        int nextPos = -1;
+        if(!tempChildren.isEmpty()){
+            nextPos = tempChildren.get(0).pos;
+        }
         if(boundGetter == null)
             boundGetter = (node1) -> node1.getSequenceBounds(seq);
         /*
@@ -74,7 +87,7 @@ public class MultiSequenceSHARKStarNodeStatistics {
         }
         else
             System.out.print(out);
-        List<MultiSequenceSHARKStarNode> children = node.getChildren(seq);
+        List<MultiSequenceSHARKStarNode> children = node.getChildren(seqRCs.get(nextPos));
         if( children != null && ! children.isEmpty()) {
             BoundGetter finalBoundGetter = boundGetter;
             Collections.sort( children, (a, b)->
@@ -130,12 +143,12 @@ public class MultiSequenceSHARKStarNodeStatistics {
     public static BigDecimal setSigFigs(BigDecimal decimal){
         return setSigFigs(decimal, 4);
     }
-    public static void printBoundBreakDown(Sequence seq, MultiSequenceSHARKStarNode node)
+    public static void printBoundBreakDown(Sequence seq, SimpleConfSpace confSpace, MultiSequenceSHARKStarNode node)
     {
-        printBoundBreakDown(seq, "", node);
+        printBoundBreakDown(seq, confSpace, "", node);
     }
 
-    public static void printBoundBreakDown(Sequence seq, String prefix, MultiSequenceSHARKStarNode node)
+    public static void printBoundBreakDown(Sequence seq, SimpleConfSpace confSpace, String prefix, MultiSequenceSHARKStarNode node)
     {
         if(node.level == 0) {
             System.out.println("=====================BEGIN TREE INFO==================================");
@@ -143,7 +156,13 @@ public class MultiSequenceSHARKStarNodeStatistics {
                     + "," + setSigFigs(node.getSequenceBounds(seq).upper) + "], errorBound =" + String.format("%3.3e",node.getErrorBound(seq)));
         }
 
-        List< MultiSequenceSHARKStarNode> childrenForSequence = node.getChildren(seq);
+        RCs seqRCs = seq.makeRCs(confSpace);
+        List<MultiSequenceSHARKStarNode> tempChildren = node.getAllChildren();
+        int nextPos = -1;
+        if(!tempChildren.isEmpty()){
+            nextPos = tempChildren.get(0).pos;
+        }
+        List< MultiSequenceSHARKStarNode> childrenForSequence = node.getChildren(seqRCs.get(nextPos));
 
         if( childrenForSequence  != null &&  childrenForSequence .size() > 0) {
             BigDecimal upper = BigDecimal.ZERO;
@@ -163,7 +182,7 @@ public class MultiSequenceSHARKStarNodeStatistics {
                         + setSigFigs(lower.add(childLower)));
                 upper = upper.add(childUpper);
                 lower = lower.add(childLower);
-                printBoundBreakDown(seq, prefix, child);
+                printBoundBreakDown(seq, confSpace, prefix, child);
             }
         }
         if(node.level == 0) {
@@ -172,11 +191,19 @@ public class MultiSequenceSHARKStarNodeStatistics {
     }
 
     public static void checkPartialConfNode(SingleSequenceSHARKStarBound bound, List<MultiSequenceSHARKStarNode> processedNodes) {
-
         for(MultiSequenceSHARKStarNode curNode: processedNodes) {
+            List<MultiSequenceSHARKStarNode> tempChildren = curNode.getAllChildren();
+            int nextPos = -1;
+            if(!tempChildren.isEmpty()){
+                nextPos = tempChildren.get(0).pos;
+            }
+            List<MultiSequenceSHARKStarNode> children = null;
+            if(nextPos > 0)
+                children = curNode.getChildren(bound.seqRCs.get(nextPos));
+
             BigDecimal childUpperSum = BigDecimal.ZERO;
             BigDecimal childLowerSum = BigDecimal.ZERO;
-            for (MultiSequenceSHARKStarNode newChild : curNode.getChildren(bound.sequence)) {
+            for (MultiSequenceSHARKStarNode newChild : children) {
                 BigDecimal childUpper = newChild.getUpperBound(bound.sequence);
                 childUpperSum = childUpperSum.add(childUpper);
                 BigDecimal childLower = newChild.getLowerBound(bound.sequence);
@@ -187,7 +214,7 @@ public class MultiSequenceSHARKStarNodeStatistics {
                             PartitionFunction.decimalPrecision, 0.01)) {
                 System.err.println("Error. Child has greater upper bound than parent.");
                 System.err.println(String.format("%s:%12.6e", curNode.toSeqString(bound.sequence), curNode.getUpperBound(bound.sequence)));
-                for (MultiSequenceSHARKStarNode newChild : curNode.getChildren(bound.sequence))
+                for (MultiSequenceSHARKStarNode newChild : children)
                     System.err.println(String.format("%s:%12.6e", newChild.toSeqString(bound.sequence), newChild.getUpperBound(bound.sequence)));
                 System.exit(-1);
             }
@@ -196,7 +223,7 @@ public class MultiSequenceSHARKStarNodeStatistics {
                             PartitionFunction.decimalPrecision, 0.01)) {
                 System.err.println("Error. Child has lower lower bound than parent.");
                 System.err.println(String.format("%s:%12.6e", curNode.toSeqString(bound.sequence), curNode.getLowerBound(bound.sequence)));
-                for (MultiSequenceSHARKStarNode newChild : curNode.getChildren(bound.sequence))
+                for (MultiSequenceSHARKStarNode newChild : children)
                     System.err.println(String.format("%s:%12.6e", newChild.toSeqString(bound.sequence), newChild.getLowerBound(bound.sequence)));
                 System.exit(-1);
             }

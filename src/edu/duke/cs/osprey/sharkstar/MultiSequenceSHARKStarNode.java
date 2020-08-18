@@ -25,24 +25,20 @@ import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStati
 public class MultiSequenceSHARKStarNode implements PartialConfAStarNode {
     // statics
     static boolean debug = false;
-
     private static final int Unassigned = -1;
+
     private double partialConfLowerBound = Double.NaN;
     private double partialConfUpperBound = Double.NaN;
     public int[] assignments;
     public int pos = Unassigned;
     public int rc = Unassigned;
     public final int level;
-    // MSSHARKSTAR Node stuff
-
-    private final List<MultiSequenceSHARKStarNode> children;
 
     // Information for MultiSequence SHARK* Nodes
+    private final Map<Integer,MultiSequenceSHARKStarNode> childrenByRC;
     private final Map<Sequence, BigDecimal> errorBounds = new HashMap<>();
     private final Map<Sequence, MathTools.BigDecimalBounds> sequenceBounds = new HashMap<>();
-    private final Map<Sequence, List<MultiSequenceSHARKStarNode>> childrenBySequence = new HashMap<>(); // probably should override the children list
     private final Map<Sequence, MathTools.DoubleBounds> confBounds = new HashMap<>();
-    private final Map<Integer,MultiSequenceSHARKStarNode> childrenByRC;
 
     // Debugging variables
     private Map<Sequence, List<String>> nodeHistory = null;
@@ -59,7 +55,6 @@ public class MultiSequenceSHARKStarNode implements PartialConfAStarNode {
             partialConfUpperBound = 0;
             partialConfLowerBound = 0;
         }
-        this.children = new ArrayList<>();
         this.childrenByRC = new HashMap<>();
 
         if(debug){
@@ -243,17 +238,17 @@ public class MultiSequenceSHARKStarNode implements PartialConfAStarNode {
         return getSequenceConfBounds(seq).upper;
     }
 
-    public boolean hasChildren(Sequence seq) {
-        return childrenBySequence.containsKey(seq) &&
-                !childrenBySequence.get(seq).isEmpty();
+    public synchronized List<MultiSequenceSHARKStarNode> getAllChildren(){
+        return new ArrayList<>(this.childrenByRC.values());
     }
 
-    public List<MultiSequenceSHARKStarNode> getChildren(Sequence seq) {
-        if(seq == null)
-            return children;
-        if(debug)
-            checkChildren(seq);
-        return childrenBySequence.get(seq);
+    public synchronized List<MultiSequenceSHARKStarNode> getChildren(int[] rcs){
+        List<MultiSequenceSHARKStarNode> children = new ArrayList<>();
+        for (int value : rcs) {
+            if (this.childrenByRC.containsKey(value))
+                children.add(this.childrenByRC.get(value));
+        }
+        return children;
     }
 
     /**
@@ -283,24 +278,14 @@ public class MultiSequenceSHARKStarNode implements PartialConfAStarNode {
      * @param seq The sequence associated with the child
      */
     public synchronized void addChild(MultiSequenceSHARKStarNode child, Sequence seq){
-        if(seq == null){
-            children.add(child);
-        }else {
-            // Add the child to the childrenByRC Map
-            childrenByRC.put(child.rc, child);
-
-            // Ensure that the childrenBySequence Map and List have been initialized properly
-            if (!childrenBySequence.containsKey(seq) || childrenBySequence.get(seq) == null)
-                childrenBySequence.put(seq, new ArrayList<>());
-            // Add the child to the childrenBySequence Map
-            childrenBySequence.get(seq).add(child);
-        }
+        // Add the child to the childrenByRC Map
+        childrenByRC.put(child.rc, child);
         if(debug)
-            checkChildren(seq);
+            checkAllChildren();
     }
 
     private void checkAllChildren() {
-        checkListForDupes(children, "(all sequences)");
+        checkListForDupes(new ArrayList<>(this.childrenByRC.values()), "(all sequences)");
     }
 
     private void checkListForDupes(List<MultiSequenceSHARKStarNode> list, String identifier) {
@@ -317,22 +302,6 @@ public class MultiSequenceSHARKStarNode implements PartialConfAStarNode {
             }
             rcs.add(rc);
         }
-    }
-
-    private void checkChildren(Sequence seq) {
-        if(!debug)
-            return;
-        checkAllChildren();
-        if(hasChildren(seq)) {
-            List<MultiSequenceSHARKStarNode> multiSequenceSHARKStarNodes = childrenBySequence.get(seq);
-            checkListForDupes(multiSequenceSHARKStarNodes, seq.toString());
-        }
-        checkAllChildren();
-    }
-
-    public void checkDescendents(Sequence seq) {
-        if(hasChildren(seq))
-            System.out.println("Already expanded node?");
     }
 
     public synchronized void dumpHistory(Sequence sequence) {

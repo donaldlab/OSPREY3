@@ -356,8 +356,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private void updatePrecomputedNode(MultiSequenceSHARKStarNode node, int[] permutation, int size) {
         node.makeNodeCompatibleWithConfSpace(permutation, size);
-        if (node.hasChildren(precomputedSequence)) {
-            for (MultiSequenceSHARKStarNode child : node.getChildren(precomputedSequence)) {
+        List<MultiSequenceSHARKStarNode> children = node.getAllChildren();
+        if (!children.isEmpty()) {
+            for (MultiSequenceSHARKStarNode child : children) {
                 updatePrecomputedNode(child, permutation, size);
             }
         }else {
@@ -394,15 +395,20 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         // Fix issue where nextDesignPosition can be null
                         node.index(context.index);
 
-                        // Get the children
-                        List<MultiSequenceSHARKStarNode> children = node.getChildren(seqBound.sequence);
-                        // If we are at a leaf, score the node
+                        // alternative method for getting children
+                        List<MultiSequenceSHARKStarNode> children = null;
+                        if(node.getLevel() < seqBound.seqRCs.getNumPos()) {
+                            int nextPos = msBound.order.getNextPos(context.index, seqBound.seqRCs);
+                            int[] seqRcsAllowedAtPos = seqBound.seqRCs.get(nextPos);
+                            children = node.getChildren(seqRcsAllowedAtPos);
+                        }
+
                         if(children != null && !children.isEmpty()) {
                             // if there are children, just add them to queue, since we only want the fringe
                             result.isFringe = false;
                             result.nodes.addAll(children);
-                            //unscoredSeqFringe.addAll(children);
                         }else{
+                            // If we are at a leaf, score the node
                             double confCorrection = msBound.correctionMatrix.confE(node.assignments);
                             double gscore = context.partialConfLowerBoundScorer.calc(context.index, seqBound.seqRCs);
                             double hscore = context.lowerBoundScorer.calc(context.index, seqBound.seqRCs);
@@ -429,10 +435,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                 historyString = String.format("%s: previous lower bound %f, g score %f, hscore %f, f score %f corrected score %f, from %s",
                                         node.confToString(), node.getConfLowerBound(seqBound.sequence), gscore, hscore, gscore + hscore, confCorrection, getStackTrace());
                             }
-
-                            if (node.getChildren(null).isEmpty())
-                                msBound.correctionMatrix.setHigherOrder(new RCTuple(node.assignments), node.getPartialConfLowerBound()
-                                        - msBound.minimizingEmat.confE(node.assignments));
 
                             result.isFringe = true;
                             result.nodes.add(node);
@@ -516,6 +518,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             bound.compute();
         }
         loopTasks.waitForFinish(); // we really do need this to finish before we can start on the other sequences
+        addFullMinimizationsToCorrectionMatrix(precompFlex, bound);
         precompFlex.printEnsembleAnalysis();
         processPrecomputedFlex(precompFlex);
         // Check to make sure bounds are the same as the queue bounds
@@ -863,7 +866,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                     startLB = startLB.add(internalNode.getLowerBound(singleSequencePfunc.sequence), PartitionFunction.decimalPrecision);
                                     startUB = startUB.add(internalNode.getUpperBound(singleSequencePfunc.sequence), PartitionFunction.decimalPrecision);
 
-                                    internalNode.checkDescendents(singleSequencePfunc.sequence);
                                     if (diveForLeaves && !MathTools.isGreaterThan(internalNode.getLowerBound(singleSequencePfunc.sequence), BigDecimal.ONE) &&
                                             (singleSequencePfunc.state.getUpperBound().compareTo(BigDecimal.ONE) < 0 ||
                                             MathTools.isGreaterThan(
@@ -1182,9 +1184,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             result.sequenceBound.state.numRoundsEnergy++;
 
             //update tracking variables
-            if (result.msBound.precomputedSequence.equals(confSpace.makeUnassignedSequence()))
-                result.msBound.correctionMatrix.setHigherOrder(new RCTuple(result.minimizedNode.assignments),
-                        result.energy - result.msBound.minimizingEmat.confE(result.minimizedNode.assignments));
             result.msBound.numConfsEnergied++;
             result.msBound.numConfsEnergiedThisLoop++;
             result.msBound.minList.set(result.conf.getAssignments().length - 1, result.msBound.minList.get(result.conf.getAssignments().length - 1) + 1);
@@ -1612,37 +1611,23 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
      * Returns a correction matrix with full minimizations included
      */
     public UpdatingEnergyMatrix genCorrectionMatrix() {
-        addFullMinimizationsToCorrectionMatrix();
+        //addFullMinimizationsToCorrectionMatrix();
         return this.correctionMatrix;
     }
 
     /**
      * Takes the full minimizations from this tree, insert them into the correction matrix
      */
-    private void addFullMinimizationsToCorrectionMatrix(){
-        captureSubtreeFullMinimizations(this.rootNode);
-    }
-
-    /**
-     * Takes the full minimizations from this subtree, insert them into the correction matrix
-     */
-    private void captureSubtreeFullMinimizations(MultiSequenceSHARKStarNode subTreeRoot){
-        if (!subTreeRoot.hasChildren(precomputedSequence)){
-            if (subTreeRoot.isMinimized(precomputedSequence)){
-                RCTuple tuple = new RCTuple(subTreeRoot.assignments);
-                double confEnergy = subTreeRoot.getConfLowerBound(precomputedSequence);
-                double lowerbound = this.minimizingEmat.getInternalEnergy(tuple);
-                if (lowerbound == confEnergy)
-                    throw new ValueException("Minimized energies shouldn't equal lower bounds");
-                double correction = confEnergy - lowerbound;
-                this.correctionMatrix.setHigherOrder(tuple, correction);
-            }
-        }else{
-            for (MultiSequenceSHARKStarNode node : subTreeRoot.getChildren(precomputedSequence)){
-                captureSubtreeFullMinimizations(node);
+    private static void addFullMinimizationsToCorrectionMatrix(MultiSequenceSHARKStarBound msBound, SingleSequenceSHARKStarBound seqBound){
+        for (MultiSequenceSHARKStarNode node : seqBound.finishedNodes){
+            double nodeLB = msBound.minimizingEmat.confE(node.assignments);
+            double nodeUB = msBound.rigidEmat.confE(node.assignments);
+            double correctionSize = node.getPartialConfLowerBound() - nodeLB; //since the node is minimized, the first term is the minimized E
+            if(correctionSize > 0 && nodeLB + correctionSize < nodeUB){
+                msBound.correctionMatrix.setHigherOrder(new RCTuple(node.assignments), correctionSize);
             }
         }
-
+        //captureSubtreeFullMinimizations(this.rootNode);
     }
 
     public List<TupE> getCorrections() {
