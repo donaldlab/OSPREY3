@@ -755,13 +755,15 @@ public class BBKStar {
 				}
 			}
 
-			System.out.println("Trying to print ensemble stats for protein.");
-			lastNode.protein.printStats();
-			System.out.println("Trying to print ensemble stats for ligand.");
-			lastNode.ligand.printStats();
-			System.out.println("Trying to print ensemble stats for complex.");
-			lastNode.complex.printStats();
-			//lastPfunc.printStats();
+			if(lastNode != null) {
+				System.out.println("Trying to print ensemble stats for protein.");
+				lastNode.protein.printStats();
+				System.out.println("Trying to print ensemble stats for ligand.");
+				lastNode.ligand.printStats();
+				System.out.println("Trying to print ensemble stats for complex.");
+				lastNode.complex.printStats();
+				//lastPfunc.printStats();
+			}
 		}
 		countCycles(tree, finishedNodes);
 		finishedNodes.forEach((SingleSequenceNode n) -> {
