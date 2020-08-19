@@ -1798,7 +1798,11 @@ public class Sofea {
 			}
 
 			public ConfDB.ConfTable table() {
-				return db.get(key);
+				if (db != null) {
+					return db.get(key);
+				} else {
+					return null;
+				}
 			}
 		}
 
