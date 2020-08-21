@@ -394,7 +394,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     try (ObjectPool.Checkout<ScoreContext> checkout = msBound.contexts.autoCheckout()) {
                         ScoreContext context = checkout.get();
 
-                        // Fix issue where nextDesignPosition can be null
                         node.index(context.index);
 
                         // alternative method for getting children
@@ -411,11 +410,22 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                             result.nodes.addAll(children);
                         }else{
                             // If we are at a leaf, score the node
+                            // As a note, the gscores should be correct, but the hscores will need to change
                             double confCorrection = msBound.correctionMatrix.confE(node.assignments);
-                            double gscore = context.partialConfLowerBoundScorer.calc(context.index, seqBound.seqRCs);
-                            double hscore = context.lowerBoundScorer.calc(context.index, seqBound.seqRCs);
-                            double confLowerBound = node.getPartialConfLowerBound() + context.lowerBoundScorer.calc(context.index, seqBound.seqRCs);
-                            double confUpperBound = node.getPartialConfUpperBound() + context.upperBoundScorer.calc(context.index, seqBound.seqRCs);
+                            double gscoreLB = context.partialConfLowerBoundScorer.calc(context.index, seqBound.seqRCs);
+                            //double gscoreUB = context.partialConfUpperBoundScorer.calc(context.index, seqBound.seqRCs);
+                            double hscoreLB = context.lowerBoundScorer.calc(context.index, seqBound.seqRCs);
+                            double hscoreUB = context.upperBoundScorer.calc(context.index, seqBound.seqRCs);
+
+                            // check if we should correct the node
+                            double confUpperBound = node.getPartialConfUpperBound() + hscoreUB;
+                            double confLowerBound;
+                            if(confCorrection > node.getPartialConfLowerBound() && confCorrection < node.getPartialConfUpperBound())
+                                confLowerBound = confCorrection + hscoreLB;
+                            else
+                                confLowerBound = node.getPartialConfLowerBound() + hscoreLB;
+
+
                             MathTools.DoubleBounds confBounds = new MathTools.DoubleBounds(confLowerBound, confUpperBound);
                             /*
                             node.setBoundsFromConfLowerAndUpperWithHistory(confLowerBound,
@@ -435,7 +445,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                             String historyString = "";
                             if(debug){
                                 historyString = String.format("%s: previous lower bound %f, g score %f, hscore %f, f score %f corrected score %f, from %s",
-                                        node.confToString(), node.getConfLowerBound(seqBound.sequence), gscore, hscore, gscore + hscore, confCorrection, getStackTrace());
+                                        node.confToString(), node.getConfLowerBound(seqBound.sequence), gscoreLB, hscoreLB, gscoreLB + hscoreLB, confCorrection, getStackTrace());
                             }
 
                             result.isFringe = true;
@@ -520,7 +530,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             bound.compute();
         }
         loopTasks.waitForFinish(); // we really do need this to finish before we can start on the other sequences
-        addFullMinimizationsToCorrectionMatrix(precompFlex, bound);
+        if(doCorrections)
+            addFullMinimizationsToCorrectionMatrix(precompFlex, bound);
         precompFlex.printEnsembleAnalysis();
         processPrecomputedFlex(precompFlex);
         // Check to make sure bounds are the same as the queue bounds
