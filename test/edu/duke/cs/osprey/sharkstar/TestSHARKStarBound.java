@@ -1076,7 +1076,6 @@ public class TestSHARKStarBound extends TestBase {
                 ssbound.getValues().pstar
         ));
 
-
         loopTasks.waitForFinish();
         System.out.println(String.format("State eps: %.9f, [%1.9e, %1.9e]",
                 ssbound_two.state.getDelta(),
@@ -1088,6 +1087,68 @@ public class TestSHARKStarBound extends TestBase {
                 ssbound_two.getLowerFromQueues(),
                 ssbound_two.getUpperFromQueues()
         ));
+    }
+
+    @Test
+    public void test4u3sB_singleSeq_snapshots() throws FileNotFoundException {
+        TestKStar.ConfSpaces confSpaces = loadFromCFS("test-resources/4u3s_B_10res_1.548E+11.cfs");
+        Sequence wildType = confSpaces.complex.makeWildTypeSequence();
+        List<String> seqList = new ArrayList<>();
+        seqList.add("VAL");
+        Sequence second = confSpaces.complex.seqSpace.makeSequence(seqList);
+
+        MultiSequenceSHARKStarBound bound1= makeSHARKStarPfuncForConfSpace(confSpaces.complex, wildType, 0.99, null, null);
+        MultiSequenceSHARKStarBound bound2= makeSHARKStarPfuncForConfSpace(confSpaces.complex, wildType, 0.99, null, null);
+
+        SingleSequenceSHARKStarBound valBound1 = (SingleSequenceSHARKStarBound) bound1.getPartitionFunctionForSequence(second);
+        List<MultiSequenceSHARKStarNode> firstQueueSnapshot = new ArrayList<>(valBound1.internalQueue);
+        if(!SHARKStarQueueDebugger.isValidFringeForSeq(firstQueueSnapshot, second, second.makeRCs(confSpaces.complex)))
+            System.err.println("Not a valid fringe for valine (first fringe)");
+        else{
+            System.out.println("Valid first fringe");
+        }
+        //valBound1.compute();
+
+        SingleSequenceSHARKStarBound wtBound = (SingleSequenceSHARKStarBound) bound2.getPartitionFunctionForSequence(wildType);
+        wtBound.compute();
+        SingleSequenceSHARKStarBound valBound2 = (SingleSequenceSHARKStarBound) bound2.getPartitionFunctionForSequence(second);
+        List<MultiSequenceSHARKStarNode> secondQueueSnapshot = new ArrayList<>(valBound2.internalQueue);
+        if(!SHARKStarQueueDebugger.isValidFringeForSeq(secondQueueSnapshot, second, second.makeRCs(confSpaces.complex))) {
+            System.err.println("Not a valid fringe for valine (second fringe)");
+        }else{
+            System.out.println("Valid second fringe");
+        }
+
+        //SHARKStarQueueDebugger.compareNodes(firstQueueSnapshot, secondQueueSnapshot, second);
+    }
+
+    @Test
+    public void testTransplantFringe() throws FileNotFoundException {
+        TestKStar.ConfSpaces confSpaces = loadFromCFS("test-resources/4u3s_B_10res_1.548E+11.cfs");
+        Sequence wildType = confSpaces.complex.makeWildTypeSequence();
+        List<String> seqList = new ArrayList<>();
+        seqList.add("VAL");
+        Sequence second = confSpaces.complex.seqSpace.makeSequence(seqList);
+
+        MultiSequenceSHARKStarBound bound1= makeSHARKStarPfuncForConfSpace(confSpaces.complex, wildType, 0.99, null, null);
+        MultiSequenceSHARKStarBound bound2= makeSHARKStarPfuncForConfSpace(confSpaces.complex, wildType, 0.99, null, null);
+
+        // make the queue snapshot on the first bound
+        SingleSequenceSHARKStarBound valBound1 = (SingleSequenceSHARKStarBound) bound1.getPartitionFunctionForSequence(second);
+        List<MultiSequenceSHARKStarNode> fringeSnapshot = new ArrayList<>(valBound1.internalQueue);
+
+        SingleSequenceSHARKStarBound wtBound = (SingleSequenceSHARKStarBound) bound2.getPartitionFunctionForSequence(wildType);
+        wtBound.compute();
+        SingleSequenceSHARKStarBound valBound2 = (SingleSequenceSHARKStarBound) bound2.getPartitionFunctionForSequence(second);
+
+        bound1.order.printOrder();
+        bound2.order.printOrder();
+
+        //transplant the fringe
+        valBound1.leafQueue = new SHARKStarQueue(valBound1.sequence);
+        valBound1.leafQueue.addAll(fringeSnapshot);
+        valBound1.updateStateFromQueues();
+        valBound1.compute();
     }
 }
 

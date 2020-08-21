@@ -25,7 +25,7 @@ import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStati
 public class MultiSequenceSHARKStarNode implements PartialConfAStarNode {
     // statics
     static boolean debug = false;
-    private static final int Unassigned = -1;
+    static final int Unassigned = -1;
 
     private double partialConfLowerBound = Double.NaN;
     private double partialConfUpperBound = Double.NaN;

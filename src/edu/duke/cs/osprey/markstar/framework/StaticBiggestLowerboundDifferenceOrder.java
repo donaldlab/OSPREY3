@@ -89,6 +89,10 @@ public class StaticBiggestLowerboundDifferenceOrder implements edu.duke.cs.ospre
 		return false;
 	}
 
+	public void printOrder(){
+		System.out.println(posOrder);
+	}
+
 	@Override
 	public int getNextPos(ConfIndex confIndex, RCs rcs) {
 		if (posOrder == null) {
