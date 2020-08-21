@@ -263,9 +263,10 @@ public class MARKStarBound implements PartitionFunction {
         values.qprime= rootNode.getUpperBound();
 
         if(epsilonBound < targetEpsilon) {
-            status = Status.Estimated;
-            if(values.qstar.compareTo(BigDecimal.ZERO) == 0) {
+            if(values.qstar.compareTo(BigDecimal.ZERO) == 0 || !isStable(stabilityThreshold)) {
                 status = Status.Unstable;
+            }else{
+                status = Status.Estimated;
             }
             //rootNode.printTree(stateName, minimizingEcalc.confSpace);
         }
