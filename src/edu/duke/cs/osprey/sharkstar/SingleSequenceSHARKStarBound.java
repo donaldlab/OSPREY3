@@ -94,6 +94,7 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
     @Override
     public void setStabilityThreshold(BigDecimal stabilityThreshold) {
         multisequenceBound.setStabilityThreshold(stabilityThreshold);
+        this.state.stabilityThreshold = stabilityThreshold;
     }
 
     @Override
@@ -122,15 +123,7 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
 
     @Override
     public void compute(int maxNumConfs) {
-            //multisequenceBound.computeForSequence(maxNumConfs, this);
         multisequenceBound.computeForSequenceParallel(maxNumConfs, this);
-        //updateBound();
-        if (getSequenceEpsilon() < multiSequenceSHARKStarBound.targetEpsilon) {
-            setStatus(Status.Estimated);
-            if (state.getLowerBound().compareTo(BigDecimal.ZERO) == 0) {
-                setStatus(Status.Unstable);
-            }
-        }
     }
 
     @Override
@@ -341,6 +334,8 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
         private BigDecimal upperBound; // pfunc upper bound
         private BigDecimal lowerBound; // pfunc lower bound
 
+        BigDecimal stabilityThreshold;
+
         private double delta; // running epsilon
         private double targetEpsilon;
 
@@ -401,13 +396,22 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
             updateStatus();
         }
 
-        private void updateStatus(){
+        private synchronized void updateStatus(){
             if (getDelta() < this.targetEpsilon) {
                 this.bound.setStatus(Status.Estimated);
                 if (this.getLowerBound().compareTo(BigDecimal.ZERO) == 0) {
                     this.bound.setStatus(Status.Unstable);
                 }
+            }else{
+                if (!isStable())
+                    this.bound.setStatus(Status.Unstable);
             }
+        }
+
+        private synchronized boolean isStable(){
+            return this.numEnergiedConfs <= 0 ||
+                    this.stabilityThreshold == null ||
+                    MathTools.isGreaterThanOrEqual(getUpperBound(), this.stabilityThreshold);
         }
     }
 }
