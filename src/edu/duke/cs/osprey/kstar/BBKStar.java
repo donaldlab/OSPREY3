@@ -637,6 +637,7 @@ public class BBKStar {
 		List<KStar.ScoredSequence> scoredSequences = new ArrayList<>();
 		PriorityQueue<Node> tree;
 		List<SingleSequenceNode> finishedNodes = new ArrayList<>();
+		List<SingleSequenceNode> unstableNodes = new ArrayList<>();
 
 		// open the conf databases if needed
 		try (ConfDB.DBs confDBs = new ConfDB.DBs()
@@ -721,6 +722,8 @@ public class BBKStar {
 							ssnode.estimateScore();
 							if (!ssnode.isUnboundUnstable) {
 								tree.add(ssnode);
+							}else{
+								unstableNodes.add(ssnode);
 							}
 
 						break;
@@ -766,6 +769,16 @@ public class BBKStar {
 			}
 		}
 		countCycles(tree, finishedNodes);
+		System.out.println("Unstable node information:");
+		unstableNodes.forEach((SingleSequenceNode n) -> {
+			System.out.println(String.format("%s protein:", n.sequence));
+			n.protein.printStats();
+			System.out.println(String.format("%s ligand:", n.sequence));
+			n.ligand.printStats();
+			System.out.println(String.format("%s complex:", n.sequence));
+			n.complex.printStats();
+		});
+		System.out.println("Finished node information:");
 		finishedNodes.forEach((SingleSequenceNode n) -> {
 			System.out.println(String.format("%s protein:", n.sequence));
 		    n.protein.printStats();
