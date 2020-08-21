@@ -743,6 +743,10 @@ public class BBKStar {
 						child.estimateScore();
 						if (!child.isUnboundUnstable) {
 							tree.add(child);
+						}else if(child instanceof SingleSequenceNode){
+							unstableNodes.add((SingleSequenceNode) child);
+						}else{
+							System.out.println("Throwing away unstable multi-sequence node " + child.sequence);
 						}
 					}
 				}
@@ -769,15 +773,6 @@ public class BBKStar {
 			}
 		}
 		countCycles(tree, finishedNodes);
-		System.out.println("Unstable node information:");
-		unstableNodes.forEach((SingleSequenceNode n) -> {
-			System.out.println(String.format("%s protein:", n.sequence));
-			n.protein.printStats();
-			System.out.println(String.format("%s ligand:", n.sequence));
-			n.ligand.printStats();
-			System.out.println(String.format("%s complex:", n.sequence));
-			n.complex.printStats();
-		});
 		System.out.println("Finished node information:");
 		finishedNodes.forEach((SingleSequenceNode n) -> {
 			System.out.println(String.format("%s protein:", n.sequence));
