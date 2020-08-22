@@ -1090,6 +1090,55 @@ public class TestSHARKStarBound extends TestBase {
     }
 
     @Test
+    public void test4u3sB_ValFirst() throws FileNotFoundException {
+        TestKStar.ConfSpaces confSpaces = loadFromCFS("test-resources/4u3s_B_10res_1.548E+11.cfs");
+        Sequence wildType = confSpaces.complex.makeWildTypeSequence();
+        List<String> seqList = new ArrayList<>();
+        seqList.add("VAL");
+        Sequence valine = confSpaces.complex.seqSpace.makeSequence(seqList);
+
+        MultiSequenceSHARKStarBound bound= makeSHARKStarPfuncForConfSpace(confSpaces.complex, wildType, 1-(1e-7), null, null);
+        SingleSequenceSHARKStarBound seqBound = (SingleSequenceSHARKStarBound) bound.getPartitionFunctionForSequence(valine);
+        Stopwatch computeWatch = new Stopwatch().start();
+        seqBound.compute();
+        computeWatch.stop();
+        System.out.println(String.format("Valine first took %f seconds --> [%1.3e, %1.3e] with %d expansions, %d minimizations and %d partials",
+                computeWatch.getTimeS(),
+                seqBound.state.getLowerBound(),
+                seqBound.state.getUpperBound(),
+                seqBound.state.numExpansions,
+                seqBound.state.numEnergiedConfs,
+                seqBound.state.numPartialMinimizations
+                ));
+    }
+
+    @Test
+    public void test4u3sB_WTThenVal() throws FileNotFoundException {
+        TestKStar.ConfSpaces confSpaces = loadFromCFS("test-resources/4u3s_B_10res_1.548E+11.cfs");
+        Sequence wildType = confSpaces.complex.makeWildTypeSequence();
+        List<String> seqList = new ArrayList<>();
+        seqList.add("VAL");
+        Sequence valine = confSpaces.complex.seqSpace.makeSequence(seqList);
+        Sequence wildtype = confSpaces.complex.makeWildTypeSequence();
+
+        MultiSequenceSHARKStarBound bound= makeSHARKStarPfuncForConfSpace(confSpaces.complex, wildType, 1-(1e-7), null, null);
+        SingleSequenceSHARKStarBound wtBound = (SingleSequenceSHARKStarBound) bound.getPartitionFunctionForSequence(wildType);
+        wtBound.compute();
+        SingleSequenceSHARKStarBound valBound = (SingleSequenceSHARKStarBound) bound.getPartitionFunctionForSequence(valine);
+        Stopwatch computeWatch = new Stopwatch().start();
+        valBound.compute();
+        computeWatch.stop();
+        System.out.println(String.format("Valine second took %f seconds --> [%1.3e, %1.3e] with %d expansions, %d minimizations and %d partials",
+                computeWatch.getTimeS(),
+                valBound.state.getLowerBound(),
+                valBound.state.getUpperBound(),
+                valBound.state.numExpansions,
+                valBound.state.numEnergiedConfs,
+                valBound.state.numPartialMinimizations
+        ));
+    }
+
+    @Test
     public void test4u3sB_singleSeq_snapshots() throws FileNotFoundException {
         TestKStar.ConfSpaces confSpaces = loadFromCFS("test-resources/4u3s_B_10res_1.548E+11.cfs");
         Sequence wildType = confSpaces.complex.makeWildTypeSequence();
