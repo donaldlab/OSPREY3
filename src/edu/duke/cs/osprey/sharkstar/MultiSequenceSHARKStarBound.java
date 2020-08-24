@@ -410,21 +410,25 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                             result.nodes.addAll(children);
                         }else{
                             // If we are at a leaf, score the node
-                            // As a note, the gscores should be correct, but the hscores will need to change
-                            double confCorrection = msBound.correctionMatrix.confE(node.assignments);
+                            /* As a note, the gscores WILL NOT always be correct, because nodes will have been minimized.
+                            Technically, the g LBs will be correct, but the g UBs will not. The g LBs will be dealt with
+                            through the mechanism of corrections. So, just reset them
+                             */
                             double gscoreLB = context.partialConfLowerBoundScorer.calc(context.index, seqBound.seqRCs);
-                            //double gscoreUB = context.partialConfUpperBoundScorer.calc(context.index, seqBound.seqRCs);
+                            double gscoreUB = context.partialConfUpperBoundScorer.calc(context.index, seqBound.seqRCs);
+
                             double hscoreLB = context.lowerBoundScorer.calc(context.index, seqBound.seqRCs);
                             double hscoreUB = context.upperBoundScorer.calc(context.index, seqBound.seqRCs);
 
+                            double confLowerBound = gscoreLB + hscoreLB;
+                            double confUpperBound = gscoreUB + hscoreUB;
                             // check if we should correct the node
-                            double confUpperBound = node.getPartialConfUpperBound() + hscoreUB;
-                            double confLowerBound;
-                            if(confCorrection > node.getPartialConfLowerBound() && confCorrection < node.getPartialConfUpperBound())
-                                confLowerBound = confCorrection + hscoreLB;
-                            else
-                                confLowerBound = node.getPartialConfLowerBound() + hscoreLB;
-
+                            double confCorrection = 0;
+                            if(doCorrections){
+                                confCorrection = msBound.correctionMatrix.confE(node.assignments);
+                                if(confCorrection > gscoreLB && confCorrection < gscoreUB)
+                                    confLowerBound = confCorrection + hscoreLB;
+                            }
 
                             MathTools.DoubleBounds confBounds = new MathTools.DoubleBounds(confLowerBound, confUpperBound);
                             /*
@@ -856,9 +860,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     break;
                 }
                 case ExpandInBatches: {
-                    List<MultiSequenceSHARKStarNode> toExpand = internalNodes;
-                    SingleSequenceSHARKStarBound singleSequencePfunc = sequenceBound;
-                    MultiSequenceSHARKStarBound multiSequencePfunc = this;
+                    final List<MultiSequenceSHARKStarNode> toExpand = internalNodes;
+                    final SingleSequenceSHARKStarBound singleSequencePfunc = sequenceBound;
+                    final MultiSequenceSHARKStarBound multiSequencePfunc = this;
                     numNodes = toExpand.size();
                     debugPrint("Processing " + numNodes + " internal nodes...");
 
@@ -929,6 +933,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                                     startLB,
                                                     lbAccuracyCutoff
                                             ));
+                                            toExpand.get(0).dumpHistory(singleSequencePfunc.sequence);
+                                            toExpand.get(0).getAllChildren().forEach((n)-> n.dumpHistory(singleSequencePfunc.sequence));
                                             throw new RuntimeException("Lower bound is decreasing");
                                         // If the wrong move magnitude is more than one but less than the cutoff, just warn
                                         } else {
@@ -1048,7 +1054,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         else
             this.state.secondsPerSeq.put(sequenceBound.sequence, timeElapsed);
 
-
         lastEps = sequenceBound.state.getDelta();
         debugPrint(String.format("Tracking Epsilon: %.9f, Bounds:[%1.9e, %1.9e]",
                 lastEps,
@@ -1056,9 +1061,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 sequenceBound.state.getUpperBound()
         ));
         debugPrint(String.format("Epsilon: %.9f, Bounds:[%1.9e, %1.9e]",
-                sequenceBound.getSequenceEpsilon(),
-                sequenceBound.getLowerBound(),
-                sequenceBound.getUpperBound()
+                sequenceBound.getEpsFromQueues(),
+                sequenceBound.getLowerFromQueues(),
+                sequenceBound.getUpperFromQueues()
         ));
         debugPrint(String.format("Minimized %d nodes, %d nodes in fringe.",
                 sequenceBound.finishedNodes.size(),
@@ -1211,7 +1216,12 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             result.sequenceBound.addFinishedNode(result.minimizedNode);
 
             result.msBound.leafTimeAverage = result.timeS;
-            debugPrint("Processed 1 leaf in " + result.timeS + " seconds.");
+            debugPrint(String.format("Processed %s: [%.3f, ??] -> %.3f in %.3f seconds.",
+                    result.minimizedNode.confToString(),
+                    result.conf.getScore(),
+                    result.energy,
+                    result.timeS
+                    ));
         }
     }
 
@@ -1702,7 +1712,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     protected void processPartialConfNode(SingleSequenceSHARKStarBound bound, MultiSequenceSHARKStarBound msBound,
                                           List<MultiSequenceSHARKStarNode> newNodes,
                                           MultiSequenceSHARKStarNode curNode) {
-        PriorityQueue<MultiSequenceSHARKStarNode> queue = bound.fringeNodes;
         RCs RCs = bound.seqRCs;
         //debugPrint("Processing "+curNode.toSeqString(bound.sequence));
         // which pos to expand next?
@@ -1721,6 +1730,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 double resultingLower = -Double.MAX_VALUE;
                 String historyString = "";
 
+                // index the parent, make the child
                 curNode.index(context.index);
                 MultiSequenceSHARKStarNode child;
                 if(curNode.hasExistingChild(nextRc)){
@@ -1736,18 +1746,30 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     confCorrection = msBound.correctionMatrix.confE(child.assignments);
 
                 // score the child node differentially against the parent node
-                double gScoreLB = context.partialConfLowerBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
-                double gScoreUB = context.partialConfUpperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
-                double hScoreLB = context.lowerBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
-                double hScoreUB = context.upperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                // for now, don't calc differentially
+                child.index(context.index);
+                //double gScoreLB = context.partialConfLowerBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                //double gScoreUB = context.partialConfUpperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                double gScoreLB = context.partialConfLowerBoundScorer.calc(context.index, RCs);
+                double gScoreUB = context.partialConfUpperBoundScorer.calc(context.index, RCs);
+                double hScoreLB = context.lowerBoundScorer.calc(context.index, RCs);
+                double hScoreUB = context.upperBoundScorer.calc(context.index, RCs);
 
                 //Check to make sure our correction is reasonable
                 if(gScoreLB < confCorrection && confCorrection < gScoreUB) {
                     //TODO: Warn on overcorrection?
                     child.setPartialConfLowerAndUpper(confCorrection, gScoreUB);
                     recordCorrection(gScoreLB+ hScoreLB, confCorrection - gScoreLB);
-                }else
+                }else {
                     child.setPartialConfLowerAndUpper(gScoreLB, gScoreUB);
+                    if(doCorrections && confCorrection - gScoreLB > 1e-9)
+                        System.err.printf("WARNING: tried to overcorrect %s: [%.3f, %.3f] by %.3f%n",
+                                child.confToString(),
+                                gScoreLB + hScoreLB,
+                                gScoreUB + hScoreUB,
+                                confCorrection - gScoreLB
+                                );
+                }
 
                 double confLowerBound = child.getPartialConfLowerBound() + hScoreLB;
                 double confUpperbound = child.getPartialConfUpperBound() + hScoreUB;
