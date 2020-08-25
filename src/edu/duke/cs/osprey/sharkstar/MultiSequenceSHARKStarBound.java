@@ -422,12 +422,16 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
                             double confLowerBound = gscoreLB + hscoreLB;
                             double confUpperBound = gscoreUB + hscoreUB;
+                            double partialConfLowerBound = gscoreLB;
+                            double partialConfUpperBound = gscoreUB;
                             // check if we should correct the node
                             double confCorrection = 0;
                             if(doCorrections){
                                 confCorrection = msBound.correctionMatrix.confE(node.assignments);
-                                if(confCorrection > gscoreLB && confCorrection < gscoreUB)
+                                if(confCorrection > gscoreLB && confCorrection < gscoreUB) {
                                     confLowerBound = confCorrection + hscoreLB;
+                                    partialConfLowerBound = confCorrection;
+                                }
                             }
 
                             MathTools.DoubleBounds confBounds = new MathTools.DoubleBounds(confLowerBound, confUpperBound);
@@ -439,6 +443,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                     seqBound.sequence,
                                     historyString);
                              */
+                            node.setPartialConfLowerAndUpper(partialConfLowerBound, partialConfUpperBound);
                             node.setConfBounds(confBounds,
                                     seqBound.sequence,
                                     "fringe");
@@ -638,7 +643,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         boolean overcorrecting = false;
         double oldGUpper = node.getPartialConfUpperBound();
         if(confCorrection > oldGUpper) {
-            System.err.println(String.format("Attempted overcorrection of %s for seq %s: [%.9f, %.9f] -> + %.9f -> [%.9f, %.9f]",
+            System.err.printf("Attempted overcorrection of %s for seq %s: [%.9f, %.9f] -> + %.9f -> [%.9f, %.9f]",
                     Arrays.toString(node.assignments),
                     bound.sequence,
                     oldg,
@@ -646,7 +651,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     correctionDiff,
                     confCorrection,
                     oldGUpper
-                    ));
+                    );
             overcorrecting = true;
         }
 
@@ -760,7 +765,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 ));
 
                 // Early termination
-                if (lastEps < targetEpsilon ||
+                if (/*lastEps < targetEpsilon ||*/ sequenceBound.getStatus() == Status.Estimated ||
                         sequenceBound.state.workDone() - previousConfCount >= maxNumConfs ||
                         !isStable(stabilityThreshold, sequenceBound)
                 ){
@@ -1060,7 +1065,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 sequenceBound.state.getLowerBound(),
                 sequenceBound.state.getUpperBound()
         ));
-        debugPrint(String.format("Epsilon: %.9f, Bounds:[%1.9e, %1.9e]",
+        debugPrint(String.format("Queue Epsilon: %.9f, Bounds:[%1.9e, %1.9e]",
                 sequenceBound.getEpsFromQueues(),
                 sequenceBound.getLowerFromQueues(),
                 sequenceBound.getUpperFromQueues()
@@ -1154,7 +1159,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private void onMinimization(MinimizationResult result){
         // Try to make a batch of partial minimizations TODO: should this go here or elsewhere?
-        if(result.msBound.theBatcher.canBatch())
+        while(result.msBound.theBatcher.canBatch())
             result.msBound.theBatcher.makeBatch();
         // do some error checking
         if (result.deltaLB.compareTo(BigDecimal.ZERO) < 0)
