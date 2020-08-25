@@ -19,6 +19,7 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Thin wrapper class to play nice with BBK* and MSK*
@@ -286,6 +287,35 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
     public double getSequenceEpsilon() {
         //return sequenceEpsilon;
         return state.calcDelta();
+    }
+
+    public BigDecimal getLowerDirectly(){
+        return Stream.of(fringeNodes, internalQueue, leafQueue, finishedNodes).
+                flatMap(Collection::stream)
+                .map((n) -> n.getLowerBound(sequence))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    public BigDecimal getUpperDirectly(){
+        return Stream.of(fringeNodes, internalQueue, leafQueue, finishedNodes).
+                flatMap(Collection::stream)
+                .map((n) -> n.getUpperBound(sequence))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    public double getEpsDirectly(){
+        BigDecimal upperBound = getUpperDirectly();
+        if (MathTools.isZero(upperBound) || MathTools.isInf(upperBound)) {
+            return 1.0;
+        }else if (upperBound.subtract(getLowerDirectly()).compareTo(BigDecimal.ONE) < 1) {
+            return 0.0;
+        }
+        return new BigMath(PartitionFunction.decimalPrecision)
+                .set(upperBound)
+                .sub(getLowerBound())
+                .div(upperBound)
+                .get()
+                .doubleValue();
     }
 
     public BigDecimal getLowerFromQueues(){
