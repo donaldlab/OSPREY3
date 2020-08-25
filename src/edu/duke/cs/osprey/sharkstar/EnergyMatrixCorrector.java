@@ -64,19 +64,17 @@ public class EnergyMatrixCorrector {
             storePartialConfCorrections(conf, diff, sortedPairwiseTerms2, threshhold, minDifference, triplethreshhold,
                     3, scheduledMinimizations);
         for (RCTuple scheduledTuple : scheduledMinimizations) {
-            if(scheduledTuple.equals(debugTuple)){
+            if(scheduledTuple.equals(debugTuple) && MultiSequenceSHARKStarBound.debug){
                 System.out.println("Found debug tuple");
-            System.out.println(String.format("Original conf: %s, energy: %.6f", conf.toString(), analysis.epmol.energy));
+                System.out.println(String.format("Original conf: %s, energy: %.6f", conf.toString(), analysis.epmol.energy));
                 System.out.println(String.format("tuple emat: %.6f, min e: %.6f",
                         multiSequenceSHARKStarBound.getMinimizingEmat().getInternalEnergy(debugTuple) ,
                         confEcalc.calcEnergy(debugTuple).energy));
                 //throw new RuntimeException();
             }
-            synchronized (batcher) {
-                batcher.addTuple(new BatchCorrectionMinimizer.PartialMinimizationTuple(scheduledTuple, analysis.epmol.energy, analysis.score, new RCTuple(conf.getAssignments())));
+            batcher.addTuple(new BatchCorrectionMinimizer.PartialMinimizationTuple(scheduledTuple, analysis.epmol.energy, analysis.score, new RCTuple(conf.getAssignments())));
             //batcher.getBatch().addTuple(scheduledTuple);
             //batcher.submitIfFull();
-            }
         }
         /*
         batcher.submit();
