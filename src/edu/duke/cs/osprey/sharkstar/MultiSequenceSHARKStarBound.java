@@ -747,6 +747,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         2) we are running tasks that will result in nodes being added to the queue
          */
         this.numConfsEnergiedThisLoop = 0;
+        int numRoundsWorking = 0;
 
         computation: while( (!sequenceBound.internalQueue.isEmpty() || !sequenceBound.leafQueue.isEmpty() || loopTasks.isExpecting(0))){ // here, 0 refers to the pfunc computation
             synchronized(lock) {
@@ -766,7 +767,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
                 // Early termination
                 if (/*lastEps < targetEpsilon ||*/ sequenceBound.getStatus() == Status.Estimated ||
-                        sequenceBound.state.workDone() - previousConfCount >= maxNumConfs ||
+                        //sequenceBound.state.workDone() - previousConfCount >= maxNumConfs ||
+                        numRoundsWorking >= maxNumConfs ||
                         !isStable(stabilityThreshold, sequenceBound)
                 ){
                     if(sequenceBound.state.workDone() - previousConfCount >= maxNumConfs)
@@ -791,6 +793,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             loopWatch.start();
             Stopwatch internalTime = new Stopwatch();
 
+            double expansionsPerEnergy = (sequenceBound.state.totalTimeEnergy / sequenceBound.state.numEnergiedConfs) /
+                    (sequenceBound.state.totalTimeExpansion / sequenceBound.state.numExpansions);
+            int maxNumNodes = Math.min((int) (expansionsPerEnergy * 1e-1), 1000);
+            if(maxNumNodes < 1)
+                maxNumNodes=1;
             int numNodes = 0;
 
             synchronized(lock) {
@@ -817,7 +824,18 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                             step = Step.Energy;
                     // If the internal error is larger then the leaf error, then grab the internal node and do an expansion step
                     } else if (internalError.compareTo(BigDecimal.ZERO) > 0 && leafError.compareTo(internalError) <= 0) {
-                        internalNodes.add(sequenceBound.internalQueue.poll());
+                        BigDecimal nodeError = internalError;
+                        while(nodeError != null &&
+                                nodeError.compareTo(leafError) >=0 &&
+                                internalNodes.size() < maxNumNodes
+                        ){
+                            internalNodes.add(sequenceBound.internalQueue.poll());
+                            if(!sequenceBound.internalQueue.isEmpty())
+                                nodeError = sequenceBound.internalQueue.peek().getErrorBound(sequenceBound.sequence).multiply(BigDecimal.valueOf(1e3));
+                            else
+                                nodeError = null;
+                        }
+
                         step = Step.ExpandInBatches;
                     // Otherwise, do nothing and print an error
                     } else {
@@ -862,6 +880,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                             onMinimization((MinimizationResult) result);
                             }
                     );
+                    numRoundsWorking++;
                     break;
                 }
                 case ExpandInBatches: {
@@ -991,7 +1010,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                             this::onExpansion,
                             1// here, 0 refers to the pfunc computation
                     );
-
+                    numRoundsWorking++;
                     break;
                 }
                 case Partial: {
