@@ -725,7 +725,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     }
 
     public void computeForSequenceParallel(int maxNumConfs, SingleSequenceSHARKStarBound sequenceBound){
-        System.out.println("Tightening bound for "+sequenceBound.sequence + " " + this.cachePattern);
+        debugPrint("Tightening bound for "+sequenceBound.sequence + " " + this.cachePattern);
         Stopwatch computeWatch = new Stopwatch().start();
 
         double lastEps = sequenceBound.state.getDelta();

@@ -674,6 +674,8 @@ public class BBKStar {
 			PartitionFunction lastPfunc = null;
 			// Hack for Time
 			SingleSequenceNode lastNode = null;
+			// To reduce output spam
+			Sequence lastSequence = null;
 
 			// start searching the tree
 			System.out.println("computing K* scores for the " + bbkstarSettings.numBestSequences + " best sequences to epsilon = " + kstarSettings.epsilon + " ...");
@@ -700,7 +702,9 @@ public class BBKStar {
 
 				// get the next node
 				Node node = tree.poll();
-                System.out.println("Refining sequence "+node.sequence);
+				if(lastSequence != node.sequence)
+					System.out.println("Refining sequence "+node.sequence);
+				lastSequence = node.sequence;
 
 				if (node instanceof SingleSequenceNode) {
 					SingleSequenceNode ssnode = (SingleSequenceNode)node;
