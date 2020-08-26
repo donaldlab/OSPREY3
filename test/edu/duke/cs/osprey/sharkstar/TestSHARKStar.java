@@ -1887,5 +1887,26 @@ public class TestSHARKStar {
 		}
 	}
 
+	/**
+     * UpperBoundException testing
+	 */
+	@Test
+	public void test4hemC(){
+		try {
+			ConfSpaces confSpaces = loadFromCFS("test-resources/4hem_C_12res_2.123E+11.cfs");
+			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.99, null, 5, TestBBKStar.Impls.SHARK);
+			for (KStar.ScoredSequence sequence : results.sequences){
+				System.out.println(String.format("%s : [%1.9e, %1.9e]",
+						sequence.sequence,
+						sequence.score.lowerBound,
+						sequence.score.upperBound
+				));
+			}
+
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
+
 
 }
