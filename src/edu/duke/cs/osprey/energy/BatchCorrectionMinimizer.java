@@ -65,10 +65,8 @@ public class BatchCorrectionMinimizer {
         this.batches.add(newBatch);
     }
 
-    public Batch getBatch(){
-        synchronized(lock){
-            return this.batches.poll();
-        }
+    public synchronized Batch getBatch(){
+        return this.batches.poll();
     }
 
     public static class Batch {
