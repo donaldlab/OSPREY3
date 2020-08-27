@@ -53,20 +53,16 @@ public class BatchCorrectionMinimizer {
         return !this.batches.isEmpty();
     }
 
-    public void makeBatch(){
+    public synchronized void makeBatch(){
         Batch newBatch = new Batch();
         int batchCost = 0;
         while(batchCost < CostThreshold){
-            synchronized(lock){
                 PartialMinimizationTuple frag = waitingQueue.poll();
                 batchCost += costs[frag.size()];
                 waitingCost -= costs[frag.size()];
                 newBatch.fragments.add(frag);
-            }
         }
-        synchronized(lock) {
-            this.batches.add(newBatch);
-        }
+        this.batches.add(newBatch);
     }
 
     public Batch getBatch(){
