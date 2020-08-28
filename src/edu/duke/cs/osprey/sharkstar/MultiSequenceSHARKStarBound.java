@@ -1348,7 +1348,17 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             // Set energy to old conf upper bound
             newConfUpper = oldConfUpper;
             newConfLower = oldConfUpper;
-        /* Case 2: minimized energy goes below uncorrected conf lower bound
+        /* Case 2: minimized energy goes below the corrected conf lower bound, but not the uncorrected. This means the correction is bad
+
+         */
+        }else if(newConfLower < oldConfLower && newConfLower > uncorrectedLowerBound){
+            System.err.println(String.format("WARNING: Bad correction: %s -> E: %f < LB: %f. Accepting minimized energy.",
+                    Arrays.toString(node.assignments),
+                    newConfLower,
+                    oldConfLower
+            ));
+            //TODO: remove correction from pool if necessary
+        /* Case 3: minimized energy goes below uncorrected conf lower bound
          */
         }else if(newConfLower < uncorrectedLowerBound){
             System.err.println(String.format("WARNING: Minimized energy exceeds lower bound: %s -> E: %f < LB: %f. Rejecting minimized energy.",
@@ -1356,19 +1366,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     newConfLower,
                     uncorrectedLowerBound
             ));
-            // Set energy to old conf upper bound
+            // Set energy to old conf lower bound
             newConfUpper = uncorrectedLowerBound;
             newConfLower = uncorrectedLowerBound;
-        /* Case 3: minimized energy goes below the corrected conf lower bound. This means the correction is bad
-
-         */
-        }else if(newConfLower < oldConfLower){
-            System.err.println(String.format("WARNING: Bad correction: %s -> E: %f < LB: %f. Accepting minimized energy.",
-                    Arrays.toString(node.assignments),
-                    newConfLower,
-                    oldConfLower
-            ));
-            //TODO: remove correction from pool if necessary
         }
 
         String historyString = "";
