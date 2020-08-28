@@ -154,24 +154,24 @@ public class MultiSequenceSHARKStarNode implements PartialConfAStarNode {
      */
     private synchronized void checkConfBounds(MathTools.DoubleBounds bounds, Sequence seq){
         if(!bounds.isValid()) {
-            System.err.println(String.format("Trying to update %s: %s with invalid bounds: [%.6f, %.6f]",
+            System.err.printf("WARNINGTrying to update %s: %s with invalid bounds: [%.6f, %.6f]%n",
                     seq,
                     this.confToString(),
                     bounds.lower,
                     bounds.upper
-            ));
+            );
             throw new RuntimeException("Bounds are invalid. Exiting...");
         } else if(this.confBounds.containsKey(seq) && !this.confBounds.get(seq).contains(bounds)){
-            System.err.println(String.format(
-                    "Trying to update %s: %s with looser bounds: [%.6f, %.6f] --> [%.6f, %.6f]",
+            System.err.printf(
+                    "WARNING: Trying to update %s: %s with looser bounds: [%.6f, %.6f] --> [%.6f, %.6f]%n",
                     seq,
                     this.confToString(),
                     bounds.lower,
                     bounds.upper,
                     this.confBounds.get(seq).lower,
                     this.confBounds.get(seq).upper
-            ));
-            throw new RuntimeException("Bounds are increasing in size. Exiting...");
+            );
+            //throw new RuntimeException("Bounds are increasing in size. Exiting...");
         }
 
     }
@@ -183,24 +183,24 @@ public class MultiSequenceSHARKStarNode implements PartialConfAStarNode {
      */
     private synchronized void checkPfuncBounds(MathTools.BigDecimalBounds bounds, Sequence seq){
         if(!bounds.isValid()) {
-            System.err.println(String.format("Trying to update %s: %s with invalid bounds: [%1.6e, %1.6e]",
+            System.err.printf("Trying to update %s: %s with invalid bounds: [%1.6e, %1.6e]%n",
                     seq,
                     this.confToString(),
                     bounds.lower,
                     bounds.upper
-                    ));
+                    );
             throw new RuntimeException("Bounds are invalid. Exiting...");
         } else if(this.sequenceBounds.containsKey(seq) && !this.sequenceBounds.get(seq).contains(bounds)){
-            System.err.println(String.format(
-                    "Trying to update %s: %s with looser bounds: [%1.6e, %1.6e] --> [%1.6e, %1.6e]",
+            System.err.printf(
+                    "WARNING: Trying to update %s: %s with looser bounds: [%1.6e, %1.6e] --> [%1.6e, %1.6e]%n",
                     seq,
                     this.confToString(),
                     bounds.lower,
                     bounds.upper,
                     this.sequenceBounds.get(seq).lower,
                     this.sequenceBounds.get(seq).upper
-            ));
-            throw new RuntimeException("Bounds are increasing in size. Exiting...");
+            );
+            //throw new RuntimeException("Bounds are increasing in size. Exiting...");
         }
 
     }
