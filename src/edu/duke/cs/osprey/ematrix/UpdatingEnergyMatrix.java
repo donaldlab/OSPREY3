@@ -152,7 +152,7 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
      */
     //intra+shell similar...
 
-    double internalEHigherOrder(RCTuple tup){
+    synchronized double internalEHigherOrder(RCTuple tup){
         //Computes the portion of the internal energy for tuple tup
         //that consists of interactions in htf (corresponds to some sub-tuple of tup)
         //with RCs whose indices in tup are < curIndex
