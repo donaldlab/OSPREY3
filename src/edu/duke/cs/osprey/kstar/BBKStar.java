@@ -38,7 +38,9 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.pfunc.*;
+import edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound;
 import edu.duke.cs.osprey.sharkstar.SHARKSeqHScorer;
+import edu.duke.cs.osprey.sharkstar.SingleSequenceSHARKStarBound;
 import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
 
@@ -588,6 +590,10 @@ public class BBKStar {
 	private final Map<Sequence,PartitionFunction> ligandPfuncs;
 	private final Map<Sequence,PartitionFunction> complexPfuncs;
 
+	public MultiSequenceSHARKStarBound complexSHARK; // temporary variable for SHARK* test information
+	public MultiSequenceSHARKStarBound proteinSHARK; // temporary variable for SHARK* test information
+	public MultiSequenceSHARKStarBound ligandSHARK; // temporary variable for SHARK* test information
+
 	public BBKStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, KStar.Settings kstarSettings, Settings bbkstarSettings) {
 
 		// BBK* doesn't work with external memory (never enough internal memory for all the priority queues)
@@ -662,9 +668,20 @@ public class BBKStar {
 					protein.stabilityThreshold = wildTypeScore.protein.values.calcLowerBound().multiply(stabilityThresholdFactor);
 					ligand.stabilityThreshold = wildTypeScore.ligand.values.calcLowerBound().multiply(stabilityThresholdFactor);
 				}
+				// record the SHARK*bound for test information
+				try{
+					SingleSequenceSHARKStarBound complexBound = (SingleSequenceSHARKStarBound) wildTypeNode.complex;
+					SingleSequenceSHARKStarBound proteinBound = (SingleSequenceSHARKStarBound) wildTypeNode.protein;
+					SingleSequenceSHARKStarBound ligandBound = (SingleSequenceSHARKStarBound) wildTypeNode.ligand;
+					this.complexSHARK = complexBound.multiSequenceSHARKStarBound;
+					this.proteinSHARK = proteinBound.multiSequenceSHARKStarBound;
+					this.ligandSHARK = ligandBound.multiSequenceSHARKStarBound;
+				}catch(Exception ignored){}
+
 			} else if (kstarSettings.stabilityThreshold != null) {
 				System.out.println("Sequence space does not contain the wild type sequence, stability threshold is disabled");
 			}
+
 
 			// start the BBK* tree with the root node
 			tree = new PriorityQueue<>();

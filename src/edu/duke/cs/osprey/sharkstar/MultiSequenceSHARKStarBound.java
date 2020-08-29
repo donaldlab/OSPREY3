@@ -125,6 +125,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private final Object lock = new Object();
 
+    public double precomputedFlexComputeTime = 0; // how long did it take to compute the precomputed flex?
+    public double pfuncCreationTime = 0; // how long did it take to make the singleSequence bounds?
+
 
     /**
      * Constructor to make a default SHARKStarBound Class
@@ -256,6 +259,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
      * partition functions.
      */
     public PartitionFunction getPartitionFunctionForSequence(Sequence seq) {
+        Stopwatch makePfuncWatch = new Stopwatch().start();
         SingleSequenceSHARKStarBound newBound = new SingleSequenceSHARKStarBound(this, seq, this);
         newBound.init(null, null, targetEpsilon);
         System.out.println("Creating new pfunc for sequence "+seq);
@@ -298,6 +302,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     newBound.state.getLowerBound(),
                     newBound.state.getUpperBound()
                     ));
+        this.pfuncCreationTime += makePfuncWatch.stop().getTimeS();
         return newBound;
     }
 
@@ -535,10 +540,12 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         PartitionFunction flexBound =
                 precompFlex.getPartitionFunctionForSequence(unassignedFlex);
         SingleSequenceSHARKStarBound bound = (SingleSequenceSHARKStarBound) flexBound;
+        Stopwatch precomputeWatch = new Stopwatch().start();
         while(bound.getStatus() != Status.Estimated){
             bound.compute();
         }
         loopTasks.waitForFinish(); // we really do need this to finish before we can start on the other sequences
+        this.precomputedFlexComputeTime = precomputeWatch.stop().getTimeS();
         if(doCorrections)
             addFullMinimizationsToCorrectionMatrix(precompFlex, bound);
         precompFlex.printEnsembleAnalysis();

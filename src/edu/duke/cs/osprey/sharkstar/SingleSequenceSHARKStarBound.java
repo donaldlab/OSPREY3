@@ -26,7 +26,7 @@ import java.util.stream.Stream;
  */
 public class SingleSequenceSHARKStarBound implements PartitionFunction {
     public int maxMinimizations = 1;
-    private MultiSequenceSHARKStarBound multiSequenceSHARKStarBound;
+    public MultiSequenceSHARKStarBound multiSequenceSHARKStarBound;
     public final Sequence sequence;
     private MultiSequenceSHARKStarBound multisequenceBound;
     private Status status;
