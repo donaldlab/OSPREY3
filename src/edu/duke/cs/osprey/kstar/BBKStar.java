@@ -39,6 +39,7 @@ import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.pfunc.*;
 import edu.duke.cs.osprey.markstar.visualizer.KStarTreeNode;
+import edu.duke.cs.osprey.markstar.visualizer.SeqTreeNode;
 import edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound;
 import edu.duke.cs.osprey.sharkstar.SHARKSeqHScorer;
 import edu.duke.cs.osprey.sharkstar.SingleSequenceSHARKStarBound;
@@ -907,12 +908,15 @@ public class BBKStar {
 			}
 			BigDecimal lb;
 			BigDecimal ub;
+			Double[] repr;
 			if(n instanceof SingleSequenceNode){
 				lb = ((SingleSequenceNode) n).complex.getValues().calcLowerBound();
 				ub = ((SingleSequenceNode) n).complex.getValues().calcUpperBound();
+				repr = MultiSequenceSHARKStarBound.generate1DRepresentation((SingleSequenceSHARKStarBound) ((SingleSequenceNode) n).complex, 100, 1e-9);
 			}else{
 				lb = ((MultiSequenceNode) n).calcLowerBoundByConf(complex, n.sequence, 1000);
 				ub = ((MultiSequenceNode) n).calcUpperBoundByConf(complex, n.sequence, 1000);
+				repr = new Double[] {};
 			}
 			double conflb;
 			double confub;
@@ -946,14 +950,16 @@ public class BBKStar {
 				eps = 1.0;
 			}
 
-	    	return new KStarTreeNode(level,
+	    	return new SeqTreeNode(level,
 					assignments,
 					confAssignments,
 					lb,
 					ub,
 					conflb,
 					confub,
-					eps);
+					eps,
+                    repr
+			);
 		}).collect(Collectors.toList());
 
 	    // populate the rest of the tree
@@ -984,14 +990,16 @@ public class BBKStar {
 				if(parentLB != MathTools.BigPositiveInfinity)
 					parentConfUB = bc.freeEnergy(parentLB);
 
-				KStarTreeNode parent = new KStarTreeNode(level,
+				KStarTreeNode parent = new SeqTreeNode(level,
 								parentAssignments,
 								parentConfAssignments,
 								parentLB,
 								parentUB,
 								parentConfLB,
 								parentConfUB,
-								0);
+								0,
+								new Double[]{}
+						);
 				parent.setChildren(children);
 				newLevel.add(parent);
 			}

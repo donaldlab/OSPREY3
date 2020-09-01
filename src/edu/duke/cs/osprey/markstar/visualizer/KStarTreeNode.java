@@ -68,43 +68,43 @@ import static edu.duke.cs.osprey.tools.Log.log;
 
 public class KStarTreeNode implements Comparable<KStarTreeNode>{
     public static final Pattern p = Pattern.compile("((~\\+)*)\\(([^)]+)\\)->\\((.*)\\)\\: ?\\[(.*)\\]->\\[(.*)\\](.*)");
-    private static final boolean debug = false;
-    private static Random[] colorSeeds;
-    private BigDecimal overallUpperBound;
+    protected static final boolean debug = false;
+    protected static Random[] colorSeeds;
+    protected BigDecimal overallUpperBound;
     public int level = -1;
-    private String[] assignments;
-    private int[] confAssignments;
-    private BigDecimal upperBound;
-    private BigDecimal lowerBound;
+    protected String[] assignments;
+    protected int[] confAssignments;
+    protected BigDecimal upperBound;
+    protected BigDecimal lowerBound;
     List<KStarTreeNode> children = new ArrayList<>();
-    private KStarTreeNode parent;
-    private boolean visible =  false;
-    private boolean expanded = false;
-    private boolean childrenRendered = false;
-    private static Text statText;
-    private Group bandGroup;
-    private Group rootGroup;
+    protected KStarTreeNode parent;
+    protected boolean visible =  false;
+    protected boolean expanded = false;
+    protected boolean childrenRendered = false;
+    protected static Text statText;
+    protected Group bandGroup;
+    protected Group rootGroup;
     BigDecimal epsilon;
-    private double borderThickness = 0.5;
-    private double centerX;
-    private double centerY;
-    private double innerRadius = 30;
-    private double outerRadius =60;
-    private double startAngle;
-    private double length;
-    private long seedNumber = 10;
-    private double occupancy = -1;
-    private double minLeafLower;
-    private double overallLower;
-    private double ratioToMaxLeaf;
-    private double confLowerBound;
-    private double confUpperBound;
-    private Arc innerRing;
-    private Arc outerRing;
-    private List<Arc> bands;
-    private static boolean drawTree = false;
-    private ColorStyle colorStyle = ColorStyle.occupancy;
-    private static List<Double> maxLevelOccupancies = new ArrayList<>();
+    protected double borderThickness = 0.5;
+    protected double centerX;
+    protected double centerY;
+    protected double innerRadius = 30;
+    protected double outerRadius =60;
+    protected double startAngle;
+    protected double length;
+    protected long seedNumber = 10;
+    protected double occupancy = -1;
+    protected double minLeafLower;
+    protected double overallLower;
+    protected double ratioToMaxLeaf;
+    protected double confLowerBound;
+    protected double confUpperBound;
+    protected Arc innerRing;
+    protected Arc outerRing;
+    protected List<Arc> bands;
+    protected static boolean drawTree = false;
+    protected ColorStyle colorStyle = ColorStyle.occupancy;
+    protected static List<Double> maxLevelOccupancies = new ArrayList<>();
 
     public enum ColorStyle {
         differenceFromEnergy,
@@ -940,12 +940,12 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
 
     public static class Builder
     {
-        private KStarTreeNode root;
-        private Stack<KStarTreeNode> buildStack = new Stack<>();
-        private int lastLevel = -1;
-        private KStarTreeNode lastNode;
-        private double epsilon = 0;
-        private boolean render = false;
+        protected KStarTreeNode root;
+        protected Stack<KStarTreeNode> buildStack = new Stack<>();
+        protected int lastLevel = -1;
+        protected KStarTreeNode lastNode;
+        protected double epsilon = 0;
+        protected boolean render = false;
 
         public Builder setRender(boolean render) {
             this.render = render;
@@ -1023,7 +1023,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
 
     }
 
-    private void prepTree()
+    protected void prepTree()
     {
         if(children == null)
             return;
@@ -1144,7 +1144,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         return sum;
     }
 
-    private boolean isRoot() {
+    protected boolean isRoot() {
         return level == 0;
     }
 

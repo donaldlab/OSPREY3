@@ -97,6 +97,12 @@ public class Visualizer extends Application {
             File selectedFile = fc.showOpenDialog(primaryStage);
             loadTreeFromFile(selectedFile);
         });
+        MenuItem loadSeqTree = new MenuItem("Load sequence tree!");
+        loadSeqTree.setOnAction(e -> {
+            FileChooser fc = new FileChooser();
+            File selectedFile = fc.showOpenDialog(primaryStage);
+            loadSeqTreeFromFile(selectedFile);
+        });
         MenuItem helpDevShortCut = new MenuItem("DevShortCut");
         helpDevShortCut.setOnAction(e -> {
             devShortCut();
@@ -135,6 +141,7 @@ public class Visualizer extends Application {
         });
         help.getItems().add(helpDevShortCut3);
         file.getItems().add(loadTree);
+        file.getItems().add(loadSeqTree);
         options.getItems().addAll(setvisibleLevels,toggleCenter, colorByEnergy, colorByOccupancy, colorByLogOccupancy);
         MenuBar menuBar = new MenuBar();
         menuBar.getMenus().addAll(file, options, help);
@@ -164,8 +171,6 @@ public class Visualizer extends Application {
         Group textGroup = new Group();
         Group g = rootGroup;
         Pane centerPane = new Pane();
-
-        /*
 
         // handle the huge tree file with multiple passes,
         // so we don't have to keep it all in memory at once
@@ -224,11 +229,74 @@ public class Visualizer extends Application {
             log("\t%2d: %e", level, upperBound);
         }
 
-         */
+        // pass 2: read the tree and render the nodes
+        log("reading tree file for display, pass 2 ...");
+        root = KStarTreeNode.parseTree(selectedFile, true, zCutoffsByLevel);
+
+        rootGroup.getChildren().addAll(ringGroup, textGroup);
+        root.setGroup(ringGroup);
+        root.preprocess();
+        root.render(g);
+        root.setTextRoot(textGroup);
+        root.autoExpand(0.001);//,5);
+        resize();
+        //root.pieChart(1, 3,6);
+        root.showRoot();
+        centerPane.getChildren().addAll(g);
+        triroot.setCenter(centerPane);
+        centerPane.setOnScroll((event)-> {
+            if (event.getDeltaY() == 0) {
+                return;
+            }
+
+            double scaleFactor = (event.getDeltaY() > 0) ? SCALE_DELTA : 1 / SCALE_DELTA;
+            double mouseX = event.getX();
+            double mouseY = event.getY();
+            Point2D mouseXY = new Point2D(mouseX, mouseY);
+            Point2D mouseLocal = ringGroup.sceneToLocal(mouseXY);
+
+            ringGroup.setScaleX(ringGroup.getScaleX() * scaleFactor);
+            ringGroup.setScaleY(ringGroup.getScaleY() * scaleFactor);
+            Point2D movedMouseScene = ringGroup.localToScene(mouseLocal);
+            ringGroup.setTranslateX(ringGroup.getTranslateX() + mouseX - movedMouseScene.getX());
+            ringGroup.setTranslateY(ringGroup.getTranslateY() + mouseY - movedMouseScene.getY());
+            //resize();
+        });
+        centerPane.setOnMousePressed((event)-> {
+            mouseDownX = event.getX();
+            mouseDownY = event.getY();
+            Point2D mouseXY = new Point2D(mouseDownX, mouseDownY);
+            Point2D mouseLocal = ringGroup.sceneToLocal(mouseXY);
+            Point2D ringScene = ringGroup.localToScene(mouseXY);
+
+            ringX = ringGroup.getTranslateX();
+            ringY = ringGroup.getTranslateY();
+        });
+        centerPane.setOnMouseDragged((event)-> {
+            double x = event.getX();
+            double y = event.getY();
+            ringGroup.setTranslateX(ringX+(x-mouseDownX));
+            ringGroup.setTranslateY(ringY+(y-mouseDownY));
+
+        });
+        triroot.setTop(getMenuBar(primaryStage));
+        //triroot.widthProperty().addListener(o-> resize());
+        //triroot.heightProperty().addListener(o-> resize());
+    }
+
+    private void loadSeqTreeFromFile(File selectedFile) {
+        ringNode = new Pane();
+        System.out.println("Parsing "+selectedFile);
+        rootGroup = new Group();
+        Group ringGroup = new Group();
+        Group textGroup = new Group();
+        Group g = rootGroup;
+        Pane centerPane = new Pane();
+
         // pass 2: read the tree and render the nodes
         log("reading tree file for display, pass 2 ...");
         //root = KStarTreeNode.parseTree(selectedFile, true, zCutoffsByLevel);
-        root = KStarTreeNode.parseTree(selectedFile, true, null);
+        root = SeqTreeNode.parseTree(selectedFile, true, null);
 
         /*
         int level = 5;

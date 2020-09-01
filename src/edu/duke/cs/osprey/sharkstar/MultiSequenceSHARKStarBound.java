@@ -2011,7 +2011,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         Map<Sequence, Double> secondsPerSeq = new HashMap<>();
     }
 
-    public static List<Double> generate1DRepresentation(SingleSequenceSHARKStarBound bound, int numBins, double cutoff){
+    public static Double[] generate1DRepresentation(SingleSequenceSHARKStarBound bound, int numBins, double cutoff){
         class occEntry{
             double occupancy;
             int numberConfs;
@@ -2039,12 +2039,12 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
         int finalNumBins = Math.min(numBins, sortedEntries.size());
         int entriesPerBin = Math.max(sortedEntries.size() / finalNumBins, 1);
-        List<Double> binned = IntStream.range(0, finalNumBins)
+        Double[] binned = IntStream.range(0, finalNumBins)
                 .mapToObj((i) -> sortedEntries.subList(i*entriesPerBin, (i+1)*entriesPerBin)
                         .parallelStream()
                         .map((e) -> e.occupancy)
                         .reduce(0.0, Double::sum))
-                .collect(Collectors.toList());
+                .toArray(Double[]::new);
 
         return binned;
     }
