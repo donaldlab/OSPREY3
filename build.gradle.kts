@@ -171,7 +171,8 @@ dependencies {
 	}
 
 	// TPIE-Java isn't in the maven/jcenter repos yet, download directly from Github
-	implementation(url("https://github.com/donaldlab/TPIE-Java/releases/download/v1.1/edu.duke.cs.tpie-1.1.jar"))
+	// use `api` instead of `implementation` here, since the compiler sometimes complains about these types not being available in downstream projects
+	api(url("https://github.com/donaldlab/TPIE-Java/releases/download/v1.1/edu.duke.cs.tpie-1.1.jar"))
 
 	// native libs for GPU stuff
 	listOf("natives-linux-amd64", "natives-macosx-universal", "natives-windows-amd64").forEach {
