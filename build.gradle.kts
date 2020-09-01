@@ -200,7 +200,8 @@ runtime {
 		"java.sql",
 		"java.naming",
 		"java.management",
-		"jdk.httpserver"
+		"jdk.httpserver",
+		"jdk.zipfs" // needed to provide jar:// file system
 	)
 }
 
