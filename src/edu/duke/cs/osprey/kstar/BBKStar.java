@@ -38,6 +38,7 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.pfunc.*;
+import edu.duke.cs.osprey.markstar.visualizer.KStarTreeNode;
 import edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound;
 import edu.duke.cs.osprey.sharkstar.SHARKSeqHScorer;
 import edu.duke.cs.osprey.sharkstar.SingleSequenceSHARKStarBound;
@@ -45,10 +46,15 @@ import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 
 /**
@@ -332,6 +338,45 @@ public class BBKStar {
 			isUnboundUnstable = false;
 		}
 
+		public BigDecimal estimateScoreLB() {
+
+			// TODO: expose setting?
+			// NOTE: for the correctness of the bounds, the number of confs must be the same for every node
+			// meaning, it might not be sound to do epsilon-based iterative approximations here
+			final int numConfs = 1000;
+			BigDecimal lb;
+
+			BigDecimal proteinUpperBound = calcUpperBoundByConf(protein, sequence, numConfs);
+
+			// if the first few conf upper bound scores (for the pfunc lower bound) are too high,
+			// then the K* upper bound is also too high
+			if (MathTools.isZero(proteinUpperBound)) {
+				isUnboundUnstable = false;
+				return BigDecimal.valueOf(Double.POSITIVE_INFINITY);
+			}
+
+			BigDecimal ligandUpperBound = calcUpperBoundByConf(ligand, sequence, numConfs);
+
+			// if the first few conf upper bound scores (for the pfunc lower bound) are too high,
+			// then the K* upper bound is also too high
+			if (MathTools.isZero(ligandUpperBound)) {
+				isUnboundUnstable = false;
+				return BigDecimal.valueOf(Double.POSITIVE_INFINITY);
+			}
+
+			BigDecimal complexLowerBound = calcLowerBoundByConf(complex, sequence, numConfs);
+
+			// compute the node score
+			lb = MathTools.bigDivideDivide(
+					complexLowerBound,
+					proteinUpperBound,
+					ligandUpperBound,
+					PartitionFunction.decimalPrecision
+			);
+			isUnboundUnstable = false;
+			return lb;
+		}
+
 		private BigDecimal calcUpperBoundBySumProduct(ConfSpaceInfo info, Sequence sequence) {
 			RCs rcs = sequence.makeRCs(info.confSpace);
 			EnergyMatrix rigidEmat = info.pfuncFactory.getOrMakeEmat(info.confEcalcRigid,
@@ -594,6 +639,8 @@ public class BBKStar {
 	public MultiSequenceSHARKStarBound proteinSHARK; // temporary variable for SHARK* test information
 	public MultiSequenceSHARKStarBound ligandSHARK; // temporary variable for SHARK* test information
 
+	boolean printSequenceTree;
+
 	public BBKStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, KStar.Settings kstarSettings, Settings bbkstarSettings) {
 
 		// BBK* doesn't work with external memory (never enough internal memory for all the priority queues)
@@ -804,6 +851,7 @@ public class BBKStar {
 			n.complex.printStats();
 		});
 
+		printSequenceTree(Stream.of(tree, finishedNodes /*, unstableNodes*/).flatMap(Collection::stream).collect(Collectors.toList()));
 
 		return scoredSequences;
 	}
@@ -832,5 +880,133 @@ public class BBKStar {
 		nodes.forEach((n) -> System.out.println(String.format("%s: %d", n.sequence, n.numComputeCycles)));
 		finishedNodes.forEach((n) -> System.out.println(String.format("%s: %d", n.sequence, n.numComputeCycles)));
 
+	}
+
+	private void printSequenceTree(Collection<Node> seqFringe){
+	    BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
+
+	    // find out what our assignments will be
+		//TODO: I think the sorting of this list will change the tree ordering
+		List<SeqSpace.Position> mutablePositions = complex.confSpace.seqSpace.positions.stream().filter(SeqSpace.Position::hasMutants).collect(Collectors.toList());
+		List<String> resNums = mutablePositions.stream().map((p) -> p.resNum).collect(Collectors.toList());
+		final int numPos = resNums.size();
+
+		// get fringes
+	    List<KStarTreeNode> fringe = seqFringe.stream().map((n) -> {
+	    	String[] assignments = new String[numPos];
+	    	int[] confAssignments = new int[numPos];
+	    	int i = 0;
+			int level = 0;
+	    	for (Sequence.Assignment ass : n.sequence.assignments(resNums)){
+	    		if(ass.isAssigned()) {
+	    			level++;
+				}
+					assignments[i] = ass.getResType().name;
+					confAssignments[i] = ass.getResType().index;
+				i++;
+			}
+			BigDecimal lb;
+			BigDecimal ub;
+			if(n instanceof SingleSequenceNode){
+				lb = ((SingleSequenceNode) n).complex.getValues().calcLowerBound();
+				ub = ((SingleSequenceNode) n).complex.getValues().calcUpperBound();
+			}else{
+				lb = ((MultiSequenceNode) n).calcLowerBoundByConf(complex, n.sequence, 1000);
+				ub = ((MultiSequenceNode) n).calcUpperBoundByConf(complex, n.sequence, 1000);
+			}
+			double conflb;
+			double confub;
+			double eps;
+			boolean haveValidEps = true;
+			if(lb.compareTo(BigDecimal.ZERO) > 0 ){
+				if(lb != MathTools.BigPositiveInfinity){
+					confub = bc.freeEnergy(lb);
+				}else{
+					confub = Double.NEGATIVE_INFINITY;
+					haveValidEps = false;
+				}
+			}else{
+				confub = Double.POSITIVE_INFINITY;
+				haveValidEps = false;
+			}
+			if(ub.compareTo(BigDecimal.ZERO) > 0 ){
+				if(ub != MathTools.BigPositiveInfinity){
+					conflb = bc.freeEnergy(ub);
+				}else{
+					conflb = Double.NEGATIVE_INFINITY;
+					haveValidEps = false;
+				}
+			}else{
+				conflb = Double.POSITIVE_INFINITY;
+				haveValidEps = false;
+			}
+			if(haveValidEps){
+				eps = ub.subtract(lb).divide(ub, RoundingMode.HALF_UP).doubleValue();
+			}else{
+				eps = 1.0;
+			}
+
+	    	return new KStarTreeNode(level,
+					assignments,
+					confAssignments,
+					lb,
+					ub,
+					conflb,
+					confub,
+					eps);
+		}).collect(Collectors.toList());
+
+	    // populate the rest of the tree
+		List<KStarTreeNode> lastLevel = fringe;
+		for (int i = numPos - 1; i >=0; ){
+			List<KStarTreeNode> newLevel = new ArrayList<>();
+			final int childPos = i;
+			final int parentPos = i-1;
+			Map<Integer, List<KStarTreeNode>> nodesByAA;
+			if(parentPos < 0) {
+				nodesByAA = new HashMap<>();
+				nodesByAA.put(-1, lastLevel);
+			}else
+				nodesByAA = lastLevel.stream().collect(Collectors.groupingBy((n) -> n.getConfAssignments()[parentPos]));
+			for(List<KStarTreeNode> children : nodesByAA.values()){
+				KStarTreeNode exemplar = children.get(0);
+				String[] parentAssignments = Arrays.copyOf(exemplar.getAssignments(), numPos);
+				parentAssignments[childPos] = "*";
+				int[] parentConfAssignments = Arrays.copyOf(exemplar.getConfAssignments(), numPos);
+				parentConfAssignments[childPos] = -1;
+				int level = exemplar.level - 1;
+				BigDecimal parentLB = children.stream().map(KStarTreeNode::getLowerBound).reduce(BigDecimal.ZERO, BigDecimal::add);
+				BigDecimal parentUB = children.stream().map(KStarTreeNode::getUpperBound).reduce(BigDecimal.ZERO, BigDecimal::add);
+				double parentConfLB = Double.NEGATIVE_INFINITY;
+				double parentConfUB = Double.POSITIVE_INFINITY;
+				if(parentUB != MathTools.BigPositiveInfinity)
+				    parentConfLB = bc.freeEnergy(parentUB);
+				if(parentLB != MathTools.BigPositiveInfinity)
+					parentConfUB = bc.freeEnergy(parentLB);
+
+				KStarTreeNode parent = new KStarTreeNode(level,
+								parentAssignments,
+								parentConfAssignments,
+								parentLB,
+								parentUB,
+								parentConfLB,
+								parentConfUB,
+								0);
+				parent.setChildren(children);
+				newLevel.add(parent);
+			}
+			lastLevel = newLevel;
+			i--;
+
+		}
+		KStarTreeNode root = lastLevel.get(0);
+		try {
+			FileWriter writer = new FileWriter("testSeqTree.tree");
+			root.printTreeLikeMARKStar(writer);
+			writer.flush();
+			writer.close();
+		}catch(IOException e) {
+			System.out.println(e.getMessage());
+		}
 	}
 }

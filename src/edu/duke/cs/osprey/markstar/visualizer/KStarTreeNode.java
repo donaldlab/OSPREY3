@@ -71,7 +71,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     private static final boolean debug = false;
     private static Random[] colorSeeds;
     private BigDecimal overallUpperBound;
-    int level = -1;
+    public int level = -1;
     private String[] assignments;
     private int[] confAssignments;
     private BigDecimal upperBound;
@@ -109,6 +109,9 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     public enum ColorStyle {
         differenceFromEnergy,
         logOccupancy, occupancy
+    }
+    public void setChildren(List<KStarTreeNode> children){
+        this.children = children;
     }
 
     public void setColorStyle(ColorStyle style) {
@@ -957,6 +960,8 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
                 for(int i = 0; i < m.groupCount(); i++)
                     System.out.println("group "+i+":"+m.group(i));
             }
+            if(!m.matches())
+                System.out.println(line);
             int level = m.group(1).length()/2;
             String[] bounds = m.group(6).split(",");
             int[] confAssignments = Arrays.stream(m.group(3).replaceAll(" ","").split(",")).mapToInt(Integer::parseInt).toArray();
@@ -1161,7 +1166,8 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     {
         NumberFormat formatter = new DecimalFormat("0.0E0");
         formatter.setRoundingMode(RoundingMode.HALF_UP);
-        formatter.setMinimumFractionDigits((x.scale() > 0) ? x.precision() : x.scale());
+        //formatter.setMinimumFractionDigits((x.scale() > 0) ? x.precision() : x.scale());
+        formatter.setMaximumFractionDigits(3);
         return formatter.format(x);
     }
 
@@ -1209,13 +1215,13 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         String out = prefix+confString;
         if(writer != null) {
             try {
-                writer.write(out);
+                writer.write(out+"\n");
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
         else
-            System.out.print(out);
+            System.out.println(out);
         if(children != null && !children.isEmpty()) {
             Collections.sort(children, (a,b)-> -a.upperBound
                     .compareTo(b.upperBound));

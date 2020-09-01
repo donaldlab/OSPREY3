@@ -165,6 +165,8 @@ public class Visualizer extends Application {
         Group g = rootGroup;
         Pane centerPane = new Pane();
 
+        /*
+
         // handle the huge tree file with multiple passes,
         // so we don't have to keep it all in memory at once
 
@@ -222,9 +224,11 @@ public class Visualizer extends Application {
             log("\t%2d: %e", level, upperBound);
         }
 
+         */
         // pass 2: read the tree and render the nodes
         log("reading tree file for display, pass 2 ...");
-        root = KStarTreeNode.parseTree(selectedFile, true, zCutoffsByLevel);
+        //root = KStarTreeNode.parseTree(selectedFile, true, zCutoffsByLevel);
+        root = KStarTreeNode.parseTree(selectedFile, true, null);
 
         /*
         int level = 5;

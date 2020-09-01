@@ -94,7 +94,8 @@ idea {
 }
 
 application {
-	mainClassName = "edu.duke.cs.osprey.control.Main"
+	//mainClassName = "edu.duke.cs.osprey.control.Main"
+	mainClassName = "edu.duke.cs.osprey.markstar.visualizer.Visualizer"
 }
 
 dependencies {
