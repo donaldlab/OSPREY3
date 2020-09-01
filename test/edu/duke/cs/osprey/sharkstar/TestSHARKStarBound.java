@@ -1027,6 +1027,9 @@ public class TestSHARKStarBound extends TestBase {
                 ssbound_two.getLowerFromQueues(),
                 ssbound_two.getUpperFromQueues()
         ));
+        List<Double> repr = MultiSequenceSHARKStarBound.generate1DRepresentation(ssbound, 100, 1e-9);
+        System.out.println(repr.toString());
+        System.out.printf("These confs represent %.2f%% of the occupancy.", 100* repr.stream().reduce(0.0, Double::sum));
     }
 
     @Test

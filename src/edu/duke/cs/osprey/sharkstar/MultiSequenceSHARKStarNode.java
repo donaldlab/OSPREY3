@@ -411,4 +411,24 @@ public class MultiSequenceSHARKStarNode implements PartialConfAStarNode {
         return partialConfUpperBound;
     }
 
+    public static BigInteger computeNumConformations(MultiSequenceSHARKStarNode node, RCs rcs) {
+        BigInteger numConfs = BigInteger.ONE;
+        if(rcs.getNumPos() == node.assignments.length) {
+            boolean fullyAssigned = true;
+            for (int pos = 0; pos < node.assignments.length; pos++) {
+                if(node.assignments[pos] == Unassigned)
+                    fullyAssigned = false;
+            }
+            if(fullyAssigned)
+                return numConfs;
+        }
+
+        for (int pos = 0; pos < node.assignments.length; pos++) {
+            if (node.assignments[pos] == Unassigned) {
+                numConfs = numConfs.multiply(BigInteger.valueOf(rcs.getNum(pos)));
+            }
+        }
+        return numConfs;
+    }
+
 }

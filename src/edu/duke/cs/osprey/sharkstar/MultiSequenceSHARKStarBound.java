@@ -35,6 +35,8 @@ import java.math.BigInteger;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStatistics.printTree;
 
@@ -2007,6 +2009,44 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         long numRoundsPartialMin = 0; // number of rounds of partial minimization
 
         Map<Sequence, Double> secondsPerSeq = new HashMap<>();
+    }
+
+    public static List<Double> generate1DRepresentation(SingleSequenceSHARKStarBound bound, int numBins, double cutoff){
+        class occEntry{
+            double occupancy;
+            int numberConfs;
+
+            occEntry(MultiSequenceSHARKStarNode node){
+                this.occupancy = node.getUpperBound(bound.sequence).divide(bound.getUpperBound(), PartitionFunction.decimalPrecision).doubleValue();
+                this.numberConfs = MultiSequenceSHARKStarNode.computeNumConformations(node, bound.seqRCs).intValue();
+            }
+
+            occEntry(double occupancy, int numberConfs){
+                this.occupancy = occupancy;
+                this.numberConfs = numberConfs;
+            }
+        }
+
+        List<occEntry> sortedEntries = Stream.of(bound.internalQueue, bound.leafQueue, bound.finishedNodes)
+                .flatMap(Collection::stream)
+                .parallel()
+                .map(occEntry::new)
+                .filter((e) -> e.occupancy / e.numberConfs > cutoff) // filter out elements with low occupancy
+                .flatMap((e) -> Collections.nCopies(e.numberConfs, new occEntry(e.occupancy / e.numberConfs, 1)).stream()) // expand internal nodes
+                .sorted(Comparator.comparingDouble((e) -> -1 * e.occupancy)) // sort by occupancy
+                .collect(Collectors.toList());
+        System.out.println(sortedEntries.size());
+
+        int finalNumBins = Math.min(numBins, sortedEntries.size());
+        int entriesPerBin = Math.max(sortedEntries.size() / finalNumBins, 1);
+        List<Double> binned = IntStream.range(0, finalNumBins)
+                .mapToObj((i) -> sortedEntries.subList(i*entriesPerBin, (i+1)*entriesPerBin)
+                        .parallelStream()
+                        .map((e) -> e.occupancy)
+                        .reduce(0.0, Double::sum))
+                .collect(Collectors.toList());
+
+        return binned;
     }
 
 }
