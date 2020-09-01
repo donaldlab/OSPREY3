@@ -100,27 +100,7 @@ def _java_aware_excepthook(exctype, value, traceback):
 		pass
 
 
-def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=16, garbageSizeMiB=128, allowRemoteManagement=False):
-	'''
-	Starts the Java Virtual Machine (JVM) that runs Osprey's computation libraries.
-
-	Call :meth:`start` before using any of Osprey's other functions.
-
-	:param int heapSizeMiB: Size of the JVM heap in megabytes. This is essentially the amount of memory
-		Osprey will have to do computations. 1024 MiB is 1 GiB, but for larger designs,
-		you may want to use 2048 MiB (2 GiB), 4096 MiB (4 GiB), or even more memory.
-	
-	:param bool enableAssertions: pass ``True`` to enable JVM assertions. Only useful for debugging.
-
-	:param int stackSizeMiB: Size of the JVM stack portion of the heap in megabytes.
-		Generally leave this at the default value, unless Osprey crashes because it's too small. Then try increasing it.
-
-	:param int garbageSizeMiB: Size of the garbage portion of the JVM heap that is reserved for temporary objects.
-		This default value is appropriate for the default heap size, but if using larger heap sizes, then increasing
-		the garbage size to 256, 512, or even 1024 MiB can give a modest improvement in performance.
-
-	:param bool allowRemoteManagement: pass ``True`` to listen on ports 9010 and 9011 for JMX remote management.
-	'''
+def _start_jvm_common(fn_jvm_start):
 
 	# disable buffered output on stdout, so python log messages line up with java log messages
 	class Unbuffered(object):
@@ -181,8 +161,7 @@ def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=16, garbageSize
 		# development environment: use the system JRE
 		jre_path = None
 
-	# start the jvm
-	jvm.start(jre_path, heapSizeMiB, enableAssertions, stackSizeMiB, garbageSizeMiB, allowRemoteManagement)
+	fn_jvm_start(jre_path)
 
 	# set up class factories
 	global c
@@ -215,6 +194,45 @@ def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=16, garbageSize
 	python_version = '.'.join([str(x) for x in sys.version_info[0:3]])
 	java_version = jpype.java.lang.System.getProperty('java.version')
 	print("OSPREY %s, Python %s, Java %s, %s" % (osprey_version, python_version, java_version, platform.platform()))
+
+
+def start_with_jvm_args(jvm_args=None):
+	'''
+	Start the jvm with JVM arguments.
+	:param jvm_args: a list of arguments to the JVM. For example, ["-XX:MaxHeapSize=100g", "-XX:MinHeapSize=100g"].
+	defaults to None, which implies the JVM will run with its default configuration.
+	:return: None
+	'''
+	if jvm_args is None:
+		jvm_args = []
+
+	_start_jvm_common(lambda jre_path: jvm.start_with_args(jre_path, jvm_args))
+
+
+def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=16, garbageSizeMiB=128, allowRemoteManagement=False, attachJvmDebugger=False):
+	'''
+	Starts the Java Virtual Machine (JVM) that runs Osprey's computation libraries.
+
+	Call :meth:`start` before using any of Osprey's other functions.
+
+	:param int heapSizeMiB: Size of the JVM heap in megabytes. This is essentially the amount of memory
+		Osprey will have to do computations. 1024 MiB is 1 GiB, but for larger designs,
+		you may want to use 2048 MiB (2 GiB), 4096 MiB (4 GiB), or even more memory.
+
+	:param bool enableAssertions: pass ``True`` to enable JVM assertions. Only useful for debugging.
+
+	:param int stackSizeMiB: Size of the JVM stack portion of the heap in megabytes.
+		Generally leave this at the default value, unless Osprey crashes because it's too small. Then try increasing it.
+
+	:param int garbageSizeMiB: Size of the garbage portion of the JVM heap that is reserved for temporary objects.
+		This default value is appropriate for the default heap size, but if using larger heap sizes, then increasing
+		the garbage size to 256, 512, or even 1024 MiB can give a modest improvement in performance.
+
+	:param bool allowRemoteManagement: pass ``True`` to listen on ports 9010 and 9011 for JMX remote management.
+
+	:param bool attachJvmDebugger: pass ``True`` to be able to attach a Java debugger to the JVM.
+	'''
+	_start_jvm_common(lambda jre_path: jvm.start(jre_path, heapSizeMiB, enableAssertions, stackSizeMiB, garbageSizeMiB, allowRemoteManagement, attachJvmDebugger))
 	print("Using up to %d MiB heap memory: %d MiB for garbage, %d MiB for storage" % (
 		heapSizeMiB, garbageSizeMiB, heapSizeMiB - garbageSizeMiB
 	))

@@ -38,8 +38,8 @@ import edu.duke.cs.osprey.minimization.ObjectiveFunction;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction.DofBounds;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
+
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -72,7 +72,7 @@ public class CATSStrandFlex extends StrandFlex {
     //For now let's just have CATS do a single backbone voxel
     @Override
     public ObjectiveFunction.DofBounds makeBounds(Strand strand) {
-        double freeDOFVoxel[][] = block.getFreeDOFVoxel();
+        double[][] freeDOFVoxel = block.getFreeDOFVoxel();
         int numDOFs = freeDOFVoxel[0].length;
         DofBounds ans = new DofBounds(numDOFs);
         for(int d=0; d<numDOFs; d++)
@@ -82,22 +82,17 @@ public class CATSStrandFlex extends StrandFlex {
     
     @Override
     public ArrayList<HashMap<String, double[]>> listBackboneVoxels(SimpleConfSpace.Position pos) {
-            if(doesBlockAffectResidue(pos.resNum))
-                return new ArrayList(Arrays.asList(defaultBackboneVoxel(pos.strand)));
-            else//No flexibility because pos not affected by these CATS DOFs
-                return new ArrayList<>();
-    }
-    
-    
-    private boolean doesBlockAffectResidue(String resNum){
-        List<Residue> resList = block.getResidues();
-        for(Residue res : resList){
-            if(res.getPDBResNumber().equalsIgnoreCase(resNum))
-                return true;
+        var retList = new ArrayList<HashMap<String, double[]>>();
+        if (doesBlockAffectResidue(pos.resNum)) {
+            retList.add(defaultBackboneVoxel(pos.strand));
         }
-        return false;
+
+        return retList;
     }
-    
-    
-    
+
+    private boolean doesBlockAffectResidue(String resNum){
+        return block.getResidues()
+                    .stream()
+                    .anyMatch((residue -> residue.getPDBResNumber().equalsIgnoreCase(resNum)));
+    }
 }
