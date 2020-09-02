@@ -422,7 +422,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         return colorSeeds[level];
     }
 
-    private void setBand(double startAngle, double length) {
+    protected void setBand(double startAngle, double length) {
         this.startAngle = startAngle;
         this.length = length;
     }
@@ -446,7 +446,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
 
     }
 
-    private void renderBand(double centerX, double centerY,
+    protected void renderBand(double centerX, double centerY,
                             double innerRadius, double outerRadius,
                             double arcStart, double arcLength, double[] weights) {
         if(children.size() < 1 || bandGroup.getChildren().size() > 0)
@@ -538,7 +538,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     double occupancyThreshold = 0.5;
     double logOccupancyThreshold = 0.80;
 
-    private Color getWeightedColor() {
+    protected Color getWeightedColor() {
         switch(colorStyle) {
             case differenceFromEnergy:
                 return getEnergyWeightedColor();
@@ -626,18 +626,18 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         return new Color(1*(1-newRatio), 0, newRatio,1);
     }
 
-    private void hideConfInfo() {
+    protected void hideConfInfo() {
         statText.setVisible(false);
     }
 
-    private void showConfInfo(double mouseX, double mouseY) {
+    protected void showConfInfo(double mouseX, double mouseY) {
         statText.setTranslateX(mouseX);
         statText.setTranslateY(mouseY);
         statText.setText(this.toStringVisual());
         statText.setVisible(true);
     }
 
-    private void toggleBand() {
+    protected void toggleBand() {
         expanded = !expanded;
         if(hasChildren() && !childrenRendered){
             expanded = true;
@@ -651,7 +651,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     }
 
 
-    private double[] computeWeights() {
+    protected double[] computeWeights() {
         return normalizeWeights();
     }
 

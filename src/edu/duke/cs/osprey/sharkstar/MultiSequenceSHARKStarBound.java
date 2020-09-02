@@ -2037,14 +2037,19 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 .collect(Collectors.toList());
         System.out.println(sortedEntries.size());
 
-        int finalNumBins = Math.min(numBins, sortedEntries.size());
-        int entriesPerBin = Math.max(sortedEntries.size() / finalNumBins, 1);
-        Double[] binned = IntStream.range(0, finalNumBins)
-                .mapToObj((i) -> sortedEntries.subList(i*entriesPerBin, (i+1)*entriesPerBin)
-                        .parallelStream()
-                        .map((e) -> e.occupancy)
-                        .reduce(0.0, Double::sum))
-                .toArray(Double[]::new);
+        Double[] binned;
+        if(sortedEntries.size() > 0) {
+            int finalNumBins = Math.min(numBins, sortedEntries.size());
+            int entriesPerBin = Math.max(sortedEntries.size() / finalNumBins, 1);
+            binned = IntStream.range(0, finalNumBins)
+                    .mapToObj((i) -> sortedEntries.subList(i * entriesPerBin, (i + 1) * entriesPerBin)
+                            .parallelStream()
+                            .map((e) -> e.occupancy)
+                            .reduce(0.0, Double::sum))
+                    .toArray(Double[]::new);
+        }else{
+            binned = new Double[] {};
+        }
 
         return binned;
     }

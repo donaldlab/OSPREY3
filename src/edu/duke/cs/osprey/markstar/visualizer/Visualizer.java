@@ -296,7 +296,8 @@ public class Visualizer extends Application {
         // pass 2: read the tree and render the nodes
         log("reading tree file for display, pass 2 ...");
         //root = KStarTreeNode.parseTree(selectedFile, true, zCutoffsByLevel);
-        root = SeqTreeNode.parseTree(selectedFile, true, null);
+        SeqTreeNode seqRoot = SeqTreeNode.parseTree(selectedFile, true);
+        root = seqRoot;
 
         /*
         int level = 5;

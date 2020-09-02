@@ -912,7 +912,7 @@ public class BBKStar {
 			if(n instanceof SingleSequenceNode){
 				lb = ((SingleSequenceNode) n).complex.getValues().calcLowerBound();
 				ub = ((SingleSequenceNode) n).complex.getValues().calcUpperBound();
-				repr = MultiSequenceSHARKStarBound.generate1DRepresentation((SingleSequenceSHARKStarBound) ((SingleSequenceNode) n).complex, 100, 1e-9);
+				repr = MultiSequenceSHARKStarBound.generate1DRepresentation((SingleSequenceSHARKStarBound) ((SingleSequenceNode) n).complex, 100, 1e-3);
 			}else{
 				lb = ((MultiSequenceNode) n).calcLowerBoundByConf(complex, n.sequence, 1000);
 				ub = ((MultiSequenceNode) n).calcUpperBoundByConf(complex, n.sequence, 1000);
