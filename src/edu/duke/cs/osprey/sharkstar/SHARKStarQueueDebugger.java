@@ -108,13 +108,13 @@ public class SHARKStarQueueDebugger {
             if(secondAssignments.containsKey(node.assignments)) {
                 List<MultiSequenceSHARKStarNode> children = secondAssignments.get(node.assignments);
                 children.sort(Comparator.comparing(MultiSequenceSHARKStarNode::getLevel));
-                BigDecimal childError = children.stream().map((n) -> n.getErrorBound(seq)).
+                BigDecimal childError = children.stream().map((n) -> bc.calc(n.getErrorBound(seq))).
                         reduce(BigDecimal.ZERO, BigDecimal::add);
                 BigDecimal childLB = children.stream().map((n) -> bc.calc(n.getConfUpperBound(seq))).
                         reduce(BigDecimal.ZERO, BigDecimal::add);
                 BigDecimal childUB = children.stream().map((n) -> bc.calc(n.getConfLowerBound(seq))).
                         reduce(BigDecimal.ZERO, BigDecimal::add);
-                BigDecimal deltaError = node.getErrorBound(seq).subtract(childError);
+                BigDecimal deltaError = bc.calc(node.getErrorBound(seq)).subtract(childError);
                 if(deltaError.compareTo(BigDecimal.ZERO) < 0){
                     System.err.println("Bounds increasing!?");
                     System.err.println(String.format("Delta error %1.3e: [%1.3e, %1.3e] -> [%1.3e, %1.3e]",

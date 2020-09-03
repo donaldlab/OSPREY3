@@ -188,7 +188,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         //rootNode.setBoundsFromConfLowerAndUpperWithHistory(confLowerBound, confUpperBound, bc.calc(confLowerBound), bc.calc(confUpperBound), precomputedSequence, "(root initialization)");
         rootNode.setConfBounds(confBounds, this.precomputedSequence, "root initialization");
         //rootNode.setPfuncBounds(confBounds.boltzmannWeight(this.bc), this.precomputedSequence, "root initialization");
-        rootNode.setErrorBounds(confBounds.boltzmannWeight(this.bc), this.precomputedSequence);
+        rootNode.setErrorBound(this.bc.freeEnergy(confBounds.boltzmannWeight(this.bc).size(this.bc.mathContext)), this.precomputedSequence);
 
         this.contexts = new ObjectPool<>((lingored) -> {
             ScoreContext context = new ScoreContext();
@@ -464,7 +464,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                     seqBound.sequence,
                                     "fringe");
                              */
-                            node.setErrorBounds(confBounds.boltzmannWeight(msBound.bc),
+                            node.setErrorBound(
+                                    msBound.bc.freeEnergy(confBounds.boltzmannWeight(msBound.bc).size(msBound.bc.mathContext)),
                                     seqBound.sequence);
 
                             String historyString = "";
@@ -699,7 +700,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     bound.sequence,
                     "correction");
              */
-            node.setErrorBounds(confBounds.boltzmannWeight(msBound.bc),
+            node.setErrorBound(
+                    msBound.bc.freeEnergy(confBounds.boltzmannWeight(msBound.bc).size(msBound.bc.mathContext)),
                     bound.sequence);
             //node.setBoundsFromConfLowerAndUpperWithHistory(oldConfLowerBound + correctionDiff, node.getConfUpperBound(bound.sequence), bc.calc(oldConfLowerBound+correctionDiff), msBound.bc.calc(node.getConfUpperBound(bound.sequence)), bound.sequence, historyString);
             debugPrint("Correcting " + node.toSeqString(bound.sequence) +" correction ="+(correctionDiff) );
@@ -835,41 +837,45 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 // If we have nodes in either the leaf or internal queues, process them
                 } else if (sequenceBound.leafQueue.size() > 0 || sequenceBound.internalQueue.size() > 0) {
                     //Record the largest error in the leaf queue and internal queues
-                    BigDecimal leafError = BigDecimal.valueOf(-1);
-                    BigDecimal internalError = BigDecimal.valueOf(-1);
+                    double internalErrorWeightFactor = 1e3;
+                    double freeEnergyLeafError = Double.POSITIVE_INFINITY;
+                    double freeEnergyInternalError = Double.POSITIVE_INFINITY;
                     if (!sequenceBound.leafQueue.isEmpty())
-                        leafError = sequenceBound.leafQueue.peek().getErrorBound(sequenceBound.sequence);
+                        freeEnergyLeafError = sequenceBound.leafQueue.peek().getErrorBound(sequenceBound.sequence);
                     if (!sequenceBound.internalQueue.isEmpty())
-                        internalError = sequenceBound.internalQueue.peek().getErrorBound(sequenceBound.sequence)
-                            .multiply(BigDecimal.valueOf(1e3));
+                        freeEnergyInternalError = (sequenceBound.internalQueue.peek().getErrorBound(sequenceBound.sequence)
+                        - BoltzmannCalculator.constRT*Math.log(internalErrorWeightFactor));
 
-                    // If the leaf error is larger then the internal error, then grab the leaf and do an energy step
-                    if (leafError.compareTo(BigDecimal.ZERO) > 0 && leafError.compareTo(internalError) > 0) {
+                    // If the leaf error is larger then (less than since we are in free energy space) the internal error,
+                    // then grab the leaf and do an energy step
+                    if (freeEnergyLeafError < Double.POSITIVE_INFINITY && freeEnergyLeafError < freeEnergyInternalError) {
                             loosestLeaf = sequenceBound.leafQueue.poll();
                             step = Step.Energy;
-                    // If the internal error is larger then the leaf error, then grab the internal node and do an expansion step
-                    } else if (internalError.compareTo(BigDecimal.ZERO) > 0 && leafError.compareTo(internalError) <= 0) {
-                        BigDecimal nodeError = internalError;
-                        while(nodeError != null &&
-                                nodeError.compareTo(leafError) >=0 &&
+                    // If the internal error is larger then (less than since we are in free energy space) the leaf error,
+                    //then grab the internal node and do an expansion step
+                    } else if (freeEnergyInternalError < Double.POSITIVE_INFINITY && freeEnergyInternalError <= freeEnergyLeafError) {
+                        double nodeError = freeEnergyInternalError;
+                        while(nodeError < Double.POSITIVE_INFINITY &&
+                                nodeError <= freeEnergyLeafError &&
                                 internalNodes.size() < maxNumNodes
                         ){
                             internalNodes.add(sequenceBound.internalQueue.poll());
                             if(!sequenceBound.internalQueue.isEmpty())
-                                nodeError = sequenceBound.internalQueue.peek().getErrorBound(sequenceBound.sequence).multiply(BigDecimal.valueOf(1e3));
+                                nodeError = (sequenceBound.internalQueue.peek().getErrorBound(sequenceBound.sequence)
+                                        - BoltzmannCalculator.constRT*Math.log(internalErrorWeightFactor));
                             else
-                                nodeError = null;
+                                nodeError = Double.POSITIVE_INFINITY;
                         }
 
                         step = Step.ExpandInBatches;
                     // Otherwise, do nothing and print an error
                     } else {
                         step = Step.None;
-                        System.err.println(String.format("No step even though we have nodes: # internals: %d, # leaves: %d, internal error: %1.3e, leaf error %1.3e",
+                        System.err.println(String.format("No step even though we have nodes: # internals: %d, # leaves: %d, internal error: %.3f, leaf error %.3f",
                                 sequenceBound.internalQueue.size(),
                                 sequenceBound.leafQueue.size(),
-                                internalError,
-                                leafError
+                                freeEnergyInternalError,
+                                freeEnergyLeafError
                                 ));
                     }
                 }else{
@@ -1419,7 +1425,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 sequenceBound.sequence,
                 "minimization");
          */
-        node.setErrorBounds(confBounds.boltzmannWeight(msBound.bc),
+        node.setErrorBound(
+                msBound.bc.freeEnergy(confBounds.boltzmannWeight(msBound.bc).size(msBound.bc.mathContext)),
                 sequenceBound.sequence);
         //node.setBoundsFromConfLowerAndUpperWithHistory(newConfLower, newConfUpper, msBound.bc.calc(newConfLower), msBound.bc.calc(newConfUpper), result.sequenceBound.sequence, historyString);
         node.setPartialConfLowerAndUpper(newConfLower, newConfUpper);
@@ -1627,7 +1634,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         bound.sequence,
                         "drill-down");
                  */
-                child.setErrorBounds(confBounds.boltzmannWeight(msBound.bc),
+                child.setErrorBound(
+                        msBound.bc.freeEnergy(confBounds.boltzmannWeight(msBound.bc).size(msBound.bc.mathContext)),
                         bound.sequence);
                 //MultiSequenceSHARKStarNodeChild.setBoundsFromConfLowerAndUpperWithHistory(confLowerBound,
                         //confUpperBound, msBound.bc.calc(confLowerBound), msBound.bc.calc(confUpperBound), bound.sequence, historyString);
@@ -1867,7 +1875,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         bound.sequence,
                         "expansion");
                  */
-                child.setErrorBounds(confBounds.boltzmannWeight(msBound.bc),
+                child.setErrorBound(
+                        msBound.bc.freeEnergy(confBounds.boltzmannWeight(msBound.bc).size(msBound.bc.mathContext)),
                         bound.sequence);
                 //newChild.setBoundsFromConfLowerAndUpperWithHistory(resultingLower,
                         //resultingUpper, msBound.bc.calc(resultingLower), msBound.bc.calc(resultingUpper), bound.sequence, historyString);

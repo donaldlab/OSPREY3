@@ -36,7 +36,7 @@ public class MultiSequenceSHARKStarNode implements PartialConfAStarNode {
 
     // Information for MultiSequence SHARK* Nodes
     private final Map<Integer,MultiSequenceSHARKStarNode> childrenByRC;
-    private final Map<Sequence, BigDecimal> errorBounds = new HashMap<>();
+    private final Map<Sequence, Double> errorBounds = new HashMap<>();
     private final Map<Sequence, MathTools.BigDecimalBounds> sequenceBounds = new HashMap<>();
     private final Map<Sequence, MathTools.DoubleBounds> confBounds = new HashMap<>();
 
@@ -117,7 +117,6 @@ public class MultiSequenceSHARKStarNode implements PartialConfAStarNode {
             nodeHistory.get(seq).add(confData);
         }
         this.sequenceBounds.put(seq, bounds);
-        this.errorBounds.put(seq, bounds.size(PartitionFunction.decimalPrecision));
     }
 
     /**
@@ -147,11 +146,8 @@ public class MultiSequenceSHARKStarNode implements PartialConfAStarNode {
         this.confBounds.put(seq, bounds);
     }
 
-    public synchronized void setErrorBounds(MathTools.BigDecimalBounds bounds, Sequence seq){
-        if(debug){
-            checkPfuncBounds(bounds, seq);
-        }
-        this.errorBounds.put(seq, bounds.size(PartitionFunction.decimalPrecision));
+    public synchronized void setErrorBound(double freeEnergyError, Sequence seq){
+        this.errorBounds.put(seq, freeEnergyError);
     }
 
     /**
@@ -330,7 +326,7 @@ public class MultiSequenceSHARKStarNode implements PartialConfAStarNode {
         return Type.minimizedLeaf;
     }
 
-    public synchronized BigDecimal getErrorBound(Sequence seq) {
+    public synchronized double getErrorBound(Sequence seq) {
         return errorBounds.get(seq);
     }
 
