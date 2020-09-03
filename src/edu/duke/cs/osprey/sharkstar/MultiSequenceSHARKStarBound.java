@@ -274,8 +274,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         System.out.println("Sequence RCs: "+newBound.seqRCs);
         //computeFringeForSequence(newBound, this.rootNode);
 
+        /*
         // Compute the fringe in parallel
-        List<MultiSequenceSHARKStarNode> scoredFringe = computeFringeForSequenceParallel(newBound, this);
+        Object fringeLock = new Object();
+        MathTools.BigDecimalBounds fringeBounds = new MathTools.BigDecimalBounds(BigDecimal.ZERO, BigDecimal.ZERO);
+        List<MultiSequenceSHARKStarNode> scoredFringe = computeFringeForSequenceParallel(newBound, this, fringeBounds, fringeLock);
         if(scoredFringe.size()==0)
             scoredFringe.add(this.rootNode);
         debugPrint(String.format("[Normal fringe # nodes, Parallel fringe # nodes] = [%d, %d]",newBound.fringeNodes.size(), scoredFringe.size()));
@@ -290,9 +293,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             }
         }
 
-        //rootNode.updateSubtreeBounds(seq);
-        //newBound.updateBound();
-        newBound.updateStateFromQueues();
+        newBound.state.setBounds(fringeBounds.lower, fringeBounds.upper);
+         */
+        computeFringeForSequenceParallelV2(newBound, this);
+        newBound.state.updateBounds(BigDecimal.ZERO, BigDecimal.ZERO);//hack to update the state
+
         System.out.println(String.format("Created pfunc for %s with eps: %.6f, [%1.3e, %1.3e], %d nodes in the leaf queue, %d nodes in the internal queue",
                 newBound.sequence,
                 newBound.state.getDelta(),
@@ -382,10 +387,13 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private static class FringeResult{
         boolean isFringe;
+        MultiSequenceSHARKStarBound msBound;
+        SingleSequenceSHARKStarBound seqBound;
         List<MultiSequenceSHARKStarNode> nodes = new ArrayList<>();
+        MathTools.BigDecimalBounds pfuncBounds = new MathTools.BigDecimalBounds(BigDecimal.ZERO, BigDecimal.ZERO);
     }
 
-    private List<MultiSequenceSHARKStarNode> computeFringeForSequenceParallel(SingleSequenceSHARKStarBound singleSequencePfunc, MultiSequenceSHARKStarBound multiSequencePfunc) {
+    private List<MultiSequenceSHARKStarNode> computeFringeForSequenceParallel(SingleSequenceSHARKStarBound singleSequencePfunc, MultiSequenceSHARKStarBound multiSequencePfunc, MathTools.BigDecimalBounds bounds, Object fringeLock) {
         final SingleSequenceSHARKStarBound seqBound = singleSequencePfunc;
         final MultiSequenceSHARKStarBound msBound = multiSequencePfunc;
         final List<MultiSequenceSHARKStarNode> scoredSeqFringe = Collections.synchronizedList(new ArrayList<>());
@@ -464,8 +472,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                     seqBound.sequence,
                                     "fringe");
                              */
+                            MathTools.BigDecimalBounds zspaceBounds = confBounds.boltzmannWeight(msBound.bc);
                             node.setErrorBound(
-                                    msBound.bc.freeEnergy(confBounds.boltzmannWeight(msBound.bc).size(msBound.bc.mathContext)),
+                                    msBound.bc.freeEnergy(zspaceBounds.size(msBound.bc.mathContext)),
                                     seqBound.sequence);
 
                             String historyString = "";
@@ -476,6 +485,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
                             result.isFringe = true;
                             result.nodes.add(node);
+                            result.pfuncBounds = zspaceBounds;
                             //bound.fringeNodes.add(node);
                             //scoredSeqFringe.add(node);
                         }
@@ -483,8 +493,13 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     return result;
                 },
                 (FringeResult result)->{
-                    if (result.isFringe)
+                    if (result.isFringe) {
                         scoredSeqFringe.addAll(result.nodes);
+                        synchronized(fringeLock){
+                            bounds.upper = bounds.upper.add(result.pfuncBounds.upper, PartitionFunction.decimalPrecision);
+                            bounds.lower = bounds.lower.add(result.pfuncBounds.lower, PartitionFunction.decimalPrecision);
+                        }
+                    }
                     else
                         unscoredSeqFringe.addAll(result.nodes);
                 },
@@ -494,6 +509,115 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         loopTasks.waitForFinishExpecting(1);
         return scoredSeqFringe;
 
+    }
+
+    private void computeFringeForSequenceParallelV2(SingleSequenceSHARKStarBound singleSequencePfunc, MultiSequenceSHARKStarBound multiSequencePfunc) {
+        final SingleSequenceSHARKStarBound seqBound = singleSequencePfunc;
+        final MultiSequenceSHARKStarBound msBound = multiSequencePfunc;
+        final ConcurrentLinkedQueue<MultiSequenceSHARKStarNode> unscoredSeqFringe = new ConcurrentLinkedQueue<>(msBound.precomputedFringe);
+
+        // set the pfunc's bounds to zero
+        seqBound.state.setBoundsWithoutSideEffects(BigDecimal.ZERO, BigDecimal.ZERO);
+        // Sometimes the precomputedFringe will be empty. It really shouldn't be, but for now just add the root Node if it is
+        if(unscoredSeqFringe.isEmpty())
+            unscoredSeqFringe.add(msBound.rootNode);
+
+        while(!unscoredSeqFringe.isEmpty()){
+            final MultiSequenceSHARKStarNode node = unscoredSeqFringe.poll();
+
+            loopTasks.submitExpecting(
+                    ()->{
+                        // Compute bounds for all fringe nodes that are children of this node
+                        FringeResult result = new FringeResult();
+                        result.seqBound = seqBound;
+                        result.msBound = msBound;
+                        Queue<MultiSequenceSHARKStarNode> subtreeQueue = new LinkedList<>();
+                        subtreeQueue.add(node);
+
+                        try (ObjectPool.Checkout<ScoreContext> checkout = msBound.contexts.autoCheckout()) {
+                            ScoreContext context = checkout.get();
+
+                            while(!subtreeQueue.isEmpty()){
+                                MultiSequenceSHARKStarNode curNode = subtreeQueue.poll();
+
+                                curNode.index(context.index);
+
+                                // Get all the existing children of this node that are compatible with this sequence
+                                List<MultiSequenceSHARKStarNode> children = null;
+                                if(curNode.getLevel() < seqBound.seqRCs.getNumPos()) {
+                                    int nextPos = msBound.order.getNextPos(context.index, seqBound.seqRCs);
+                                    int[] seqRcsAllowedAtPos = seqBound.seqRCs.get(nextPos);
+                                    children = curNode.getChildren(seqRcsAllowedAtPos);
+                                }
+
+                                if(children != null && !children.isEmpty()) {
+                                    // if there are children, just add them back to the queue, since we only want the fringe
+                                    subtreeQueue.addAll(children);
+                                }else{
+                                    // If we are at a leaf, score the node
+                            /* As a note, the gscores WILL NOT always be correct, because nodes will have been minimized.
+                            Technically, the g LBs will be correct, but the g UBs will not. The g LBs will be dealt with
+                            through the mechanism of corrections. So, just reset them
+                             */
+                                    double gscoreLB = context.partialConfLowerBoundScorer.calc(context.index, seqBound.seqRCs);
+                                    double gscoreUB = context.partialConfUpperBoundScorer.calc(context.index, seqBound.seqRCs);
+
+                                    double hscoreLB = context.lowerBoundScorer.calc(context.index, seqBound.seqRCs);
+                                    double hscoreUB = context.upperBoundScorer.calc(context.index, seqBound.seqRCs);
+
+                                    double confLowerBound = gscoreLB + hscoreLB;
+                                    double confUpperBound = gscoreUB + hscoreUB;
+                                    double partialConfLowerBound = gscoreLB;
+                                    double partialConfUpperBound = gscoreUB;
+                                    // check if we should correct the node
+                                    double confCorrection = 0;
+                                    if(doCorrections){
+                                        confCorrection = msBound.correctionMatrix.confE(curNode.assignments);
+                                        if(confCorrection > gscoreLB && confCorrection < gscoreUB) {
+                                            confLowerBound = confCorrection + hscoreLB;
+                                            partialConfLowerBound = confCorrection;
+                                        }
+                                    }
+
+                                    MathTools.DoubleBounds confBounds = new MathTools.DoubleBounds(confLowerBound, confUpperBound);
+
+                                    curNode.setPartialConfLowerAndUpper(partialConfLowerBound, partialConfUpperBound);
+                                    curNode.setConfBounds(confBounds,
+                                            seqBound.sequence,
+                                            "fringe");
+                                    MathTools.BigDecimalBounds zspaceBounds = confBounds.boltzmannWeight(msBound.bc);
+                                    curNode.setErrorBound(
+                                            msBound.bc.freeEnergy(zspaceBounds.size(msBound.bc.mathContext)),
+                                            seqBound.sequence);
+
+                                    result.nodes.add(curNode);
+                                    result.pfuncBounds.upper = result.pfuncBounds.upper.add(zspaceBounds.upper, PartitionFunction.decimalPrecision);
+                                    result.pfuncBounds.lower = result.pfuncBounds.lower.add(zspaceBounds.lower, PartitionFunction.decimalPrecision);
+                                }
+                            }
+
+                        }
+                        return result;
+                    },
+                    (FringeResult result)->{
+                        // update the single sequence bound, making sure not to calc epsilon yet
+                        synchronized(lock) {
+                            result.seqBound.state.updateBoundsWithoutSideEffects(result.pfuncBounds.lower, result.pfuncBounds.upper);
+                            // add the nodes to the appropriate single-sequence queue
+                            for (int i = 0; i < result.nodes.size(); i++) {
+                                MultiSequenceSHARKStarNode newNode = result.nodes.get(i);
+                                if (newNode.getLevel() >= result.seqBound.seqRCs.getNumPos()) {
+                                    result.seqBound.leafQueue.add(newNode);
+                                } else {
+                                    result.seqBound.internalQueue.add(newNode);
+                                }
+                            }
+                        }
+                    },
+                    1 // here 1 refers to the fringe computation
+            );
+        }
+        loopTasks.waitForFinishExpecting(1); //TODO: is it bad to do this??
     }
 
     /**
@@ -757,8 +881,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
         double lastEps = sequenceBound.state.getDelta();
 
+        /*
         if(lastEps == 0)
             System.err.println("Epsilon is ZERO??! And we are still tightening the bound!?");
+         */
 
         long previousConfCount = sequenceBound.state.workDone();
 
@@ -1228,7 +1354,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         context.partialConfUpperBoundScorer.calc(context.index, result.sequenceBound.seqRCs),
                         result.energy
                 ));
-                System.err.println(String.format("FATAL ERROR: Lower bound is decreasing with %1.9e for %s",
+                System.err.println(String.format("FATAL ERROR: Lower bound is decreasing with ΔZ %1.9e for %s",
                         result.deltaLB,
                         Arrays.toString(result.minimizedNode.assignments)
                 ));
@@ -1242,7 +1368,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 uncorrectedLowerBound = context.partialConfLowerBoundScorer.calc(context.index, result.sequenceBound.seqRCs);
                 correctedLowerBound = correctionMatrix.confE(result.minimizedNode.assignments);
             }
-            System.err.println(String.format("FATAL ERROR: Upper bound is increasing with %1.9e for %s",
+            System.err.println(String.format("FATAL ERROR: Upper bound is increasing with ΔZ %1.9e for %s",
                     result.deltaUB,
                     Arrays.toString(result.minimizedNode.assignments)
             ));

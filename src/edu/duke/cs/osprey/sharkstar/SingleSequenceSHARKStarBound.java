@@ -407,7 +407,12 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
             updateStatus();
         }
 
-        double getDelta(){
+        public void setBoundsWithoutSideEffects(BigDecimal lower, BigDecimal upper){
+            this.lowerBound = lower;
+            this.upperBound = upper;
+        }
+
+        public double getDelta(){
             return delta;
         }
 
@@ -437,10 +442,17 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
             updateStatus();
         }
 
+        public void updateBoundsWithoutSideEffects(BigDecimal lowerAddend, BigDecimal upperAddend){
+            this.lowerBound = this.lowerBound.add(lowerAddend, PartitionFunction.decimalPrecision);
+            this.upperBound = this.upperBound.add(upperAddend, PartitionFunction.decimalPrecision);
+        }
+
         private synchronized void updateStatus(){
             if (getDelta() < this.targetEpsilon) {
                 this.bound.setStatus(Status.Estimated);
-                if (this.getLowerBound().compareTo(BigDecimal.ZERO) == 0) {
+                if (this.getLowerBound().compareTo(BigDecimal.ZERO) == 0 &&
+                        this.numEnergiedConfs > 0 // if we have a minimized conf and the bound is zero, then we are unstable
+                ) {
                     this.bound.setStatus(Status.Unstable);
                 }
             }else{
