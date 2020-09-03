@@ -95,6 +95,8 @@ public class BBKStar {
 			 */
 			private int maxNumConfsPerBatch = 8;
 
+			private boolean printSequenceTree = false;
+
 			public Builder setNumBestSequences(int val) {
 				numBestSequences = val;
 				return this;
@@ -110,24 +112,32 @@ public class BBKStar {
 				return this;
 			}
 
+			public Builder setPrintSequenceTree(boolean val) {
+				printSequenceTree = val;
+				return this;
+			}
+
 			public Settings build() {
-				return new Settings(numBestSequences, numConfsPerBatch, maxNumConfsPerBatch);
+				return new Settings(numBestSequences, numConfsPerBatch, maxNumConfsPerBatch, printSequenceTree);
 			}
 		}
 
 		public final int numBestSequences;
 		public final int numConfsPerBatch;
 		private final int maxNumConfsPerBatch;
+		public final boolean printSeqTree;
 
 		public Settings(int numBestSequences, int numConfsPerBatch) {
 			this.numBestSequences = numBestSequences;
 			this.numConfsPerBatch = numConfsPerBatch;
 			this.maxNumConfsPerBatch = numConfsPerBatch;
+			this.printSeqTree = false;
 		}
-		public Settings(int numBestSequences, int numConfsPerBatch, int maxNumConfsPerBatch) {
+		public Settings(int numBestSequences, int numConfsPerBatch, int maxNumConfsPerBatch, boolean printSeqTree) {
 			this.numBestSequences = numBestSequences;
 			this.numConfsPerBatch = numConfsPerBatch;
 			this.maxNumConfsPerBatch = maxNumConfsPerBatch;
+			this.printSeqTree = printSeqTree;
 		}
 	}
 
@@ -852,7 +862,8 @@ public class BBKStar {
 			n.complex.printStats();
 		});
 
-		printSequenceTree(Stream.of(tree, finishedNodes /*, unstableNodes*/).flatMap(Collection::stream).collect(Collectors.toList()));
+		if (bbkstarSettings.printSeqTree)
+			printSequenceTree(Stream.of(tree, finishedNodes /*, unstableNodes*/).flatMap(Collection::stream).collect(Collectors.toList()));
 
 		return scoredSequences;
 	}
