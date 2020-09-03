@@ -274,14 +274,22 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
     public void printStats() {
         //multisequenceBound.printEnsembleAnalysis();
         //multisequenceBound.printTimePerSequence();
-        System.out.println(String.format("State eps: %.9f, [%1.9e, %1.9e], Direct eps: %.9f, [%1.9e, %1.9e]",
-                this.state.calcDelta(),
-                this.state.getLowerBound(),
-                this.state.getUpperBound(),
-                getEpsDirectly(),
-                getLowerDirectly(),
-                getUpperDirectly()
-        ));
+        if(MultiSequenceSHARKStarBound.debug){
+            System.out.printf("State eps: %.9f, [%1.9e, %1.9e], Direct eps: %.9f, [%1.9e, %1.9e]%n",
+                    this.state.calcDelta(),
+                    this.state.getLowerBound(),
+                    this.state.getUpperBound(),
+                    getEpsDirectly(),
+                    getLowerDirectly(),
+                    getUpperDirectly()
+            );
+        }else{
+            System.out.printf("Eps: %.9f, [%1.9e, %1.9e]%n",
+                    this.state.calcDelta(),
+                    this.state.getLowerBound(),
+                    this.state.getUpperBound()
+            );
+        }
     }
     public boolean errors() {
         return errors;
