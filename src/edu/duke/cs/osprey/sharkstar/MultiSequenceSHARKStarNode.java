@@ -147,6 +147,13 @@ public class MultiSequenceSHARKStarNode implements PartialConfAStarNode {
         this.confBounds.put(seq, bounds);
     }
 
+    public synchronized void setErrorBounds(MathTools.BigDecimalBounds bounds, Sequence seq){
+        if(debug){
+            checkPfuncBounds(bounds, seq);
+        }
+        this.errorBounds.put(seq, bounds.size(PartitionFunction.decimalPrecision));
+    }
+
     /**
      * Checks the bounds against the node's current conformation energy bounds, throwing errors if necessary
      * @param bounds Conformation energy bounds to check
@@ -329,14 +336,13 @@ public class MultiSequenceSHARKStarNode implements PartialConfAStarNode {
 
     public String toSeqString(Sequence seq) {
         String out = this.confToString();//fullConfSpace.formatConfRotamersWithResidueNumbers(confSearchNode.assignments);//
-        BigDecimal subtreeLowerBound = getLowerBound(seq);
-        BigDecimal subtreeUpperBound = getUpperBound(seq);
         out += "Energy:" + String.format("%4.2f", this.getPartialConfLowerBound());
         if (!isMinimized(seq))
             out += " in [" + String.format("%4.4e,%4.4e", getSequenceConfBounds(seq).lower, getSequenceConfBounds(seq).upper)
-                    + "]->[" + convertMagicBigDecimalToString(subtreeLowerBound) + "," + convertMagicBigDecimalToString(subtreeUpperBound) + "]";
+                    //+ "]->[" + convertMagicBigDecimalToString(subtreeLowerBound) + "," + convertMagicBigDecimalToString(subtreeUpperBound) + "]";
+                    + "]->[" + "N/A" + "," + "N/A" + "]";
         else
-            out += " (minimized) -> " + convertMagicBigDecimalToString(subtreeLowerBound);
+            out += " (minimized) -> " + getConfLowerBound(seq);
         return out;
     }
 

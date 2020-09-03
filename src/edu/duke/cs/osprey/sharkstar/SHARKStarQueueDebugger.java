@@ -63,8 +63,8 @@ public class SHARKStarQueueDebugger {
                 node.confToString(),
                 node.getConfLowerBound(seq),
                 node.getConfUpperBound(seq),
-                node.getLowerBound(seq),
-                node.getUpperBound(seq)
+                bc.calc(node.getConfUpperBound(seq)),
+                bc.calc(node.getConfLowerBound(seq))
         )));
     }
 
@@ -110,17 +110,17 @@ public class SHARKStarQueueDebugger {
                 children.sort(Comparator.comparing(MultiSequenceSHARKStarNode::getLevel));
                 BigDecimal childError = children.stream().map((n) -> n.getErrorBound(seq)).
                         reduce(BigDecimal.ZERO, BigDecimal::add);
-                BigDecimal childLB = children.stream().map((n) -> n.getLowerBound(seq)).
+                BigDecimal childLB = children.stream().map((n) -> bc.calc(n.getConfUpperBound(seq))).
                         reduce(BigDecimal.ZERO, BigDecimal::add);
-                BigDecimal childUB = children.stream().map((n) -> n.getUpperBound(seq)).
+                BigDecimal childUB = children.stream().map((n) -> bc.calc(n.getConfLowerBound(seq))).
                         reduce(BigDecimal.ZERO, BigDecimal::add);
                 BigDecimal deltaError = node.getErrorBound(seq).subtract(childError);
                 if(deltaError.compareTo(BigDecimal.ZERO) < 0){
                     System.err.println("Bounds increasing!?");
                     System.err.println(String.format("Delta error %1.3e: [%1.3e, %1.3e] -> [%1.3e, %1.3e]",
                             deltaError,
-                            node.getLowerBound(seq),
-                            node.getUpperBound(seq),
+                            bc.calc(node.getConfUpperBound(seq)),
+                            bc.calc(node.getConfLowerBound(seq)),
                             childLB,
                             childUB
                     ));
@@ -128,8 +128,8 @@ public class SHARKStarQueueDebugger {
                 if(deltaError.compareTo(BigDecimal.ONE) > 0) {
                     System.out.println(String.format("Delta error %1.3e: [%1.3e, %1.3e] -> [%1.3e, %1.3e]",
                             deltaError,
-                            node.getLowerBound(seq),
-                            node.getUpperBound(seq),
+                            bc.calc(node.getConfUpperBound(seq)),
+                            bc.calc(node.getConfLowerBound(seq)),
                             childLB,
                             childUB
                     ));
@@ -137,16 +137,16 @@ public class SHARKStarQueueDebugger {
                             node.confToString(),
                             node.getConfLowerBound(seq),
                             node.getConfUpperBound(seq),
-                            node.getLowerBound(seq),
-                            node.getUpperBound(seq)
+                            bc.calc(node.getConfUpperBound(seq)),
+                            bc.calc(node.getConfLowerBound(seq))
                             ));
                     for (MultiSequenceSHARKStarNode child : children){
                         System.out.println(String.format("\t%s: [%.3f, %.3f] --> [%1.3e, %1.3e]",
                                 child.confToString(),
                                 child.getConfLowerBound(seq),
                                 child.getConfUpperBound(seq),
-                                child.getLowerBound(seq),
-                                child.getUpperBound(seq)
+                                bc.calc(child.getConfUpperBound(seq)),
+                                bc.calc(child.getConfLowerBound(seq))
                         ));
                     }
                 }

@@ -38,20 +38,25 @@ class SHARKStarQueue extends PriorityQueue<MultiSequenceSHARKStarNode> {
 
     @Override
     public boolean add(MultiSequenceSHARKStarNode node) {
+        /*
         debugCheck();
         partitionFunctionUpperSum = partitionFunctionUpperSum.add(node.getUpperBound(seq));
         partitionFunctionLowerSum = partitionFunctionLowerSum.add(node.getLowerBound(seq));
         debugCheck();
+         */
         return super.add(node);
     }
 
     @Override
     public MultiSequenceSHARKStarNode poll() {
         MultiSequenceSHARKStarNode node = super.poll();
+        /*
         debugCheck();
         partitionFunctionUpperSum = partitionFunctionUpperSum.subtract(node.getUpperBound(seq));
         partitionFunctionLowerSum = partitionFunctionLowerSum.subtract(node.getLowerBound(seq));
         debugCheck();
+
+         */
         return node;
     }
 
@@ -68,8 +73,10 @@ class SHARKStarQueue extends PriorityQueue<MultiSequenceSHARKStarNode> {
             System.err.println("Invalid bounds. Lower bound is greater than upper bound.");
         if (partitionFunctionLowerSum.compareTo(BigDecimal.ZERO) < 0)
             System.err.println("Invalid bounds. Lower bound is less than zero.");
+        /*
         if (!isEmpty() && peek().getLowerBound(seq).compareTo(partitionFunctionLowerSum) > 0)
             System.err.println("The top element is bigger than the entire lower bound sum.");
+         */
         assert (sumDifference.compareTo(BigDecimal.ZERO) > 0 || sumDifference.compareTo(BigDecimal.valueOf(1e-5)) <= 0);
         assert (partitionFunctionLowerSum.compareTo(BigDecimal.ZERO) >= 0);
         System.out.println("Queue: bounds " + toString());

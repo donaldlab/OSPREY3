@@ -1,8 +1,10 @@
 package edu.duke.cs.osprey.sharkstar.tools;
 
+import EDU.oswego.cs.dl.util.concurrent.FJTask;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarNode;
 import edu.duke.cs.osprey.sharkstar.SingleSequenceSHARKStarBound;
@@ -17,6 +19,8 @@ import java.util.Collections;
 import java.util.List;
 
 public class MultiSequenceSHARKStarNodeStatistics {
+
+    private static BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
 
     public interface BoundGetter {
         MathTools.BigDecimalBounds getBounds(MultiSequenceSHARKStarNode node);
@@ -40,7 +44,7 @@ public class MultiSequenceSHARKStarNodeStatistics {
                 +"["+node.getConfLowerBound(seq)+","+node.getConfUpperBound(seq)+"]->"
                 +"["+formatBound(bounds.lower)
                 +","+formatBound(bounds.upper)+"]"+"\n";
-        if(MathTools.isLessThan(node.getUpperBound(seq), BigDecimal.ZERO))
+        if(MathTools.isLessThan(bc.calc(node.getConfLowerBound(seq)), BigDecimal.ZERO))
             return out;
         List<MultiSequenceSHARKStarNode> children = node.getChildren(seqRCs.get(nextPos));
         if( children != null && ! children.isEmpty()) {
@@ -76,7 +80,7 @@ public class MultiSequenceSHARKStarNodeStatistics {
                 +"["+node.getConfLowerBound(seq)+","+node.getConfUpperBound(seq)+"]->"
                 +"["+formatBound(bounds.lower)
                 +","+formatBound(bounds.upper)+"]"+"\n";
-        if(MathTools.isLessThan(node.getUpperBound(seq), BigDecimal.ZERO))
+        if(MathTools.isLessThan(bc.calc(node.getConfLowerBound(seq)), BigDecimal.ZERO))
             return;
         if(writer != null) {
             try {
@@ -204,27 +208,29 @@ public class MultiSequenceSHARKStarNodeStatistics {
             BigDecimal childUpperSum = BigDecimal.ZERO;
             BigDecimal childLowerSum = BigDecimal.ZERO;
             for (MultiSequenceSHARKStarNode newChild : children) {
-                BigDecimal childUpper = newChild.getUpperBound(bound.sequence);
+                BigDecimal childUpper = bc.calc(newChild.getConfLowerBound(bound.sequence));
                 childUpperSum = childUpperSum.add(childUpper);
-                BigDecimal childLower = newChild.getLowerBound(bound.sequence);
+                BigDecimal childLower = bc.calc(newChild.getConfUpperBound(bound.sequence));
                 childLowerSum = childLowerSum.add(childLower);
             }
-            if (MathTools.isGreaterThan(childUpperSum, curNode.getUpperBound(bound.sequence)) &&
-                    !MathTools.isRelativelySame(childUpperSum, curNode.getUpperBound(bound.sequence),
+            BigDecimal curNodeUpper = bc.calc(curNode.getConfLowerBound(bound.sequence));
+            BigDecimal curNodeLower = bc.calc(curNode.getConfUpperBound(bound.sequence));
+            if (MathTools.isGreaterThan(childUpperSum, curNodeUpper) &&
+                    !MathTools.isRelativelySame(childUpperSum, curNodeUpper,
                             PartitionFunction.decimalPrecision, 0.01)) {
                 System.err.println("Error. Child has greater upper bound than parent.");
-                System.err.println(String.format("%s:%12.6e", curNode.toSeqString(bound.sequence), curNode.getUpperBound(bound.sequence)));
+                System.err.println(String.format("%s:%12.6e", curNode.toSeqString(bound.sequence), curNodeUpper));
                 for (MultiSequenceSHARKStarNode newChild : children)
-                    System.err.println(String.format("%s:%12.6e", newChild.toSeqString(bound.sequence), newChild.getUpperBound(bound.sequence)));
+                    System.err.println(String.format("%s:%12.6e", newChild.toSeqString(bound.sequence), bc.calc(newChild.getConfLowerBound(bound.sequence))));
                 System.exit(-1);
             }
-            if (MathTools.isLessThan(childLowerSum, curNode.getLowerBound(bound.sequence)) &&
-                    !MathTools.isRelativelySame(childLowerSum, curNode.getLowerBound(bound.sequence),
+            if (MathTools.isLessThan(childLowerSum, curNodeLower) &&
+                    !MathTools.isRelativelySame(childLowerSum, curNodeLower,
                             PartitionFunction.decimalPrecision, 0.01)) {
                 System.err.println("Error. Child has lower lower bound than parent.");
-                System.err.println(String.format("%s:%12.6e", curNode.toSeqString(bound.sequence), curNode.getLowerBound(bound.sequence)));
+                System.err.println(String.format("%s:%12.6e", curNode.toSeqString(bound.sequence), curNodeLower));
                 for (MultiSequenceSHARKStarNode newChild : children)
-                    System.err.println(String.format("%s:%12.6e", newChild.toSeqString(bound.sequence), newChild.getLowerBound(bound.sequence)));
+                    System.err.println(String.format("%s:%12.6e", newChild.toSeqString(bound.sequence), bc.calc(newChild.getConfUpperBound(bound.sequence))));
                 System.exit(-1);
             }
         }

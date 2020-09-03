@@ -63,7 +63,7 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
     }
 
     public void addFinishedNode(MultiSequenceSHARKStarNode node) {
-        finishedNodeZ = finishedNodeZ.add(node.getUpperBound(sequence));
+        //finishedNodeZ = finishedNodeZ.add(node.getUpperBound(sequence));
         //System.out.println("Adding "+node.toSeqString(sequence)+" to finished set");
         if(finishedNodes.contains(node))
             System.err.println("Dupe node addition.");
@@ -169,6 +169,9 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
     public void updateStateFromQueues(){
         BigDecimal lastUpper = state.getUpperBound();
         BigDecimal lastLower = state.getLowerBound();
+        BigDecimal upperBound = getUpperDirectly();
+        BigDecimal lowerBound = getLowerDirectly();
+        /*
         BigDecimal upperBound = fringeNodes.getPartitionFunctionUpperBound()
                 .add(internalQueue.getPartitionFunctionUpperBound())
                 .add(leafQueue.getPartitionFunctionUpperBound())
@@ -177,6 +180,8 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
                 .add(internalQueue.getPartitionFunctionLowerBound())
                 .add(leafQueue.getPartitionFunctionLowerBound())
                 .add(finishedNodeZ);
+
+         */
 
         if(MathTools.isLessThan(lowerBound, lastLower) && ! MathTools.isRelativelySame(lowerBound, lastLower, PartitionFunction.decimalPrecision, 10)) {
             System.err.println("Bounds getting looser. Lower bound is getting lower...");
@@ -194,14 +199,9 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
         //multiSequenceSHARKStarBound.rootNode.computeEpsilonErrorBounds(sequence);
         BigDecimal lastUpper = values.pstar;
         BigDecimal lastLower = values.qstar;
-        BigDecimal upperBound = fringeNodes.getPartitionFunctionUpperBound()
-                .add(internalQueue.getPartitionFunctionUpperBound())
-                .add(leafQueue.getPartitionFunctionUpperBound())
-                .add(finishedNodeZ);
-        BigDecimal lowerBound = fringeNodes.getPartitionFunctionLowerBound()
-                .add(internalQueue.getPartitionFunctionLowerBound())
-                .add(leafQueue.getPartitionFunctionLowerBound())
-                .add(finishedNodeZ);
+        BigDecimal upperBound = getUpperDirectly();
+        BigDecimal lowerBound = getLowerDirectly();
+
         if(MathTools.isLessThan(lowerBound, lastLower) && ! MathTools.isRelativelySame(lowerBound, lastLower, PartitionFunction.decimalPrecision, 10)) {
             System.err.println("Bounds getting looser. Lower bound is getting lower...");
             errors = true;
@@ -262,22 +262,25 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
     }
 
     public boolean nonZeroLower() {
+        return state.getLowerBound().compareTo(BigDecimal.ZERO) > 0;
+        /*
         return this.fringeNodes.getPartitionFunctionLowerBound().compareTo(BigDecimal.ZERO) > 0
                 || internalQueue.getPartitionFunctionLowerBound().compareTo(BigDecimal.ZERO) > 0
                 || leafQueue.getPartitionFunctionLowerBound().compareTo(BigDecimal.ZERO) > 0 ;
+         */
     }
 
     @Override
     public void printStats() {
         //multisequenceBound.printEnsembleAnalysis();
         //multisequenceBound.printTimePerSequence();
-        System.out.println(String.format("State eps: %.9f, [%1.9e, %1.9e], Queue eps: %.9f, [%1.9e, %1.9e]",
+        System.out.println(String.format("State eps: %.9f, [%1.9e, %1.9e], Direct eps: %.9f, [%1.9e, %1.9e]",
                 this.state.calcDelta(),
                 this.state.getLowerBound(),
                 this.state.getUpperBound(),
-                getEpsFromQueues(),
-                getLowerFromQueues(),
-                getUpperFromQueues()
+                getEpsDirectly(),
+                getLowerDirectly(),
+                getUpperDirectly()
         ));
     }
     public boolean errors() {
@@ -292,14 +295,14 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
     public BigDecimal getLowerDirectly(){
         return Stream.of(fringeNodes, internalQueue, leafQueue, finishedNodes).
                 flatMap(Collection::stream)
-                .map((n) -> n.getLowerBound(sequence))
+                .map((n) -> multisequenceBound.bc.calc(n.getConfUpperBound(sequence)))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     public BigDecimal getUpperDirectly(){
         return Stream.of(fringeNodes, internalQueue, leafQueue, finishedNodes).
                 flatMap(Collection::stream)
-                .map((n) -> n.getUpperBound(sequence))
+                .map((n) -> multisequenceBound.bc.calc(n.getConfLowerBound(sequence)))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
