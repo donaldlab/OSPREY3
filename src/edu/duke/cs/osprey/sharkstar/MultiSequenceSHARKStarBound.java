@@ -77,7 +77,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
 
     // We keep track of the root node for computing our K* bounds
-    public MultiSequenceSHARKStarNode rootNode;
+    //public MultiSequenceSHARKStarNode rootNode;
     // Heap of nodes for recursive expansion
     private final ConfIndex<PartialConfAStarNode> confIndex;
     public StaticBiggestLowerboundDifferenceOrder order;
@@ -162,12 +162,12 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         this.state = new MultiSequenceState();
 
         confIndex = new ConfIndex<>(rcs.getNumPos());
-        this.rootNode = new MultiSequenceSHARKStarNode(confSpace.positions.size());
-        this.rootNode.index(confIndex);
+        MultiSequenceSHARKStarNode rootNode = new MultiSequenceSHARKStarNode(confSpace.positions.size());
+        rootNode.index(confIndex);
         double partialConfLowerbound = gscorerFactory.make(minimizingEmat).calc(confIndex, rcs);
         double partialConfUpperBound = rigidgscorerFactory.make(rigidEmat).calc(confIndex, rcs);
 
-        this.rootNode.setPartialConfLowerAndUpper(partialConfLowerbound, partialConfUpperBound);
+        rootNode.setPartialConfLowerAndUpper(partialConfLowerbound, partialConfUpperBound);
 
         // Initialize residue ordering
         this.order = new StaticBiggestLowerboundDifferenceOrder();
@@ -217,31 +217,35 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         this.startLowerBound = this.bc.calc(rootNode.getConfUpperBound(precomputedSequence));
         this.startUpperBound = this.bc.calc(rootNode.getConfLowerBound(precomputedSequence));
         this.minList = new ArrayList<Integer>(Collections.nCopies(rcs.getNumPos(), 0));
+
+        // add the rootnode to the precomputed fringe
+        this.precomputedFringe.add(rootNode);
     }
 
-    public MultiSequenceSHARKStarBound(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,
-                                       ConfEnergyCalculator minimizingConfEcalc, RCs rcs, Parallelism parallelism,
-                                       MultiSequenceSHARKStarBound precomputedFlex) {
-
-        this(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc, rcs, parallelism);
-        processPrecomputedFlex(precomputedFlex);
-    }
-
-    private void processPrecomputedFlex(MultiSequenceSHARKStarBound precomputedFlex) {
-        precomputedPfunc = precomputedFlex;
-        precomputedRootNode = precomputedFlex.rootNode;
-        this.precomputedSequence = precomputedFlex.confSpace.makeWildTypeSequence();
-        precomputedUpperBound = this.bc.calc(precomputedRootNode.getConfLowerBound(precomputedSequence));
-        precomputedLowerBound= this.bc.calc(precomputedRootNode.getConfUpperBound(precomputedSequence));
-        //precomputedUpperBound = precomputedRootNode.getUpperBound(precomputedSequence);
-        //precomputedLowerBound = precomputedRootNode.getLowerBound(precomputedSequence);
-        updatePrecomputedConfTree();
-        mergeCorrections(precomputedFlex.correctionMatrix, genConfSpaceMapping());
-
-        // Fix order issues
+    private void processPrecomputedFlex(MultiSequenceSHARKStarBound precomputedFlex, SingleSequenceSHARKStarBound precomputedFlexSSBound) {
+        // generate permutation matrix that will map flexible conf nodes to full conf nodes
+        int[] permutationArray = genConfSpaceMapping(precomputedFlex);
+        // First, change the order
         ConfIndex<PartialConfAStarNode> rootIndex = new ConfIndex<>(fullRCs.getNumPos());
-        this.rootNode.index(rootIndex);
-        this.order.updateForPrecomputedOrder(precomputedFlex.order, rootIndex, this.fullRCs, genConfSpaceMapping());
+        assert(this.precomputedFringe.size() == 1);
+        MultiSequenceSHARKStarNode rootNode = this.precomputedFringe.get(0);
+        rootNode.index(rootIndex);
+        this.order.updateForPrecomputedOrder(precomputedFlex.order, rootIndex, this.fullRCs, permutationArray);
+
+        // Next, record information from the precomputed pfunc
+        //precomputedPfunc = precomputedFlex;
+        //precomputedRootNode = precomputedFlex.rootNode;
+        this.precomputedSequence = precomputedFlex.confSpace.makeWildTypeSequence();
+        //precomputedUpperBound = this.bc.calc(precomputedRootNode.getConfLowerBound(precomputedSequence));
+        //precomputedLowerBound= this.bc.calc(precomputedRootNode.getConfUpperBound(precomputedSequence));
+        precomputedUpperBound = precomputedFlexSSBound.state.getUpperBound();
+        precomputedLowerBound = precomputedFlexSSBound.state.getUpperBound();
+
+        // finally,
+        //updatePrecomputedConfTree();
+        updatePrecomputedFringe(precomputedFlexSSBound, permutationArray);
+        mergeCorrections(precomputedFlex.correctionMatrix, genConfSpaceMapping(precomputedFlex));
+
     }
 
     /**
@@ -361,16 +365,15 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         return precomputedUpperBound;
     }
 
-    /**
-     * Makes the current confTree consistent with the current confSpace
-     * <p>
-     * When we precompute flexible residues, we will have a tree that is for a flexible confspace.
-     * However, when we want to compute for mutable residues, we need to extend the length of assignments in our tree
-     */
-    public void updatePrecomputedConfTree() {
-        int[] permutationArray = genConfSpaceMapping();
-        updatePrecomputedNode(precomputedRootNode, permutationArray, this.confSpace.getNumPos());
-        this.rootNode = precomputedRootNode;
+    public void updatePrecomputedFringe(SingleSequenceSHARKStarBound precomputedSSBound, int[] permArray){
+        final int size = this.confSpace.getNumPos();
+        this.precomputedFringe.clear();
+        Stream.of(precomputedSSBound.internalQueue, precomputedSSBound.leafQueue, precomputedSSBound.finishedNodes)
+                .flatMap(Collection::parallelStream)
+                .forEach((n) ->{
+                   n.makeNodeCompatibleWithConfSpace(permArray, size);
+                   this.precomputedFringe.add(n);
+                });
     }
 
     private void updatePrecomputedNode(MultiSequenceSHARKStarNode node, int[] permutation, int size) {
@@ -400,8 +403,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         final ConcurrentLinkedQueue<MultiSequenceSHARKStarNode> unscoredSeqFringe = new ConcurrentLinkedQueue<>(msBound.precomputedFringe);
 
         // Sometimes the precomputedFringe will be empty. It really shouldn't be, but for now just add the root Node if it is
+        /*
         if(unscoredSeqFringe.isEmpty())
             unscoredSeqFringe.add(msBound.rootNode);
+
+         */
 
         while(!unscoredSeqFringe.isEmpty() || loopTasks.isExpecting(1)){ // here 1 refers to the fringe computation
             final MultiSequenceSHARKStarNode node = unscoredSeqFringe.poll();
@@ -519,8 +525,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         // set the pfunc's bounds to zero
         seqBound.state.setBoundsWithoutSideEffects(BigDecimal.ZERO, BigDecimal.ZERO);
         // Sometimes the precomputedFringe will be empty. It really shouldn't be, but for now just add the root Node if it is
+        /*
         if(unscoredSeqFringe.isEmpty())
             unscoredSeqFringe.add(msBound.rootNode);
+         */
 
         while(!unscoredSeqFringe.isEmpty()){
             final MultiSequenceSHARKStarNode node = unscoredSeqFringe.poll();
@@ -623,10 +631,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     /**
      * Generate a permutation matrix that lets us map positions from the precomputed confspace to the new confspace
      */
-    public int[] genConfSpaceMapping() {
+    public int[] genConfSpaceMapping(MultiSequenceSHARKStarBound precomputedMSBound) {
         // the permutation matrix maps confs in the precomputed flexible to the full confspace
         // Note that I think this works because Positions have equals() check the residue number
-        return precomputedPfunc.confSpace.positions.stream()
+        return precomputedMSBound.confSpace.positions.stream()
                 .mapToInt(confSpace.positions::indexOf)
                 .toArray();
     }
@@ -685,7 +693,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         if(doCorrections)
             addFullMinimizationsToCorrectionMatrix(precompFlex, bound);
         precompFlex.printEnsembleAnalysis();
-        processPrecomputedFlex(precompFlex);
+        processPrecomputedFlex(precompFlex, bound);
         // Check to make sure bounds are the same as the queue bounds
         debugPrint(String.format("State eps: %.9f, [%1.9e, %1.9e]",
                 bound.state.getDelta(),
@@ -1852,11 +1860,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     }
 
     public List<TupE> getCorrections() {
-        return correctionMatrix.getAllCorrections().stream()
-                .map((tup) -> {
-                    return tup.permute(genConfSpaceMapping());
-                })
-                .collect(Collectors.toList());
+        return new ArrayList<>(correctionMatrix.getAllCorrections());
     }
 
     public int getNumPartialMinimizations() {

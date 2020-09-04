@@ -411,7 +411,7 @@ public class TestSHARKStarBound extends TestBase {
                 precomp, precomp.genCorrectionMatrix());
 
         int[] expectedArray = {2,4};
-        assertThat(fullPfunc.genConfSpaceMapping(), is(expectedArray));
+        assertThat(fullPfunc.genConfSpaceMapping(precomp), is(expectedArray));
     }
 
     /**
@@ -908,7 +908,7 @@ public class TestSHARKStarBound extends TestBase {
         RCTuple permTup = null;
         for (TupE tupe : flexibleCorrections){
             // assert that all of them exist
-            permTup = tupe.tup.permutedCopy(fullPfunc.genConfSpaceMapping());
+            permTup = tupe.tup.permutedCopy(fullPfunc.genConfSpaceMapping(preCompFlex));
             assertThat(fullPfunc.correctionMatrix.hasHigherOrderTermFor(permTup), is(true));
             System.out.println(permTup);
             // assert that the energies are correct
