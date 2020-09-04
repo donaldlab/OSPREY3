@@ -2,8 +2,15 @@ package edu.duke.cs.osprey.design.commands;
 
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParametersDelegate;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import edu.duke.cs.osprey.design.Main;
+import edu.duke.cs.osprey.design.models.StabilityDesign;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.Optional;
 
 public abstract class RunnableCommand {
@@ -44,5 +51,16 @@ public abstract class RunnableCommand {
 
     void printMissingDesignFile(JCommander commander) {
         System.out.println("Error: Missing a design file.");
+    }
+
+    public <T> Optional<T> parseDesignSpec(Class<T> t) {
+        try {
+            var mapper = new ObjectMapper(new YAMLFactory());
+            var stream = new FileInputStream(delegate.design);
+            return Optional.of(mapper.readValue(stream, t));
+        } catch (IOException e) {
+            e.printStackTrace();
+            return Optional.empty();
+        }
     }
 }

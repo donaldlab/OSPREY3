@@ -53,26 +53,24 @@ public class CommandPartitionFunction extends RunnableCommand {
 
     @Override
     public int run(JCommander commander, String[] args) {
+
         var retVal = processHelpAndNoArgs(commander, args);
 
         if (retVal.isPresent()) {
             return retVal.get();
         }
 
-        StabilityDesign design;
 
-        try {
-            design = StabilityDesign.parse(delegate.design);
-        } catch (IOException e) {
-            e.printStackTrace();
+        var designOpt = parseDesignSpec(StabilityDesign.class);
+        if (designOpt.isEmpty()) {
             return Main.Failure;
         }
 
         if (printDesignInfo) {
-            return printDesignDebugInfo(design);
+            return printDesignDebugInfo(designOpt.get());
         }
 
-        return runStabilityDesign(design);
+        return runStabilityDesign(designOpt.get());
     }
 
     @Override
@@ -109,35 +107,34 @@ public class CommandPartitionFunction extends RunnableCommand {
         var parallelism = delegate.getParallelism();
 
         /* Used to calculate energies of a molecule, also used to minimize the molecule */
-        var energyCalculator = new EnergyCalculator.Builder(confSpace, ffParams)
-                .setParallelism(parallelism)
-                .build();
+        try (var energyCalculator = new EnergyCalculator.Builder(confSpace, ffParams)
+                .setParallelism(parallelism).build()) {
 
-        /*
-         * Calculate energy for molecules created from conformation spaces.
-         *
-         * Provides support for applying conformation energy modifications,
-         * such as reference energies, residue entropies, and energy partitions.
-         */
-        // https://github.com/donaldlab/OSPREY3/blob/sharkstar/test/edu/duke/cs/osprey/sharkstar/TestSHARKStarBound.java#L65
-        confEnergyCalc = new ConfEnergyCalculator.Builder(confSpace, energyCalculator)
-                .build();
+            confEnergyCalc = new ConfEnergyCalculator.Builder(confSpace, energyCalculator)
+                    .build();
 
-        /* Contains the confSpace and a pruning matrix */
-        rcs = new RCs(confSpace);
+            /* Contains the confSpace and a pruning matrix */
+            rcs = new RCs(confSpace);
 
-        var epsilon = delegate.epsilon > 0 ? delegate.epsilon : design.epsilon;
-        var energyMatrix = new EnergyMatrix(confSpace);
-        var lowerAStarTree = new ConfAStarTree.Builder(energyMatrix, rcs).setTraditional().build();
-        var upperAStarTree = new ConfAStarTree.Builder(energyMatrix, rcs).setTraditional().build();
-        pFunc = new GradientDescentPfunc(confEnergyCalc, lowerAStarTree, upperAStarTree, rcs.getNumConformations());
-        pFunc.init(epsilon);
+            var epsilon = delegate.epsilon > 0 ? delegate.epsilon : design.epsilon;
+            var energyMatrix = new EnergyMatrix(confSpace);
+            var lowerAStarTree = new ConfAStarTree.Builder(energyMatrix, rcs).setTraditional().build();
+            var upperAStarTree = new ConfAStarTree.Builder(energyMatrix, rcs).setTraditional().build();
 
-        addListeners();
-        pFunc.compute(maxNumberConfs > 0 ? maxNumberConfs : Integer.MAX_VALUE);
+            try (var ctx = energyCalculator.tasks.contextGroup()) {
+                pFunc = new GradientDescentPfunc(confEnergyCalc, lowerAStarTree, upperAStarTree, rcs.getNumConformations());
+                pFunc.init(epsilon);
 
-        printResults();
-        return Main.Success;
+                pFunc.setInstanceId(0);
+                pFunc.putTaskContexts(ctx);
+
+                addListeners();
+                pFunc.compute(maxNumberConfs > 0 ? maxNumberConfs : Integer.MAX_VALUE);
+            }
+
+            printResults();
+            return Main.Success;
+        }
     }
 
     private void printResults() {
