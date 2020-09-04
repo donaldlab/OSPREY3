@@ -32,11 +32,13 @@
 
 package edu.duke.cs.osprey.energy.forcefield;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import com.beust.jcommander.internal.Lists;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
@@ -45,9 +47,10 @@ import edu.duke.cs.osprey.energy.forcefield.ResPairCache.ResPair;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.structure.Residues;
+import edu.duke.cs.osprey.tools.Streams;
 
 public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof {
-	
+
 	private static final long serialVersionUID = -4768384219061898745L;
 	
 	public final ResPairCache resPairCache;
@@ -56,7 +59,8 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 	
 	public final ResPair[] resPairs;
 	public final boolean isBroken;
-	
+	public static final List<ResPairEnergyContribution> brokenList = ImmutableList.of(ResPairEnergyContribution.BrokenConformation);
+
 	private double coulombFactor;
 	private double scaledCoulombFactor;
 	
@@ -112,6 +116,20 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 	@Override
 	public double getEnergy() {
 		return getEnergy(resPairs);
+	}
+
+	public List<ResPairEnergyContribution> getEnergyContributions(ResPair[] resPairs) {
+		var electrostaticContributions = getElectrostaticsEnergyContributions(resPairs);
+		var vdwContributions = getVanDerWaalsEnergyContributions(resPairs);
+		var solvationContributions = getSolvationEnergyContributions(resPairs);
+
+		var a = Streams.of(Iterables.concat(electrostaticContributions, vdwContributions, solvationContributions))
+				.collect(Collectors.groupingBy(ResPairEnergyContribution::getResPair,
+						Collectors.reducing((x, y)-> new ResPairEnergyContribution(x.getResPair(),
+								Stream.concat(x.getAtomPairEnergyContributions().stream(),
+										y.getAtomPairEnergyContributions().stream()).collect(Collectors.toList())))));
+
+		return a.values().stream().map(Optional::get).collect(Collectors.toList());
 	}
 	
 	private double getEnergy(ResPair[] resPairs) {
@@ -256,6 +274,84 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		return getElectrostaticsEnergy(resPairs);
 	}
 
+	/**
+	 *
+	 * @param resPairs
+	 * @return A list of each of the atom pairs' individual contributions to overall electrostatic energy contribution.
+	 * Summing the individual contributions equals the total electrostatics contributions.
+	 */
+	public List<ResPairEnergyContribution> getElectrostaticsEnergyContributions(ResPair[] resPairs) {
+		// NOTE: this function isn't hammered like getEnergy() is, so performance isn't important here
+
+		if (isBroken) {
+			return brokenList;
+		}
+
+		var resPairContributions = new LinkedList<ResPairEnergyContribution>();
+
+		for (ResPair pair : resPairs) {
+
+			// for each atom pair...
+			int pos = 0;
+			var energyContributions = new LinkedList<AtomPairEnergyContribution>();
+
+			for (int j=0; j<pair.info.numAtomPairs; j++) {
+
+				double energy = 0;
+
+				// read the flags
+				long atomPairFlags = pair.info.flags[j];
+				int atomOffset2 = (int)(atomPairFlags & 0xffff);
+				atomPairFlags >>= 16;
+				int atomOffset1 = (int)(atomPairFlags & 0xffff);
+				atomPairFlags >>= 46;
+				boolean isHeavyPair = (atomPairFlags & 0x1) == 0x1;
+				atomPairFlags >>= 1;
+				boolean is14Bonded = (atomPairFlags & 0x1) == 0x1;
+
+				// get the radius
+				double r2 = getR2(pair, atomOffset1, atomOffset2);
+				double r = Math.sqrt(r2);
+				double charge = 0;
+
+				// compute the electrostatics
+				if (isHeavyPair || resPairCache.ffparams.hElect) {
+					charge = pair.info.precomputed[pos++];
+					if (is14Bonded) {
+						if (resPairCache.ffparams.distDepDielect) {
+							energy = scaledCoulombFactor*charge/r2;
+						} else {
+							energy = scaledCoulombFactor*charge/r;
+						}
+					} else {
+						if (resPairCache.ffparams.distDepDielect) {
+							energy = coulombFactor*charge/r2;
+						} else {
+							energy = coulombFactor*charge/r;
+						}
+					}
+				} else {
+					pos++;
+				}
+
+				// skip the van der Waals
+				pos += 2;
+
+				// skip the solvation precomputed values
+				if (resPairCache.ffparams.solvationForcefield == SolvationForcefield.EEF1) {
+					pos += 6;
+				}
+
+				energyContributions.add(new AtomPairElectrostaticContribution(pair, atomOffset1 / 3, atomOffset2 / 3,
+						energy, r, charge, is14Bonded, isHeavyPair, resPairCache.ffparams.distDepDielect));
+			}
+
+			resPairContributions.add(new ResPairEnergyContribution(pair, energyContributions));
+		}
+
+		return resPairContributions;
+	}
+
 	public double getElectrostaticsEnergy(ResPair[] resPairs) {
 
 		// NOTE: this function isn't hammered like getEnergy() is, so performance isn't important here
@@ -329,6 +425,65 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		return getVanDerWaalsEnergy(resPairs);
 	}
 
+	public List<ResPairEnergyContribution> getVanDerWaalsEnergyContributions(ResPair[] resPairs) {
+
+		if (isBroken) {
+			return brokenList;
+		}
+
+		var resPairContributions = new LinkedList<ResPairEnergyContribution>();
+		for (ResPair pair : resPairs) {
+
+			var vanDerWaalsContributions = new LinkedList<AtomPairEnergyContribution>();
+			double energy = 0.0;
+
+			// for each atom pair...
+			int pos = 0;
+			for (int j=0; j<pair.info.numAtomPairs; j++) {
+
+				// read the flags
+				long atomPairFlags = pair.info.flags[j];
+				int atomOffset2 = (int)(atomPairFlags & 0xffff);
+				atomPairFlags >>= 16;
+				int atomOffset1 = (int)(atomPairFlags & 0xffff);
+				atomPairFlags >>= 46;
+				boolean isHeavyPair = (atomPairFlags & 0x1) == 0x1;
+
+				// skip the electrostatics precomputed values
+				pos += 1;
+
+				if (isHeavyPair || resPairCache.ffparams.hVDW) {
+
+					// get the radius
+					double r2 = getR2(pair, atomOffset1, atomOffset2);
+
+					double Aij = pair.info.precomputed[pos++];
+					double Bij = pair.info.precomputed[pos++];
+
+					// compute vdw
+					double r6 = r2*r2*r2;
+					double r12 = r6*r6;
+					energy = Aij/r12 - Bij/r6;
+
+					vanDerWaalsContributions.add(new AtomPairVanDerWaalsContribution(pair, atomOffset1 / 3,
+							atomOffset2 / 3, energy, Aij, Bij, r2));
+
+				} else {
+					pos += 2;
+				}
+
+				// skip the solvation precomputed values
+				if (resPairCache.ffparams.solvationForcefield == SolvationForcefield.EEF1) {
+					pos += 6;
+				}
+			}
+
+			resPairContributions.add(new ResPairEnergyContribution(pair, vanDerWaalsContributions));
+		}
+
+		return resPairContributions;
+	}
+
 	public double getVanDerWaalsEnergy(ResPair[] resPairs) {
 
 		// NOTE: this function isn't hammered like getEnergy() is, so performance isn't important here
@@ -391,6 +546,69 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 
 	public double getSolvationEnergy() {
 		return getSolvationEnergy(resPairs);
+	}
+
+	public List<ResPairEnergyContribution> getSolvationEnergyContributions(ResPair[] resPairs) {
+		if (isBroken) {
+			return brokenList;
+		}
+
+		var resPairContributions = new LinkedList<ResPairEnergyContribution>();
+
+		for (ResPair pair : resPairs) {
+
+			double resPairEnergy = 0;
+
+			// for each atom pair...
+			int pos = 0;
+			var atomPairContributions = new LinkedList<AtomPairEnergyContribution>();
+			for (int j=0; j<pair.info.numAtomPairs; j++) {
+
+				// read the flags
+				// NOTE: this is efficient, but destructive to the val
+				long atomPairFlags = pair.info.flags[j];
+				int atomOffset2 = (int)(atomPairFlags & 0xffff);
+				atomPairFlags >>= 16;
+				int atomOffset1 = (int)(atomPairFlags & 0xffff);
+				atomPairFlags >>= 46;
+				boolean isHeavyPair = (atomPairFlags & 0x1) == 0x1;
+				atomPairFlags >>= 1;
+				boolean is14Bonded = (atomPairFlags & 0x1) == 0x1;
+
+				// get the radius
+				double r2 = getR2(pair, atomOffset1, atomOffset2);
+				double r = Math.sqrt(r2);
+
+				// skip the vdW and electrostatics precomputed values
+				pos += 3;
+
+				// solvation
+				if (resPairCache.ffparams.solvationForcefield == SolvationForcefield.EEF1) {
+					if (isHeavyPair && r2 < ForcefieldParams.solvCutoff2) {
+
+						double radius1 = pair.info.precomputed[pos++];
+						double lambda1 = pair.info.precomputed[pos++];
+						double alpha1 = pair.info.precomputed[pos++];
+						double radius2 = pair.info.precomputed[pos++];
+						double lambda2 = pair.info.precomputed[pos++];
+						double alpha2 = pair.info.precomputed[pos++];
+
+						// compute solvation energy
+						double Xij = (r - radius1)/lambda1;
+						double Xji = (r - radius2)/lambda2;
+
+						var energy = -(alpha1*Math.exp(-Xij*Xij) + alpha2*Math.exp(-Xji*Xji))/r2;
+						atomPairContributions.add(new AtomPairSolvationContribution(pair, atomOffset1 / 3, atomOffset2 / 3, energy));
+
+					} else {
+						pos += 6;
+					}
+				}
+			}
+			resPairContributions.add(new ResPairEnergyContribution(pair, atomPairContributions));
+		}
+
+		return resPairContributions;
 	}
 
 	public double getSolvationEnergy(ResPair[] resPairs) {
