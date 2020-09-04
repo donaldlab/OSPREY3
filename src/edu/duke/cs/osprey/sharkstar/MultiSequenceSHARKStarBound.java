@@ -50,6 +50,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     public static final boolean diveForLeaves = false;
     public static final boolean doCorrections = true;
     public static final boolean runUntilNonZero = false;
+    public static final boolean skipAddingToFringe = true;
+    public static double skipCutoff = 0;
     public boolean profileOutput = false;
     private Status status = null;
 
@@ -1338,10 +1340,18 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             // add the nodes back into the queue
             for (int i = 0; i < result.newNodes.size(); i++){
                 MultiSequenceSHARKStarNode node = result.newNodes.get(i);
-                if(node.getLevel() >= result.sequenceBound.seqRCs.getNumPos()){
-                    result.sequenceBound.leafQueue.add(node);
+                if (
+                        node.getErrorBound(result.sequenceBound.sequence) < skipCutoff ||
+                        result.sequenceBound.sequence.equals(this.precomputedSequence) ||
+                        !skipAddingToFringe
+                        ) {
+                    if (node.getLevel() >= result.sequenceBound.seqRCs.getNumPos()) {
+                        result.sequenceBound.leafQueue.add(node);
+                    } else {
+                        result.sequenceBound.internalQueue.add(node);
+                    }
                 }else{
-                    result.sequenceBound.internalQueue.add(node);
+                    debugPrint(String.format("Skipping fringe addition of node with no error"));
                 }
             }
         }
@@ -1925,7 +1935,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             assert (!context.index.isDefined(nextPos));
             assert (context.index.isUndefined(nextPos));
             // score child nodes with tasks (possibly in parallel)
-            List<MultiSequenceSHARKStarNode> children = new ArrayList<>();
 
             for (int nextRc : bound.seqRCs.get(nextPos)) {
                 double resultingUpper = Double.MAX_VALUE;
@@ -1939,7 +1948,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     child = curNode.getExistingChild(nextRc);
                 }else{
                     child = curNode.assign(nextPos, nextRc);
-                    curNode.addChild(child, bound.sequence);
+                    // defer adding child to after we can determine the error of the child
                 }
 
                 // Set up corrections
@@ -2012,8 +2021,13 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         //resultingUpper, msBound.bc.calc(resultingLower), msBound.bc.calc(resultingUpper), bound.sequence, historyString);
                 //System.out.println("Created new child "+MultiSequenceSHARKStarNodeChild.toSeqString(bound.sequence));
                 // collect the possible children
-                if (child.getConfLowerBound(bound.sequence) < 0 || true) { //TODO: could this be a memory suck?
-                    children.add(child);
+                if (child.getErrorBound(bound.sequence) < skipCutoff ||
+                        bound.sequence.equals(this.precomputedSequence) ||
+                        !skipAddingToFringe
+                ) {
+                    curNode.addChild(child, bound.sequence);
+                }else{
+                    debugPrint(String.format("Skipping child addition of node with no error"));
                 }
 
                 if (child.isMinimized(bound.sequence)) {
