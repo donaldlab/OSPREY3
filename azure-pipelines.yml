@@ -61,7 +61,8 @@ jobs:
       tagSource: 'userSpecifiedTag'
       tag: '$(version).$(Build.BuildId)'
       assets: '$(System.ArtifactsDirectory)/**/*.tar'
-      isDraft: true
+      isDraft: false
+      isPreRelease: true
       changeLogCompareToRelease: 'lastFullRelease'
       changeLogType: 'commitBased'
       title: '$(version).$(Build.BuildId)'
