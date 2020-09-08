@@ -2,6 +2,7 @@ plugins {
     id 'com.github.johnrengelman.shadow' version '5.1.0'
     id 'java'
     id 'org.openjfx.javafxplugin' version '0.0.7'
+    id 'application'
 }
 
 group 'edu.duke.cs'
@@ -67,6 +68,10 @@ dependencies {
 
 test {
     useJUnitPlatform()
+}
+
+application {
+	mainClassName = 'edu.duke.cs.osprey.design.Main'
 }
 
 task compileGpu(type:Exec) {
