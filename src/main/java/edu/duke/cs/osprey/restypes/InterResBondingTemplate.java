@@ -59,9 +59,7 @@ public abstract class InterResBondingTemplate implements Serializable {
     //atom is from this residue; can it bond other residues?
 
 	public abstract boolean isInterResBondedForward(Residue res1, Residue res2);
-	public abstract boolean makeInterResBondForward(Residue res1, Residue res2);
-
-    public static class NoBondingTemplate extends InterResBondingTemplate {
+	public static class NoBondingTemplate extends InterResBondingTemplate {
 
         //for residues that can't bond to anything else
         @Override
@@ -77,11 +75,7 @@ public abstract class InterResBondingTemplate implements Serializable {
         	return false;
 		}
 
-		@Override
-		public boolean makeInterResBondForward(Residue res1, Residue res2) {
-        	return false;
-		}
-    }
+	}
 
     public static class PeptideBondingTemplate extends InterResBondingTemplate {
 
@@ -117,22 +111,6 @@ public abstract class InterResBondingTemplate implements Serializable {
 			return C.bonds.contains(N);
 		}
 
-		@Override
-		public boolean makeInterResBondForward(Residue res1, Residue res2) {
-
-			// check for res1:C to res2:N bond
-			Atom C = res1.getAtomByName("C");
-			Atom N = res2.getAtomByName("N");
-
-			// no way to make a peptide bond? then fail
-			if (C == null || N == null) {
-				return false;
-			}
-
-			// don't worry if the atoms are too far apart, just make the bond
-			C.addBond(N);
-			return true;
-		}
 	}
 
 	public static class NucleotideBondingTemplate extends InterResBondingTemplate {
@@ -169,22 +147,6 @@ public abstract class InterResBondingTemplate implements Serializable {
 			return O.bonds.contains(P);
 		}
 
-		@Override
-		public boolean makeInterResBondForward(Residue res1, Residue res2) {
-
-			// check for res1:O3' to res2:P bond
-			Atom O = res1.getAtomByName("O3'");
-			Atom P = res2.getAtomByName("P");
-
-			// no way to make a nucleotide bond? then fail
-			if (O == null || P == null) {
-				return false;
-			}
-
-			// don't worry if the atoms are too far apart, just make the bond
-			O.addBond(P);
-			return true;
-		}
 	}
 
 
@@ -209,16 +171,6 @@ public abstract class InterResBondingTemplate implements Serializable {
             return atom.name.equalsIgnoreCase("N") || atom.name.equalsIgnoreCase("C")
                     || atom.name.equalsIgnoreCase("SG");
         }
-
-		@Override
-		public boolean isInterResBondedForward(Residue res1, Residue res2) {
-			throw new UnsupportedOperationException("atom connectivity queries for cysteine bonds are not yet implemented");
-		}
-
-		@Override
-		public boolean makeInterResBondForward(Residue res1, Residue res2) {
-			throw new UnsupportedOperationException("atom connectivity queries for cysteine bonds are not yet implemented");
-		}
 	}
 
 
@@ -271,11 +223,7 @@ public abstract class InterResBondingTemplate implements Serializable {
 			throw new UnsupportedOperationException(notSupportedMsg);
 		}
 
-		@Override
-		public boolean makeInterResBondForward(Residue res1, Residue res2) {
-			throw new UnsupportedOperationException(notSupportedMsg);
-		}
-    }
+	}
 
 
 
