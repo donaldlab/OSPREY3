@@ -66,17 +66,13 @@ public class CommandBindingAffinity extends RunnableCommand {
                 .setParallelism(parallelism)
                 .build();
 
-        var rigidEcalc = new EnergyCalculator.SharedBuilder(minimizingECalc)
-                .setIsMinimizing(false)
-                .build();
-
         var epsilon = delegate.epsilon > 0 ? delegate.epsilon : design.epsilon;
-        var bbkstar = new BBKStar(confSpace1, confSpace2, complexConfSpace, makeKStarSettings(epsilon), makeBBKStarSettings());
+        var kstar = new KStar(confSpace1, confSpace2, complexConfSpace, makeKStarSettings(epsilon));
 
-        for (var info : bbkstar.confSpaceInfos()) {
-
+        for (var info : kstar.confSpaceInfos()) {
             var referenceEnergies = new SimpleReferenceEnergies.Builder(((SimpleConfSpace) info.confSpace), minimizingECalc).build();
-            var confECalcMinimized = new ConfEnergyCalculator.Builder(((SimpleConfSpace) info.confSpace), minimizingECalc)
+
+            info.confEcalc = new ConfEnergyCalculator.Builder(((SimpleConfSpace) info.confSpace), minimizingECalc)
                     .setReferenceEnergies(referenceEnergies)
                     .build();
 
@@ -84,23 +80,15 @@ public class CommandBindingAffinity extends RunnableCommand {
                     .build()
                     .calcEnergyMatrix();
 
-            var rigidEnergyMatrix = new SimplerEnergyMatrixCalculator.Builder(((SimpleConfSpace) info.confSpace), rigidEcalc)
-                    .build()
-                    .calcEnergyMatrix();
-
-            info.confEcalcMinimized = confECalcMinimized;
-            info.confSearchFactoryMinimized = rcs -> new ConfAStarTree.Builder(minimizedEnergyMatrix, rcs).setTraditional().build();
-            info.confSearchFactoryRigid = rcs -> new ConfAStarTree.Builder(rigidEnergyMatrix, rcs).setTraditional().build();
-
             info.pfuncFactory = (rcs) -> new GradientDescentPfunc(
-                    info.confEcalcMinimized,
+                    info.confEcalc,
                     new ConfAStarTree.Builder(minimizedEnergyMatrix, rcs).setTraditional().build(),
                     new ConfAStarTree.Builder(minimizedEnergyMatrix, rcs).setTraditional().build(),
                     rcs.getNumConformations()
             );
         }
 
-        printResults(bbkstar.run(minimizingECalc.tasks));
+        printResults(kstar.run(minimizingECalc.tasks));
         return Main.Success;
     }
 
