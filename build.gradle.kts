@@ -417,11 +417,12 @@ tasks {
 			var version = versionFile.readText().trim()
 
 			// append the CI build ID, if available
-			version += if (hasProperty("AZURE_BUILD_ID")) {
-				val versionId = property("AZURE_BUILD_ID")
-				".$versionId"
+
+			version += if (rootProject.hasProperty("AZURE_BUILD_ID")) {
+				val versionId = rootProject.property("AZURE_BUILD_ID")
+				".$versionId\n"
 			} else {
-				"-dev"
+				"-dev\n"
 			}
 			versionFile.writeText(version)
 		}
