@@ -19,10 +19,4 @@ public class StabilityDesign {
     public float epsilon;
 
     public MoleculeDto molecule;
-
-    public static StabilityDesign parse(File file) throws IOException {
-        var mapper = new ObjectMapper(new YAMLFactory());
-        var stream = new FileInputStream(file);
-        return mapper.readValue(stream, StabilityDesign.class);
-    }
 }

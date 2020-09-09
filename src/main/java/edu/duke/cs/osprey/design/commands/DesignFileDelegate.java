@@ -47,6 +47,9 @@ public class DesignFileDelegate {
     @Parameter(names = {"--ensemble-dir"}, description = "Directory in which to write saved structures")
     public String saveDir = "ensemble";
 
+    @Parameter(names = {"--cpus"}, description = "Override the setting of using all of the CPUs")
+    public int cpus = 0;
+
     int getNumGpu() {
         var deviceCount = new int[]{0};
         cudaGetDeviceCount(deviceCount);
@@ -67,7 +70,7 @@ public class DesignFileDelegate {
             return new Parallelism(Runtime.getRuntime().availableProcessors(), numGpus, numMultiprocessors);
         }
 
-        return new Parallelism(Runtime.getRuntime().availableProcessors(), 0, 0);
+        return new Parallelism(cpus > 0 ? cpus : Runtime.getRuntime().availableProcessors(), 0, 0);
     }
 
     SimpleConfSpace createConfSpace(MoleculeDto spec, ForcefieldParams ffParams) {

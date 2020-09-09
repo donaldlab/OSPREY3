@@ -6,6 +6,7 @@ import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import edu.duke.cs.osprey.design.commands.CommandBindingAffinity;
 import edu.duke.cs.osprey.design.commands.CommandPartitionFunction;
+import edu.duke.cs.osprey.design.commands.CommandTopNConfs;
 
 import java.util.Map;
 
@@ -31,7 +32,8 @@ public class Main {
 
         var commandMap = Map.of(
                 CommandPartitionFunction.CommandName, new CommandPartitionFunction(),
-                CommandBindingAffinity.CommandName, new CommandBindingAffinity()
+                CommandBindingAffinity.CommandName, new CommandBindingAffinity(),
+                CommandTopNConfs.CommandName, new CommandTopNConfs()
         );
 
         var builder = JCommander.newBuilder()
