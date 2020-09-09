@@ -2030,6 +2030,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     debugPrint(String.format("Skipping child addition of node with no error"));
                 }
 
+                /*
                 if (child.isMinimized(bound.sequence)) {
                     //newChild.computeEpsilonErrorBounds(bound.sequence);
                     //bound.addFinishedNode(newChild);
@@ -2042,6 +2043,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                             child.getConfUpperBound(bound.sequence)
                             ));
                 }
+                 */
 
                 newNodes.add(child);
 
@@ -2239,7 +2241,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         }else{
             binned = new Double[] {};
         }
-
         return binned;
     }
 
