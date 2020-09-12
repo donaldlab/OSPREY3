@@ -20,7 +20,8 @@ import static edu.duke.cs.osprey.tools.Log.log;
 
 public class SeqTreeNode extends KStarTreeNode{
     private final Double[] repr;
-    public static final Pattern p = Pattern.compile("((~\\+)*)\\(([^)]+)\\)->\\((.*)\\): ?\\[(.*)\\]->\\[(.*)\\]:\\((.*)\\)");
+    public static final Pattern p = Pattern.compile("((~\\+)*)\\(([^)]+)\\)->\\((.*)\\): ?\\[(.*)\\]->\\[(.*)\\]:\\((.*)\\):\\((.*)\\)");
+    protected static List<Double> maxLevelEntropies = new ArrayList<>();
 
     public SeqTreeNode(int level, String[] assignments, int[] confAssignments, BigDecimal lowerBound, BigDecimal upperBound, double confLowerBound, double confUpperBound, double epsilon, Double[] repr) {
         super(level, assignments, confAssignments, lowerBound, upperBound, confLowerBound, confUpperBound, epsilon);
@@ -94,6 +95,12 @@ public class SeqTreeNode extends KStarTreeNode{
             }
             out.append(Double.toString(repr[i]));
         }
+        out.append(")");
+
+        out.append(":");
+        //render the entropy
+        out.append("(");
+        out.append(Double.toString(this.entropy));
         out.append(")");
 
         out.append("\n");
@@ -290,6 +297,7 @@ public class SeqTreeNode extends KStarTreeNode{
             }else{
                 repr = Arrays.stream(m.group(7).replaceAll(" ", "").split(",")).mapToDouble(Double::parseDouble).boxed().toArray(Double[]::new);
             }
+            double ent = Double.parseDouble(m.group(8));
 
             if (zCutoffsByLevel != null) {
 
@@ -313,6 +321,7 @@ public class SeqTreeNode extends KStarTreeNode{
             }
             SeqTreeNode newNode = new SeqTreeNode(level, assignments, confAssignments, lowerBound, upperBound,
                     confLowerBound, confUpperBound, epsilon, repr);
+            newNode.setEntropy((ent));
             SeqTreeNode curParent = buildStack.peek();
             if(newNode.isRoot()) {
                 root = newNode;

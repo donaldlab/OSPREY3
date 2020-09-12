@@ -45,6 +45,7 @@ import edu.duke.cs.osprey.sharkstar.SHARKSeqHScorer;
 import edu.duke.cs.osprey.sharkstar.SingleSequenceSHARKStarBound;
 import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
+import javafx.util.Pair;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -861,6 +862,15 @@ public class BBKStar {
 			System.out.println(String.format("%s complex:", n.sequence));
 			n.complex.printStats();
 		});
+		System.out.println("Unstable node information:");
+		unstableNodes.forEach((SingleSequenceNode n) -> {
+			System.out.println(String.format("%s protein:", n.sequence));
+			n.protein.printStats();
+			System.out.println(String.format("%s ligand:", n.sequence));
+			n.ligand.printStats();
+			System.out.println(String.format("%s complex:", n.sequence));
+			n.complex.printStats();
+		});
 
 		if (bbkstarSettings.printSeqTree)
 			printSequenceTree(Stream.of(tree, finishedNodes /*, unstableNodes*/).flatMap(Collection::stream).collect(Collectors.toList()));
@@ -920,14 +930,18 @@ public class BBKStar {
 			BigDecimal lb;
 			BigDecimal ub;
 			Double[] repr;
+			Double entropy;
 			if(n instanceof SingleSequenceNode){
 				lb = ((SingleSequenceNode) n).complex.getValues().calcLowerBound();
 				ub = ((SingleSequenceNode) n).complex.getValues().calcUpperBound();
-				repr = MultiSequenceSHARKStarBound.generate1DRepresentation((SingleSequenceSHARKStarBound) ((SingleSequenceNode) n).complex, 100, 1e-3);
+				Pair<Double[], Double> info = MultiSequenceSHARKStarBound.generate1DRepresentation((SingleSequenceSHARKStarBound) ((SingleSequenceNode) n).complex, 100, 1e-9);
+				repr = info.getKey();
+				entropy = info.getValue();
 			}else{
 				lb = ((MultiSequenceNode) n).calcLowerBoundByConf(complex, n.sequence, 1000);
 				ub = ((MultiSequenceNode) n).calcUpperBoundByConf(complex, n.sequence, 1000);
 				repr = new Double[] {};
+				entropy = 0.0;
 			}
 			double conflb;
 			double confub;
@@ -961,7 +975,7 @@ public class BBKStar {
 				eps = 1.0;
 			}
 
-	    	return new SeqTreeNode(level,
+	    	SeqTreeNode node =  new SeqTreeNode(level,
 					assignments,
 					confAssignments,
 					lb,
@@ -971,6 +985,9 @@ public class BBKStar {
 					eps,
                     repr
 			);
+			node.setEntropy(entropy);
+			System.out.println(node.getEntropy());
+			return node;
 		}).collect(Collectors.toList());
 
 	    // populate the rest of the tree
@@ -1012,6 +1029,7 @@ public class BBKStar {
 								new Double[]{}
 						);
 				parent.setChildren(children);
+				//parent.setEntropy(0.0);
 				newLevel.add(parent);
 			}
 			lastLevel = newLevel;

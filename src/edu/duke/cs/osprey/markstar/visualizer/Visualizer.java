@@ -135,6 +135,8 @@ public class Visualizer extends Application {
         colorByEnergy.setOnAction((e)->{root.setColorStyle(KStarTreeNode.ColorStyle.differenceFromEnergy);});
         MenuItem colorByLogOccupancy = new MenuItem("Color by log statistical weight");
         colorByLogOccupancy.setOnAction((e)->root.setColorStyle(KStarTreeNode.ColorStyle.logOccupancy));
+        MenuItem colorByEntropy = new MenuItem("Color by entropy");
+        colorByEntropy.setOnAction((e) -> root.setColorStyle(SeqTreeNode.ColorStyle.byEntropy));
         MenuItem toggleCenter = new MenuItem("Show/Hide white center");
         toggleCenter.setOnAction(e->{
             root.toggleCenter();
@@ -142,7 +144,7 @@ public class Visualizer extends Application {
         help.getItems().add(helpDevShortCut3);
         file.getItems().add(loadTree);
         file.getItems().add(loadSeqTree);
-        options.getItems().addAll(setvisibleLevels,toggleCenter, colorByEnergy, colorByOccupancy, colorByLogOccupancy);
+        options.getItems().addAll(setvisibleLevels,toggleCenter, colorByEnergy, colorByOccupancy, colorByLogOccupancy, colorByEntropy);
         MenuBar menuBar = new MenuBar();
         menuBar.getMenus().addAll(file, options, help);
         Button button = new Button();

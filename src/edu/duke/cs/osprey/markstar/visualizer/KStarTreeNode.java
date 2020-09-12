@@ -105,10 +105,13 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     protected static boolean drawTree = false;
     protected ColorStyle colorStyle = ColorStyle.occupancy;
     protected static List<Double> maxLevelOccupancies = new ArrayList<>();
+    protected double entropy;
+    protected static List<Double> maxLevelEntropies = new ArrayList<>();
 
     public enum ColorStyle {
         differenceFromEnergy,
-        logOccupancy, occupancy
+        logOccupancy, occupancy,
+        byEntropy
     }
     public void setChildren(List<KStarTreeNode> children){
         this.children = children;
@@ -388,6 +391,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         this.ratioToMaxLeaf = 1;
         setMinLeafLower(minLeafLower);
         computeLevelMaxOccupancies();
+        computeLevelMaxEntropies();
     }
 
     private void setMinLeafLower(double treeLowerBound) {
@@ -537,6 +541,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     double redblueEnergyThreshold = 2;
     double occupancyThreshold = 0.5;
     double logOccupancyThreshold = 0.80;
+    double entropyThreshold = 0.5;
 
     protected Color getWeightedColor() {
         switch(colorStyle) {
@@ -546,6 +551,8 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
                 return getOccupancyWeightedColor();
             case logOccupancy:
                 return getLogOccupancyWeightedColor();
+            case byEntropy:
+                return getEntropyWeightedColor();
             default:
                 return getOccupancyWeightedColor();
 
@@ -584,7 +591,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
 
     }
 
-    private Color getLogOccupancyWeightedColor() {
+    protected Color getLogOccupancyWeightedColor() {
         double logOccupancy = Math.log(occupancy);
         double occupancy = Math.max(0.00000000000000000000000001,1-logOccupancy/Math.log(0.001));
         if(occupancy < logOccupancyThreshold)
@@ -594,7 +601,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     }
 
 
-    private Color getOccupancyWeightedColor() {
+    protected Color getOccupancyWeightedColor() {
         double levelMaxOccupancy = maxLevelOccupancies.get(level);
         double occupancy = this.occupancy/levelMaxOccupancy;
         if(occupancy < occupancyThreshold)
@@ -603,7 +610,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         return blueGreenGradient(weight);
     }
 
-    private Color getEnergyWeightedColor() {
+    protected Color getEnergyWeightedColor() {
         if(minLeafLower - overallLower > energyThreshold)
             return redBlueGradient((redblueEnergyThreshold-Math.min(minLeafLower-overallLower, redblueEnergyThreshold))/redblueEnergyThreshold);
         double energyWeight = (minLeafLower -overallLower)/0.5;
@@ -616,12 +623,12 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         return new Color(1-newRatio, newRatio, 0, 1);
     }
 
-    private Color blueGreenGradient(double ratioToMaxLeaf) {
+    protected Color blueGreenGradient(double ratioToMaxLeaf) {
         double newRatio = ratioToMaxLeaf;
         return new Color(0.15*newRatio, newRatio, 0.5*(1-newRatio)+0.2, 1);
     }
 
-    private Color redBlueGradient(double ratioToMaxLeaf) {
+    protected Color redBlueGradient(double ratioToMaxLeaf) {
         double newRatio = ratioToMaxLeaf;
         return new Color(1*(1-newRatio), 0, newRatio,1);
     }
@@ -1291,4 +1298,34 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
 			child.printTreeLikeMARKStar(out, prefix + "~+");
 		}
 	}
+
+    protected Color getEntropyWeightedColor() {
+        double levelMaxEntropy = maxLevelEntropies.get(level);
+        double ent = this.entropy/levelMaxEntropy;
+        if(ent < entropyThreshold)
+            return redBlueGradient(ent/entropyThreshold);
+        double weight = (ent - entropyThreshold)/(1-entropyThreshold);
+        return blueGreenGradient(weight);
+    }
+
+    public void computeLevelMaxEntropies() {
+        if(children == null || children.size() < 1)
+            return;
+        while(maxLevelEntropies.size() <= level+1)
+            maxLevelEntropies.add(Double.NEGATIVE_INFINITY);
+        for(KStarTreeNode child: children) {
+            SeqTreeNode seqNode = (SeqTreeNode) child;
+            maxLevelEntropies.set(level+1, Math.max((seqNode).getEntropy(), maxLevelEntropies.get(level+1)));
+            seqNode.computeLevelMaxEntropies();
+        }
+
+    }
+
+    public void setEntropy(double val){
+        this.entropy = val;
+    }
+
+    public double getEntropy(){
+        return this.entropy;
+    }
 }

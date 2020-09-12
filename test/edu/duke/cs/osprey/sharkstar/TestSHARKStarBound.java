@@ -20,6 +20,7 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.Stopwatch;
+import javafx.util.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -1028,8 +1029,12 @@ public class TestSHARKStarBound extends TestBase {
                 ssbound_two.getLowerFromQueues(),
                 ssbound_two.getUpperFromQueues()
         ));
-        Double[] repr = MultiSequenceSHARKStarBound.generate1DRepresentation(ssbound, 100, 1e-9);
+        Pair<Double[], Double> info = MultiSequenceSHARKStarBound.generate1DRepresentation(ssbound, 100, 1e-9);
+        Double[] repr = info.getKey();
+        Double entropy = info.getValue();
+
         System.out.println(Arrays.toString(repr));
+        System.out.println(entropy);
     }
 
     @Test

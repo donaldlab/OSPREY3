@@ -27,7 +27,7 @@ import edu.duke.cs.osprey.sharkstar.tools.SHARKStarEnsembleAnalyzer;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.ObjectPool;
 import edu.duke.cs.osprey.tools.Stopwatch;
-import jdk.nashorn.internal.runtime.regexp.joni.exception.ValueException;
+import javafx.util.Pair;
 
 import java.io.BufferedWriter;
 import java.math.BigDecimal;
@@ -2201,14 +2201,18 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         Map<Sequence, Double> secondsPerSeq = new HashMap<>();
     }
 
-    public static Double[] generate1DRepresentation(SingleSequenceSHARKStarBound bound, int numBins, double cutoff){
+    public static Pair<Double[], Double> generate1DRepresentation(SingleSequenceSHARKStarBound bound, int numBins, double cutoff){
         BoltzmannCalculator calc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
         class occEntry{
             double occupancy;
             int numberConfs;
 
             occEntry(MultiSequenceSHARKStarNode node){
-                this.occupancy = calc.calc(node.getConfLowerBound(bound.sequence)).divide(bound.getUpperBound(), PartitionFunction.decimalPrecision).doubleValue();
+                if(bound.getUpperBound().compareTo(BigDecimal.ZERO) > 0)
+                    this.occupancy = calc.calc(node.getConfLowerBound(bound.sequence)).divide(bound.getUpperBound(), PartitionFunction.decimalPrecision).doubleValue();
+                else{
+                    occupancy = 0;
+                }
                 this.numberConfs = MultiSequenceSHARKStarNode.computeNumConformations(node, bound.seqRCs).intValue();
             }
 
@@ -2226,8 +2230,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 .flatMap((e) -> Collections.nCopies(e.numberConfs, new occEntry(e.occupancy / e.numberConfs, 1)).stream()) // expand internal nodes
                 .sorted(Comparator.comparingDouble((e) -> -1 * e.occupancy)) // sort by occupancy
                 .collect(Collectors.toList());
-        System.out.println(sortedEntries.size());
 
+        // generate a binned representation
         Double[] binned;
         if(sortedEntries.size() > 0) {
             int finalNumBins = Math.min(numBins, sortedEntries.size());
@@ -2241,7 +2245,33 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         }else{
             binned = new Double[] {};
         }
-        return binned;
+
+        // compute the entropy
+        Double entropy = -1 * BoltzmannCalculator.constRT * sortedEntries.parallelStream()
+                .map((e) -> e.occupancy* Math.log(e.occupancy))
+                .reduce(0.0, Double::sum);
+
+        Pair<Double[], Double> binnedAndEntropy = new Pair<>(binned, entropy);
+        return binnedAndEntropy;
+
+        // just bin the top x% ??
+
+        //or, just generate the first n
+        /*
+        Double[] firstn;
+        if(sortedEntries.size() > 0) {
+            int finalNumEntries = Math.min(numBins, sortedEntries.size());
+            while(sortedEntries.size() < finalNumEntries){
+                sortedEntries.add(new occEntry(0,1));
+            }
+                firstn = sortedEntries.subList(0, finalNumEntries).stream().map((n) -> n.occupancy).toArray(Double[]::new);
+        }else{
+            firstn = new Double[] {};
+        }
+        return firstn;
+
+         */
+
     }
 
 }
