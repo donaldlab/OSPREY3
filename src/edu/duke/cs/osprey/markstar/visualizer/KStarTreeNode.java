@@ -107,6 +107,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     protected static List<Double> maxLevelOccupancies = new ArrayList<>();
     protected double entropy;
     protected static List<Double> maxLevelEntropies = new ArrayList<>();
+    protected static List<Double> minLevelEntropies = new ArrayList<>();
 
     public enum ColorStyle {
         differenceFromEnergy,
@@ -392,6 +393,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         setMinLeafLower(minLeafLower);
         computeLevelMaxOccupancies();
         computeLevelMaxEntropies();
+        computeLevelMinEntropies();
     }
 
     private void setMinLeafLower(double treeLowerBound) {
@@ -1301,7 +1303,8 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
 
     protected Color getEntropyWeightedColor() {
         double levelMaxEntropy = maxLevelEntropies.get(level);
-        double ent = this.entropy/levelMaxEntropy;
+        double levelMinEntropy = minLevelEntropies.get(level);
+        double ent = (this.entropy - levelMinEntropy) / (levelMaxEntropy - levelMinEntropy);
         if(ent < entropyThreshold)
             return redBlueGradient(ent/entropyThreshold);
         double weight = (ent - entropyThreshold)/(1-entropyThreshold);
@@ -1317,6 +1320,20 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
             SeqTreeNode seqNode = (SeqTreeNode) child;
             maxLevelEntropies.set(level+1, Math.max((seqNode).getEntropy(), maxLevelEntropies.get(level+1)));
             seqNode.computeLevelMaxEntropies();
+        }
+
+    }
+
+    public void computeLevelMinEntropies() {
+        if(children == null || children.size() < 1)
+            return;
+        while(minLevelEntropies.size() <= level+1)
+            minLevelEntropies.add(Double.POSITIVE_INFINITY);
+        for(KStarTreeNode child: children) {
+            SeqTreeNode seqNode = (SeqTreeNode) child;
+            if(seqNode.getEntropy() > 0)
+                minLevelEntropies.set(level+1, Math.min(seqNode.getEntropy(), minLevelEntropies.get(level+1)));
+            seqNode.computeLevelMinEntropies();
         }
 
     }

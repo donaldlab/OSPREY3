@@ -245,7 +245,8 @@ public class SeqTreeNode extends KStarTreeNode{
         System.out.println(Arrays.toString(radsX));
         double arcWidth = child.outerRadius - child.innerRadius;
         System.out.printf("outer radius: %f, inner radius %f%n", child.outerRadius, child.innerRadius);
-        Double[] radiiY = Arrays.stream(child.repr).map((d) -> child.outerRadius - (d * arcWidth))
+        double radiusNormalization = child.repr[0];
+        Double[] radiiY = Arrays.stream(child.repr).map((d) -> child.outerRadius - ((d / radiusNormalization) * arcWidth))
                 .toArray(Double[]::new);
         System.out.println(Arrays.toString(radiiY));
         Path path = new Path();
