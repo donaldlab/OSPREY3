@@ -239,14 +239,15 @@ public class SeqTreeNode extends KStarTreeNode{
     protected Path draw1DRepr(SeqTreeNode child, Arc childArc){
         System.out.printf(" Start angle: %f, end angle %f%n", childArc.getStartAngle(), childArc.getLength() + childArc.getStartAngle());
         Double[] radsX = IntStream.range(0,child.repr.length)
-                .mapToDouble((i) -> Math.toRadians(childArc.getStartAngle()+ 90) + i*(Math.toRadians(childArc.getLength()) / (double) child.repr.length))
+                .mapToDouble((i) -> Math.toRadians(childArc.getStartAngle()+ 90 + childArc.getLength()) -
+                        i*(Math.toRadians(childArc.getLength()) / (double) child.repr.length))
                 .boxed()
                 .toArray(Double[]::new);
         System.out.println(Arrays.toString(radsX));
         double arcWidth = child.outerRadius - child.innerRadius;
         System.out.printf("outer radius: %f, inner radius %f%n", child.outerRadius, child.innerRadius);
         double radiusNormalization = child.repr[0];
-        Double[] radiiY = Arrays.stream(child.repr).map((d) -> child.outerRadius - ((d / radiusNormalization) * arcWidth))
+        Double[] radiiY = Arrays.stream(child.repr).map((d) -> child.innerRadius + ((d / radiusNormalization) * arcWidth))
                 .toArray(Double[]::new);
         System.out.println(Arrays.toString(radiiY));
         Path path = new Path();
