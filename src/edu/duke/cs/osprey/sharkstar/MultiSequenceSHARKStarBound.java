@@ -2232,6 +2232,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 .collect(Collectors.toList());
 
         // generate a binned representation
+        /*
         Double[] binned;
         if(sortedEntries.size() > 0) {
             int finalNumBins = Math.min(numBins, sortedEntries.size());
@@ -2245,19 +2246,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         }else{
             binned = new Double[] {};
         }
+         */
 
-        // compute the entropy
-        Double entropy = -1 * BoltzmannCalculator.constRT * sortedEntries.parallelStream()
-                .map((e) -> e.occupancy* Math.log(e.occupancy))
-                .reduce(0.0, Double::sum);
-
-        Pair<Double[], Double> binnedAndEntropy = new Pair<>(binned, entropy);
-        return binnedAndEntropy;
-
-        // just bin the top x% ??
 
         //or, just generate the first n
-        /*
         Double[] firstn;
         if(sortedEntries.size() > 0) {
             int finalNumEntries = Math.min(numBins, sortedEntries.size());
@@ -2268,9 +2260,15 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         }else{
             firstn = new Double[] {};
         }
-        return firstn;
 
-         */
+
+        // compute the entropy
+        Double entropy = -1 * BoltzmannCalculator.constRT * sortedEntries.parallelStream()
+                .map((e) -> e.occupancy* Math.log(e.occupancy))
+                .reduce(0.0, Double::sum);
+
+        Pair<Double[], Double> binnedAndEntropy = new Pair<>(firstn, entropy);
+        return binnedAndEntropy;
 
     }
 
