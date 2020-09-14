@@ -1,11 +1,14 @@
 package edu.duke.cs.osprey.design.commands;
 
 import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.design.Main;
 import edu.duke.cs.osprey.design.models.AffinityDesign;
+import edu.duke.cs.osprey.design.models.Flexibility;
+import edu.duke.cs.osprey.design.models.ResidueModifier;
 import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -14,9 +17,15 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.kstar.BBKStar;
 import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
+import edu.duke.cs.osprey.structure.PDBIO;
+import edu.duke.cs.osprey.structure.Residue;
+import org.eclipse.collections.impl.factory.Sets;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -26,6 +35,12 @@ public class CommandBindingAffinity extends RunnableCommand {
 
     public static final String CommandName = "affinity";
     public static final String CommandDescription = "Compute an epsilon approximation to binding affinity (K*).";
+
+    @Parameter(names = "--do-scan", description = "Runs a scan using the scan settings specified in the design.")
+    public boolean doScan;
+
+    @Parameter(names = "--scan-output", description = "Specifies the output directory to save the scan designs in.")
+    public String scanOutput;
 
     @Override
     public int run(JCommander commander, String[] args) {
@@ -51,6 +66,26 @@ public class CommandBindingAffinity extends RunnableCommand {
         var complexConfSpace = new SimpleConfSpace.Builder()
                 .addStrands(strands)
                 .build();
+
+        if (doScan && design.scanSettings != null) {
+            var dist = design.scanSettings.distance;
+            var target = design.scanSettings.target;
+
+            var allResidues =strands.stream().flatMap(x -> x.mol.residues.stream()).collect(Collectors.toList()) ;
+
+            var targetRes = allResidues.stream()
+                    .filter(a -> a.getPDBResNumber().equals(target))
+                    .findFirst()
+                    .orElseThrow();
+
+            var mutableTargets = allResidues.stream()
+                    .filter(x -> x != targetRes)
+                    .filter(x -> !design.scanSettings.excluding.contains(x.getPDBResNumber()))
+                    .filter(x -> x.distanceTo(targetRes) <= dist)
+                    .collect(Collectors.toList());
+
+            return createScanDesigns(design, mutableTargets, allResidues, 4);
+        }
 
         // Exit early if just trying to validate input
         if (delegate.verifyInput) {
@@ -92,11 +127,99 @@ public class CommandBindingAffinity extends RunnableCommand {
         return Main.Success;
     }
 
+    private int createScanDesigns(AffinityDesign designTemplate, List<Residue> mutableTargets, List<Residue> allResidues, double flexDist) {
+        for (var residue : mutableTargets) {
+
+            var flexShellResidues = allResidues.stream()
+                    .filter(x -> x.distanceTo(residue) <= flexDist)
+                    .filter(x -> !residue.equals(x))
+                    .map(Residue::getPDBResNumber)
+                    .collect(Collectors.toSet());
+
+            var proteinMol = PDBIO.read(designTemplate.protein.coordinates);
+            var ligandMol = PDBIO.read(designTemplate.ligand.coordinates);
+
+            var proteinRes = proteinMol.residues.stream()
+                    .map(Residue::getPDBResNumber)
+                    .collect(Collectors.toSet());
+
+            var ligandRes = ligandMol.residues.stream()
+                    .map(Residue::getPDBResNumber)
+                    .collect(Collectors.toSet());
+
+            var proteinFlexStr = Sets.intersect(flexShellResidues, proteinRes);
+            var ligandFlexStr = Sets.intersect(flexShellResidues, ligandRes);
+
+            var proteinFlex = proteinMol.residues.stream()
+                    .filter(x -> proteinFlexStr.contains(x.getPDBResNumber()))
+                    .collect(Collectors.toUnmodifiableList());
+
+            var ligandFlex = ligandMol.residues.stream()
+                    .filter(x -> ligandFlexStr.contains(x.getPDBResNumber()))
+                    .collect(Collectors.toUnmodifiableList());
+
+            var proteinResMods = proteinFlex.stream()
+                    .map(this::makeFlexibleResidueModifier)
+                    .collect(Collectors.toList());
+
+            var ligandResMods = ligandFlex.stream()
+                    .map(this::makeFlexibleResidueModifier)
+                    .collect(Collectors.toList());
+
+            var mutableResModifier = makeFlexibleResidueModifier(residue);
+            mutableResModifier.mutability = List.of("ALA", "ARG", "ASN", "ASP", "CYS", "GLU", "GLN", "GLY", "HIS", "ILE",
+                    "LEU", "LYS", "MET", "PHE", "PRO", "SER", "THR", "TRP", "TYR", "VAL");
+
+            if (proteinMol.residues.contains(residue)) {
+                proteinResMods.add(mutableResModifier);
+            } else {
+                ligandResMods.add(mutableResModifier);
+            }
+
+            try {
+                var nameTemp = delegate.design.getName().substring(0, delegate.design.getName().lastIndexOf("."));
+                var path = Path.of(String.format("%s.%s.yaml", nameTemp, residue.getPDBResNumber()));
+                Files.deleteIfExists(path);
+                var outFile = Files.createFile(path);
+
+                var designCopy = designTemplate.copy();
+                designCopy.protein.residueModifiers = proteinResMods;
+                designCopy.ligand.residueModifiers = ligandResMods;
+                designCopy.write(outFile);
+            } catch (IOException e) {
+                e.printStackTrace();
+                return Main.Failure;
+            }
+        }
+
+        return Main.Success;
+    }
+
+    @NotNull
+    private ResidueModifier makeFlexibleResidueModifier(Residue x) {
+        var res = new edu.duke.cs.osprey.design.models.Residue();
+        res.aminoAcidType = x.getType();
+        res.chain = String.valueOf(x.getChainId());
+        res.residueNumber = Integer.parseInt(x.getPDBResNumber().substring(1));
+
+        var flexibility = new Flexibility();
+        flexibility.includeStructureRotamer = true;
+        flexibility.isFlexible = true;
+        flexibility.useContinuous = true;
+
+        var modifier = new ResidueModifier();
+        modifier.identity = res;
+        modifier.flexibility = flexibility;
+        modifier.mutability = List.of();
+
+        return modifier;
+    }
+
     private void printResults(List<KStar.ScoredSequence> results) {
         for (var result : results) {
             System.out.println("result: ");
-            System.out.println(String.format("\tsequence: %s", result.sequence));
-            System.out.println(String.format("\tscore: %s", result.score));
+            System.out.printf("\tsequence: %s%n", result.sequence);
+            System.out.printf("\tscore: %s%n", result.score);
         }
     }
 

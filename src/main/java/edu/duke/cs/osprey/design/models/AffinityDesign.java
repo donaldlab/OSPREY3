@@ -1,12 +1,17 @@
 package edu.duke.cs.osprey.design.models;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,10 +31,30 @@ public class AffinityDesign {
     @JsonProperty("epsilon")
     public double epsilon = 0.63;
 
+    @JsonProperty("scan")
+    public ScanDto scanSettings;
+
     public static AffinityDesign parse(File file) throws IOException {
         var mapper = new ObjectMapper(new YAMLFactory());
         var stream = new FileInputStream(file);
         return mapper.readValue(stream, AffinityDesign.class);
+    }
+
+    public void write(Path dest) throws IOException {
+        var mapper = new ObjectMapper(new YAMLFactory());
+        mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+        var stream = new FileOutputStream(dest.toFile());
+        mapper.writeValue(stream, this);
+    }
+
+    public AffinityDesign copy() {
+        var om = new ObjectMapper();
+        try {
+            return om.readValue(om.writeValueAsString(this), this.getClass());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 
     public List<String> validate() {
