@@ -916,7 +916,8 @@ public class BBKStar {
 		final int numPos = resNums.size();
 
 		// get fringes
-	    List<KStarTreeNode> fringe = seqFringe.stream().map((n) -> {
+	    List<KStarTreeNode> fringe = new ArrayList<>();
+	    for(Node n : seqFringe){
 	    	String[] assignments = new String[numPos];
 	    	int[] confAssignments = new int[numPos];
 	    	int i = 0;
@@ -989,8 +990,8 @@ public class BBKStar {
 			);
 			node.setEntropy(entropy);
 			System.out.println(node.getEntropy());
-			return node;
-		}).collect(Collectors.toList());
+			fringe.add(node);
+		}
 
 	    // populate the rest of the tree
 		List<KStarTreeNode> lastLevel = fringe;
