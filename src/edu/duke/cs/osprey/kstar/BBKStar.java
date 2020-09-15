@@ -466,8 +466,10 @@ public class BBKStar {
 			super(sequence, confDBs);
 
 			// make the partition functions
-			this.protein = makePfunc(proteinPfuncs, BBKStar.this.protein, confDBs.get(BBKStar.this.protein.confSpace));
-			this.ligand = makePfunc(ligandPfuncs, BBKStar.this.ligand, confDBs.get(BBKStar.this.ligand.confSpace));
+			//this.protein = makePfunc(proteinPfuncs, BBKStar.this.protein, confDBs.get(BBKStar.this.protein.confSpace));
+			//this.ligand = makePfunc(ligandPfuncs, BBKStar.this.ligand, confDBs.get(BBKStar.this.ligand.confSpace));
+			this.protein = new NoOpPfunc();
+			this.ligand = new NoOpPfunc();
 			this.complex = makePfunc(complexPfuncs, BBKStar.this.complex, confDBs.get(BBKStar.this.complex.confSpace));
 		}
 
