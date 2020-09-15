@@ -954,9 +954,12 @@ public class BBKStar {
 	    	for (Sequence.Assignment ass : n.sequence.assignments(resNums)){
 	    		if(ass.isAssigned()) {
 	    			level++;
-				}
 					assignments[i] = ass.getResType().name;
 					confAssignments[i] = ass.getResType().index;
+				}else{
+					assignments[i] = "*";
+					confAssignments[i] = -1;
+				}
 				i++;
 			}
 			BigDecimal lb;
