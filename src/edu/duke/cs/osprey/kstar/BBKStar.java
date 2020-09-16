@@ -1034,12 +1034,18 @@ public class BBKStar {
 			final int parentPos = currentIndex-1;
 			List<KStarTreeNode> lastLevel = nodesByLevel.get(currentLevel);
 			List<KStarTreeNode> newLevel = new ArrayList<>();
-			Map<Integer, List<KStarTreeNode>> nodesByAA;
+			Map<List<Integer>, List<KStarTreeNode>> nodesByAA;
 			if(parentPos < 0) {
 				nodesByAA = new HashMap<>();
-				nodesByAA.put(-1, lastLevel);
-			}else
-				nodesByAA = lastLevel.stream().collect(Collectors.groupingBy((n) -> n.getConfAssignments()[parentPos]));
+				int[] root = new int[] {-1};
+				nodesByAA.put(Arrays.stream(root).boxed().collect(Collectors.toList()), lastLevel);
+			}else {
+				nodesByAA = lastLevel.stream().collect(Collectors.groupingBy((n) -> {
+					int[] childArray = Arrays.copyOf(n.getConfAssignments(), n.getConfAssignments().length);
+					childArray[childPos] = -1;
+					return Arrays.stream(childArray).boxed().collect(Collectors.toList());
+				}));
+			}
 			for(List<KStarTreeNode> children : nodesByAA.values()){
 				KStarTreeNode exemplar = children.get(0);
 				String[] parentAssignments = Arrays.copyOf(exemplar.getAssignments(), numPos);
