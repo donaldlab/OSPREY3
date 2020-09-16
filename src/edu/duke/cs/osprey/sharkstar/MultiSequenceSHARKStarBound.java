@@ -2202,6 +2202,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     }
 
     public static Pair<Double[], Double> generate1DRepresentation(SingleSequenceSHARKStarBound bound, int numBins, double cutoff){
+        loopTasks.waitForFinish();
         BoltzmannCalculator calc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
         class occEntry{
             double occupancy;
