@@ -997,11 +997,14 @@ public class BBKStar {
 		}
 
 	    // populate the rest of the tree
-		List<KStarTreeNode> lastLevel = fringe;
-		for (int i = numPos - 1; i >=0; ){
+		Map<Integer, List<KStarTreeNode>> nodesByLevel = fringe.stream().collect(Collectors.groupingBy((n) -> n.level));
+	    Optional<Integer> leafLevel = nodesByLevel.keySet().stream().max(Integer::compareTo);
+		for (int currentIndex = leafLevel.get() - 1; currentIndex >=0; ){
+			final int currentLevel = currentIndex+1;
+			final int childPos = currentIndex;
+			final int parentPos = currentIndex-1;
+			List<KStarTreeNode> lastLevel = nodesByLevel.get(currentLevel);
 			List<KStarTreeNode> newLevel = new ArrayList<>();
-			final int childPos = i;
-			final int parentPos = i-1;
 			Map<Integer, List<KStarTreeNode>> nodesByAA;
 			if(parentPos < 0) {
 				nodesByAA = new HashMap<>();
@@ -1038,11 +1041,14 @@ public class BBKStar {
 				//parent.setEntropy(0.0);
 				newLevel.add(parent);
 			}
-			lastLevel = newLevel;
-			i--;
+			List<KStarTreeNode> nextLevel = nodesByLevel.getOrDefault(currentLevel - 1, new ArrayList<>());
+			nextLevel.addAll(newLevel);
+			nodesByLevel.put(currentLevel - 1, nextLevel);
+			//lastLevel = newLevel;
+			currentIndex--;
 
 		}
-		KStarTreeNode root = lastLevel.get(0);
+		KStarTreeNode root = nodesByLevel.get(0).get(0);
 		try {
 			FileWriter writer = new FileWriter("testSeqTree.tree");
 			root.printTreeLikeMARKStar(writer);
