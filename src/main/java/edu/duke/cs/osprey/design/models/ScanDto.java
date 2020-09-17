@@ -13,4 +13,7 @@ public class ScanDto {
 
     @JsonProperty("excluding")
     public List<String> excluding = List.of();
+
+    @JsonProperty("residues")
+    public List<String> residues = List.of();
 }

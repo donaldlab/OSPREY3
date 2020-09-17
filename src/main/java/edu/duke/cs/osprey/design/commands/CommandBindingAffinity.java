@@ -70,19 +70,18 @@ public class CommandBindingAffinity extends RunnableCommand {
         if (doScan && design.scanSettings != null) {
             var dist = design.scanSettings.distance;
             var target = design.scanSettings.target;
+            var residues = design.scanSettings.residues;
 
-            var allResidues =strands.stream().flatMap(x -> x.mol.residues.stream()).collect(Collectors.toList()) ;
+            if (target.isEmpty() && residues.isEmpty() || !target.isEmpty() && !residues.isEmpty()) {
+                System.err.println("Either target or residues must be specified, but not both");
+                return Main.Failure;
+            }
 
-            var targetRes = allResidues.stream()
-                    .filter(a -> a.getPDBResNumber().equals(target))
-                    .findFirst()
-                    .orElseThrow();
+            var allResidues = strands.stream().flatMap(x -> x.mol.residues.stream()).collect(Collectors.toList()) ;
 
-            var mutableTargets = allResidues.stream()
-                    .filter(x -> x != targetRes)
-                    .filter(x -> !design.scanSettings.excluding.contains(x.getPDBResNumber()))
-                    .filter(x -> x.distanceTo(targetRes) <= dist)
-                    .collect(Collectors.toList());
+            var mutableTargets = residues.isEmpty()
+                    ? findMutableResiduesAroundTarget(design, dist, target, allResidues)
+                    : specifyMutableResiduesInDesign(allResidues, design.scanSettings.excluding, residues);
 
             return createScanDesigns(design, mutableTargets, allResidues, 4);
         }
@@ -125,6 +124,27 @@ public class CommandBindingAffinity extends RunnableCommand {
 
         printResults(kstar.run(minimizingECalc.tasks));
         return Main.Success;
+    }
+
+    private List<Residue> specifyMutableResiduesInDesign(List<Residue> allResidues, List<String> excludingResidues, List<String> specifiedResidues) {
+        return allResidues.stream()
+                .filter(x -> !excludingResidues.contains(x.getPDBResNumber()))
+                .filter(x -> specifiedResidues.contains(x.getPDBResNumber()))
+                .collect(Collectors.toList());
+    }
+
+    @NotNull
+    private List<Residue> findMutableResiduesAroundTarget(AffinityDesign design, double dist, String target, List<Residue> allResidues) {
+        var targetRes = allResidues.stream()
+                .filter(a -> a.getPDBResNumber().equals(target))
+                .findFirst()
+                .orElseThrow();
+
+        return allResidues.stream()
+                .filter(x -> x != targetRes)
+                .filter(x -> !design.scanSettings.excluding.contains(x.getPDBResNumber()))
+                .filter(x -> x.distanceTo(targetRes) <= dist)
+                .collect(Collectors.toList());
     }
 
     private int createScanDesigns(AffinityDesign designTemplate, List<Residue> mutableTargets, List<Residue> allResidues, double flexDist) {

@@ -76,10 +76,6 @@ public class AffinityDesign {
             errors.add("You must specify PDB coordinates for the ligand");
         }
 
-        if (this.protein.residueModifiers.size() + this.ligand.residueModifiers.size() == 0) {
-            errors.add("There must be at least one flexible/mutable residue in the this");
-        }
-
         return errors;
     }
 }
