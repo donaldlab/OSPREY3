@@ -79,7 +79,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
 
     // We keep track of the root node for computing our K* bounds
-    //public MultiSequenceSHARKStarNode rootNode;
+    public MultiSequenceSHARKStarNode rootNode;
     // Heap of nodes for recursive expansion
     private final ConfIndex<PartialConfAStarNode> confIndex;
     public StaticBiggestLowerboundDifferenceOrder order;
@@ -164,7 +164,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         this.state = new MultiSequenceState();
 
         confIndex = new ConfIndex<>(rcs.getNumPos());
-        MultiSequenceSHARKStarNode rootNode = new MultiSequenceSHARKStarNode(confSpace.positions.size());
+        rootNode = new MultiSequenceSHARKStarNode(confSpace.positions.size());
         rootNode.index(confIndex);
         double partialConfLowerbound = gscorerFactory.make(minimizingEmat).calc(confIndex, rcs);
         double partialConfUpperBound = rigidgscorerFactory.make(rigidEmat).calc(confIndex, rcs);
@@ -230,7 +230,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         // First, change the order
         ConfIndex<PartialConfAStarNode> rootIndex = new ConfIndex<>(fullRCs.getNumPos());
         assert(this.precomputedFringe.size() == 1);
-        MultiSequenceSHARKStarNode rootNode = this.precomputedFringe.get(0);
+        //MultiSequenceSHARKStarNode rootNode = this.precomputedFringe.get(0);
         rootNode.index(rootIndex);
         this.order.updateForPrecomputedOrder(precomputedFlex.order, rootIndex, this.fullRCs, permutationArray);
 
@@ -301,7 +301,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
         newBound.state.setBounds(fringeBounds.lower, fringeBounds.upper);
          */
-        computeFringeForSequenceParallelV2(newBound, this);
+        //computeFringeForSequenceParallelV2(newBound, this);
+        computeRootFringe(newBound, this);
         newBound.state.updateBounds(BigDecimal.ZERO, BigDecimal.ZERO);//hack to update the state
 
         System.out.println(String.format("Created pfunc for %s with eps: %.6f, [%1.3e, %1.3e], %d nodes in the leaf queue, %d nodes in the internal queue",
@@ -517,6 +518,62 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         loopTasks.waitForFinishExpecting(1);
         return scoredSeqFringe;
 
+    }
+
+    private void computeRootFringe(SingleSequenceSHARKStarBound singleSequencePfunc, MultiSequenceSHARKStarBound multiSequencePfunc){
+        final SingleSequenceSHARKStarBound seqBound = singleSequencePfunc;
+        final MultiSequenceSHARKStarBound msBound = multiSequencePfunc;
+
+        // set the pfunc's bounds to zero
+        seqBound.state.setBoundsWithoutSideEffects(BigDecimal.ZERO, BigDecimal.ZERO);
+        final MultiSequenceSHARKStarNode root = msBound.rootNode;
+
+        try (ObjectPool.Checkout<ScoreContext> checkout = msBound.contexts.autoCheckout()) {
+            ScoreContext context = checkout.get();
+
+            root.index(context.index);
+
+            // If we are at a leaf, score the node
+                    /* As a note, the gscores WILL NOT always be correct, because nodes will have been minimized.
+                    Technically, the g LBs will be correct, but the g UBs will not. The g LBs will be dealt with
+                    through the mechanism of corrections. So, just reset them
+                     */
+            double gscoreLB = context.partialConfLowerBoundScorer.calc(context.index, seqBound.seqRCs);
+            double gscoreUB = context.partialConfUpperBoundScorer.calc(context.index, seqBound.seqRCs);
+
+            double hscoreLB = context.lowerBoundScorer.calc(context.index, seqBound.seqRCs);
+            double hscoreUB = context.upperBoundScorer.calc(context.index, seqBound.seqRCs);
+
+            double confLowerBound = gscoreLB + hscoreLB;
+            double confUpperBound = gscoreUB + hscoreUB;
+            double partialConfLowerBound = gscoreLB;
+            double partialConfUpperBound = gscoreUB;
+            // check if we should correct the node
+            double confCorrection = 0;
+            if(doCorrections){
+                confCorrection = msBound.correctionMatrix.confE(root.assignments);
+                if(confCorrection > gscoreLB && confCorrection < gscoreUB) {
+                    confLowerBound = confCorrection + hscoreLB;
+                    partialConfLowerBound = confCorrection;
+                }
+            }
+
+            MathTools.DoubleBounds confBounds = new MathTools.DoubleBounds(confLowerBound, confUpperBound);
+
+            root.setPartialConfLowerAndUpper(partialConfLowerBound, partialConfUpperBound);
+            root.setConfBounds(confBounds,
+                    seqBound.sequence,
+                    "fringe");
+            MathTools.BigDecimalBounds zspaceBounds = confBounds.boltzmannWeight(msBound.bc);
+            root.setErrorBound(
+                    msBound.bc.freeEnergy(zspaceBounds.size(msBound.bc.mathContext)),
+                    seqBound.sequence);
+
+            synchronized(lock) {
+                seqBound.state.updateBoundsWithoutSideEffects(zspaceBounds.lower, zspaceBounds.upper);
+                seqBound.internalQueue.add(root);
+            }
+        }
     }
 
     private void computeFringeForSequenceParallelV2(SingleSequenceSHARKStarBound singleSequencePfunc, MultiSequenceSHARKStarBound multiSequencePfunc) {
