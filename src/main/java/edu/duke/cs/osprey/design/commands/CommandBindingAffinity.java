@@ -4,11 +4,13 @@ import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.design.Main;
 import edu.duke.cs.osprey.design.models.AffinityDesign;
 import edu.duke.cs.osprey.design.models.Flexibility;
 import edu.duke.cs.osprey.design.models.ResidueModifier;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -42,6 +44,9 @@ public class CommandBindingAffinity extends RunnableCommand {
     @Parameter(names = "--scan-output", description = "Specifies the output directory to save the scan designs in.")
     public String scanOutput;
 
+    @Parameter(names = "--max-num-confs", description = "Sets an upper bound on the number of conformations evaluated.")
+    private int maxNumberConfs = -1;
+
     @Override
     public int run(JCommander commander, String[] args) {
         var opt = processHelpAndNoArgs(commander, args);
@@ -56,8 +61,10 @@ public class CommandBindingAffinity extends RunnableCommand {
 
     private int runAffinityDesign(AffinityDesign design) {
         var forcefieldParams = new ForcefieldParams();
+
         var confSpace1 = delegate.createConfSpace(design.protein, forcefieldParams);
         var confSpace2 = delegate.createConfSpace(design.ligand, forcefieldParams);
+
         var strands = List.of(confSpace1.strands, confSpace2.strands)
                 .stream()
                 .flatMap(List::stream)
@@ -68,22 +75,7 @@ public class CommandBindingAffinity extends RunnableCommand {
                 .build();
 
         if (doScan && design.scanSettings != null) {
-            var dist = design.scanSettings.distance;
-            var target = design.scanSettings.target;
-            var residues = design.scanSettings.residues;
-
-            if (target.isEmpty() && residues.isEmpty() || !target.isEmpty() && !residues.isEmpty()) {
-                System.err.println("Either target or residues must be specified, but not both");
-                return Main.Failure;
-            }
-
-            var allResidues = strands.stream().flatMap(x -> x.mol.residues.stream()).collect(Collectors.toList()) ;
-
-            var mutableTargets = residues.isEmpty()
-                    ? findMutableResiduesAroundTarget(design, dist, target, allResidues)
-                    : specifyMutableResiduesInDesign(allResidues, design.scanSettings.excluding, residues);
-
-            return createScanDesigns(design, mutableTargets, allResidues, 4);
+            return makeScanDesigns(design, strands);
         }
 
         // Exit early if just trying to validate input
@@ -92,15 +84,12 @@ public class CommandBindingAffinity extends RunnableCommand {
             return Main.Success;
         }
 
-        /* Decides whether to use CPU(s) and/or GPU(s) (purely implementation specific) */
-        var parallelism = delegate.getParallelism();
-
         /* Used to calculate energies of a molecule, also used to minimize the molecule */
         var minimizingECalc = new EnergyCalculator.Builder(complexConfSpace, forcefieldParams)
-                .setParallelism(parallelism)
+                .setParallelism(delegate.getParallelism())
                 .build();
 
-        var epsilon = delegate.epsilon > 0 ? delegate.epsilon : design.epsilon;
+        var epsilon = delegate.epsilon > 0 ? delegate.epsilon : 0.999999;
         var kstar = new KStar(confSpace1, confSpace2, complexConfSpace, makeKStarSettings(epsilon));
 
         for (var info : kstar.confSpaceInfos()) {
@@ -116,14 +105,33 @@ public class CommandBindingAffinity extends RunnableCommand {
 
             info.pfuncFactory = (rcs) -> new GradientDescentPfunc(
                     info.confEcalc,
-                    new ConfAStarTree.Builder(minimizedEnergyMatrix, rcs).setTraditional().build(),
-                    new ConfAStarTree.Builder(minimizedEnergyMatrix, rcs).setTraditional().build(),
+                    new ConfAStarTree.Builder(minimizedEnergyMatrix, rcs).setMPLP().build(),
+                    new ConfAStarTree.Builder(minimizedEnergyMatrix, rcs).setMPLP().build(),
                     rcs.getNumConformations()
             );
         }
 
         printResults(kstar.run(minimizingECalc.tasks));
         return Main.Success;
+    }
+
+    private int makeScanDesigns(AffinityDesign design, List<edu.duke.cs.osprey.confspace.Strand> strands) {
+        var dist = design.scanSettings.distance;
+        var target = design.scanSettings.target;
+        var residues = design.scanSettings.residues;
+
+        if (target.isEmpty() && residues.isEmpty() || !target.isEmpty() && !residues.isEmpty()) {
+            System.err.println("Either target or residues must be specified, but not both");
+            return Main.Failure;
+        }
+
+        var allResidues = strands.stream().flatMap(x -> x.mol.residues.stream()).collect(Collectors.toList()) ;
+
+        var mutableTargets = residues.isEmpty()
+                ? findMutableResiduesAroundTarget(design, dist, target, allResidues)
+                : specifyMutableResiduesInDesign(allResidues, design.scanSettings.excluding, residues);
+
+        return createScanDesigns(design, mutableTargets, allResidues, 4);
     }
 
     private List<Residue> specifyMutableResiduesInDesign(List<Residue> allResidues, List<String> excludingResidues, List<String> specifiedResidues) {
@@ -247,6 +255,7 @@ public class CommandBindingAffinity extends RunnableCommand {
         return new KStar.Settings.Builder()
                 .setEpsilon(epsilon)
                 .addScoreConsoleWriter()
+                .setMaxNumConf(maxNumberConfs > 0 ? maxNumberConfs : Integer.MAX_VALUE)
                 .build();
     }
 

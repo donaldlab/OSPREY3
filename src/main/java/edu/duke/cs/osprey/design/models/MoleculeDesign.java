@@ -9,14 +9,12 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.List;
 
-public class StabilityDesign {
+public class MoleculeDesign {
     @JsonProperty("osprey_version")
     public String ospreyVersion;
 
     @JsonProperty("design_name")
     public String designName;
-
-    public float epsilon;
 
     public MoleculeDto molecule;
 }

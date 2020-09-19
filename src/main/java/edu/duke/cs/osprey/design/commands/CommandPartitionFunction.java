@@ -10,17 +10,16 @@ import edu.duke.cs.osprey.design.Main;
 import edu.duke.cs.osprey.design.analysis.CommandAnalysis;
 import edu.duke.cs.osprey.design.analysis.EnergyAnalysisConfListener;
 import edu.duke.cs.osprey.design.analysis.ThermodynamicsConfListener;
-import edu.duke.cs.osprey.design.models.StabilityDesign;
+import edu.duke.cs.osprey.design.models.MoleculeDesign;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.tools.BigMath;
 
-import java.io.IOException;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -61,7 +60,7 @@ public class CommandPartitionFunction extends RunnableCommand {
         }
 
 
-        var designOpt = parseDesignSpec(StabilityDesign.class);
+        var designOpt = parseDesignSpec(MoleculeDesign.class);
         if (designOpt.isEmpty()) {
             return Main.Failure;
         }
@@ -83,16 +82,16 @@ public class CommandPartitionFunction extends RunnableCommand {
         return CommandDescription;
     }
 
-    private int printDesignDebugInfo(StabilityDesign design) {
+    private int printDesignDebugInfo(MoleculeDesign design) {
         var confSpace = delegate.createConfSpace(design.molecule, new ForcefieldParams());
         var numConfs = confSpace.getNumConformations();
-        System.out.println(String.format("Design: %s", design.designName));
-        System.out.println(String.format("Epsilon: %f", design.epsilon));
-        System.out.println(String.format("Number of conformations in design:\t%s", numConfs.toString()));
+        System.out.printf("Design: %s%n", design.designName);
+        System.out.printf("Epsilon: %f%n", delegate.epsilon);
+        System.out.printf("Number of conformations in design:\t%s%n", numConfs.toString());
         return Main.Success;
     }
 
-    private int runStabilityDesign(StabilityDesign design) {
+    private int runStabilityDesign(MoleculeDesign design) {
         /* This reads parm96a.dat, which contains the energy parameters of DNA, RNA, and protein residues */
         var ffParams = new ForcefieldParams();
 
@@ -116,10 +115,17 @@ public class CommandPartitionFunction extends RunnableCommand {
             /* Contains the confSpace and a pruning matrix */
             rcs = new RCs(confSpace);
 
-            var epsilon = delegate.epsilon > 0 ? delegate.epsilon : design.epsilon;
-            var energyMatrix = new EnergyMatrix(confSpace);
-            var lowerAStarTree = new ConfAStarTree.Builder(energyMatrix, rcs).setTraditional().build();
-            var upperAStarTree = new ConfAStarTree.Builder(energyMatrix, rcs).setTraditional().build();
+            var epsilon = delegate.epsilon > 0 ? delegate.epsilon : 0.63;
+
+            var energyMatrix = new SimplerEnergyMatrixCalculator.Builder(confEnergyCalc)
+                    .build()
+                    .calcEnergyMatrix();
+            var lowerAStarTree = new ConfAStarTree.Builder(energyMatrix, rcs)
+                    .setMPLP()
+                    .build();
+            var upperAStarTree = new ConfAStarTree.Builder(energyMatrix, rcs)
+                    .setMPLP()
+                    .build();
 
             try (var ctx = energyCalculator.tasks.contextGroup()) {
                 pFunc = new GradientDescentPfunc(confEnergyCalc, lowerAStarTree, upperAStarTree, rcs.getNumConformations());

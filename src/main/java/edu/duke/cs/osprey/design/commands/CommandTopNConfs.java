@@ -4,30 +4,19 @@ package edu.duke.cs.osprey.design.commands;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
-import com.google.common.collect.Lists;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.design.Main;
-import edu.duke.cs.osprey.design.analysis.CommandAnalysis;
-import edu.duke.cs.osprey.design.analysis.EnergyAnalysisConfListener;
-import edu.duke.cs.osprey.design.analysis.ThermodynamicsConfListener;
-import edu.duke.cs.osprey.design.models.StabilityDesign;
+import edu.duke.cs.osprey.design.models.MoleculeDesign;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.*;
-import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
-import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
-import edu.duke.cs.osprey.tools.BigMath;
 
-import java.io.IOException;
-import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -55,7 +44,7 @@ public class CommandTopNConfs extends RunnableCommand {
             return retVal.get();
         }
 
-        var designOpt = parseDesignSpec(StabilityDesign.class);
+        var designOpt = parseDesignSpec(MoleculeDesign.class);
         if (designOpt.isEmpty()) { // couldn't parse design
             return Main.Failure;
         }
@@ -74,7 +63,7 @@ public class CommandTopNConfs extends RunnableCommand {
         return CommandDescription;
     }
 
-    private int runTopNConfs(StabilityDesign design) {
+    private int runTopNConfs(MoleculeDesign design) {
         /* This reads parm96a.dat, which contains the energy parameters of DNA, RNA, and protein residues */
         var ffParams = new ForcefieldParams();
 

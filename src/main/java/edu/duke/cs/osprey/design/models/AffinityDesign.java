@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.design.models;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
@@ -28,14 +29,12 @@ public class AffinityDesign {
     @JsonProperty("ligand")
     public MoleculeDto ligand;
 
-    @JsonProperty("epsilon")
-    public double epsilon = 0.63;
-
     @JsonProperty("scan")
     public ScanDto scanSettings;
 
     public static AffinityDesign parse(File file) throws IOException {
         var mapper = new ObjectMapper(new YAMLFactory());
+        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         var stream = new FileInputStream(file);
         return mapper.readValue(stream, AffinityDesign.class);
     }
@@ -59,10 +58,6 @@ public class AffinityDesign {
 
     public List<String> validate() {
         var errors = new ArrayList<String>();
-
-        if (this.epsilon <= 0 || this.epsilon >= 1) {
-            errors.add(String.format("Epsilon must be between 0 and 1 (exclusive). Was %f", this.epsilon));
-        }
 
         if (this.ligand == null || this.protein == null) {
             errors.add("The this must have both a protein and ligand specified");

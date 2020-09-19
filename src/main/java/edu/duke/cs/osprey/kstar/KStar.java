@@ -60,6 +60,8 @@ public class KStar {
 	// Kotlin would make this so much easier
 	public static class Settings {
 
+		private final int maxNumConfs;
+
 		public static class Builder {
 
 			/**
@@ -110,6 +112,12 @@ public class KStar {
 			 * Pattern for ConfDB filename, where the first %s is replaced with the state name.
 			 */
 			private String confDBPattern = "%s.confdb";
+
+			/**
+			 * The maximum number of conformations for each pfunc to explore. Breaks provability, but
+			 * can be used as a faster heuristic. -1 means use epsilon.
+			 */
+			private int maxNumberConfs = -1;
 
 			public Builder setEpsilon(double val) {
 				epsilon = val;
@@ -165,8 +173,13 @@ public class KStar {
 				return this;
 			}
 
+			public Builder setMaxNumConf(int val) {
+				this.maxNumberConfs = val;
+				return this;
+			}
+
 			public Settings build() {
-				return new Settings(epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters, showPfuncProgress, useExternalMemory, confDBPattern);
+				return new Settings(epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters, showPfuncProgress, useExternalMemory, confDBPattern, maxNumberConfs);
 			}
 		}
 
@@ -178,7 +191,7 @@ public class KStar {
 		public final boolean useExternalMemory;
 		public final String confDBPattern;
 
-		public Settings(double epsilon, Double stabilityThreshold, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, boolean useExternalMemory, String confDBPattern) {
+		public Settings(double epsilon, Double stabilityThreshold, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, boolean useExternalMemory, String confDBPattern, int maxNumberConfs) {
 			this.epsilon = epsilon;
 			this.stabilityThreshold = stabilityThreshold;
 			this.maxSimultaneousMutations = maxSimultaneousMutations;
@@ -186,6 +199,7 @@ public class KStar {
 			this.showPfuncProgress = dumpPfuncConfs;
 			this.useExternalMemory = useExternalMemory;
 			this.confDBPattern = confDBPattern;
+			this.maxNumConfs = maxNumberConfs;
 		}
 	}
 
@@ -309,7 +323,7 @@ public class KStar {
 			// compute the partition function
 			PartitionFunction pfunc = makePfunc(sequence);
 			pfunc.setStabilityThreshold(stabilityThreshold);
-			pfunc.compute();
+			pfunc.compute(settings.maxNumConfs);
 
 			// save the result
 			result = pfunc.makeResult();

@@ -5,6 +5,7 @@ import com.beust.jcommander.MissingCommandException;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import edu.duke.cs.osprey.design.commands.CommandBindingAffinity;
+import edu.duke.cs.osprey.design.commands.CommandGMEC;
 import edu.duke.cs.osprey.design.commands.CommandPartitionFunction;
 import edu.duke.cs.osprey.design.commands.CommandTopNConfs;
 
@@ -33,13 +34,14 @@ public class Main {
         var commandMap = Map.of(
                 CommandPartitionFunction.CommandName, new CommandPartitionFunction(),
                 CommandBindingAffinity.CommandName, new CommandBindingAffinity(),
-                CommandTopNConfs.CommandName, new CommandTopNConfs()
+                CommandTopNConfs.CommandName, new CommandTopNConfs(),
+                CommandGMEC.CommandName, new CommandGMEC()
         );
 
         var builder = JCommander.newBuilder()
                 .programName(ProgramName)
                 .addObject(this);
-        commandMap.forEach((name, command) -> builder.addCommand(name, command));
+        commandMap.forEach(builder::addCommand);
         var commander = builder.build();
 
         try {
@@ -78,13 +80,11 @@ public class Main {
 
     private static void printMemoryStatistics() {
         var runtime = Runtime.getRuntime();
-        System.err.println(
-                String.format(
-                        "Current HeapSize: %d\nMax Heap Size: %d\nCurrent Free Space: %d\n",
-                        runtime.totalMemory(),
-                        runtime.maxMemory(),
-                        runtime.freeMemory()
-                )
+        System.err.printf(
+                "Current HeapSize: %d\nMax Heap Size: %d\nCurrent Free Space: %d\n%n",
+                runtime.totalMemory(),
+                runtime.maxMemory(),
+                runtime.freeMemory()
         );
     }
 }
