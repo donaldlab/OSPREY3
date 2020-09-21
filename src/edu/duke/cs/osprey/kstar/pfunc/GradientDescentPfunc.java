@@ -449,10 +449,12 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfDB, Parti
 						confs.add(conf.getScore());
 					}
 
-					ecalc.tasks.submit(
-						new ScoreTask(instanceIdOrThrow(), confs, new Stopwatch().start()),
-						(result) -> onScores(result.scoreWeights, result.stopwatch.getTimeS())
-					);
+					if (!confs.isEmpty()) {
+						ecalc.tasks.submit(
+								new ScoreTask(instanceIdOrThrow(), confs, new Stopwatch().start()),
+								(result) -> onScores(result.scoreWeights, result.stopwatch.getTimeS())
+						);
+					}
 
 					break;
 				}
