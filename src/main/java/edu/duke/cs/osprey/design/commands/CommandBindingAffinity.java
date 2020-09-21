@@ -41,6 +41,10 @@ public class CommandBindingAffinity extends RunnableCommand {
     @Parameter(names = "--do-scan", description = "Runs a scan using the scan settings specified in the design.")
     public boolean doScan;
 
+    @Parameter(names = "--scan-flex-dist", description = "While doing a scan, all residues with sidechains within this " +
+            "many angstroms are marked as flexible.")
+    public double scanFlexDist = 3.0;
+
     @Parameter(names = "--scan-output", description = "Specifies the output directory to save the scan designs in.")
     public String scanOutput;
 
@@ -131,7 +135,7 @@ public class CommandBindingAffinity extends RunnableCommand {
                 ? findMutableResiduesAroundTarget(design, dist, target, allResidues)
                 : specifyMutableResiduesInDesign(allResidues, design.scanSettings.excluding, residues);
 
-        return createScanDesigns(design, mutableTargets, allResidues, 4);
+        return createScanDesigns(design, mutableTargets, allResidues, scanFlexDist);
     }
 
     private List<Residue> specifyMutableResiduesInDesign(List<Residue> allResidues, List<String> excludingResidues, List<String> specifiedResidues) {
