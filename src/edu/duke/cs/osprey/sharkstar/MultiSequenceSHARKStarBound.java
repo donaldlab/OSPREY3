@@ -51,7 +51,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     public static final boolean doCorrections = true;
     public static final boolean runUntilNonZero = false;
     public static final boolean skipAddingToFringe = true;
-    public static double skipCutoff = 0;
+    public static double skipCutoff = 0.0;
     public boolean profileOutput = false;
     private Status status = null;
 
@@ -303,6 +303,14 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
          */
         //computeFringeForSequenceParallelV2(newBound, this);
         computeRootFringe(newBound, this);
+
+        if (!newBound.nonZeroLower()){
+            //runUntilNonZero(newBound, this);
+            ///newBound.updateStateFromQueues();
+            //if(!newBound.nonZeroLower()){
+                //newBound.setStatus(Status.Unstable);
+            //}
+        }
         newBound.state.updateBounds(BigDecimal.ZERO, BigDecimal.ZERO);//hack to update the state
 
         System.out.println(String.format("Created pfunc for %s with eps: %.6f, [%1.3e, %1.3e], %d nodes in the leaf queue, %d nodes in the internal queue",
@@ -956,10 +964,14 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         long previousConfCount = sequenceBound.state.workDone();
 
         // Run to populate the queues a little bit -- not clear that this is a good thing, since it's not parallelized, but hey
-        if (!sequenceBound.nonZeroLower() && runUntilNonZero){
+        /*
+        if (!sequenceBound.nonZeroLower() && runUntilNonZero && false){
             runUntilNonZero(sequenceBound, this);
             sequenceBound.updateStateFromQueues();
         }
+
+         */
+
         Step step = Step.None;
 
         /*
@@ -967,9 +979,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         2) we are running tasks that will result in nodes being added to the queue
          */
         this.numConfsEnergiedThisLoop = 0;
-        int numRoundsWorking = 0;
+        //int numRoundsWorking = 0;
 
-        computation: while( (!sequenceBound.internalQueue.isEmpty() || !sequenceBound.leafQueue.isEmpty() || loopTasks.isExpecting(0))){ // here, 0 refers to the pfunc computation
+        //computation: ( (!sequenceBound.internalQueue.isEmpty() || !sequenceBound.leafQueue.isEmpty() /*|| loopTasks.isExpecting(0)*/)){ // here, 0 refers to the pfunc computation
+        computation: for( int numRoundsWorking = 0; numRoundsWorking < maxNumConfs; /* Don't increment here */ ){
             synchronized(lock) {
                 step = Step.None;
                 // Record starting delta
@@ -989,7 +1002,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 if (/*lastEps < targetEpsilon ||*/ sequenceBound.getStatus() == Status.Estimated ||
                         //sequenceBound.state.workDone() - previousConfCount >= maxNumConfs ||
                         numRoundsWorking >= maxNumConfs ||
-                        !isStable(stabilityThreshold, sequenceBound)
+                        !isStable(stabilityThreshold, sequenceBound) ||
+                        !sequenceBound.getStatus().canContinue()
                 ){
                     if(sequenceBound.state.workDone() - previousConfCount >= maxNumConfs)
                         debugPrint("Exiting loop because of work");
@@ -998,7 +1012,18 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         debugPrint("Exiting loop due to stablity, thresh: " + stabilityThreshold);
                         sequenceBound.setStatus(Status.Unstable);
                     }
-                    break;
+                    break computation;
+                }
+
+                // another early termination
+                if(sequenceBound.internalQueue.isEmpty() &&
+                        sequenceBound.leafQueue.isEmpty() &&
+                        sequenceBound.state.getNumExpanding() == 0 &&
+                        sequenceBound.state.getNumMinimizing() == 0 &&
+                        sequenceBound.state.getDelta() > this.targetEpsilon
+                ){
+                        sequenceBound.setStatus(Status.OutOfLowEnergies);
+                    break computation;
                 }
             }
 
@@ -1041,12 +1066,12 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
                     // If the leaf error is larger then (less than since we are in free energy space) the internal error,
                     // then grab the leaf and do an energy step
-                    if (freeEnergyLeafError < Double.POSITIVE_INFINITY && freeEnergyLeafError < freeEnergyInternalError) {
+                    if (freeEnergyLeafError < skipCutoff && freeEnergyLeafError < freeEnergyInternalError) {
                             loosestLeaf = sequenceBound.leafQueue.poll();
                             step = Step.Energy;
                     // If the internal error is larger then (less than since we are in free energy space) the leaf error,
                     //then grab the internal node and do an expansion step
-                    } else if (freeEnergyInternalError < Double.POSITIVE_INFINITY && freeEnergyInternalError <= freeEnergyLeafError) {
+                    } else if (freeEnergyInternalError < skipCutoff && freeEnergyInternalError <= freeEnergyLeafError) {
                         double nodeError = freeEnergyInternalError;
                         while(nodeError < Double.POSITIVE_INFINITY &&
                                 nodeError <= freeEnergyLeafError &&
@@ -1090,6 +1115,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                             loosestLeaf.getErrorBound(singleSequencePfunc.sequence)
                             ));
 
+                    sequenceBound.state.numNodesStartedMinimizing.incrementAndGet();
                     loopTasks.submit( () -> {
                         CorrectionResult correctionResult = correctNodeOrFalse(toMinimize, singleSequencePfunc, multiSequencePfunc);
                         if(correctionResult.didCorrect)
@@ -1113,6 +1139,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     final MultiSequenceSHARKStarBound multiSequencePfunc = this;
                     numNodes = toExpand.size();
                     debugPrint("Processing " + numNodes + " internal nodes...");
+                    sequenceBound.state.numNodesStartedExpanding.addAndGet(numNodes);
 
                     loopTasks.submitExpecting(
                             () -> {
@@ -1294,6 +1321,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                             sequenceBound.state.getLowerBound(),
                             sequenceBound.state.getUpperBound()
                             ));
+                    if(sequenceBound.state.getNumExpanding() == 0 && sequenceBound.state.getNumMinimizing() == 0 && sequenceBound.state.getDelta() > this.targetEpsilon){
+                        sequenceBound.setStatus(Status.OutOfLowEnergies);
+                    }
                     break computation;
                 }
 
@@ -1376,6 +1406,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             fringeSize = result.sequenceBound.internalQueue.size() + result.sequenceBound.leafQueue.size();
 
             // update the tracking variables
+            result.sequenceBound.state.numNodesFinishedExpanding.addAndGet(result.numExpanded);
             result.msBound.state.numExpansions += result.numExpanded;
             result.msBound.state.totalTimeExpansion += result.timeS;
             result.msBound.state.numRoundsExpand++;
@@ -1463,6 +1494,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             result.sequenceBound.state.numEnergiedConfs++;
             result.sequenceBound.state.totalTimeEnergy+=result.timeS;
             result.sequenceBound.state.numRoundsEnergy++;
+            result.sequenceBound.state.numNodesFinishedMinimizing.incrementAndGet();
 
             //update tracking variables
             result.msBound.numConfsEnergied++;
@@ -1866,25 +1898,31 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         PriorityQueue<MultiSequenceSHARKStarNode> drillQueue = new PriorityQueue<>(confBoundComparator);
         drillQueue.add(startNode);
 
-        List<MultiSequenceSHARKStarNode> newNodes = new ArrayList<>();
         int numNodes = 0;
         Stopwatch leafLoop = new Stopwatch().start();
         Stopwatch overallLoop = new Stopwatch().start();
         while (!drillQueue.isEmpty()) {
+            List<MultiSequenceSHARKStarNode> newNodes = new ArrayList<>();
             numNodes++;
             MultiSequenceSHARKStarNode curNode = drillQueue.poll();
+
             ConfIndex<PartialConfAStarNode> index = new ConfIndex(RCs.getNumPos());
             curNode.index(index);
 
             if (curNode.getLevel() < RCs.getNumPos()) {
                 MultiSequenceSHARKStarNode nextNode = drillDown(bound, msBound, newNodes, curNode);
                 // Sometimes there are no good leaf nodes. Weird.
+                /*
                 if(nextNode != null) {
                     newNodes.remove(nextNode);
                     drillQueue.add(nextNode);
                 }
+                 */
+                drillQueue.addAll(newNodes);
             } else {
-                newNodes.add(curNode);
+                //newNodes.add(curNode);
+                drillQueue.add(curNode);
+                break;
             }
 
             //debugHeap(drillQueue, true);
@@ -1899,7 +1937,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         //rootNode.getUpperBound(bound.sequence)));
             }
         }
-        generatedNodes.addAll(newNodes);
+        generatedNodes.addAll(drillQueue);
 
     }
 

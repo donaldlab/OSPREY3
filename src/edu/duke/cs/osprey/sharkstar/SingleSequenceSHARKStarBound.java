@@ -18,6 +18,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -392,6 +393,11 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
         long numRoundsExpand = 0; // number of rounds of expansion
         long numRoundsPartialMin = 0; // number of rounds of partial minimization
 
+        AtomicLong numNodesStartedExpanding = new AtomicLong(0);
+        AtomicLong numNodesFinishedExpanding = new AtomicLong(0);
+        AtomicLong numNodesStartedMinimizing = new AtomicLong(0);
+        AtomicLong numNodesFinishedMinimizing = new AtomicLong(0);
+
         BigDecimal getUpperBound(){
             return upperBound;
         }
@@ -450,8 +456,8 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
         private synchronized void updateStatus(){
             if (getDelta() < this.targetEpsilon) {
                 this.bound.setStatus(Status.Estimated);
-                if (this.getLowerBound().compareTo(BigDecimal.ZERO) == 0 &&
-                        this.numEnergiedConfs > 0 // if we have a minimized conf and the bound is zero, then we are unstable
+                //TODO: figure out how to fix the none step infinite looping
+                if (this.getLowerBound().compareTo(BigDecimal.ZERO) == 0
                 ) {
                     this.bound.setStatus(Status.Unstable);
                 }
@@ -465,6 +471,14 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
             return this.numEnergiedConfs <= 0 ||
                     this.stabilityThreshold == null ||
                     MathTools.isGreaterThanOrEqual(getUpperBound(), this.stabilityThreshold);
+        }
+
+        public long getNumExpanding(){
+            return numNodesFinishedExpanding.get() - numNodesStartedExpanding.get();
+        }
+
+        public long getNumMinimizing(){
+            return numNodesFinishedMinimizing.get() - numNodesStartedMinimizing.get();
         }
     }
 }

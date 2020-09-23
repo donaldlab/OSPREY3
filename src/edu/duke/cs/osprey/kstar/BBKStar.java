@@ -510,7 +510,17 @@ public class BBKStar {
 			// yeah, we haven't refined any pfuncs yet this estimation,
 			// but since pfuncs get cached, check before we do any more estimation
 			if (protein.getStatus() == PartitionFunction.Status.Unstable
-				|| ligand.getStatus() == PartitionFunction.Status.Unstable) {
+				|| ligand.getStatus() == PartitionFunction.Status.Unstable
+				|| complex.getStatus() == PartitionFunction.Status.Unstable) {
+				score = Double.NEGATIVE_INFINITY;
+				isUnboundUnstable = true;
+				return;
+			}
+
+			// Also tank if we are out of low energies
+			if (protein.getStatus() == PartitionFunction.Status.OutOfLowEnergies
+					|| ligand.getStatus() == PartitionFunction.Status.OutOfLowEnergies
+					|| complex.getStatus() == PartitionFunction.Status.OutOfLowEnergies) {
 				score = Double.NEGATIVE_INFINITY;
 				isUnboundUnstable = true;
 				return;
@@ -779,7 +789,19 @@ public class BBKStar {
 				// get the next node
 				Node node = tree.poll();
 				if(lastSequence != node.sequence)
-					System.out.println("Refining sequence "+node.sequence);
+					if(node instanceof SingleSequenceNode){
+						SingleSequenceNode ssnode = (SingleSequenceNode) node;
+						System.out.printf("Refining sequence %s, %.6f, [%1.3e, %1.3e], %s, %n",
+								ssnode.sequence,
+								ssnode.complex.getValues().getEffectiveEpsilon(),
+								ssnode.complex.getValues().calcLowerBound(),
+								ssnode.complex.getValues().calcUpperBound(),
+								ssnode.complex.getStatus()
+								);
+					}else
+						System.out.printf("Refining sequence %s%n",
+								node.sequence
+						);
 				lastSequence = node.sequence;
 
 				if (node instanceof SingleSequenceNode) {
@@ -811,7 +833,8 @@ public class BBKStar {
 
 							// from here on out, it's all blocked sequences
 							// so it's ok to put them in the sorted order now
-							reportSequence(ssnode, scoredSequences);
+							//reportSequence(ssnode, scoredSequences);
+							unstableNodes.add(ssnode);
 					}
 
 				} else if (node instanceof MultiSequenceNode) {
