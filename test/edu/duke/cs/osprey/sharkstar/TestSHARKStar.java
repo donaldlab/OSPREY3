@@ -1937,6 +1937,7 @@ public class TestSHARKStar {
 			System.out.printf("Spent %f seconds making pfuncs%n",
 					results.bbkstar.complexSHARK.pfuncCreationTime
 			);
+			System.out.printf("Made %d unique complex root nodes", results.bbkstar.complexSHARK.numUniqueRoots);
 
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();

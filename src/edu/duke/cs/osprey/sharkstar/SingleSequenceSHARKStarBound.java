@@ -1,12 +1,14 @@
 package edu.duke.cs.osprey.sharkstar;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.seq.nodes.SeqAStarNode;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SeqSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.markstar.framework.StaticBiggestLowerboundDifferenceOrder;
 import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.ObjectPool;
@@ -41,6 +43,7 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
     private BigDecimal finishedNodeZ = BigDecimal.ZERO;
     public final RCs seqRCs;
     public final State state;
+    private StaticBiggestLowerboundDifferenceOrder order = null;
 
     //debug variable
     public Set<MultiSequenceSHARKStarNode> finishedNodes = new HashSet<>();
@@ -69,6 +72,20 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
         if(finishedNodes.contains(node))
             System.err.println("Dupe node addition.");
         finishedNodes.add(node);
+    }
+
+    public StaticBiggestLowerboundDifferenceOrder getOrder(){
+        if(this.order == null){
+            return multiSequenceSHARKStarBound.order;
+        }else{
+            return this.order;
+        }
+    }
+
+    public void makeAlternativeOrder(AStarScorer gscorer, AStarScorer hscorer){
+        // Initialize residue ordering
+        this.order = new StaticBiggestLowerboundDifferenceOrder();
+        this.order.setScorers(gscorer, hscorer);
     }
 
     @Override
