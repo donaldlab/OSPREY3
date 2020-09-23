@@ -1852,7 +1852,7 @@ public class TestSHARKStar {
 	public void test2rl0D(){
 		try {
 			ConfSpaces confSpaces = loadFromCFS("test-resources/2rl0_D_4res_1.488E+07.cfs");
-			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.01, null, 5, TestBBKStar.Impls.SHARK);
+			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.01, null, 5, TestBBKStar.Impls.GRADIENT);
 			for (KStar.ScoredSequence sequence : results.sequences){
 				System.out.println(String.format("%s : [%1.9e, %1.9e]",
 						sequence.sequence,
@@ -1873,7 +1873,7 @@ public class TestSHARKStar {
 	public void test2rf9D(){
 		try {
 			ConfSpaces confSpaces = loadFromCFS("test-resources/2rf9_D_8res_9.231E+07.cfs");
-			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.68, null, 5, TestBBKStar.Impls.SHARK);
+			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.999, null, 5, TestBBKStar.Impls.SHARK);
 			for (KStar.ScoredSequence sequence : results.sequences){
 				System.out.println(String.format("%s : [%1.9e, %1.9e]",
 						sequence.sequence,
@@ -1915,5 +1915,33 @@ public class TestSHARKStar {
 		}
 	}
 
+	/**
+	 * UpperBoundException testing
+	 */
+	@Test
+	public void test2rl0_A_9res() {
+		try {
+			ConfSpaces confSpaces = loadFromCFS("test-resources/2rl0_A_9res_2.526E+11.cfs");
+			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.999, null, 5, TestBBKStar.Impls.SHARK);
+			for (KStar.ScoredSequence sequence : results.sequences) {
+				System.out.println(String.format("%s : [%1.9e, %1.9e]",
+						sequence.sequence,
+						sequence.score.lowerBound,
+						sequence.score.upperBound
+				));
+			}
 
-}
+			System.out.printf("Precomputed pfunc took %f seconds to compute%n",
+					results.bbkstar.complexSHARK.precomputedFlexComputeTime
+			);
+			System.out.printf("Spent %f seconds making pfuncs%n",
+					results.bbkstar.complexSHARK.pfuncCreationTime
+			);
+
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
+
+
+	}

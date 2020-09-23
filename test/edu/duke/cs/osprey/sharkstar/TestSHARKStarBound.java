@@ -1207,5 +1207,71 @@ public class TestSHARKStarBound extends TestBase {
         valBound1.updateStateFromQueues();
         valBound1.compute();
     }
+
+    @Test
+    public void test2rl0A_singleSeq() throws FileNotFoundException {
+        TestKStar.ConfSpaces confSpaces = loadFromCFS("test-resources/2rl0_A_9res_2.526E+11.cfs");
+        Sequence wildType = confSpaces.complex.makeWildTypeSequence();
+        List<String> seqList = new ArrayList<>();
+        seqList.add("GLU");
+        seqList.add("GLU");
+        Sequence second = confSpaces.complex.seqSpace.makeSequence(seqList);
+        MultiSequenceSHARKStarBound bound= makeSHARKStarPfuncForConfSpace(confSpaces.complex, wildType, 0.68, null, null);
+        SingleSequenceSHARKStarBound ssbound = (SingleSequenceSHARKStarBound) bound.getPartitionFunctionForSequence(wildType);
+        /*
+        while(ssbound.getStatus().canContinue())
+            ssbound.compute();
+
+         */
+
+        SingleSequenceSHARKStarBound ssbound_two = (SingleSequenceSHARKStarBound) bound.getPartitionFunctionForSequence(second);
+        int i = 0;
+        while(ssbound_two.getStatus().canContinue()) {
+            ssbound_two.compute(8);
+            i++;
+        }
+        loopTasks.waitForFinish();
+        System.out.println(String.format("Final bounds for seq %s: [%1.3e, %1.3e], %s",
+                wildType,
+                ssbound.getValues().qstar,
+                ssbound.getValues().pstar,
+                ssbound.getStatus()
+        ));
+
+        System.out.println(String.format("Final bounds for seq %s: [%1.3e, %1.3e], %s, %d rounds",
+                second,
+                ssbound_two.getValues().qstar,
+                ssbound_two.getValues().pstar,
+                ssbound_two.getStatus(),
+                i
+        ));
+        ssbound_two.printStats();
+
+    }
+
+    @Test
+    public void test2rl0A_singleSeq_MARK() throws FileNotFoundException {
+        TestKStar.ConfSpaces confSpaces = loadFromCFS("test-resources/2rl0_A_9res_2.526E+11.cfs");
+        Sequence wildType = confSpaces.complex.makeWildTypeSequence();
+        List<String> seqList = new ArrayList<>();
+        seqList.add("GLU");
+        seqList.add("GLU");
+        Sequence second = confSpaces.complex.seqSpace.makeSequence(seqList);
+        MARKStarBound bound= makeMARKStarPfuncForConfSpace(confSpaces.complex, wildType, 0.68);
+        MARKStarBound bound_two= makeMARKStarPfuncForConfSpace(confSpaces.complex, second, 0.68);
+        //bound.compute();
+        bound_two.compute();
+        System.out.println(String.format("Final bounds for seq %s: [%1.3e, %1.3e]",
+                wildType,
+                bound.getValues().qstar,
+                bound.getValues().pstar
+        ));
+        System.out.println(String.format("Final bounds for seq %s: [%1.3e, %1.3e]",
+                second,
+                bound_two.getValues().qstar,
+                bound_two.getValues().pstar
+        ));
+
+    }
 }
 
