@@ -51,6 +51,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     public static final boolean doCorrections = true;
     public static final boolean runUntilNonZero = false;
     public static final boolean skipAddingToFringe = true;
+    public static final boolean forceCustomOrderings = true;
     public static double skipCutoff = 0.0;
     public boolean profileOutput = false;
     private Status status = null;
@@ -305,29 +306,29 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         //computeFringeForSequenceParallelV2(newBound, this);
         computeRootFringe(newBound, this, this.rootNode);
 
-        if (!newBound.nonZeroLower()){
+        if (!newBound.nonZeroLower() && !forceCustomOrderings) {
+            runUntilNonZero(newBound, this);
+            newBound.updateStateFromQueues();
+        }
+
+        // if the bound is still zero, then make a new root and use a sequence-specific order
+        // This will decrease the effectiveness of the precomputed corrections, but makes a big difference
+        if(!newBound.nonZeroLower() || forceCustomOrderings){
+            newBound.internalQueue.clear();
+            newBound.leafQueue.clear();
+            newBound.finishedNodes.clear();
+
+            newBound.makeAlternativeOrder(gscorerFactory.make(minimizingEmat), hscorerFactory.make(minimizingEmat));
+
+            MultiSequenceSHARKStarNode seqRoot = new MultiSequenceSHARKStarNode(confSpace.positions.size());
+            computeRootFringe(newBound, this, seqRoot);
+            // I don't think there's an issue with using the global confIndex
+            seqRoot.index(this.confIndex);
+            newBound.getOrder().getNextPos(confIndex,newBound.seqRCs);
             runUntilNonZero(newBound, this);
             newBound.updateStateFromQueues();
 
-            // if the bound is still zero, then make a new root and use a sequence-specific order
-            // This will decrease the effectiveness of the precomputed corrections, but makes a big difference
-            if(!newBound.nonZeroLower()){
-                newBound.internalQueue.clear();
-                newBound.leafQueue.clear();
-                newBound.finishedNodes.clear();
-
-                newBound.makeAlternativeOrder(gscorerFactory.make(minimizingEmat), hscorerFactory.make(minimizingEmat));
-
-                MultiSequenceSHARKStarNode seqRoot = new MultiSequenceSHARKStarNode(confSpace.positions.size());
-                computeRootFringe(newBound, this, seqRoot);
-                // I don't think there's an issue with using the global confIndex
-                seqRoot.index(this.confIndex);
-                newBound.getOrder().getNextPos(confIndex,newBound.seqRCs);
-                runUntilNonZero(newBound, this);
-                newBound.updateStateFromQueues();
-
-                numUniqueRoots++;
-            }
+            numUniqueRoots++;
         }
         newBound.state.updateBounds(BigDecimal.ZERO, BigDecimal.ZERO);//hack to update the state
 
