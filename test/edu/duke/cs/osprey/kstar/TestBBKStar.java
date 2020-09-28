@@ -95,7 +95,6 @@ public class TestBBKStar {
 			BBKStar.Settings bbkstarSettings = new BBKStar.Settings.Builder()
 				.setNumBestSequences(numSequences)
 				.setNumConfsPerBatch(8)
-				.setPrintSequenceTree(true)
 				.build();
 			BBKStar bbkstar = new BBKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, kstarSettings, bbkstarSettings);
 			for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {

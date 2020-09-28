@@ -97,6 +97,7 @@ public class BBKStar {
 			private int maxNumConfsPerBatch = 8;
 
 			private boolean printSequenceTree = false;
+			private String sequenceTreeName = "seqTree.tree";
 
 			public Builder setNumBestSequences(int val) {
 				numBestSequences = val;
@@ -113,8 +114,9 @@ public class BBKStar {
 				return this;
 			}
 
-			public Builder setPrintSequenceTree(boolean val) {
-				printSequenceTree = val;
+			public Builder setPrintSequenceTree(String fn) {
+				printSequenceTree = true;
+				sequenceTreeName = fn;
 				return this;
 			}
 
@@ -127,18 +129,22 @@ public class BBKStar {
 		public final int numConfsPerBatch;
 		private final int maxNumConfsPerBatch;
 		public final boolean printSeqTree;
+		public final String sequenceTreeName;
 
 		public Settings(int numBestSequences, int numConfsPerBatch) {
 			this.numBestSequences = numBestSequences;
 			this.numConfsPerBatch = numConfsPerBatch;
 			this.maxNumConfsPerBatch = numConfsPerBatch;
 			this.printSeqTree = false;
+			this.sequenceTreeName = "seqTree.tree";
 		}
+
 		public Settings(int numBestSequences, int numConfsPerBatch, int maxNumConfsPerBatch, boolean printSeqTree) {
 			this.numBestSequences = numBestSequences;
 			this.numConfsPerBatch = numConfsPerBatch;
 			this.maxNumConfsPerBatch = maxNumConfsPerBatch;
 			this.printSeqTree = printSeqTree;
+			this.sequenceTreeName = "seqTree.tree";
 		}
 	}
 
@@ -1061,7 +1067,7 @@ public class BBKStar {
 		}
 		KStarTreeNode root = lastLevel.get(0);
 		try {
-			FileWriter writer = new FileWriter("testSeqTree.tree");
+			FileWriter writer = new FileWriter(bbkstarSettings.sequenceTreeName);
 			root.printTreeLikeMARKStar(writer);
 			writer.flush();
 			writer.close();
