@@ -121,7 +121,7 @@ public class BBKStar {
 			}
 
 			public Settings build() {
-				return new Settings(numBestSequences, numConfsPerBatch, maxNumConfsPerBatch, printSequenceTree);
+				return new Settings(numBestSequences, numConfsPerBatch, maxNumConfsPerBatch, printSequenceTree, sequenceTreeName);
 			}
 		}
 
@@ -139,12 +139,12 @@ public class BBKStar {
 			this.sequenceTreeName = "seqTree.tree";
 		}
 
-		public Settings(int numBestSequences, int numConfsPerBatch, int maxNumConfsPerBatch, boolean printSeqTree) {
+		public Settings(int numBestSequences, int numConfsPerBatch, int maxNumConfsPerBatch, boolean printSeqTree, String sequenceTreeName) {
 			this.numBestSequences = numBestSequences;
 			this.numConfsPerBatch = numConfsPerBatch;
 			this.maxNumConfsPerBatch = maxNumConfsPerBatch;
 			this.printSeqTree = printSeqTree;
-			this.sequenceTreeName = "seqTree.tree";
+			this.sequenceTreeName = sequenceTreeName;
 		}
 	}
 
