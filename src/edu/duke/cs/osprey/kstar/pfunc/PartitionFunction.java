@@ -319,4 +319,17 @@ public interface PartitionFunction {
 			}
 		}
 	}
+
+	default double computeEntropy(double cutoff){
+		return 0.0;
+	}
+
+	default long getNumConfsMinimized(){
+		return 0L;
+	}
+
+	default double getLargestCorrection(){
+		return 0.0;
+	}
+
 }

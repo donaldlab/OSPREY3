@@ -1207,4 +1207,16 @@ public class MARKStarBound implements PartitionFunction {
                 this.values.calcUpperBound()
         ));
     }
+
+    public long getNumConfsMinimized(){
+        return numConfsEnergied;
+    }
+
+    public double getLargestCorrection(){
+        OptionalDouble max = correctionMatrix.getAllCorrections().parallelStream().mapToDouble(t -> t.E).max();
+        if (max.isPresent())
+            return max.getAsDouble();
+        else
+            return 0.0;
+    }
 }

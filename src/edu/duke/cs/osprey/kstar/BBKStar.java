@@ -656,6 +656,7 @@ public class BBKStar {
 	public List<Node> storeFinishedTree;
 	public List<SingleSequenceNode> storeFinishedNodes = new ArrayList<>();
 	public List<SingleSequenceNode> storeUnstableNodes = new ArrayList<>();
+	public List<SingleSequenceNode> storeAllSingleSequenceNodes = new ArrayList<>();
 
 	boolean printSequenceTree;
 
@@ -875,6 +876,12 @@ public class BBKStar {
 		storeFinishedTree = new ArrayList<>(tree);
 		storeFinishedNodes = finishedNodes;
 		storeUnstableNodes = unstableNodes;
+
+		storeAllSingleSequenceNodes = Stream.of(storeFinishedTree, storeFinishedNodes, storeUnstableNodes)
+				.flatMap(Collection::stream)
+				.filter((n) -> n instanceof SingleSequenceNode)
+                .map((n) -> (SingleSequenceNode) n)
+				.collect(Collectors.toList());
 
 		return scoredSequences;
 	}

@@ -43,6 +43,7 @@ import edu.duke.cs.osprey.energy.EnergyPartition;
 import edu.duke.cs.osprey.energy.ResidueForcefieldBreakdown;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.gmec.ConfAnalyzer;
+import edu.duke.cs.osprey.kstar.BBKStar;
 import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.TestBBKStar;
 import edu.duke.cs.osprey.kstar.TestKStar;
@@ -1750,7 +1751,7 @@ public class TestSHARKStar {
 	public void test2rfeF_full(){
 		try {
 			ConfSpaces confSpaces = loadFromCFS("test-resources/2rfe_F_6res_5.934E+07.cfs");
-			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.68, null, 5, TestBBKStar.Impls.SHARK);
+			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.01, null, 5, TestBBKStar.Impls.SHARK);
 			for (KStar.ScoredSequence sequence : results.sequences){
 				System.out.println(String.format("%s : [%1.9e, %1.9e]",
 						sequence.sequence,
@@ -1922,7 +1923,7 @@ public class TestSHARKStar {
 	public void test2rl0_A_9res() {
 		try {
 			ConfSpaces confSpaces = loadFromCFS("test-resources/2rl0_A_9res_2.526E+11.cfs");
-			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.999, null, 5, TestBBKStar.Impls.SHARK);
+			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.999, null, 5, TestBBKStar.Impls.MARK);
 			for (KStar.ScoredSequence sequence : results.sequences) {
 				System.out.println(String.format("%s : [%1.9e, %1.9e]",
 						sequence.sequence,
@@ -1931,13 +1932,31 @@ public class TestSHARKStar {
 				));
 			}
 
+			/*
 			System.out.printf("Precomputed pfunc took %f seconds to compute%n",
 					results.bbkstar.complexSHARK.precomputedFlexComputeTime
 			);
 			System.out.printf("Spent %f seconds making pfuncs%n",
 					results.bbkstar.complexSHARK.pfuncCreationTime
 			);
+
 			System.out.printf("Made %d unique complex root nodes", results.bbkstar.complexSHARK.numUniqueRoots);
+			 */
+
+			//results.bbkstar.printInfo();
+			//results.bbkstar.countCycles();
+			//results.bbkstar.printSequenceTree("testtree.tree");
+			for (BBKStar.SingleSequenceNode node : results.bbkstar.storeFinishedNodes){
+				System.out.printf("%s entropy: %.3f%n", node.sequence, node.complex.computeEntropy(1e-9));
+				System.out.printf("%s max correction: %.3f%n", node.sequence, node.complex.getLargestCorrection());
+			}
+			long numMinimizations = 0L;
+
+			for (BBKStar.SingleSequenceNode node : results.bbkstar.storeAllSingleSequenceNodes){
+			    numMinimizations += node.complex.getNumConfsMinimized();
+            }
+			System.out.printf("num minimized: %d%n", numMinimizations);
+			System.out.printf("%d single sequence pfuncs%n", results.bbkstar.storeAllSingleSequenceNodes.size());
 
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();

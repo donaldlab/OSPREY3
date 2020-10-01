@@ -538,4 +538,16 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
                 .map((e) -> e.occupancy* Math.log(e.occupancy))
                 .reduce(0.0, Double::sum);
     }
+
+    public long getNumConfsMinimized(){
+        return state.numEnergiedConfs;
+    }
+
+    public double getLargestCorrection(){
+        OptionalDouble max = multisequenceBound.correctionMatrix.getAllCorrections().parallelStream().mapToDouble(t -> t.E).max();
+        if (max.isPresent())
+            return max.getAsDouble();
+        else
+            return 0.0;
+    }
 }
