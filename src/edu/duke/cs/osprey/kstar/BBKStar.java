@@ -96,9 +96,6 @@ public class BBKStar {
 			 */
 			private int maxNumConfsPerBatch = 8;
 
-			private boolean printSequenceTree = false;
-			private String sequenceTreeName = "seqTree.tree";
-
 			public Builder setNumBestSequences(int val) {
 				numBestSequences = val;
 				return this;
@@ -114,37 +111,25 @@ public class BBKStar {
 				return this;
 			}
 
-			public Builder setPrintSequenceTree(String fn) {
-				printSequenceTree = true;
-				sequenceTreeName = fn;
-				return this;
-			}
-
 			public Settings build() {
-				return new Settings(numBestSequences, numConfsPerBatch, maxNumConfsPerBatch, printSequenceTree, sequenceTreeName);
+				return new Settings(numBestSequences, numConfsPerBatch, maxNumConfsPerBatch);
 			}
 		}
 
 		public final int numBestSequences;
 		public final int numConfsPerBatch;
 		private final int maxNumConfsPerBatch;
-		public final boolean printSeqTree;
-		public final String sequenceTreeName;
 
 		public Settings(int numBestSequences, int numConfsPerBatch) {
 			this.numBestSequences = numBestSequences;
 			this.numConfsPerBatch = numConfsPerBatch;
 			this.maxNumConfsPerBatch = numConfsPerBatch;
-			this.printSeqTree = false;
-			this.sequenceTreeName = "seqTree.tree";
 		}
 
-		public Settings(int numBestSequences, int numConfsPerBatch, int maxNumConfsPerBatch, boolean printSeqTree, String sequenceTreeName) {
+		public Settings(int numBestSequences, int numConfsPerBatch, int maxNumConfsPerBatch) {
 			this.numBestSequences = numBestSequences;
 			this.numConfsPerBatch = numConfsPerBatch;
 			this.maxNumConfsPerBatch = maxNumConfsPerBatch;
-			this.printSeqTree = printSeqTree;
-			this.sequenceTreeName = sequenceTreeName;
 		}
 	}
 
@@ -667,6 +652,11 @@ public class BBKStar {
 	public MultiSequenceSHARKStarBound proteinSHARK; // temporary variable for SHARK* test information
 	public MultiSequenceSHARKStarBound ligandSHARK; // temporary variable for SHARK* test information
 
+	// temporary variables for collecting information
+	public List<Node> storeFinishedTree;
+	public List<SingleSequenceNode> storeFinishedNodes = new ArrayList<>();
+	public List<SingleSequenceNode> storeUnstableNodes = new ArrayList<>();
+
 	boolean printSequenceTree;
 
 	public BBKStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, KStar.Settings kstarSettings, Settings bbkstarSettings) {
@@ -881,18 +871,17 @@ public class BBKStar {
 				//lastPfunc.printStats();
 			}
 		}
-		countCycles(tree, finishedNodes);
+
+		storeFinishedTree = new ArrayList<>(tree);
+		storeFinishedNodes = finishedNodes;
+		storeUnstableNodes = unstableNodes;
+
+		return scoredSequences;
+	}
+
+	public void printInfo(){
 		System.out.println("Finished node information:");
-		finishedNodes.forEach((SingleSequenceNode n) -> {
-			System.out.println(String.format("%s protein:", n.sequence));
-		    n.protein.printStats();
-			System.out.println(String.format("%s ligand:", n.sequence));
-			n.ligand.printStats();
-			System.out.println(String.format("%s complex:", n.sequence));
-			n.complex.printStats();
-		});
-		System.out.println("Unstable node information:");
-		unstableNodes.forEach((SingleSequenceNode n) -> {
+		storeFinishedNodes.forEach((SingleSequenceNode n) -> {
 			System.out.println(String.format("%s protein:", n.sequence));
 			n.protein.printStats();
 			System.out.println(String.format("%s ligand:", n.sequence));
@@ -900,11 +889,15 @@ public class BBKStar {
 			System.out.println(String.format("%s complex:", n.sequence));
 			n.complex.printStats();
 		});
-
-		if (bbkstarSettings.printSeqTree)
-			printSequenceTree(Stream.of(tree, finishedNodes /*, unstableNodes*/).flatMap(Collection::stream).collect(Collectors.toList()));
-
-		return scoredSequences;
+		System.out.println("Unstable node information:");
+		storeUnstableNodes.forEach((SingleSequenceNode n) -> {
+			System.out.println(String.format("%s protein:", n.sequence));
+			n.protein.printStats();
+			System.out.println(String.format("%s ligand:", n.sequence));
+			n.ligand.printStats();
+			System.out.println(String.format("%s complex:", n.sequence));
+			n.complex.printStats();
+		});
 	}
 
 	private void reportSequence(SingleSequenceNode ssnode, List<KStar.ScoredSequence> scoredSequences) {
@@ -920,8 +913,8 @@ public class BBKStar {
 		));
 	}
 
-	private void countCycles(PriorityQueue<Node> tree, List<SingleSequenceNode> finishedNodes){
-		List<Node> nodes = new ArrayList<>(tree);
+	public void countCycles(){
+		List<Node> nodes = new ArrayList<>(storeFinishedTree);
 		nodes.sort(new Comparator<Node>() {
 			@Override
 			public int compare(Node o1, Node o2) {
@@ -929,11 +922,11 @@ public class BBKStar {
 			}
 		});
 		nodes.forEach((n) -> System.out.println(String.format("%s: %d", n.sequence, n.numComputeCycles)));
-		finishedNodes.forEach((n) -> System.out.println(String.format("%s: %d", n.sequence, n.numComputeCycles)));
+		storeFinishedNodes.forEach((n) -> System.out.println(String.format("%s: %d", n.sequence, n.numComputeCycles)));
 
 	}
 
-	private void printSequenceTree(Collection<Node> seqFringe){
+	public void printSequenceTree(String fn){
 	    BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
 
 	    // find out what our assignments will be
@@ -943,7 +936,8 @@ public class BBKStar {
 		final int numPos = resNums.size();
 
 		// get fringes
-	    List<KStarTreeNode> fringe = seqFringe.stream().map((n) -> {
+	    List<KStarTreeNode> fringe = Stream.of(storeFinishedTree, storeFinishedNodes).flatMap(Collection::stream)
+				.map((n) -> {
 	    	String[] assignments = new String[numPos];
 	    	int[] confAssignments = new int[numPos];
 	    	int i = 0;
@@ -1067,7 +1061,7 @@ public class BBKStar {
 		}
 		KStarTreeNode root = lastLevel.get(0);
 		try {
-			FileWriter writer = new FileWriter(bbkstarSettings.sequenceTreeName);
+			FileWriter writer = new FileWriter(fn);
 			root.printTreeLikeMARKStar(writer);
 			writer.flush();
 			writer.close();

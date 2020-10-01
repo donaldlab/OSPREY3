@@ -8,6 +8,7 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SeqSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.markstar.framework.StaticBiggestLowerboundDifferenceOrder;
 import edu.duke.cs.osprey.tools.BigMath;
@@ -501,5 +502,40 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
         public long getNumMinimizing(){
             return numNodesFinishedMinimizing.get() - numNodesStartedMinimizing.get();
         }
+    }
+
+    public double computeEntropy(double cutoff){
+        multisequenceBound.loopTasks.waitForFinish();
+        class occEntry{
+            double occupancy;
+            int numberConfs;
+
+            occEntry(MultiSequenceSHARKStarNode node){
+                if(getUpperBound().compareTo(BigDecimal.ZERO) > 0)
+                    this.occupancy = multiSequenceSHARKStarBound.bc.calc(node.getConfLowerBound(sequence)).divide(getUpperBound(), PartitionFunction.decimalPrecision).doubleValue();
+                else{
+                    occupancy = 0;
+                }
+                this.numberConfs = MultiSequenceSHARKStarNode.computeNumConformations(node, seqRCs).intValue();
+            }
+
+            occEntry(double occupancy, int numberConfs){
+                this.occupancy = occupancy;
+                this.numberConfs = numberConfs;
+            }
+        }
+        List<occEntry> sortedEntries = Stream.of(internalQueue, leafQueue, finishedNodes)
+                .flatMap(Collection::stream)
+                .parallel()
+                .map(occEntry::new)
+                .filter((e) -> e.occupancy / e.numberConfs > cutoff) // filter out elements with low occupancy
+                .flatMap((e) -> Collections.nCopies(e.numberConfs, new occEntry(e.occupancy / e.numberConfs, 1)).stream()) // expand internal nodes
+                .sorted(Comparator.comparingDouble((e) -> -1 * e.occupancy)) // sort by occupancy
+                .collect(Collectors.toList());
+
+        // compute the entropy
+        return -1 * BoltzmannCalculator.constRT * sortedEntries.parallelStream()
+                .map((e) -> e.occupancy* Math.log(e.occupancy))
+                .reduce(0.0, Double::sum);
     }
 }
