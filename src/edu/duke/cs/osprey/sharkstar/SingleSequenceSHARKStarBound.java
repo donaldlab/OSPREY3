@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.sharkstar;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.seq.nodes.SeqAStarNode;
 import edu.duke.cs.osprey.confspace.ConfSearch;
@@ -44,6 +45,7 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
     public final RCs seqRCs;
     public final State state;
     private StaticBiggestLowerboundDifferenceOrder order = null;
+    //private DynamicHMeanAStarOrder order = null;
 
     //debug variable
     public Set<MultiSequenceSHARKStarNode> finishedNodes = new HashSet<>();
@@ -75,6 +77,7 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
     }
 
     public StaticBiggestLowerboundDifferenceOrder getOrder(){
+    //public DynamicHMeanAStarOrder getOrder(){
         if(this.order == null){
             return multiSequenceSHARKStarBound.order;
         }else{
@@ -85,6 +88,7 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
     public void makeAlternativeOrder(AStarScorer gscorer, AStarScorer hscorer){
         // Initialize residue ordering
         this.order = new StaticBiggestLowerboundDifferenceOrder();
+        //this.order = new DynamicHMeanAStarOrder();
         this.order.setScorers(gscorer, hscorer);
     }
 

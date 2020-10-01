@@ -22,7 +22,7 @@ import static edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound.isDebugCo
 import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStatistics.*;
 
 
-public class MultiSequenceSHARKStarNode implements PartialConfAStarNode {
+public class MultiSequenceSHARKStarNode implements ConfAStarNode {
     // statics
     static boolean debug = false;
     static final int Unassigned = -1;
@@ -33,6 +33,8 @@ public class MultiSequenceSHARKStarNode implements PartialConfAStarNode {
     public int pos = Unassigned;
     public int rc = Unassigned;
     public final int level;
+
+    private Sequence seq;
 
     // Information for MultiSequence SHARK* Nodes
     private final Map<Integer,MultiSequenceSHARKStarNode> childrenByRC;
@@ -117,6 +119,10 @@ public class MultiSequenceSHARKStarNode implements PartialConfAStarNode {
             nodeHistory.get(seq).add(confData);
         }
         this.sequenceBounds.put(seq, bounds);
+        if(this.seq == null){
+            this.seq = seq;
+        }
+        assert(this.seq==seq);
     }
 
     /**
@@ -144,6 +150,10 @@ public class MultiSequenceSHARKStarNode implements PartialConfAStarNode {
             nodeHistory.get(seq).add(confData);
         }
         this.confBounds.put(seq, bounds);
+        if(this.seq == null){
+            this.seq = seq;
+        }
+        //assert(this.seq==seq);
     }
 
     public synchronized void setErrorBound(double freeEnergyError, Sequence seq){
@@ -371,6 +381,22 @@ public class MultiSequenceSHARKStarNode implements PartialConfAStarNode {
     @Override
     public void setGScore(double val) {
         throw new UnsupportedOperationException("Should not be set this way.");
+    }
+
+    @Override
+    public double getHScore() {
+        /*
+        if(this.confBounds.containsKey(this.seq))
+            return getConfLowerBound(this.seq)-getPartialConfLowerBound();
+        else
+            return 0.0;
+         */
+        return getConfLowerBound(this.seq)-getPartialConfLowerBound();
+    }
+
+    @Override
+    public void setHScore(double val) {
+
     }
 
     @Override

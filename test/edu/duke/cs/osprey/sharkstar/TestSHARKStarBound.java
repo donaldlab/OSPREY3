@@ -1198,8 +1198,8 @@ public class TestSHARKStarBound extends TestBase {
         wtBound.compute();
         SingleSequenceSHARKStarBound valBound2 = (SingleSequenceSHARKStarBound) bound2.getPartitionFunctionForSequence(second);
 
-        bound1.order.printOrder();
-        bound2.order.printOrder();
+        //bound1.order.printOrder();
+        //bound2.order.printOrder();
 
         //transplant the fringe
         valBound1.leafQueue = new SHARKStarQueue(valBound1.sequence);

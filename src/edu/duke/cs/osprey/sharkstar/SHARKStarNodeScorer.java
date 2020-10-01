@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.sharkstar;
 
+import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.PartialConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.RCs;
@@ -19,7 +20,7 @@ import java.util.Arrays;
 import static edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound.confMatch;
 import static edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound.debugConf;
 
-public class SHARKStarNodeScorer implements AStarScorer<PartialConfAStarNode> {
+public class SHARKStarNodeScorer implements AStarScorer<ConfAStarNode> {
     protected EnergyMatrix emat;
     protected MathTools.Optimizer opt = MathTools.Optimizer.Minimize;
     /*
@@ -71,11 +72,11 @@ public class SHARKStarNodeScorer implements AStarScorer<PartialConfAStarNode> {
     }
 
     @Override
-    public AStarScorer<PartialConfAStarNode> make() {
+    public AStarScorer<ConfAStarNode> make() {
         return new SHARKStarNodeScorer(emat, false);
     }
 
-    public double calc(ConfIndex<PartialConfAStarNode> confIndex, Sequence seq, SimpleConfSpace confSpace) {
+    public double calc(ConfIndex<ConfAStarNode> confIndex, Sequence seq, SimpleConfSpace confSpace) {
         return calc(confIndex, seq.makeRCs(confSpace));
     }
 
@@ -85,7 +86,7 @@ public class SHARKStarNodeScorer implements AStarScorer<PartialConfAStarNode> {
      *
      * Intended primarily for debugging upperBound error - GTH 200114
      */
-    public BigDecimal calcGScore(ConfIndex<PartialConfAStarNode> confIndex, RCs rcs){
+    public BigDecimal calcGScore(ConfIndex<ConfAStarNode> confIndex, RCs rcs){
 
         BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
         BigDecimal pfuncBound = BigDecimal.ONE;
@@ -120,7 +121,7 @@ public class SHARKStarNodeScorer implements AStarScorer<PartialConfAStarNode> {
      *
      * Intended primarily for debugging upperBound error - GTH 200114
      */
-    public BigDecimal calcCombinedScore(ConfIndex<PartialConfAStarNode> confIndex, RCs rcs){
+    public BigDecimal calcCombinedScore(ConfIndex<ConfAStarNode> confIndex, RCs rcs){
 
         BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
         BigDecimal pfuncBound = BigDecimal.ONE;
@@ -175,7 +176,7 @@ public class SHARKStarNodeScorer implements AStarScorer<PartialConfAStarNode> {
      *  sum over all unassigned positions. Returns a lower bound on the ensemble energy.
      *  Note: I currently exponentiate and log for compatibilty. This could be optimized.*/
     @Override
-    public double calc(ConfIndex<PartialConfAStarNode> confIndex, RCs rcs) {
+    public double calc(ConfIndex<ConfAStarNode> confIndex, RCs rcs) {
         BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
         double freeEnergyBound = 0.0;
 

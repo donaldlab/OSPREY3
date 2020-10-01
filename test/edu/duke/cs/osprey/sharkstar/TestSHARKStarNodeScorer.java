@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.sharkstar;
 
+import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.PartialConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.RCs;
@@ -181,7 +182,7 @@ public class TestSHARKStarNodeScorer {
         private SimpleConfSpace confSpace;
         private RCs rcs;
         private BoltzmannCalculator bc;
-        private ConfIndex<PartialConfAStarNode> confIndex;
+        private ConfIndex<ConfAStarNode> confIndex;
 
         private SHARKStarNodeScorer lbScorer;
         private SHARKStarNodeScorer ubScorer;

@@ -1,8 +1,10 @@
 package edu.duke.cs.osprey.sharkstar;
 
+import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.PartialConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
 import edu.duke.cs.osprey.astar.conf.pruning.AStarPruner;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
@@ -82,17 +84,18 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     // We keep track of the root node for computing our K* bounds
     public MultiSequenceSHARKStarNode rootNode;
     // Heap of nodes for recursive expansion
-    private final ConfIndex<PartialConfAStarNode> confIndex;
+    private final ConfIndex<ConfAStarNode> confIndex;
     public StaticBiggestLowerboundDifferenceOrder order;
+    //public DynamicHMeanAStarOrder order;
     public final AStarPruner pruner;
     // TODO: Implement new AStarPruner for MARK*?
     protected RCs fullRCs;
     protected Parallelism parallelism;
     public ObjectPool<ScoreContext> contexts;
-    private final ScorerFactory<PartialConfAStarNode> gscorerFactory;
-    private final ScorerFactory<PartialConfAStarNode> rigidgscorerFactory;
-    private final ScorerFactory<PartialConfAStarNode> hscorerFactory;
-    private final ScorerFactory<PartialConfAStarNode> nhscorerFactory;
+    private final ScorerFactory<ConfAStarNode> gscorerFactory;
+    private final ScorerFactory<ConfAStarNode> rigidgscorerFactory;
+    private final ScorerFactory<ConfAStarNode> hscorerFactory;
+    private final ScorerFactory<ConfAStarNode> nhscorerFactory;
 
     private final ConfAnalyzer confAnalyzer;
     EnergyMatrix minimizingEmat;
@@ -172,9 +175,21 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         double partialConfUpperBound = rigidgscorerFactory.make(rigidEmat).calc(confIndex, rcs);
 
         rootNode.setPartialConfLowerAndUpper(partialConfLowerbound, partialConfUpperBound);
+        //double confLowerBound = partialConfLowerbound + hscorerFactory.make(minimizingEmat).calc(confIndex, rcs);
+        //double confUpperBound = partialConfUpperBound + nhscorerFactory.make(rigidEmat).calc(confIndex, rcs);
+        MathTools.DoubleBounds confBounds = new MathTools.DoubleBounds(
+                partialConfLowerbound + hscorerFactory.make(minimizingEmat).calc(confIndex, rcs),
+                partialConfUpperBound + nhscorerFactory.make(rigidEmat).calc(confIndex, rcs)
+        );
+
+        //rootNode.setBoundsFromConfLowerAndUpperWithHistory(confLowerBound, confUpperBound, bc.calc(confLowerBound), bc.calc(confUpperBound), precomputedSequence, "(root initialization)");
+        rootNode.setConfBounds(confBounds, this.precomputedSequence, "root initialization");
+        //rootNode.setPfuncBounds(confBounds.boltzmannWeight(this.bc), this.precomputedSequence, "root initialization");
+        rootNode.setErrorBound(this.bc.freeEnergy(confBounds.boltzmannWeight(this.bc).size(this.bc.mathContext)), this.precomputedSequence);
 
         // Initialize residue ordering
         this.order = new StaticBiggestLowerboundDifferenceOrder();
+        //this.order = new DynamicHMeanAStarOrder();
         this.order.setScorers(gscorerFactory.make(minimizingEmat), hscorerFactory.make(minimizingEmat));
         /* force init order */
         this.order.getNextPos(confIndex,fullRCs);
@@ -182,17 +197,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         // No precomputed sequence means the "precomputed" sequence is empty
         this.precomputedSequence = confSpace.makeUnassignedSequence();
 
-        //double confLowerBound = partialConfLowerbound + hscorerFactory.make(minimizingEmat).calc(confIndex, rcs);
-        //double confUpperBound = partialConfUpperBound + nhscorerFactory.make(rigidEmat).calc(confIndex, rcs);
-        MathTools.DoubleBounds confBounds = new MathTools.DoubleBounds(
-                partialConfLowerbound + hscorerFactory.make(minimizingEmat).calc(confIndex, rcs),
-                partialConfUpperBound + nhscorerFactory.make(rigidEmat).calc(confIndex, rcs)
-                );
-
-        //rootNode.setBoundsFromConfLowerAndUpperWithHistory(confLowerBound, confUpperBound, bc.calc(confLowerBound), bc.calc(confUpperBound), precomputedSequence, "(root initialization)");
-        rootNode.setConfBounds(confBounds, this.precomputedSequence, "root initialization");
-        //rootNode.setPfuncBounds(confBounds.boltzmannWeight(this.bc), this.precomputedSequence, "root initialization");
-        rootNode.setErrorBound(this.bc.freeEnergy(confBounds.boltzmannWeight(this.bc).size(this.bc.mathContext)), this.precomputedSequence);
 
         this.contexts = new ObjectPool<>((lingored) -> {
             ScoreContext context = new ScoreContext();
@@ -218,8 +222,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         // Recording pfunc starting bounds
         //this.startLowerBound = rootNode.getLowerBound(precomputedSequence);
         //this.startUpperBound = rootNode.getUpperBound(precomputedSequence);
-        this.startLowerBound = this.bc.calc(rootNode.getConfUpperBound(precomputedSequence));
-        this.startUpperBound = this.bc.calc(rootNode.getConfLowerBound(precomputedSequence));
+        //this.startLowerBound = this.bc.calc(rootNode.getConfUpperBound(precomputedSequence));
+        //this.startUpperBound = this.bc.calc(rootNode.getConfLowerBound(precomputedSequence));
         this.minList = new ArrayList<Integer>(Collections.nCopies(rcs.getNumPos(), 0));
 
         // add the rootnode to the precomputed fringe
@@ -234,7 +238,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         assert(this.precomputedFringe.size() == 1);
         //MultiSequenceSHARKStarNode rootNode = this.precomputedFringe.get(0);
         rootNode.index(rootIndex);
-        this.order.updateForPrecomputedOrder(precomputedFlex.order, rootIndex, this.fullRCs, permutationArray);
+        //this.order.updateForPrecomputedOrder(precomputedFlex.order, rootIndex, this.fullRCs, permutationArray);
 
         // Next, record information from the precomputed pfunc
         //precomputedPfunc = precomputedFlex;
@@ -247,7 +251,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
         // finally,
         //updatePrecomputedConfTree();
-        updatePrecomputedFringe(precomputedFlexSSBound, permutationArray);
+        //updatePrecomputedFringe(precomputedFlexSSBound, permutationArray);
         mergeCorrections(precomputedFlex.correctionMatrix, genConfSpaceMapping(precomputedFlex));
 
     }
@@ -2206,7 +2210,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             debugPrint("Bounds incorrect.");
     }
 
-    private boolean hasPrunedPair(ConfIndex<PartialConfAStarNode> confIndex, int nextPos, int nextRc) {
+    private boolean hasPrunedPair(ConfIndex<ConfAStarNode> confIndex, int nextPos, int nextRc) {
 
         // do we even have pruned pairs?
         PruningMatrix pmat = fullRCs.getPruneMat();
@@ -2254,11 +2258,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
 
     protected static class ScoreContext {
-        public ConfIndex<PartialConfAStarNode> index;
-        public AStarScorer<PartialConfAStarNode> partialConfLowerBoundScorer;
-        public AStarScorer<PartialConfAStarNode> lowerBoundScorer;
-        public AStarScorer<PartialConfAStarNode> upperBoundScorer;
-        public AStarScorer<PartialConfAStarNode> partialConfUpperBoundScorer;
+        public ConfIndex<ConfAStarNode> index;
+        public AStarScorer<ConfAStarNode> partialConfLowerBoundScorer;
+        public AStarScorer<ConfAStarNode> lowerBoundScorer;
+        public AStarScorer<ConfAStarNode> upperBoundScorer;
+        public AStarScorer<ConfAStarNode> partialConfUpperBoundScorer;
         public ConfEnergyCalculator ecalc;
         public BatchCorrectionMinimizer batcher;
     }
