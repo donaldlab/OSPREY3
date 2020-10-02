@@ -1234,12 +1234,11 @@ public class MARKStarBound implements PartitionFunction {
     public double getAverageCorrectionImpact(){
         List<Integer> affected = correctionMatrix.getNumAffectedSequences(minimizingEcalc.confSpace.seqSpace);
         return affected.stream()
-                .reduce(0, (a,b) -> { // an implementation of max
-                    if (a>b)
-                        return a;
-                    else
-                        return b;
-                }).doubleValue() / affected.size();
+                .reduce(0, Integer::sum).doubleValue() / affected.size();
+    }
+
+    public int getNumCorrections(){
+        return correctionMatrix.getTrieSize();
     }
 
 }

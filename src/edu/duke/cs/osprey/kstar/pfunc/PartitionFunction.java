@@ -339,5 +339,8 @@ public interface PartitionFunction {
 	default double getAverageCorrectionImpact(){
 		return 0.0;
 	}
+	default int getNumCorrections(){
+		return 0;
+	}
 
 }
