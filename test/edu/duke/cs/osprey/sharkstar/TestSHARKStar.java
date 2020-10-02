@@ -1923,7 +1923,7 @@ public class TestSHARKStar {
 	public void test2rl0_A_9res() {
 		try {
 			ConfSpaces confSpaces = loadFromCFS("test-resources/2rl0_A_9res_2.526E+11.cfs");
-			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.999, null, 5, TestBBKStar.Impls.MARK);
+			TestBBKStar.Results results = runBBKStar(confSpaces, 5, 0.999, null, 5, TestBBKStar.Impls.SHARK);
 			for (KStar.ScoredSequence sequence : results.sequences) {
 				System.out.println(String.format("%s : [%1.9e, %1.9e]",
 						sequence.sequence,
@@ -1949,6 +1949,8 @@ public class TestSHARKStar {
 			for (BBKStar.SingleSequenceNode node : results.bbkstar.storeFinishedNodes){
 				System.out.printf("%s entropy: %.3f%n", node.sequence, node.complex.computeEntropy(1e-9));
 				System.out.printf("%s max correction: %.3f%n", node.sequence, node.complex.getLargestCorrection());
+				System.out.printf("%s max correction impact: %d%n", node.sequence, node.complex.getMaxCorrectionImpact());
+				System.out.printf("%s average correction impact: %.3f%n", node.sequence, node.complex.getAverageCorrectionImpact());
 			}
 			long numMinimizations = 0L;
 
@@ -1957,6 +1959,7 @@ public class TestSHARKStar {
             }
 			System.out.printf("num minimized: %d%n", numMinimizations);
 			System.out.printf("%d single sequence pfuncs%n", results.bbkstar.storeAllSingleSequenceNodes.size());
+			System.out.printf("Total num seqs: %d%n", results.bbkstar.complexSHARK.confSpace.seqSpace.getNumSequences());
 
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();

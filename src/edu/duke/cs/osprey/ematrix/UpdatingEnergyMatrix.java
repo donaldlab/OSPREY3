@@ -33,6 +33,7 @@
 package edu.duke.cs.osprey.ematrix;
 
 import edu.duke.cs.osprey.confspace.RCTuple;
+import edu.duke.cs.osprey.confspace.SeqSpace;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.confspace.TupE;
@@ -496,6 +497,17 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
 
         }
 
+    }
+
+    public synchronized List<Integer> getNumAffectedSequences(SeqSpace s){
+        return getAllCorrections().stream()
+                .map((tup) ->
+                        s.positions.stream() // all positions in the seqspace
+                                .filter((p) -> !tup.tup.pos.contains(p.index)) // keep AAs that aren't in the tuple
+                                .map((p) -> p.resTypes.size()) // the number of mutations at position
+                                .reduce(1,(a,b) -> a*b) // multiply to get the seq space size for the correction
+                        )
+                .collect(Collectors.toList());
     }
 
 }

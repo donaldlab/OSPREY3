@@ -332,4 +332,12 @@ public interface PartitionFunction {
 		return 0.0;
 	}
 
+	default int getMaxCorrectionImpact(){
+		return 0;
+	}
+
+	default double getAverageCorrectionImpact(){
+		return 0.0;
+	}
+
 }

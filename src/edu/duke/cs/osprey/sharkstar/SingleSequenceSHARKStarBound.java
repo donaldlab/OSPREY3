@@ -550,4 +550,26 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
         else
             return 0.0;
     }
+
+    public int getMaxCorrectionImpact(){
+        return multisequenceBound.correctionMatrix.getNumAffectedSequences(multisequenceBound.confSpace.seqSpace)
+                .stream()
+                .reduce(0, (a,b) -> { // an implementation of max
+                    if (a>b)
+                        return a;
+                    else
+                        return b;
+                });
+    }
+
+    public double getAverageCorrectionImpact(){
+        List<Integer> affected = multisequenceBound.correctionMatrix.getNumAffectedSequences(multisequenceBound.confSpace.seqSpace);
+        return affected.stream()
+                .reduce(0, (a,b) -> { // an implementation of max
+                    if (a>b)
+                        return a;
+                    else
+                        return b;
+                }).doubleValue() / affected.size();
+    }
 }

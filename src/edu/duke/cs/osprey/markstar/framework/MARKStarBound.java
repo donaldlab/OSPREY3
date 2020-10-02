@@ -1219,4 +1219,27 @@ public class MARKStarBound implements PartitionFunction {
         else
             return 0.0;
     }
+
+    public int getMaxCorrectionImpact(){
+        return correctionMatrix.getNumAffectedSequences(minimizingEcalc.confSpace.seqSpace)
+                .stream()
+                .reduce(0, (a,b) -> { // an implementation of max
+                    if (a>b)
+                        return a;
+                    else
+                        return b;
+                });
+    }
+
+    public double getAverageCorrectionImpact(){
+        List<Integer> affected = correctionMatrix.getNumAffectedSequences(minimizingEcalc.confSpace.seqSpace);
+        return affected.stream()
+                .reduce(0, (a,b) -> { // an implementation of max
+                    if (a>b)
+                        return a;
+                    else
+                        return b;
+                }).doubleValue() / affected.size();
+    }
+
 }
