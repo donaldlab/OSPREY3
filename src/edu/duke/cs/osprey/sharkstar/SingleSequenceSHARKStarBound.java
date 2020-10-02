@@ -300,17 +300,17 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
         if(MultiSequenceSHARKStarBound.debug){
             System.out.printf("State eps: %.9f, [%1.9e, %1.9e], Direct eps: %.9f, [%1.9e, %1.9e]%n",
                     this.state.calcDelta(),
-                    this.state.getLowerBound(),
-                    this.state.getUpperBound(),
+                    this.state.getLowerBound().doubleValue(),
+                    this.state.getUpperBound().doubleValue(),
                     getEpsDirectly(),
-                    getLowerDirectly(),
-                    getUpperDirectly()
+                    getLowerDirectly().doubleValue(),
+                    getUpperDirectly().doubleValue()
             );
         }else{
             System.out.printf("Eps: %.9f, [%1.9e, %1.9e]%n",
                     this.state.calcDelta(),
-                    this.state.getLowerBound(),
-                    this.state.getUpperBound()
+                    this.state.getLowerBound().doubleValue(),
+                    this.state.getUpperBound().doubleValue()
             );
         }
     }
