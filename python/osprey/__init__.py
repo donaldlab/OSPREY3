@@ -363,7 +363,7 @@ def Parallelism(cpuCores=None, gpus=None, streamsPerGpu=None):
 
 
 def TemplateLibrary(
-		forcefield=None,
+		ffparams=None,
 		defaultTemplates=True, extraTemplates=[],
 		defaultTemplateCoords=True, extraTemplateCoords=[],
 		defaultRotamers=True, extraRotamers=[],
@@ -375,7 +375,7 @@ def TemplateLibrary(
 	'''
 	:java:classdoc:`.restypes.ResidueTemplateLibrary`
 
-	:builder_option forcefield .restypes.ResidueTemplateLibrary$Builder#forcefield:
+	:builder_option ffparams .restypes.ResidueTemplateLibrary$Builder#ffparams:
 
 	:param bool defaultTemplates: :java:methoddoc:`.restypes.ResidueTemplateLibrary$Builder#clearTemplates`
 	:param extraTemplates: :java:methoddoc:`.restypes.ResidueTemplateLibrary$Builder#addTemplates`
@@ -400,10 +400,10 @@ def TemplateLibrary(
 	:builder_return .restypes.ResidueTemplateLibrary$Builder:
 	'''
 
-	if forcefield is None:
+	if ffparams is None:
 		builder = _get_builder(c.restypes.ResidueTemplateLibrary)()
 	else:
-		builder = _get_builder(c.restypes.ResidueTemplateLibrary)(forcefield)
+		builder = _get_builder(c.restypes.ResidueTemplateLibrary)(ffparams)
 
 	if not defaultTemplates:
 		builder.clearTemplates()
@@ -552,16 +552,16 @@ def MultiStateConfSpace(states):
 	return builder.build()
 
 
-def ForcefieldParams(forcefield=None):
+def ForcefieldParams(params=None):
 	'''
 	:java:classdoc:`.energy.forcefield.ForcefieldParams`
 	
 	Configure the forcefield parameters by setting the properties of the :java:ref:`.energy.forcefield.ForcefieldParams` object.
 
-	:builder_option forcefield .energy.forcefield.ForcefieldParams#forcefld:
+	:param str params: text of forcefield parameters in Amber format, to override defaults if desired
 	:rtype: :java:ref:`.energy.forcefield.ForcefieldParams`
 	'''
-	return c.energy.forcefield.ForcefieldParams()
+	return c.energy.forcefield.ForcefieldParams(Forcefield.AMBER, params)
 
 
 def EnergyCalculator(confSpace, ffparams, parallelism=None, type=None, isMinimizing=None, infiniteWellEnergy=None):
