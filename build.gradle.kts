@@ -246,10 +246,6 @@ class Python(val cmd: String) {
 		null
 	}
 
-	val pipCmd by lazy {
-		"-m pip"
-	}
-
 	override fun toString() = "Python $version"
 }
 
@@ -470,7 +466,7 @@ tasks {
 		description = "Install python package in development mode"
 		workingDir = pythonSrcDir.toFile()
 		commandLine(
-			defaultPython.pipCmd,
+			defaultPython.cmd, "-m", "pip",
 			"install",
 			"--user", "--editable",
 			".", // path to package to install, ie osprey
@@ -489,7 +485,7 @@ tasks {
 		description = "Uninstall development mode python package"
 		workingDir = pythonSrcDir.toFile()
 		commandLine(
-			defaultPython.pipCmd,
+			defaultPython.cmd, "-m", "pip",
 			"uninstall",
 			"--yes", "osprey"
 		)
