@@ -255,8 +255,29 @@ public class Residue implements Serializable {
     public String getType() {
     	return fullName.substring(0, 3).trim();
 	}
-    
-    public boolean assignTemplate(ResidueTemplateLibrary templateLib) {
+
+
+	public enum TemplateMatchingMethod {
+
+		/** Matches a template iff only all the atom names match exactly. */
+		AtomNames,
+
+		/**
+		 * Matches the closest template based on comparing bond distances.
+		 * Requires forcefield params for bond lengths for all bonded atoms, which are not normally used by Osprey.
+		 */
+		BondDistances
+	}
+
+	public boolean assignTemplate(ResidueTemplateLibrary templateLib, TemplateMatchingMethod method) {
+    	switch (method) {
+			case AtomNames: return assignTemplateSimple(templateLib, HardCodedResidueInfo.getTemplateName(this));
+			case BondDistances: return assignTemplate(templateLib);
+			default: throw new Error("unknown method: " + method); // javac is dumb T_T
+		}
+	}
+
+	public boolean assignTemplate(ResidueTemplateLibrary templateLib) {
         //assign a template to this residue if possible, using the ResidueTemplateLibrary
         //return if successful or not
         
@@ -278,7 +299,8 @@ public class Residue implements Serializable {
         return assignTemplate(templCandidates, templateLib.ffparams);
     }
             
-    public boolean assignTemplate(List<ResidueTemplate> templCandidates, ForcefieldParams ffParams) {    
+    public boolean assignTemplate(List<ResidueTemplate> templCandidates, ForcefieldParams ffParams) {
+
         //now try to match up atoms
         ResTemplateMatching bestMatching = null;
         double bestScore = Double.POSITIVE_INFINITY;
@@ -309,7 +331,7 @@ public class Residue implements Serializable {
 	 * caused by mis-matched atoms, say, due to issues with stereochemistries.
 	 * Important for accurately assigning templates to structures in the top8000 dataset.
 	 */
-	public void assignTemplateSimple(ResidueTemplateLibrary templateLib, String type) {
+	public boolean assignTemplateSimple(ResidueTemplateLibrary templateLib, String type) {
 
 		// assign a template without fuzzy matching
 		List<ResidueTemplate> templateCandidates = templateLib.templates.stream()
@@ -320,12 +342,12 @@ public class Residue implements Serializable {
 			.collect(Collectors.toList());
 		ResidueTemplate template;
 		if (templateCandidates.isEmpty()) {
-			return;
+			return false;
 		} else if (templateCandidates.size() == 1) {
 			template = templateCandidates.get(0);
 		} else {
 			log("warning: too many templates (%d) for %s", templateCandidates.size(), fullName);
-			return;
+			return false;
 		}
 
 		// mangle the residue atom names a bit to increase chances of matching a template
@@ -351,7 +373,7 @@ public class Residue implements Serializable {
 					atoms.stream().map(a -> a.name).sorted(Comparator.naturalOrder()).collect(Collectors.toList()),
 					template.templateRes.atoms.stream().map(a -> a.name).sorted(Comparator.naturalOrder()).collect(Collectors.toList())
 				);
-				return;
+				return false;
 			}
 		}
 
@@ -379,8 +401,9 @@ public class Residue implements Serializable {
 			double[] p = coords.get(atom.name);
 			atom.setCoords(p[0], p[1], p[2]);
 		}
-	}
 
+		return true;
+	}
 
 	public void markIntraResBondsByTemplate(){
         //assign all the bonds between atoms in this residue, based on the template
@@ -599,11 +622,17 @@ public class Residue implements Serializable {
             
             Atom atom1 = atoms.get(atNum1);
             int atomType1 = atom1.type;
+            if (atomType1 < 0) {
+            	throw new NoSuchElementException("unknown atom type for atom: " + atom1.name + ":" + atom1.forceFieldType);
+			}
             
             for(Atom atom2 : atom1.bonds){
                 int atNum2 = getAtomIndexByName(atom2.name);
                 int atomType2 = atom2.type;
-                
+				if (atomType2 < 0) {
+					throw new NoSuchElementException("unknown atom type for atom: " + atom2.name + ":" + atom2.forceFieldType);
+				}
+
                 ans[atNum1][atNum2] = ffParams.getBondEBL(atomType1, atomType2);
                 
                 if(Double.isNaN(ans[atNum1][atNum2])){//No EBL for these atom types

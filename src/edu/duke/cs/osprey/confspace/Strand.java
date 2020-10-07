@@ -66,6 +66,7 @@ public class Strand implements Serializable {
 		 **/
 		private ResidueTemplateLibrary templateLib;
 		private boolean errorOnNonTemplateResidues;
+		private Residue.TemplateMatchingMethod templateMatchingMethod = Residue.TemplateMatchingMethod.BondDistances;
 		
 		public Builder(Molecule mol) {
 			this.mol = mol;
@@ -107,9 +108,14 @@ public class Strand implements Serializable {
 			this.errorOnNonTemplateResidues = val;
 			return this;
 		}
+
+		public Builder setTemplateMatchingMethod(Residue.TemplateMatchingMethod val) {
+			this.templateMatchingMethod = val;
+			return this;
+		}
 		
 		public Strand build() {
-			return new Strand(mol, firstResNum, lastResNum, templateLib, errorOnNonTemplateResidues);
+			return new Strand(mol, firstResNum, lastResNum, templateLib, errorOnNonTemplateResidues, templateMatchingMethod);
 		}
 	}
 	
@@ -271,7 +277,7 @@ public class Strand implements Serializable {
 				.collect(Collectors.toList());
 		}
 	}
-	
+
 	/** The molecule this strand represents */
 	public final Molecule mol;
 	
@@ -284,7 +290,7 @@ public class Strand implements Serializable {
 	/** Flexibility parameters for this strand */
 	public final Flexibility flexibility;
 		
-	private Strand(Molecule mol, String firstResNumber, String lastResNumber, ResidueTemplateLibrary templateLib, boolean errorOnNonTemplateResidues) {
+	private Strand(Molecule mol, String firstResNumber, String lastResNumber, ResidueTemplateLibrary templateLib, boolean errorOnNonTemplateResidues, Residue.TemplateMatchingMethod templateMatchingMethod) {
 		
 		// make sure the mol has these residues, otherwise the ranges won't work correctly
 		mol.residues.getOrThrow(firstResNumber);
@@ -308,7 +314,7 @@ public class Strand implements Serializable {
 		
 		// assign templates and mark intra-residue bonds
 		this.templateLib = templateLib;
-		nonTemplateResNames = tryAssigningTemplates(this.mol, templateLib);
+		nonTemplateResNames = tryAssigningTemplates(this.mol, templateLib, templateMatchingMethod);
 		
 		// delete non template residues if needed
 		if (!nonTemplateResNames.isEmpty()) {
@@ -335,7 +341,7 @@ public class Strand implements Serializable {
 	}
         
         
-    public static LinkedHashSet<String> tryAssigningTemplates(Molecule mol, ResidueTemplateLibrary templateLib){
+    public static LinkedHashSet<String> tryAssigningTemplates(Molecule mol, ResidueTemplateLibrary templateLib, Residue.TemplateMatchingMethod templateMatchingMethod){
         LinkedHashSet<String> nonTemplateResNames = new LinkedHashSet<>();
         for (Residue res : mol.residues) {
 
@@ -347,14 +353,14 @@ public class Strand implements Serializable {
                 }
 
                 // try to assign the template
-                boolean templateAssigned = res.assignTemplate(templateLib);
+                boolean templateAssigned = res.assignTemplate(templateLib, templateMatchingMethod);
                 if (templateAssigned) {
 
                         // assign the alternates too
                         Iterator<Residue> altIter = mol.getAlternates(res.indexInMolecule).iterator();
                         while (altIter.hasNext()) {
                                 Residue altRes = altIter.next();
-                                boolean altTemplateAssigned = altRes.assignTemplate(templateLib);
+                                boolean altTemplateAssigned = altRes.assignTemplate(templateLib, templateMatchingMethod);
                                 if (!altTemplateAssigned) {
 
                                         // sometimes alts have fewer atoms than the main residue and we can't do template assignment

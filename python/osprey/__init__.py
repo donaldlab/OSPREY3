@@ -60,6 +60,7 @@ EnergyPartition = None
 ExternalMemory = None
 ConfSpaceType = None
 BreakdownType = None
+TemplateMatchingMethod = None
 
 # make a special type to use in function signatures to explicitly
 # signal that values should rely on defaults in the java code
@@ -184,6 +185,8 @@ def _start_jvm_common(fn_jvm_start):
 	ConfSpaceType = jvm.getInnerClass(c.kstar.KStar, 'ConfSpaceType')
 	global BreakdownType
 	BreakdownType = jvm.getInnerClass(c.energy.ResidueForcefieldBreakdown, 'Type')
+	global TemplateMatchingMethod
+	TemplateMatchingMethod = jvm.getInnerClass(c.structure.Residue, 'TemplateMatchingMethod')
 
 	# expose static builder methods too
 	Parallelism.makeCpu = c.parallelism.Parallelism.makeCpu
@@ -432,7 +435,7 @@ def TemplateLibrary(
 	return builder.build()
 	
 
-def Strand(pathOrMol, residues=None, templateLib=None):
+def Strand(pathOrMol, residues=None, templateLib=None, templateMatchingMethod=None):
 	'''
 	:java:classdoc:`.confspace.Strand`
 
@@ -443,6 +446,7 @@ def Strand(pathOrMol, residues=None, templateLib=None):
 	:type residues: [str, str]
 
 	:builder_option templateLib .confspace.Strand$Builder#templateLib:
+	:builder_option templateMatchingMethod .confspace.Strand$Builder#templateMatchingMethod:
 
 	:builder_return .confspace.Strand$Builder:
 	'''
@@ -460,7 +464,10 @@ def Strand(pathOrMol, residues=None, templateLib=None):
 
 	if templateLib is not None:
 		builder.setTemplateLibrary(templateLib)
-	
+
+	if templateMatchingMethod is not None:
+		builder.setTemplateMatchingMethod(templateMatchingMethod)
+
 	return builder.build()
 
 
