@@ -1957,9 +1957,10 @@ public class TestSHARKStar {
 			for (BBKStar.SingleSequenceNode node : results.bbkstar.storeAllSingleSequenceNodes){
 			    numMinimizations += node.complex.getNumConfsMinimized();
             }
-			System.out.printf("num minimized: %d%n", numMinimizations);
-			System.out.printf("%d single sequence pfuncs%n", results.bbkstar.storeAllSingleSequenceNodes.size());
-			System.out.printf("Total num seqs: %d%n", results.bbkstar.complexSHARK.confSpace.seqSpace.getNumSequences());
+			//System.out.printf("num minimized: %d%n", numMinimizations);
+			//System.out.printf("%d single sequence pfuncs%n", results.bbkstar.storeAllSingleSequenceNodes.size());
+			//System.out.printf("Total num seqs: %d%n", results.bbkstar.complexSHARK.confSpace.seqSpace.getNumSequences());
+			results.bbkstar.printSequenceTree("testtree.tree");
 
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();

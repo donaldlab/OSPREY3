@@ -62,6 +62,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static edu.duke.cs.osprey.tools.Log.log;
@@ -1345,4 +1346,126 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     public double getEntropy(){
         return this.entropy;
     }
+
+    public static List<KStarTreeNode> getFringeFromRoot(KStarTreeNode root){
+        List<KStarTreeNode> subtreeFringe = new ArrayList<>();
+        if(root.children == null || root.children.isEmpty()){
+            subtreeFringe.add(root);
+            return subtreeFringe;
+        }else{
+            for (KStarTreeNode child : root.children){
+                subtreeFringe.addAll(getFringeFromRoot(child));
+            }
+        }
+        return subtreeFringe;
+    }
+
+    public static int[] determineOrderingFromFringe(Collection<KStarTreeNode> fringe){
+        Map<Integer, List<KStarTreeNode>> nodesByLevel = fringe.stream().collect(Collectors.groupingBy((n) -> n.level));
+        Optional<Integer> leafLevel = nodesByLevel.keySet().stream().max(Integer::compareTo);
+        int maxLevel = 0;
+        if(leafLevel.isPresent())
+            maxLevel = leafLevel.get();
+        // if we only have nodes in the leafiest level, then we can choose any arbitrary ordering. otherwise we have to be more careful
+        int[] posByLevel = new int[maxLevel]; // which position index gets assigned to result in confs at the specified level?
+        int[] levelByPos = new int[maxLevel]; // which level is assigned to the specified index?
+        Arrays.fill(posByLevel, -1);
+        Arrays.fill(levelByPos, -1);
+        //look to figure out which positions go with which index
+        for (int i = 0; i<maxLevel; i++){
+            // find out which positions are assigned
+            List<Integer> assigned_positions = new ArrayList<>();
+            if(nodesByLevel.containsKey(i+1)) {
+                int[] example_assignments = nodesByLevel.get(i+1).get(0).confAssignments;
+                for (int j = 0; j<example_assignments.length; j++){
+                    if (example_assignments[j] >= 0)
+                        assigned_positions.add(j);
+                }
+            }
+            assigned_positions.sort(Integer::compareTo);
+            for(int level = 1; level <= i+1; level ++){
+                if(posByLevel[level-1] < 0) { // if the level hasn't been assigned a position, try to assign it
+                    for (int position : assigned_positions) {// check every position currently assigned. if that position is free, assign it
+                        if (levelByPos[position] < 0) {
+                            posByLevel[level-1] = position;
+                            levelByPos[position] = level;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            }
+        return posByLevel;
+
+    }
+
+    public static KStarTreeNode buildTreeFromFringe(Collection<KStarTreeNode> fringe){
+        BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
+        // First, collect the nodes by level
+        Map<Integer, List<KStarTreeNode>> nodesByLevel = fringe.stream().collect(Collectors.groupingBy((n) -> n.level));
+        Optional<Integer> leafLevel = nodesByLevel.keySet().stream().max(Integer::compareTo);
+        int maxLevel = 0;
+        if(leafLevel.isPresent())
+            maxLevel = leafLevel.get();
+        int[] residueOrdering = determineOrderingFromFringe(fringe);
+        for (int currentIndex = maxLevel - 1; currentIndex >=0; ){
+            final int currentLevel = currentIndex+1;
+            final int childPos = residueOrdering[currentIndex];
+            int parentPos = -1;
+            List<KStarTreeNode> lastLevel = nodesByLevel.get(currentLevel);
+            List<KStarTreeNode> newLevel = new ArrayList<>();
+            Map<List<Integer>, List<KStarTreeNode>> nodesByAA;
+            if(currentIndex <= 0) {
+                nodesByAA = new HashMap<>();
+                int[] root = new int[] {-1};
+                nodesByAA.put(Arrays.stream(root).boxed().collect(Collectors.toList()), lastLevel);
+            }else {
+                parentPos=residueOrdering[currentIndex-1];
+                nodesByAA = lastLevel.stream().collect(Collectors.groupingBy((n) -> {
+                    int[] childArray = Arrays.copyOf(n.getConfAssignments(), n.getConfAssignments().length);
+                    childArray[childPos] = -1;
+                    return Arrays.stream(childArray).boxed().collect(Collectors.toList());
+                }));
+            }
+            for(List<KStarTreeNode> children : nodesByAA.values()){
+                KStarTreeNode exemplar = children.get(0);
+                String[] parentAssignments = Arrays.copyOf(exemplar.getAssignments(), exemplar.getAssignments().length);
+                parentAssignments[childPos] = "*";
+                int[] parentConfAssignments = Arrays.copyOf(exemplar.getConfAssignments(), exemplar.getConfAssignments().length);
+                parentConfAssignments[childPos] = -1;
+                int level = exemplar.level - 1;
+                BigDecimal parentLB = children.stream().map(KStarTreeNode::getLowerBound).reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal parentUB = children.stream().map(KStarTreeNode::getUpperBound).reduce(BigDecimal.ZERO, BigDecimal::add);
+                double parentConfLB = Double.NEGATIVE_INFINITY;
+                double parentConfUB = Double.POSITIVE_INFINITY;
+                if(parentUB != MathTools.BigPositiveInfinity)
+                    parentConfLB = bc.freeEnergy(parentUB);
+                if(parentLB != MathTools.BigPositiveInfinity)
+                    parentConfUB = bc.freeEnergy(parentLB);
+
+                KStarTreeNode parent = new SeqTreeNode(level,
+                        parentAssignments,
+                        parentConfAssignments,
+                        parentLB,
+                        parentUB,
+                        parentConfLB,
+                        parentConfUB,
+                        0,
+                        new Double[]{}
+                );
+                parent.setChildren(children);
+                //parent.setEntropy(0.0);
+                newLevel.add(parent);
+            }
+            List<KStarTreeNode> nextLevel = nodesByLevel.getOrDefault(currentLevel - 1, new ArrayList<>());
+            nextLevel.addAll(newLevel);
+            nodesByLevel.put(currentLevel - 1, nextLevel);
+            //lastLevel = newLevel;
+            currentIndex--;
+
+        }
+        return nodesByLevel.get(0).get(0);
+    }
+
 }

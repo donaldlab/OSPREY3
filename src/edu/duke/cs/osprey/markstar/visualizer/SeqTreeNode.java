@@ -110,6 +110,13 @@ public class SeqTreeNode extends KStarTreeNode{
             child.printTreeLikeMARKStar(out, prefix + "~+");
         }
     }
+    public static SeqTreeNode parseTree(String filename){
+        return parseTree(new File(filename), false);
+    }
+
+    public static SeqTreeNode parseTree(File file){
+        return parseTree(file, false);
+    }
 
     public static SeqTreeNode parseTree(File file, boolean render)
     {

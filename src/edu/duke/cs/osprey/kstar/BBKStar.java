@@ -1026,64 +1026,8 @@ public class BBKStar {
 		}).collect(Collectors.toList());
 
 	    // populate the rest of the tree
-		Map<Integer, List<KStarTreeNode>> nodesByLevel = fringe.stream().collect(Collectors.groupingBy((n) -> n.level));
-	    Optional<Integer> leafLevel = nodesByLevel.keySet().stream().max(Integer::compareTo);
-		for (int currentIndex = leafLevel.get() - 1; currentIndex >=0; ){
-			final int currentLevel = currentIndex+1;
-			final int childPos = currentIndex;
-			final int parentPos = currentIndex-1;
-			List<KStarTreeNode> lastLevel = nodesByLevel.get(currentLevel);
-			List<KStarTreeNode> newLevel = new ArrayList<>();
-			Map<List<Integer>, List<KStarTreeNode>> nodesByAA;
-			if(parentPos < 0) {
-				nodesByAA = new HashMap<>();
-				int[] root = new int[] {-1};
-				nodesByAA.put(Arrays.stream(root).boxed().collect(Collectors.toList()), lastLevel);
-			}else {
-				nodesByAA = lastLevel.stream().collect(Collectors.groupingBy((n) -> {
-					int[] childArray = Arrays.copyOf(n.getConfAssignments(), n.getConfAssignments().length);
-					childArray[childPos] = -1;
-					return Arrays.stream(childArray).boxed().collect(Collectors.toList());
-				}));
-			}
-			for(List<KStarTreeNode> children : nodesByAA.values()){
-				KStarTreeNode exemplar = children.get(0);
-				String[] parentAssignments = Arrays.copyOf(exemplar.getAssignments(), numPos);
-				parentAssignments[childPos] = "*";
-				int[] parentConfAssignments = Arrays.copyOf(exemplar.getConfAssignments(), numPos);
-				parentConfAssignments[childPos] = -1;
-				int level = exemplar.level - 1;
-				BigDecimal parentLB = children.stream().map(KStarTreeNode::getLowerBound).reduce(BigDecimal.ZERO, BigDecimal::add);
-				BigDecimal parentUB = children.stream().map(KStarTreeNode::getUpperBound).reduce(BigDecimal.ZERO, BigDecimal::add);
-				double parentConfLB = Double.NEGATIVE_INFINITY;
-				double parentConfUB = Double.POSITIVE_INFINITY;
-				if(parentUB != MathTools.BigPositiveInfinity)
-				    parentConfLB = bc.freeEnergy(parentUB);
-				if(parentLB != MathTools.BigPositiveInfinity)
-					parentConfUB = bc.freeEnergy(parentLB);
+		SeqTreeNode root = (SeqTreeNode) KStarTreeNode.buildTreeFromFringe(fringe);
 
-				KStarTreeNode parent = new SeqTreeNode(level,
-								parentAssignments,
-								parentConfAssignments,
-								parentLB,
-								parentUB,
-								parentConfLB,
-								parentConfUB,
-								0,
-								new Double[]{}
-						);
-				parent.setChildren(children);
-				//parent.setEntropy(0.0);
-				newLevel.add(parent);
-			}
-			List<KStarTreeNode> nextLevel = nodesByLevel.getOrDefault(currentLevel - 1, new ArrayList<>());
-			nextLevel.addAll(newLevel);
-			nodesByLevel.put(currentLevel - 1, nextLevel);
-			//lastLevel = newLevel;
-			currentIndex--;
-
-		}
-		KStarTreeNode root = nodesByLevel.get(0).get(0);
 		try {
 			FileWriter writer = new FileWriter(fn);
 			root.printTreeLikeMARKStar(writer);
