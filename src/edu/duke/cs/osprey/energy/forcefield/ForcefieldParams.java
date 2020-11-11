@@ -622,6 +622,13 @@ public class ForcefieldParams implements Serializable {
 		}
 		return -1;
 	}
+
+	public String atomType(int index) {
+    	if (index >= 0 && index < atomTypeNames.length) {
+    		return atomTypeNames[index];
+		}
+    	return null;
+	}
 	
 	
 	// This function searches the bond constants for the atoms specified

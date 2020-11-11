@@ -72,7 +72,7 @@ public class Strand implements Serializable {
 			this.mol = mol;
 			this.firstResNum = mol.residues.get(0).getPDBResNumber();
 			this.lastResNum = mol.residues.get(mol.residues.size() - 1).getPDBResNumber();
-			this.templateLib = new ResidueTemplateLibrary.Builder().build();
+			this.templateLib = null;
 			this.errorOnNonTemplateResidues = false;
 		}
 
@@ -115,6 +115,11 @@ public class Strand implements Serializable {
 		}
 		
 		public Strand build() {
+
+			if (templateLib == null) {
+				templateLib = new ResidueTemplateLibrary.Builder().build();
+			}
+
 			return new Strand(mol, firstResNum, lastResNum, templateLib, errorOnNonTemplateResidues, templateMatchingMethod);
 		}
 	}
