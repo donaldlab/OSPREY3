@@ -319,8 +319,8 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfDB, Parti
 	@Override
 	public void init(double targetEpsilon) {
 
-		if (targetEpsilon <= 0.0) {
-			throw new IllegalArgumentException("target epsilon must be greater than zero");
+		if (targetEpsilon < 0.0) {
+			throw new IllegalArgumentException("target epsilon must at least zero");
 		}
 		this.targetEpsilon = targetEpsilon;
 

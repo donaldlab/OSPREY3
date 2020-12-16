@@ -173,7 +173,7 @@ public interface KStarScoreWriter {
 
 			@Override
 			public String format(ScoreInfo info) {
-				return String.format("sequence %4d/%4d   %s   K*(log10): %-34s   protein: %-18s, numConfs: %d, epsilon: %01.3f   ligand: %-18s, numConfs: %d, epsilon: %01.3f   complex: %-18s, numConfs: %d, epsilon: %01.3f",
+				return String.format("sequence %4d/%4d   %s   K*(log10): %-34s   protein: %-18s, numConfs: %4d, delta: %01.3f   ligand: %-18s, numConfs: %4d, delta: %01.3f   complex: %-18s, numConfs: %4d, delta: %01.3f",
 					info.sequenceNumber + 1,
 					info.numSequences,
 					info.sequence.toString(Sequence.Renderer.AssignmentMutations, info.sequence.calcCellSize() + 1),

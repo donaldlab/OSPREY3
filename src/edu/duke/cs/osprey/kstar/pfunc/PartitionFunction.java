@@ -127,7 +127,12 @@ public interface PartitionFunction {
 
 			BigDecimal s = MathTools.bigAdd(qprime, pstar, decimalPrecision);
 			BigDecimal qu = MathTools.bigAdd(s, qstar, decimalPrecision);
-			return MathTools.bigDivide(s, qu, decimalPrecision).doubleValue();
+			double delta = MathTools.bigDivide(s, qu, decimalPrecision).doubleValue();
+
+			// sometimes the delta is ever so slightly below zero, so just take the abs
+			delta = Math.abs(delta);
+
+			return delta;
 		}
 
 		public BigDecimal calcLowerBound() {
