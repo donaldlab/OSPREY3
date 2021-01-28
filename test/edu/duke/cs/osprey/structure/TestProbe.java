@@ -42,7 +42,6 @@ import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.Streams;
 import org.apache.commons.lang3.StringUtils;
-import org.hamcrest.Matcher;
 import org.junit.Test;
 
 import java.io.*;
@@ -551,7 +550,7 @@ public class TestProbe {
 		}
 	}
 
-	public static List<Overlap> parseLines(Molecule mol, List<String> lines) {
+	public static List<Overlap> parseLines(Molecule mol, Iterable<String> lines) {
 
 		Function<String,Probe.Contact> findContact = (code) -> {
 			switch (code) {
@@ -610,9 +609,8 @@ public class TestProbe {
 		return overlaps;
 	}
 
-	public static List<String> readLines(String path) {
-		return Streams.of(FileTools.parseLines(FileTools.readResource(path)))
-			.collect(Collectors.toList());
+	public static Iterable<String> readLines(String path) {
+		return FileTools.parseLines(FileTools.readResource(path));
 	}
 
 	public static void main(String[] args) {

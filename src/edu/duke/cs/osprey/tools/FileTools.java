@@ -402,38 +402,61 @@ public class FileTools {
 		IOUtils.write(bytes, out);
 	}
 
-	public static Iterable<String> parseLines(String text) {
+	/**
+	 * A fairly efficient line iterator for parsing text files.
+	 * At least it's quite a bit faster than stuff like String.lines()
+	 */
+	public static class LineIterator implements Iterator<String>, Iterable<String> {
 
-		BufferedReader reader = new BufferedReader(new StringReader(text));
+		private final BufferedReader reader;
 
-		return () -> new Iterator<String>() {
+		private String nextLine;
+		private int lineNumber;
 
-			private String nextLine;
+		public LineIterator(String text) {
+			reader = new BufferedReader(new StringReader(text));
+			nextLine = readLine();
+			lineNumber = 1;
+		}
 
-			{
-				nextLine = readLine();
+		private String readLine() {
+			try {
+				return reader.readLine();
+			} catch (IOException ex) {
+				throw new Error("can't read line", ex);
 			}
+		}
 
-			private String readLine() {
-				try {
-					return reader.readLine();
-				} catch (IOException ex) {
-					throw new Error("can't read line", ex);
-				}
-			}
+		@Override
+		public boolean hasNext() {
+			return nextLine != null;
+		}
 
-			@Override
-			public boolean hasNext() {
-				return nextLine != null;
-			}
+		public String peek() {
+			return nextLine;
+		}
 
-			@Override
-			public String next() {
-				String line = nextLine;
-				nextLine = readLine();
-				return line;
-			}
-		};
+		@Override
+		public String next() {
+			String line = nextLine;
+			nextLine = readLine();
+			lineNumber += 1;
+			return line;
+		}
+
+		/** human-readable, matches text editors, starts at 1 */
+		public int lineNumber() {
+			return lineNumber;
+		}
+
+		@Override
+		public Iterator<String> iterator() {
+			return this;
+		}
+	}
+
+	public static LineIterator parseLines(String text) {
+		return new LineIterator(text);
 	}
 
 	/**
