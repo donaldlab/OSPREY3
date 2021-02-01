@@ -770,6 +770,9 @@ public class MARKStarBound implements PartitionFunction.WithConfDB {
                 MARKStarNode nextNode = drillDown(newNodes, curNode, node);
                 newNodes.remove(nextNode);
                 drillQueue.add(nextNode);
+            }else if(RCs.getNumPos() == 0){
+                // weird case where there are no residues?
+                curNode.recomputeEpsilon();
             }
             else {
                 newNodes.add(curNode);
