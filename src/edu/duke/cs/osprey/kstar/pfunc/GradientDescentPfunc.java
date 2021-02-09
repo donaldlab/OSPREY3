@@ -331,8 +331,8 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfDB, Parti
 	@Override
 	public void init(double targetEpsilon) {
 
-		if (targetEpsilon <= 0.0) {
-			throw new IllegalArgumentException("target epsilon must be greater than zero");
+		if (targetEpsilon < 0.0) {
+			throw new IllegalArgumentException("target epsilon must at least zero");
 		}
 		this.targetEpsilon = targetEpsilon;
 
@@ -461,10 +461,12 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfDB, Parti
 						confs.add(conf.getScore());
 					}
 
-					ecalc.tasks.submit(
-						new ScoreTask(instanceIdOrThrow(), confs, new Stopwatch().start()),
-						(result) -> onScores(result.scoreWeights, result.stopwatch.getTimeS())
-					);
+					if (!confs.isEmpty()) {
+						ecalc.tasks.submit(
+								new ScoreTask(instanceIdOrThrow(), confs, new Stopwatch().start()),
+								(result) -> onScores(result.scoreWeights, result.stopwatch.getTimeS())
+						);
+					}
 
 					break;
 				}

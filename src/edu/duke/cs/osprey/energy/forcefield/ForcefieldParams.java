@@ -33,6 +33,7 @@
 package edu.duke.cs.osprey.energy.forcefield;
 
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.StringTokenizer;
 
@@ -43,6 +44,8 @@ import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.structure.Residues;
 import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.StringParsing;
+
+import static edu.duke.cs.osprey.tools.Log.log;
 
 /**
  * Options for configuring forcefields for energy calculation.
@@ -101,7 +104,7 @@ public class ForcefieldParams implements Serializable {
 
     
     //what forcefield are these parameters for?
-    public Forcefield forcefld = Forcefield.AMBER;
+    public Forcefield forcefld;
     
     //The solvation parameters object
     public EEF1 eef1parms = null;
@@ -228,26 +231,29 @@ public class ForcefieldParams implements Serializable {
     	
     	public abstract ResiduesInfo makeInfo(ForcefieldParams ffparams, Residues residues);
     }
-    
+
+    /** creates an Amber 96 forcefield */
     public ForcefieldParams() {
-        init();
+    	this(Forcefield.AMBER);
     }
-    
+
     public ForcefieldParams(String frcefld) {
-        this.forcefld = Forcefield.valueOf(frcefld.toUpperCase());
-        init();
+        this(Forcefield.valueOf(frcefld.toUpperCase()));
     }
-    
-    public ForcefieldParams(Forcefield frcefld) {
+
+	public ForcefieldParams(Forcefield frcefld) {
+		this(frcefld, null);
+	}
+
+	/** creates the specified forcefield, but with overridden parameters */
+    public ForcefieldParams(Forcefield frcefld, String params) {
+
         this.forcefld = frcefld;
-        init();
-    }
-    
-    private void init() {
+
         // Read in AMBER forcefield parameters
         // parm96a.dat
         try {
-            readParm96(forcefld);
+            readParm96(forcefld, params);
         }
         catch (Exception ex) {
             throw new Error("can't read forcefield params", ex);
@@ -286,9 +292,14 @@ public class ForcefieldParams implements Serializable {
 	//  will most likely be required to read other parameter
 	//  files. Reading of other files should be done in other
 	//  functions
-	private void readParm96(Forcefield ff) throws Exception {
-	
-		Iterator<String> lines = FileTools.parseLines(FileTools.readResource(ff.paramsPath)).iterator();
+	private void readParm96(Forcefield ff, String params) throws Exception {
+
+    	if (params == null) {
+    		params = FileTools.readResource(ff.paramsPath);
+		} else {
+    		log("Using customized forcefield parameters.");
+		}
+		Iterator<String> lines = FileTools.parseLines(params).iterator();
 			
 		String curLine = null;
 		int tmpInt = 0;
@@ -610,6 +621,13 @@ public class ForcefieldParams implements Serializable {
 				return q;
 		}
 		return -1;
+	}
+
+	public String atomType(int index) {
+    	if (index >= 0 && index < atomTypeNames.length) {
+    		return atomTypeNames[index];
+		}
+    	return null;
 	}
 	
 	

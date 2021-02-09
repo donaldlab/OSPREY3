@@ -69,7 +69,7 @@ public class ResidueTemplateLibrary implements Serializable {
 		 * The templates contain forcefield information like atom types,
 		 * so they need to be matched with a specific forcefield.
 		 */
-		private ForcefieldParams.Forcefield forcefield = ForcefieldParams.Forcefield.AMBER;
+		private ForcefieldParams ffparams;
 
 		private final List<String> templatesTexts = listOf();
 		private final List<String> templateCoordsTexts = listOf();
@@ -85,19 +85,19 @@ public class ResidueTemplateLibrary implements Serializable {
 		private List<Molecule> molsForRotamers = listOf();
 
 		public Builder() {
-			initTexts();
+			this(new ForcefieldParams());
 		}
 
 		public Builder(ForcefieldParams.Forcefield forcefield) {
-			this.forcefield = forcefield;
-			initTexts();
+			this(new ForcefieldParams(forcefield));
 		}
 
-		private void initTexts() {
-			templatesTexts.add(FileTools.readResource(forcefield.aaPath));
-			templatesTexts.add(FileTools.readResource(forcefield.aaNTPath));
-			templatesTexts.add(FileTools.readResource(forcefield.aaCTPath));
-			templatesTexts.add(FileTools.readResource(forcefield.grPath));
+		public Builder(ForcefieldParams ffparams) {
+			this.ffparams = ffparams;
+			templatesTexts.add(FileTools.readResource(ffparams.forcefld.aaPath));
+			templatesTexts.add(FileTools.readResource(ffparams.forcefld.aaNTPath));
+			templatesTexts.add(FileTools.readResource(ffparams.forcefld.aaCTPath));
+			templatesTexts.add(FileTools.readResource(ffparams.forcefld.grPath));
 			templateCoordsTexts.add(FileTools.readResource("/config/all_amino_coords.in"));
 			rotamersTexts.add(FileTools.readResource(LovellRotamersPath));
 			entropyTexts.add(FileTools.readResource("/config/ResEntropy.dat"));
@@ -216,7 +216,7 @@ public class ResidueTemplateLibrary implements Serializable {
 
 		public ResidueTemplateLibrary build() {
 			return new ResidueTemplateLibrary(
-					forcefield,
+					ffparams,
 					templatesTexts,
 					templateCoordsTexts,
 					rotamersTexts,
@@ -238,9 +238,9 @@ public class ResidueTemplateLibrary implements Serializable {
 	public final ResidueEntropies residueEntropies = new ResidueEntropies();
 	public int totalNumRotamers;//total number of rotamers read in from rotamer library file(s), starts at 0
 
-	public ResidueTemplateLibrary(ForcefieldParams.Forcefield forcefield, List<String> templatesTexts, List<String> templateCoordTexts, List<String> rotamersTexts, List<String> backboneDependentRotamerTexts, List<String> resEntropyTexts, boolean makeDAminoAcids, List<Molecule> molsForRotamers) {
+	private ResidueTemplateLibrary(ForcefieldParams ffparams, List<String> templatesTexts, List<String> templateCoordTexts, List<String> rotamersTexts, List<String> backboneDependentRotamerTexts, List<String> resEntropyTexts, boolean makeDAminoAcids, List<Molecule> molsForRotamers) {
 
-		this.ffparams = new ForcefieldParams(forcefield);
+		this.ffparams = ffparams;
 
 		// load templates
 		TemplateParser templateParser = new TemplateParser(ffparams);

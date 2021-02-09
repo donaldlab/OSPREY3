@@ -269,7 +269,7 @@ public class KStar {
 			};
 		}
 
-		private PartitionFunction makePfunc(Sequence seq) {
+		private PartitionFunction makePfunc(TaskExecutor.ContextGroup ctxGroup, Sequence seq) {
 
 			RCs rcs = seq.makeRCs(confSpace);
 
@@ -286,6 +286,7 @@ public class KStar {
 			pfunc.setInstanceId(type.ordinal());
 
 			pfunc.init(settings.epsilon);
+			pfunc.putTaskContexts(ctxGroup);
 
 			return pfunc;
 		}
@@ -294,7 +295,7 @@ public class KStar {
 			pfuncResults.clear();
 		}
 
-		public PartitionFunction.Result calcPfunc(Sequence globalSequence, BigDecimal stabilityThreshold) {
+		public PartitionFunction.Result calcPfunc(TaskExecutor.ContextGroup ctxGroup, Sequence globalSequence, BigDecimal stabilityThreshold) {
 
 			Sequence sequence = globalSequence.filter(confSpace.seqSpace());
 
@@ -307,7 +308,7 @@ public class KStar {
 			// cache miss, need to compute the partition function
 
 			// compute the partition function
-			PartitionFunction pfunc = makePfunc(sequence);
+			PartitionFunction pfunc = makePfunc(ctxGroup, sequence);
 			pfunc.setStabilityThreshold(stabilityThreshold);
 			pfunc.compute();
 
@@ -400,11 +401,6 @@ public class KStar {
 				ligand.clear();
 				complex.clear();
 
-				// put the three contexts for the conf spaces to the context group
-				for (ConfSpaceInfo info : Arrays.asList(protein, ligand, complex)) {
-					info.makePfunc(seq).putTaskContexts(ctxGroup);
-				}
-
 				// skip the calculation on member nodes
 				if (tasks instanceof Cluster.Member) {
 					// TODO: try to get the scored sequence from the client?
@@ -412,9 +408,9 @@ public class KStar {
 				}
 
 				return new ScoredSequence(seq, new KStarScore(
-					protein.calcPfunc(seq, BigDecimal.ZERO),
-					ligand.calcPfunc(seq, BigDecimal.ZERO),
-					complex.calcPfunc(seq, BigDecimal.ZERO)
+					protein.calcPfunc(ctxGroup, seq, BigDecimal.ZERO),
+					ligand.calcPfunc(ctxGroup, seq, BigDecimal.ZERO),
+					complex.calcPfunc(ctxGroup, seq, BigDecimal.ZERO)
 				));
 			}}}
 		}
@@ -446,14 +442,6 @@ public class KStar {
 				protein.clear();
 				ligand.clear();
 				complex.clear();
-
-				// put the three contexts for the conf spaces to the context group
-				for (ConfSpaceInfo info : Arrays.asList(protein, ligand, complex)) {
-
-					// get any arbitrary sequence in the seq space
-					Sequence seq = info.confSpace.seqSpace().makeUnassignedSequence();
-					info.makePfunc(seq).putTaskContexts(ctxGroup);
-				}
 
 				// skip the calculation on member nodes
 				if (tasks instanceof Cluster.Member) {
@@ -500,9 +488,9 @@ public class KStar {
 				// compute wild type partition functions first (always at pos 0)
 				KStarScore wildTypeScore = scorer.score(
 					0,
-					protein.calcPfunc(sequences.get(0), BigDecimal.ZERO),
-					ligand.calcPfunc(sequences.get(0), BigDecimal.ZERO),
-					complex.calcPfunc(sequences.get(0), BigDecimal.ZERO)
+					protein.calcPfunc(ctxGroup, sequences.get(0), BigDecimal.ZERO),
+					ligand.calcPfunc(ctxGroup, sequences.get(0), BigDecimal.ZERO),
+					complex.calcPfunc(ctxGroup, sequences.get(0), BigDecimal.ZERO)
 				);
 				BigDecimal proteinStabilityThreshold = null;
 				BigDecimal ligandStabilityThreshold = null;
@@ -517,18 +505,18 @@ public class KStar {
 					Sequence seq = sequences.get(i);
 
 					// get the pfuncs, with short circuits as needed
-					final PartitionFunction.Result proteinResult = protein.calcPfunc(seq, proteinStabilityThreshold);
+					final PartitionFunction.Result proteinResult = protein.calcPfunc(ctxGroup, seq, proteinStabilityThreshold);
 					final PartitionFunction.Result ligandResult;
 					final PartitionFunction.Result complexResult;
 					if (!KStarScore.isLigandComplexUseful(proteinResult)) {
 						ligandResult = PartitionFunction.Result.makeAborted();
 						complexResult = PartitionFunction.Result.makeAborted();
 					} else {
-						ligandResult = ligand.calcPfunc(seq, ligandStabilityThreshold);
+						ligandResult = ligand.calcPfunc(ctxGroup, seq, ligandStabilityThreshold);
 						if (!KStarScore.isComplexUseful(proteinResult, ligandResult)) {
 							complexResult = PartitionFunction.Result.makeAborted();
 						} else {
-							complexResult = complex.calcPfunc(seq, BigDecimal.ZERO);
+							complexResult = complex.calcPfunc(ctxGroup, seq, BigDecimal.ZERO);
 						}
 					}
 

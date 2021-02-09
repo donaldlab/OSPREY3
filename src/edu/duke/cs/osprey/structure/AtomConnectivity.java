@@ -224,7 +224,10 @@ public class AtomConnectivity {
 	}
 
 	private boolean isInterResBondedForward(Residue res1, Residue res2) {
-		return res1.template.interResBonding.getClass() == res2.template.interResBonding.getClass()
+		var class1 = res1.template.interResBonding.getClass();
+		var class2 = res2.template.interResBonding.getClass();
+
+		return (class1.isAssignableFrom(class2) || class2.isAssignableFrom(class1))
 			&& res1.template.interResBonding.isInterResBondedForward(res1, res2);
 	}
 
