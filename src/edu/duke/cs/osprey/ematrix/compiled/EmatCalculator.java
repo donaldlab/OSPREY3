@@ -7,6 +7,7 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
+import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.Progress;
 
 import java.io.File;
@@ -111,19 +112,23 @@ public class EmatCalculator {
 	}
 
 	public EnergyMatrix calc() {
+		return calc(new TaskExecutor());
+	}
 
-		// first, check the cache file for any previously-calculator energy matrices
+	public EnergyMatrix calc(TaskExecutor tasks) {
+
+		// first, check the cache file for any previously-calculated energy matrices
 		if (cacheFile != null) {
 			// TODO: implement caching, key off all the arguments to this calculator
 		}
 
 		// not using cache, just calculate it
-		return reallyCalc();
+		return reallyCalc(tasks);
 
 		// TODO: update the cache after calculating
 	}
 
-	private EnergyMatrix reallyCalc() {
+	private EnergyMatrix reallyCalc(TaskExecutor tasks) {
 
 		// allocate the new matrix
 		EnergyMatrix emat = new EnergyMatrix(confEcalc.confSpace());
@@ -132,21 +137,20 @@ public class EmatCalculator {
 
 		// count how much work there is to do
 		// estimate work based on number of position interactions and the conf space size
-		final int singleCost;
-		final int pairCost;
+		final long staticCost = confSpace.avgAtomPairs(posInterGen.staticStatic());
+		final long singleCost;
+		final long pairCost;
 		if (confSpace.numPos() > 0) {
-			singleCost = posInterGen.single(confSpace, 0, 0).size();
-			pairCost = posInterGen.pair(confSpace, 0, 0, 0, 0).size();
+			singleCost = confSpace.avgAtomPairs(posInterGen.single(confSpace, 0, 0));
+			pairCost = confSpace.avgAtomPairs(posInterGen.pair(confSpace, 0, 0, 0, 0));
 		} else {
 			singleCost = 0;
 			pairCost = 0;
 		}
 		int numSingles = confSpace.countSingles();
 		int numPairs = confSpace.countPairs();
-		Progress progress = new Progress(1 + numSingles*singleCost + numPairs*pairCost);
+		Progress progress = new Progress(staticCost + numSingles*singleCost + numPairs*pairCost);
 		log("Calculating energy matrix with %d entries", 1 + numSingles + numPairs);
-
-		// TODO: use any parallelism provided by the confEcalc
 
 		// static-static energy
 		if (includeStaticStatic) {
@@ -155,35 +159,48 @@ public class EmatCalculator {
 			double energy = confEcalc.calcOrMinimizeEnergy(conf, inters, minimize);
 			emat.setConstTerm(energy);
 		}
-		progress.incrementProgress();
+		progress.incrementProgress(staticCost);
 
 		for (int posi1=0; posi1<confSpace.numPos(); posi1++) {
+			final int fposi1 = posi1;
 			for (int confi1=0; confi1<confSpace.numConf(posi1); confi1++) {
+				final int fconfi1 = confi1;
 
 				// singles
-				{
-					int[] assignments = confSpace.assign(posi1, confi1);
-					List<PosInter> inters = posInterGen.single(confSpace, posi1, confi1);
-					double energy = confEcalc.calcOrMinimizeEnergy(assignments, inters, minimize);
-					emat.setOneBody(posi1, confi1, energy);
-
-					progress.incrementProgress(inters.size());
-				}
+				tasks.submit(
+					() -> {
+						int[] assignments = confSpace.assign(fposi1, fconfi1);
+						List<PosInter> inters = posInterGen.single(confSpace, fposi1, fconfi1);
+						return confEcalc.calcOrMinimizeEnergy(assignments, inters, minimize);
+					},
+					energy -> {
+						emat.setOneBody(fposi1, fconfi1, energy);
+						progress.incrementProgress(singleCost);
+					}
+				);
 
 				for (int posi2=0; posi2<posi1; posi2++) {
-					for (int confi2=0; confi2<confSpace.numConf(posi2); confi2++) {
+					final int fposi2 = posi2;
+					for (int confi2=0; confi2<confSpace.numConf(fposi2); confi2++) {
+						final int fconfi2 = confi2;
 
 						// pairs
-						int[] assignments = confSpace.assign(posi1, confi1, posi2, confi2);
-						List<PosInter> inters = posInterGen.pair(confSpace, posi1, confi1, posi2, confi2);
-						double energy = confEcalc.calcOrMinimizeEnergy(assignments, inters, minimize);
-						emat.setPairwise(posi1, confi1, posi2, confi2, energy);
-
-						progress.incrementProgress(inters.size());
+						tasks.submit(
+							() -> {
+								int[] assignments = confSpace.assign(fposi1, fconfi1, fposi2, fconfi2);
+								List<PosInter> inters = posInterGen.pair(confSpace, fposi1, fconfi1, fposi2, fconfi2);
+								return confEcalc.calcOrMinimizeEnergy(assignments, inters, minimize);
+							},
+							energy -> {
+								emat.setPairwise(fposi1, fconfi1, fposi2, fconfi2, energy);
+								progress.incrementProgress(pairCost);
+							}
+						);
 					}
 				}
 			}
 		}
+		tasks.waitForFinish();
 
 		return emat;
 	}

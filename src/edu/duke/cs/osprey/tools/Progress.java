@@ -285,7 +285,7 @@ public class Progress {
 		return incrementProgress(1);
 	}
 	
-	public boolean incrementProgress(int numWorkDone) {
+	public boolean incrementProgress(long numWorkDone) {
 		return setProgress(currentWork + numWorkDone);
 	}
 	

@@ -16,7 +16,9 @@ import java.io.DataInput;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.function.Consumer;
 
 
 /**
@@ -799,6 +801,58 @@ public class ConfSpace implements ConfSpaceIteration {
 
 		// not in any range
 		return null;
+	}
+
+	/**
+	 * Returns the average the number of atoms pairs for the given position interactions, over all conformations.
+	 * Useful for predicting the cost of energy minimizations.
+	 */
+	public long avgAtomPairs(List<PosInter> inters) {
+		long count = 0;
+		for (var inter : inters) {
+			for (var ffi=0; ffi<forcefieldIds.length; ffi++) {
+				count += avgAtomPairs(ffi, inter);
+			}
+		}
+		return count;
+	}
+
+	public long avgAtomPairs(int ffi, PosInter inter) {
+
+		long count = 0;
+		int n = 0;
+
+		if (inter.posi1 == inter.posi2) {
+			if (inter.posi1 == PosInter.StaticPos) {
+				count += indicesStatic(ffi).size();
+				n += 1;
+			} else {
+				for (int confi=0; confi<numConf(inter.posi1); confi++) {
+					count += indicesSingles(ffi, inter.posi1, confi).sizeInternals();
+					n += 1;
+				}
+			}
+		} else if (inter.posi1 == PosInter.StaticPos) {
+			for (int confi=0; confi<numConf(inter.posi2); confi++) {
+				count += indicesSingles(ffi, inter.posi2, confi).sizeStatics();
+				n += 1;
+			}
+		} else if (inter.posi2 == PosInter.StaticPos) {
+			for (int confi=0; confi<numConf(inter.posi1); confi++) {
+				count += indicesSingles(ffi, inter.posi1, confi).sizeStatics();
+				n += 1;
+			}
+		} else {
+			for (int confi1=0; confi1<numConf(inter.posi1); confi1++) {
+				for (int confi2=0; confi2<numConf(inter.posi2); confi2++) {
+					count += indicesPairs(ffi, inter.posi1, confi1, inter.posi2, confi2).size();
+					n += 1;
+				}
+			}
+		}
+
+		// take the average
+		return count/n;
 	}
 
 	public double[] ffparams(int ffi, int paramsi) {
