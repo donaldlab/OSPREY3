@@ -32,6 +32,9 @@
 
 package edu.duke.cs.osprey.confspace;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 
 import org.apache.commons.collections4.iterators.ArrayIterator;
@@ -181,5 +184,25 @@ public class TupleMatrixDouble extends AbstractTupleMatrix<Double> {
 				return String.format("%6.1e", energy);
 			}
 		});
+	}
+
+	public void read(DataInputStream in)
+	throws IOException {
+    	for (int i=0; i<oneBody.length; i++) {
+    		oneBody[i] = in.readDouble();
+		}
+    	for (int i=0; i<pairwise.length; i++) {
+    		pairwise[i] = in.readDouble();
+		}
+	}
+
+	public void write(DataOutputStream out)
+	throws IOException {
+		for (int i=0; i<oneBody.length; i++) {
+			out.writeDouble(oneBody[i]);
+		}
+		for (int i=0; i<pairwise.length; i++) {
+			out.writeDouble(pairwise[i]);
+		}
 	}
 }

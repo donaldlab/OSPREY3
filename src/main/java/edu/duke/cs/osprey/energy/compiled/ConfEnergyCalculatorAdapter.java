@@ -228,12 +228,7 @@ public class ConfEnergyCalculatorAdapter extends edu.duke.cs.osprey.energy.ConfE
 		int[] conf = confEcalc.confSpace().assign(frag);
 
 		// make the position interactions for the whole conformation
-		List<PosInter> inters;
-		if (includeStaticStatic) {
-			inters = posInterGen.all(confEcalc.confSpace(), conf);
-		} else {
-			inters = posInterGen.dynamic(confEcalc.confSpace(), conf);
-		}
+		List<PosInter> inters = posInterGen.all(confEcalc.confSpace(), conf, includeStaticStatic);
 
 		return epmol(conf, inters);
 	}

@@ -368,7 +368,7 @@ public class KStar {
 		return Arrays.asList(protein, ligand, complex);
 	}
 
-	public ConfSpaceInfo getConfSpaceInfo(SimpleConfSpace confSpace) {
+	public ConfSpaceInfo getConfSpaceInfo(ConfSpaceIteration confSpace) {
 		if (confSpace == protein.confSpace) {
 			return protein;
 		} else if (confSpace == ligand.confSpace) {

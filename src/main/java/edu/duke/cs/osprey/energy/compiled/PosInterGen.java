@@ -46,4 +46,12 @@ public class PosInterGen {
 	public List<PosInter> dynamic(ConfSpace confSpace, int[] conf) {
 		return PosInterDist.dynamic(confSpace, eref, conf);
 	}
+
+	public List<PosInter> all(ConfSpace confSpace, int[] conf, boolean includeStaticStatic) {
+		if (includeStaticStatic) {
+			return all(confSpace, conf);
+		} else {
+			return dynamic(confSpace, conf);
+		}
+	}
 }

@@ -18,7 +18,6 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.function.Consumer;
 
 
 /**
@@ -154,6 +153,8 @@ public class ConfSpace implements ConfSpaceIteration {
 		}
 	}
 
+	private final int hash;
+
 	public final String name;
 	public final String[] forcefieldIds;
 	public final EnergyCalculator[] ecalcs;
@@ -279,6 +280,9 @@ public class ConfSpace implements ConfSpaceIteration {
 
 	public static ConfSpace fromBytes(byte[] bytes) {
 
+		// compute the hash code from the raw bytes
+		int hash = Arrays.hashCode(bytes);
+
 		// is the compiled conformation space compressed?
 		// look for XZ magic bytes to see if this conf space is compressed or not
 		// see XZ file spec, 2.1.1.1. Header Magic Bytes:
@@ -317,11 +321,12 @@ public class ConfSpace implements ConfSpaceIteration {
 			int version = in.readInt();
 			ConfSpace confSpace;
 			switch (version) {
-				case 1: confSpace = new ConfSpace(in); break;
+				case 1: confSpace = new ConfSpace(hash, in); break;
 				// if we need more versions in the future:
-				// case 2: confSpace = new ConfSpace(in, 0); break;
-				// case 3: confSpace = new ConfSpace(in, 0, 0); break;
+				// case 2: confSpace = new ConfSpace(hash, in, 0); break;
+				// case 3: confSpace = new ConfSpace(hash, in, 0, 0); break;
 				// etc ...
+				// tragically Java doesn't have named constructors, and static constructor functions don't mix well with final fields
 				default: throw new IllegalArgumentException("unrecognized compiled conformation space version: " + version);
 			}
 
@@ -350,8 +355,11 @@ public class ConfSpace implements ConfSpaceIteration {
 	/**
 	 * version 1 constructor
 	 */
-	private ConfSpace(DataInput in)
+	private ConfSpace(int hash, DataInput in)
 	throws IOException {
+
+		// save the hash
+		this.hash = hash;
 
 		// read the name
 		name = in.readUTF();
@@ -992,5 +1000,10 @@ public class ConfSpace implements ConfSpaceIteration {
 		coords.copyCoords();
 		coords.makeDofs();
 		return coords;
+	}
+
+	@Override
+	public int hashCode() {
+		return hash;
 	}
 }

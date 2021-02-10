@@ -10,7 +10,7 @@ import edu.duke.cs.osprey.energy.compiled.PosInterGen;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.Progress;
 
-import java.io.File;
+import java.io.*;
 import java.util.List;
 
 import static edu.duke.cs.osprey.tools.Log.log;
@@ -95,6 +95,59 @@ public class EmatCalculator {
 		}
 	}
 
+	/**
+	 * Collect all the energy matrix calculation settings in one struct,
+	 * so we can tell if an energy matrix file is stale or not.
+	 */
+	private static class EmatKey {
+
+		/** verions in files older than this are always stale */
+		static final int CurrentVersion = 1;
+
+		int version;
+		int confSpaceHash;
+		int posInterDistId;
+		int erefHash;
+		boolean minimize;
+		boolean includeStaticStatic;
+
+		void write(DataOutputStream out)
+		throws IOException {
+			out.writeInt(version);
+			out.writeInt(confSpaceHash);
+			out.writeInt(posInterDistId);
+			out.writeInt(erefHash);
+			out.writeBoolean(minimize);
+			out.writeBoolean(includeStaticStatic);
+		}
+
+		static EmatKey read(DataInputStream in)
+		throws IOException {
+			var key = new EmatKey();
+			key.version = in.readInt();
+			key.confSpaceHash = in.readInt();
+			key.posInterDistId = in.readInt();
+			key.erefHash = in.readInt();
+			key.minimize = in.readBoolean();
+			key.includeStaticStatic = in.readBoolean();
+			return key;
+		}
+
+		@Override
+		public boolean equals(Object other) {
+			return equals((EmatKey)other);
+		}
+
+		boolean equals(EmatKey other) {
+			return this.version == other.version
+				&& this.confSpaceHash == other.confSpaceHash
+				&& this.posInterDistId == other.posInterDistId
+				&& this.erefHash == other.erefHash
+				&& this.minimize == other.minimize
+				&& this.includeStaticStatic == other.includeStaticStatic;
+		}
+	}
+
 
 	public final ConfEnergyCalculator confEcalc;
 	public final PosInterGen posInterGen;
@@ -117,15 +170,60 @@ public class EmatCalculator {
 
 	public EnergyMatrix calc(TaskExecutor tasks) {
 
-		// first, check the cache file for any previously-calculated energy matrices
-		if (cacheFile != null) {
-			// TODO: implement caching, key off all the arguments to this calculator
+		// if not using cache, just calculate the emat directly
+		if (cacheFile == null) {
+			return reallyCalc(tasks);
 		}
 
-		// not using cache, just calculate it
-		return reallyCalc(tasks);
+		// using the cache, generate the cache key
+		var key = new EmatKey();
+		key.version = EmatKey.CurrentVersion;
+		key.confSpaceHash = confEcalc.confSpace().hashCode();
+		key.posInterDistId = posInterGen.dist.ordinal();
+		key.erefHash = posInterGen.eref.hashCode();
+		key.minimize = minimize;
+		key.includeStaticStatic = includeStaticStatic;
 
-		// TODO: update the cache after calculating
+		// check the cache file
+		if (cacheFile.exists()) {
+
+			log("reading energy matrix from file: %s", cacheFile);
+
+			try (var in = new DataInputStream(new FileInputStream(cacheFile))) {
+
+				// check the key
+				if (EmatKey.read(in).equals(key)) {
+
+					// cache hit, read the emat from the file
+					EnergyMatrix emat = new EnergyMatrix(confEcalc.confSpace());
+					emat.read(in);
+					return emat;
+
+				} else {
+					log("cached energy matrix is out of date, ignoring");
+				}
+
+			} catch (IOException ex) {
+				throw new RuntimeException("can't open emat cache file", ex);
+			}
+		}
+
+		// cache miss, calculate a new energy matrix
+		var emat = reallyCalc(tasks);
+
+		// cache it
+		try (var out = new DataOutputStream(new FileOutputStream(cacheFile))) {
+
+			key.write(out);
+			emat.write(out);
+
+			log("wrote energy matrix to file: %s", cacheFile);
+
+		} catch (IOException ex) {
+			throw new RuntimeException("can't write emat cache file", ex);
+		}
+
+		return emat;
 	}
 
 	private EnergyMatrix reallyCalc(TaskExecutor tasks) {

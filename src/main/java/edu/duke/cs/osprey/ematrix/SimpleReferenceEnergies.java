@@ -121,4 +121,9 @@ public class SimpleReferenceEnergies implements Serializable {
 	public boolean equals(SimpleReferenceEnergies other) {
 		return this.energies.equals(other.energies);
 	}
+
+	@Override
+	public int hashCode() {
+		return energies.hashCode();
+	}
 }
