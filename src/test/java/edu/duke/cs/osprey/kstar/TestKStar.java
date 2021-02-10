@@ -137,6 +137,12 @@ public class TestKStar {
 					.build()
 					.calcEnergyMatrix();
 
+				// the extra precision causes some of these test cases to be bad test cases, so turn it off
+				// some sequences have horrifically loose conf energy bounds,
+				// which causes the pfunc calc to spend eternity trying to get a good pfunc bound
+				// the extra precision makes it much harder to trip the no-low-energies short circuit inside the pfunc calc
+				Consumer<GradientDescentPfunc> imprecisePfunc = pfunc -> pfunc.setPreciseBcalc(false);
+
 				// how should we score a sequence?
 				if (useExternalMemory) {
 					info.pfuncFactory = (rcs) -> {
@@ -149,19 +155,24 @@ public class TestKStar {
 							rcs.getNumConformations()
 						);
 						pfunc.setUseExternalMemory(true, rcs);
+						imprecisePfunc.accept(pfunc);
 						return pfunc;
 					};
 				} else {
-					info.pfuncFactory = (rcs) -> new GradientDescentPfunc(
-						info.confEcalc,
-						new ConfAStarTree.Builder(emat, rcs)
-							.setTraditional()
-							.build(),
-						new ConfAStarTree.Builder(emat, rcs)
-							.setTraditional()
-							.build(),
-						rcs.getNumConformations()
-					);
+					info.pfuncFactory = (rcs) -> {
+						var pfunc = new GradientDescentPfunc(
+							info.confEcalc,
+							new ConfAStarTree.Builder(emat, rcs)
+								.setTraditional()
+								.build(),
+							new ConfAStarTree.Builder(emat, rcs)
+								.setTraditional()
+								.build(),
+							rcs.getNumConformations()
+						);
+						imprecisePfunc.accept(pfunc);
+						return pfunc;
+					};
 				}
 
 				// set ConfDB if needed
@@ -380,7 +391,6 @@ public class TestKStar {
 		// TODO: check atom counts and positions are the same?
 	}
 
-	// TODO: this test is taking forever!! what happened? some kind of performance regression?
 	@Test
 	public void test2RL0() {
 
