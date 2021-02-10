@@ -35,8 +35,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 
-// TODO: these tests don't run anymore!!
-
 public class TestCoffee {
 
 	private static final Parallelism oneCpu = Parallelism.makeCpu(1);
@@ -192,7 +190,7 @@ public class TestCoffee {
 							},
 							answer -> {
 								for (var job : jobs) {
-									bigMath.add(stateInfo.zmat.bcalc.calcPrecise(job.energy));
+									bigMath.add(coffee.bcalc.calcPrecise(job.energy));
 								}
 								progress.incrementProgress(jobs.size());
 							}
