@@ -35,6 +35,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 
+// TODO: these tests don't run anymore!!
+
 public class TestCoffee {
 
 	private static final Parallelism oneCpu = Parallelism.makeCpu(1);
