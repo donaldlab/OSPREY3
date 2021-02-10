@@ -57,7 +57,7 @@ javafx {
 }
 
 val projectDir = project.projectDir.toPath().toAbsolutePath()
-val pythonSrcDir = projectDir.resolve("python")
+val pythonSrcDir = projectDir.resolve("src/main/python")
 val pythonBuildDir = projectDir.resolve("build/python")
 val pythonWheelDir = pythonBuildDir.resolve("wheel")
 val pythonWheelhouseDir = pythonSrcDir.resolve("wheelhouse")
@@ -66,7 +66,7 @@ val docBuildDir = pythonBuildDir.resolve("doc")
 
 
 group = "edu.duke.cs"
-version = Files.readAllLines(projectDir.resolve("resources/config/version"))[0]
+version = Files.readAllLines(projectDir.resolve("src/main/resources/config/version"))[0]
 
 
 repositories {
@@ -76,16 +76,6 @@ repositories {
 java {
 	sourceCompatibility = JavaVersion.VERSION_14
 	targetCompatibility = JavaVersion.VERSION_14
-	sourceSets {
-		get("main").apply {
-			java.srcDir("src")
-			resources.srcDir("resources")
-		}
-		get("test").apply {
-			java.srcDir("test")
-			resources.srcDir("test-resources")
-		}
-	}
 }
 
 idea {
@@ -774,7 +764,7 @@ fun nvcc(exec: Exec, kernelName: String, maxRegisters: Int? = null, profile: Boo
 
 	args.addAll(listOf("$kernelName.cu", "-o", "$kernelName.bin"))
 
-	exec.workingDir = file("resources/gpuKernels/cuda")
+	exec.workingDir = file("src/main/resources/gpuKernels/cuda")
 	exec.commandLine(args)
 }
 
@@ -1022,7 +1012,7 @@ fun updateLicenseHeaders() {
 	applyHeader(projectDir.resolve("build.gradle.kts"), ::applyCHeader)
 
 	// apply header to kernel files
-	for (dirname in listOf("resources/gpuKernels")) {
+	for (dirname in listOf("src/main/resources/gpuKernels")) {
 		applyHeaders(
 			dirname,
 			filter = { it.endsWith(".cu") || it.endsWith(".cl") },
