@@ -76,11 +76,11 @@ public class DihedralAngle implements ContinuousMotion {
 	public final int moli;
 	public final int posi;
 
-	private final int ai;
-	private final int bi;
-	private final int ci;
-	private final int di;
-	private final int []ri;
+	public final int ai;
+	public final int bi;
+	public final int ci;
+	public final int di;
+	public final int []ri;
 
 	public final double initialAngleRadians;
 	public final double minAngleRadians;
@@ -106,15 +106,7 @@ public class DihedralAngle implements ContinuousMotion {
 		// TODO: profile and optimize this
 
 		// calculate the initial angle in radians
-		Vector3d a = new Vector3d();
-		Vector3d b = new Vector3d();
-		Vector3d c = new Vector3d();
-		Vector3d d = new Vector3d();
-		coords.coords.get(ai, a);
-		coords.coords.get(bi, b);
-		coords.coords.get(ci, c);
-		coords.coords.get(di, d);
-		this.initialAngleRadians = measureAngleRadians(a, b, c, d);
+		this.initialAngleRadians = measureAngleRadians();
 
 		this.minAngleRadians = Math.toRadians(desc.minDegrees);
 		this.maxAngleRadians = Math.toRadians(desc.maxDegrees);
@@ -144,6 +136,24 @@ public class DihedralAngle implements ContinuousMotion {
 				return coords.confSpace.staticNames[-atomi - 1];
 			}
 		}
+	}
+
+	public double measureAngleRadians() {
+
+		// calculate the initial angle in radians
+		Vector3d a = new Vector3d();
+		Vector3d b = new Vector3d();
+		Vector3d c = new Vector3d();
+		Vector3d d = new Vector3d();
+		coords.coords.get(ai, a);
+		coords.coords.get(bi, b);
+		coords.coords.get(ci, c);
+		coords.coords.get(di, d);
+		return measureAngleRadians(a, b, c, d);
+	}
+
+	public double measureAngleDegrees() {
+		return Math.toDegrees(measureAngleRadians());
 	}
 
 	public void setAngle(double angleRadians) {
@@ -222,6 +232,8 @@ public class DihedralAngle implements ContinuousMotion {
 	/** a dihedral angle only has one degree of freedom */
 	public class Dof implements DegreeOfFreedom {
 
+		public final DihedralAngle dihedral = DihedralAngle.this;
+
 		private double angleRadians = initialAngleRadians;
 
 		private final Set<Integer> modifiedPosIndices = new HashSet<>();
@@ -258,7 +270,7 @@ public class DihedralAngle implements ContinuousMotion {
 		@Override
 		public void set(double val) {
 			if (val != angleRadians) {
-				DihedralAngle.this.setAngle(val);
+				dihedral.setAngle(val);
 				angleRadians = val;
 			}
 		}
