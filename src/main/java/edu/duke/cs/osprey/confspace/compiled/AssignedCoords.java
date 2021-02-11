@@ -337,13 +337,8 @@ public class AssignedCoords {
 			var pos = confSpace.positions[posi];
 			int confi = assignments[posi];
 			var conf = pos.confs[confi];
-			int offset = atomi - confSpace.getConfAtomIndex(posi, confi);
-			// TODO: why is this offset out of range?
-			String atomName = "??";
-			if (offset < conf.atomNames.length) {
-				atomName = conf.atomNames[offset];
-			}
-			return String.format("%s:%s", pos.name, atomName);
+			int offset = atomi - confSpace.getConfAtomIndex(posi, 0);
+			return String.format("%s:%s", pos.name, conf.atomNames[offset]);
 		}
 	}
 }
