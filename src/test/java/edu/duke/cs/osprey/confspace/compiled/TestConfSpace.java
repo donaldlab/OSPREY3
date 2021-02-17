@@ -205,7 +205,7 @@ public class TestConfSpace {
 		// check the rigid energy
 		ConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(confSpace);
 
-		List<PosInter> inters = PosInterDist.all(confSpace);
+		List<PosInter> inters = PosInterDist.all(confSpace, conf);
 		double energy = ecalc.calcEnergy(conf, inters);
 
 		// This energy is off from the classic OSPREY's energy by about 8.5 kcal/mol.

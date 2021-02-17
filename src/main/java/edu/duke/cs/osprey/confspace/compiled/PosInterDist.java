@@ -129,36 +129,9 @@ public enum PosInterDist {
 	}
 
 	/**
-	 * Include all interactions. Doesn't depend on the distribution.
-	 */
-	public static List<PosInter> all(ConfSpace confSpace, SimpleReferenceEnergies eref, int[] conf) {
-		List<PosInter> inters = new ArrayList<>();
-
-		// include the static energy
-		inters.add(new PosInter(PosInter.StaticPos, PosInter.StaticPos, 1.0, 0.0));
-
-		for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
-
-			// pos and pos-static interactions
-			inters.add(new PosInter(posi1, posi1, 1.0, getErefOffset(confSpace, eref, posi1, conf)));
-			inters.add(new PosInter(posi1, PosInter.StaticPos, 1.0, 0.0));
-
-			// pos-pos interactions
-			for (int posi2=0; posi2<posi1; posi2++) {
-				inters.add(new PosInter(posi1, posi2, 1.0, 0.0));
-			}
-		}
-		return inters;
-	}
-
-	public static List<PosInter> all(ConfSpace confSpace) {
-		return all(confSpace, null, null);
-	}
-
-	/**
 	 * Include all interactions, except ones between unassigned positions. Doesn't depend on the distribution.
 	 */
-	public static List<PosInter> allAssigned(ConfSpace confSpace, int[] conf, SimpleReferenceEnergies eref) {
+	public static List<PosInter> all(ConfSpace confSpace, SimpleReferenceEnergies eref, int[] conf) {
 		List<PosInter> inters = new ArrayList<>();
 
 		// include the static energy
@@ -187,32 +160,41 @@ public enum PosInterDist {
 		return inters;
 	}
 
-	public static List<PosInter> allAssigned(ConfSpace confSpace, int[] conf) {
-		return allAssigned(confSpace, conf, null);
+	public static List<PosInter> all(ConfSpace confSpace, int[] conf) {
+		return all(confSpace, null, conf);
 	}
 
 	/**
-	 * Include all dynamic interactions, ie all except the static-static interaction.
+	 * Include all dynamic interactions, except ones between unassigned positions.
+	 * ie all except the static-static interactions.
 	 * Doesn't depend on the distribution.
 	 */
 	public static List<PosInter> dynamic(ConfSpace confSpace, SimpleReferenceEnergies eref, int[] conf) {
 		List<PosInter> inters = new ArrayList<>();
 		for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
 
+			if (conf[posi1] == Conf.Unassigned) {
+				continue;
+			}
 			// pos and pos-static interactions go on singles
 			inters.add(new PosInter(posi1, posi1, 1.0, getErefOffset(confSpace, eref, posi1, conf)));
 			inters.add(new PosInter(posi1, PosInter.StaticPos, 1.0, 0.0));
 
 			// pos-pos interactions go on pairs
 			for (int posi2=0; posi2<posi1; posi2++) {
+
+				if (conf[posi2] == Conf.Unassigned) {
+					continue;
+				}
+
 				inters.add(new PosInter(posi1, posi2, 1.0, 0.0));
 			}
 		}
 		return inters;
 	}
 
-	public static List<PosInter> dynamic(ConfSpace confSpace) {
-		return dynamic(confSpace, null, null);
+	public static List<PosInter> dynamic(ConfSpace confSpace, int[] conf) {
+		return dynamic(confSpace, null, conf);
 	}
 
 	private static double getErefOffset(ConfSpace confSpace, SimpleReferenceEnergies eref, int posi, int confi) {

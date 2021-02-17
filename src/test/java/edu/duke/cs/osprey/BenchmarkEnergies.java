@@ -105,7 +105,7 @@ public class BenchmarkEnergies {
 
 		// make interactions for the classic design case (ie, without the static-static contribution)
 		ResidueInteractions classicInters = EnergyPartition.makeFragment(classic.complex, null, false, new RCTuple(classicConf));
-		List<PosInter> compiledInters = PosInterDist.dynamic(compiled.complex);
+		List<PosInter> compiledInters = PosInterDist.dynamic(compiled.complex, compiledConf);
 
 		// NOTE: the jerrys have 48 cores, 4 GPUs
 		int[] threadSizes = { 1, 3, 6, 12, 24, 48 };
@@ -293,10 +293,10 @@ public class BenchmarkEnergies {
 			//try (var confEcalc = new CudaConfEnergyCalculator(confSpace, precision, gpuStreams, batchSize)) {
 			try (var confEcalc = new NativeConfEnergyCalculator(confSpace, precision)) {
 
-				// use all the interactions
-				List<PosInter> inters = PosInterDist.all(confSpace);
-
 				int[] conf = new int[] { 0, 0, 0, 0, 0, 0, 0 };
+
+				// use all the interactions
+				List<PosInter> inters = PosInterDist.all(confSpace, conf);
 
 				log("precision = %s", precision);
 

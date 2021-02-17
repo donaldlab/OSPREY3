@@ -164,7 +164,7 @@ public class TestNativeConfEnergyCalculator {
 		assertThat(energies.length, is(confs.length));
 
 		for (int i=0; i<confs.length; i++) {
-			var inters = PosInterDist.allAssigned(confEcalc.confSpace(), confs[i]);
+			var inters = PosInterDist.all(confEcalc.confSpace(), confs[i]);
 			double energy = confEcalc.calcEnergy(confs[i], inters);
 			assertThat("conf " + i, energy, isRelatively(energies[i], epsilon));
 		}
@@ -199,7 +199,7 @@ public class TestNativeConfEnergyCalculator {
 		assertThat(energies.length, is(confs.length));
 
 		for (int i=0; i<confs.length; i++) {
-			var inters = PosInterDist.allAssigned(confEcalc.confSpace(), confs[i]);
+			var inters = PosInterDist.all(confEcalc.confSpace(), confs[i]);
 			ConfEnergyCalculator.EnergiedCoords energiedCoords = confEcalc.calc(confs[i], inters);
 			assertThat("conf " + i, energiedCoords.energy, isRelatively(energies[i], epsilon));
 
@@ -239,7 +239,7 @@ public class TestNativeConfEnergyCalculator {
 		assertThat(energies.length, is(confs.length));
 
 		for (int i=0; i<confs.length; i++) {
-			var inters = PosInterDist.allAssigned(confEcalc.confSpace(), confs[i]);
+			var inters = PosInterDist.all(confEcalc.confSpace(), confs[i]);
 			double energy = confEcalc.minimizeEnergy(confs[i], inters);
 			assertThat("conf " + i, energy, isRelatively(energies[i], epsilon));
 		}
@@ -279,7 +279,7 @@ public class TestNativeConfEnergyCalculator {
 
 			AssignedCoords coords = confEcalc.confSpace().makeCoords(conf);
 
-			var inters = PosInterDist.allAssigned(confEcalc.confSpace(), conf);
+			var inters = PosInterDist.all(confEcalc.confSpace(), conf);
 			var energiedCoords = confEcalc.minimize(conf, inters);
 
 			// check the energy, obviously
@@ -331,7 +331,7 @@ public class TestNativeConfEnergyCalculator {
 		// make the minimization jobs
 		List<ConfEnergyCalculator.MinimizationJob> jobs = Arrays.stream(confs)
 			.map(conf -> {
-				var inters = PosInterDist.allAssigned(confEcalc.confSpace(), conf);
+				var inters = PosInterDist.all(confEcalc.confSpace(), conf);
 				return new ConfEnergyCalculator.MinimizationJob(conf, inters);
 			})
 			.collect(Collectors.toList());
@@ -370,27 +370,27 @@ public class TestNativeConfEnergyCalculator {
 	public static void main(String[] args) {
 
 		// generate the expected values
-		dumpEnergiesAll(confSpace_2RL0, confs_2RL0);
+		dumpEnergies(confSpace_2RL0, confs_2RL0, (confSpace, conf) -> PosInterDist.all(confSpace, conf));
 	}
 
-	private static void dumpEnergiesAll(ConfSpace confSpace, int[][] confs) {
-		dumpEnergies(confSpace, confs);
+	interface ConfInters {
+		List<PosInter> make(ConfSpace confSpace, int[] conf);
 	}
 
-	private static void dumpEnergies(ConfSpace confSpace, int[][] confs) {
+	private static void dumpEnergies(ConfSpace confSpace, int[][] confs, ConfInters confInters) {
 
 		var confEcalc = new CPUConfEnergyCalculator(confSpace);
 
 		log("calcEnergy");
 		for (int[] conf : confs) {
-			var inters = PosInterDist.allAssigned(confSpace, conf);
+			var inters = confInters.make(confSpace, conf);
 			double energy = confEcalc.calcEnergy(conf, inters);
 			log("%16.8f", energy);
 		}
 
 		log("minimizeEnergy");
 		for (int[] conf : confs) {
-			var inters = PosInterDist.allAssigned(confSpace, conf);
+			var inters = confInters.make(confSpace, conf);
 			double energy = confEcalc.minimizeEnergy(conf, inters);
 			log("%16.8f", energy);
 		}
