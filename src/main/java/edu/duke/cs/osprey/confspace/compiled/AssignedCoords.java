@@ -341,4 +341,37 @@ public class AssignedCoords {
 			return String.format("%s:%s", pos.name, conf.atomNames[offset]);
 		}
 	}
+
+
+	public static class AtomInfo {
+		public final int posi;
+		public final int atomi;
+		public final int coordsi;
+		public AtomInfo(int posi, int atomi, int coordsi) {
+			this.posi = posi;
+			this.atomi = atomi;
+			this.coordsi = coordsi;
+		}
+	}
+
+	/** returns information about the atom coords that are actually populated for this conformation */
+	public List<AtomInfo> atoms() {
+		var infos = new ArrayList<AtomInfo>();
+
+		// add the static atoms
+		for (int atomi=0; atomi<confSpace.staticCoords.size; atomi++) {
+			infos.add(new AtomInfo(-1, atomi, confSpace.getStaticAtomIndex(atomi)));
+		}
+
+		// add the position atoms
+		for (int posi=0; posi<confSpace.positions.length; posi++) {
+			var pos = confSpace.positions[posi];
+			var conf = pos.confs[assignments[posi]];
+			for (int atomi=0; atomi<conf.numAtoms; atomi++) {
+				infos.add(new AtomInfo(posi, atomi, confSpace.getConfAtomIndex(posi, atomi)));
+			}
+		}
+
+		return infos;
+	}
 }

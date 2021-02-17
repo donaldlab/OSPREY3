@@ -23,6 +23,11 @@ public class CoordsList {
 		coords = new double[size*3];
 	}
 
+	public CoordsList(CoordsList other) {
+		this(other.size);
+		copyFrom(other, 0);
+	}
+
 	public double x(int i) {
 		return coords[i*3];
 	}

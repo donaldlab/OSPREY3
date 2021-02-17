@@ -124,17 +124,17 @@ public class TranslationRotation implements ContinuousMotion {
 		for (int atomi : atomIndices) {
 			coords.coords.get(atomi, pos);
 
+			pos.sub(desc.centroid);
+
 			// undo the previous transformation
 			pos.sub(translation);
-			pos.sub(desc.centroid);
 			pos.rotate(rotationInverse);
-			pos.add(desc.centroid);
 
 			// apply the new transformation
-			pos.sub(desc.centroid);
 			pos.rotate(q);
-			pos.add(desc.centroid);
 			pos.add(t);
+
+			pos.add(desc.centroid);
 
 			coords.coords.set(atomi, pos);
 		}
@@ -146,6 +146,8 @@ public class TranslationRotation implements ContinuousMotion {
 
 
 	public class Dof implements DegreeOfFreedom {
+
+		public final TranslationRotation translationRotation = TranslationRotation.this;
 
 		public final String name;
 		public final double min;

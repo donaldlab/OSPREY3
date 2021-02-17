@@ -86,6 +86,8 @@ public class DihedralAngle implements ContinuousMotion {
 	public final double minAngleRadians;
 	public final double maxAngleRadians;
 
+	public final Dof dof;
+
 	public DihedralAngle(Description desc, AssignedCoords coords, int moli, int posi) {
 
 		this.desc = desc;
@@ -110,6 +112,8 @@ public class DihedralAngle implements ContinuousMotion {
 
 		this.minAngleRadians = Math.toRadians(desc.minDegrees);
 		this.maxAngleRadians = Math.toRadians(desc.maxDegrees);
+
+		this.dof = new Dof();
 	}
 
 	private String getName() {
@@ -288,6 +292,6 @@ public class DihedralAngle implements ContinuousMotion {
 
 	@Override
 	public void appendDofs(List<DegreeOfFreedom> dofs) {
-		dofs.add(new Dof());
+		dofs.add(dof);
 	}
 }
