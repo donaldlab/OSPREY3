@@ -88,6 +88,9 @@ public class AssignedCoords {
 				motion.appendDofs(dofs);
 			}
 		}
+
+		// just in case...
+		assert (dofs.size() <= confSpace.maxNumDofs);
 	}
 
 	public double getStaticEnergy(int ffi) {

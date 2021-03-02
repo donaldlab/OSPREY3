@@ -15,6 +15,7 @@ import edu.duke.cs.osprey.confspace.compiled.AssignedCoords;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
 import edu.duke.cs.osprey.confspace.compiled.motions.DihedralAngle;
+import edu.duke.cs.osprey.confspace.compiled.motions.TranslationRotation;
 import edu.duke.cs.osprey.gpu.BufWriter;
 import jdk.incubator.foreign.*;
 
@@ -362,7 +363,8 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		Int32 max_num_dofs = int32();
 		Int32 num_molecule_motions = int32();
 		Int64 positions_offset = int64();
-		Int64 static_atoms_offset = int64();
+		Int64 static_atom_coords_offset = int64();
+		Int64 static_atom_molis_offset = int64();
 		Int64 params_offset = int64();
 		Int64 pos_pairs_offset = int64();
 		Int64 molecule_motions_offset = int64();
@@ -372,9 +374,9 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 			static_energy = real(precision);
 			pad = pad(precision.map(4, 0));
 			init(
-				precision.map(64, 64),
+				precision.map(72, 72),
 				"num_pos", "max_num_conf_atoms", "max_num_dofs", "num_molecule_motions",
-				"positions_offset", "static_atoms_offset", "params_offset", "pos_pairs_offset",
+				"positions_offset", "static_atom_coords_offset", "static_atom_molis_offset", "params_offset", "pos_pairs_offset",
 				"molecule_motions_offset",
 				"static_energy", "pad"
 			);
@@ -397,7 +399,8 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 	private final SPos posStruct = new SPos();
 
 	class SConf extends Struct {
-		Int64 atoms_offset = int64();
+		Int64 atom_coords_offset = int64();
+		Int64 atom_molis_offset = int64();
 		Int32 frag_index = int32();
 		Pad pad;
 		Real internal_energy;
@@ -407,25 +410,25 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 			pad = pad(precision.map(0, 4));
 			internal_energy = real(precision);
 			init(
-				precision.map(32, 40),
-				"atoms_offset", "frag_index", "pad", "internal_energy",
+				precision.map(40, 48),
+				"atom_coords_offset", "atom_molis_offset", "frag_index", "pad", "internal_energy",
 				"num_motions", "motions_offset"
 			);
 		}
 	}
 	private final SConf confStruct = new SConf();
 
-	static class SAtoms extends Struct {
-		Int32 num_atoms = int32();
+	static class SArray extends Struct {
+		Int32 size = int32();
 		Pad pad = pad(4);
-		Int64 coords = int64();
+		Int64 things_ptr = int64();
 		void init() {
 			init(
-				16, "num_atoms", "pad", "coords"
+				16, "size", "pad", "things_ptr"
 			);
 		}
 	}
-	private final SAtoms atomsStruct = new SAtoms();
+	private final SArray arrayStruct = new SArray();
 
 	class SReal3 extends Struct {
 		Real x;
@@ -493,8 +496,8 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		Real max_distance;
 		Real max_radians;
 		StructField<SReal3> centroid;
-		Int32 num_atoms = int32();
-		Int32 num_modified_pos = int32();
+		Int32 moli = int32();
+		Pad pad = pad(4);
 		void init() {
 			max_distance = real(precision);
 			max_radians = real(precision);
@@ -502,7 +505,7 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 			init(
 				precision.map(32, 48),
 				"max_distance", "max_radians", "centroid",
-				"num_atoms", "num_modified_pos"
+				"moli", "pad"
 			);
 		}
 	}
@@ -528,7 +531,7 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		confSpaceStruct.init();
 		posStruct.init();
 		confStruct.init();
-		atomsStruct.init();
+		arrayStruct.init();
 		real3Struct.init();
 		posInterStruct.init();
 		dihedralStruct.init();
@@ -551,8 +554,10 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 				+ confOffsets.bytes(pos.confs.length)
 				+ sum(pos.confs, conf ->
 					confStruct.bytes()
-					+ atomsStruct.bytes()
+					+ arrayStruct.bytes()
 					+ real3Struct.bytes()*conf.coords.size
+					+ arrayStruct.bytes()
+					+ BufWriter.padToAlignment(Int32.bytes*conf.coords.size, 8)
 					+ confMotionOffsets.bytes(conf.motions.length)
 					+ motionIdBytes*conf.motions.length
 					+ sum(conf.motions, motion -> {
@@ -565,8 +570,10 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 					})
 				)
 			)
-			+ atomsStruct.bytes()
+			+ arrayStruct.bytes()
 			+ real3Struct.bytes()*confSpace.staticCoords.size
+			+ arrayStruct.bytes()
+			+ BufWriter.padToAlignment(Int32.bytes*confSpace.staticCoords.size, 8)
 			+ forcefieldsImpl.paramsBytes();
 
 		// add space for the pos pair offsets
@@ -593,7 +600,6 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 			bufSize += fragOffsets.itemBytes*confSpace.numFrag(posi1);
 			for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
 				bufSize += forcefieldsImpl.posBytes(posi1, fragi1);
-
 			}
 		}
 
@@ -611,12 +617,15 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 
 		// add space for the molecule motions
 		int numMolMotions = 0;
-		for (var molInfo : confSpace.molInfos) {
+		for (int moli=0; moli<confSpace.molInfos.length; moli++) {
+			var molInfo = confSpace.molInfos[moli];
 			for (var motion : molInfo.motions) {
 				numMolMotions += 1;
 				if (motion instanceof DihedralAngle.Description) {
 					var dihedral = (DihedralAngle.Description)motion;
 					bufSize += dihedralStruct.bytes(dihedral.rotated.length);
+				} else if (motion instanceof TranslationRotation.Description) {
+					bufSize += transRotStruct.bytes();
 				} else {
 					throw new UnsupportedOperationException(motion.getClass().getName());
 				}
@@ -624,8 +633,6 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		}
 		bufSize += molMotionOffsets.bytes(numMolMotions)
 			+ motionIdBytes*numMolMotions;
-
-		// TODO: add space for the conf motions
 
 		// allocate the buffer for the conf space
 		confSpaceMem = MemorySegment.allocateNative(bufSize);
@@ -665,17 +672,27 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 				confStruct.internal_energy.set(confAddr, Arrays.stream(conf.energies).sum());
 				confStruct.num_motions.set(confAddr, conf.motions.length);
 
-				// write the atoms
-				confStruct.atoms_offset.set(confAddr, buf.pos);
-				var atomsAddr = buf.place(atomsStruct);
-				atomsStruct.num_atoms.set(atomsAddr, conf.coords.size);
-				atomsStruct.coords.set(atomsAddr, 0);
+				// write the atom coords
+				confStruct.atom_coords_offset.set(confAddr, buf.pos);
+				var atomCoordsAddr = buf.place(arrayStruct);
+				arrayStruct.size.set(atomCoordsAddr, conf.coords.size);
+				arrayStruct.things_ptr.set(atomCoordsAddr, 0);
 				for (int i=0; i<conf.coords.size; i++) {
 					var addr = buf.place(real3Struct);
 					real3Struct.x.set(addr, conf.coords.x(i));
 					real3Struct.y.set(addr, conf.coords.y(i));
 					real3Struct.z.set(addr, conf.coords.z(i));
 				}
+
+				// write the atom molecule indices
+				confStruct.atom_molis_offset.set(confAddr, buf.pos);
+				var atomMolisAddr = buf.place(arrayStruct);
+				arrayStruct.size.set(atomMolisAddr, conf.coords.size);
+				arrayStruct.things_ptr.set(atomMolisAddr, 0);
+				for (int i=0; i<conf.numAtoms; i++) {
+					buf.int32(conf.atomMolInfoIndices[i]);
+				}
+				buf.skipToAlignment(8);
 
 				// write the motions
 				confStruct.motions_offset.set(confAddr, buf.pos);
@@ -692,17 +709,27 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 			}
 		}
 
-		// write the static atoms
-		confSpaceStruct.static_atoms_offset.set(confSpaceAddr, buf.pos);
-		var atomsAddr = buf.place(atomsStruct);
-		atomsStruct.num_atoms.set(atomsAddr, confSpace.staticCoords.size);
-		atomsStruct.coords.set(atomsAddr, 0);
+		// write the static atom coords
+		confSpaceStruct.static_atom_coords_offset.set(confSpaceAddr, buf.pos);
+		var atomCoordsAddr = buf.place(arrayStruct);
+		arrayStruct.size.set(atomCoordsAddr, confSpace.staticCoords.size);
+		arrayStruct.things_ptr.set(atomCoordsAddr, 0);
 		for (int i=0; i<confSpace.staticCoords.size; i++) {
 			var addr = buf.place(real3Struct);
 			real3Struct.x.set(addr, confSpace.staticCoords.x(i));
 			real3Struct.y.set(addr, confSpace.staticCoords.y(i));
 			real3Struct.z.set(addr, confSpace.staticCoords.z(i));
 		}
+
+		// write the static atom molecule indices
+		confSpaceStruct.static_atom_molis_offset.set(confSpaceAddr, buf.pos);
+		var atomMolisAddr = buf.place(arrayStruct);
+		arrayStruct.size.set(atomMolisAddr, confSpace.staticCoords.size);
+		arrayStruct.things_ptr.set(atomMolisAddr, 0);
+		for (int i=0; i<confSpace.staticCoords.size; i++) {
+			buf.int32(confSpace.staticMolInfoIndices[i]);
+		}
+		buf.skipToAlignment(8);
 
 		// write the forcefield params
 		confSpaceStruct.params_offset.set(confSpaceAddr, buf.pos);
@@ -754,11 +781,14 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		confSpaceStruct.molecule_motions_offset.set(confSpaceAddr, buf.pos);
 		var molMotionOffsetsAddr = buf.place(molMotionOffsets, numMolMotions);
 		int molMotionIndex = 0;
-		for (var molInfo : confSpace.molInfos) {
+		for (int moli=0; moli<confSpace.molInfos.length; moli++) {
+			var molInfo = confSpace.molInfos[moli];
 			for (var motion : molInfo.motions) {
 				molMotionOffsets.set(molMotionOffsetsAddr, molMotionIndex++, buf.pos);
 				if (motion instanceof DihedralAngle.Description) {
 					writeDihedral((DihedralAngle.Description)motion, PosInter.StaticPos, buf);
+				} else if (motion instanceof TranslationRotation.Description) {
+					writeTranslationRotation((TranslationRotation.Description)motion, moli, buf);
 				} else {
 					throw new UnsupportedOperationException(motion.getClass().getName());
 				}
@@ -771,7 +801,7 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 	private void writeDihedral(DihedralAngle.Description desc, int posi, BufWriter buf) {
 
 		// write the motion id
-		buf.int64(0);
+		buf.int64(dihedralId);
 
 		var dihedralAddr = buf.place(dihedralStruct);
 		dihedralStruct.min_radians.set(dihedralAddr, Math.toRadians(desc.minDegrees));
@@ -790,6 +820,21 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		}
 
 		buf.skipToAlignment(8);
+	}
+
+	private void writeTranslationRotation(TranslationRotation.Description desc, int moli, BufWriter buf) {
+
+		// write the motion id
+		buf.int64(transRotId);
+
+		var transrotAddr = buf.place(transRotStruct);
+		transRotStruct.max_distance.set(transrotAddr, desc.maxDistance);
+		transRotStruct.max_radians.set(transrotAddr, desc.maxRotationRadians);
+		var centroidAddr = transRotStruct.centroid.addressOf(transrotAddr);
+		real3Struct.x.set(centroidAddr, desc.centroid.x);
+		real3Struct.y.set(centroidAddr, desc.centroid.y);
+		real3Struct.z.set(centroidAddr, desc.centroid.z);
+		transRotStruct.moli.set(transrotAddr, moli);
 	}
 
 	@Override

@@ -36,22 +36,26 @@ namespace osprey {
 				assignment(assignment), efunc(efunc), inters(inters) {
 
 				// allocate space for the dofs
-				dofs = new Dof<T> *[assignment.conf_space.max_num_dofs];
-				size = 0;
+				dofs = new AutoArray<Dof<T> *>(assignment.conf_space.max_num_dofs);
 
 				// make molecule dofs
 				for (int motioni=0; motioni < assignment.conf_space.num_molecule_motions; motioni++) {
-					switch (assignment.conf_space.get_molecule_motion_id(motioni)) {
+					switch (auto motionid = assignment.conf_space.get_molecule_motion_id(motioni)) {
 
 						case motions::Dihedral<T>::id: {
 							const motions::Dihedral<T> & dihedral = *reinterpret_cast<const motions::Dihedral<T> *>(assignment.conf_space.get_molecule_motion(motioni));
-							dofs[size] = dihedral.make_dof(assignment);
-							size += 1;
+							dihedral.make_dofs(dofs, assignment);
 						} break;
 
-						// TODO: translation/rotation
+						case motions::TranslationRotation<T>::id: {
+							const motions::TranslationRotation<T> & transrot = *reinterpret_cast<const motions::TranslationRotation<T> *>(assignment.conf_space.get_molecule_motion(motioni));
+							transrot.make_dofs(dofs, assignment);
+						} break;
 
-						default: throw std::invalid_argument("unrecognized motion id");
+						default: {
+							std::cout << "motion id: " << motionid << std::endl;
+							throw std::invalid_argument("unrecognized motion id for molecule");
+						}
 					}
 				}
 
@@ -66,43 +70,45 @@ namespace osprey {
 
 						// yup, make the dofs
 						for (int motioni=0; motioni<conf.num_motions; motioni++) {
-							switch (assignment.conf_space.get_conf_motion_id(conf, motioni)) {
+							switch (auto motionid = assignment.conf_space.get_conf_motion_id(conf, motioni)) {
 
 								case motions::Dihedral<T>::id: {
 									const motions::Dihedral<T> & dihedral = *reinterpret_cast<const motions::Dihedral<T> *>(assignment.conf_space.get_conf_motion(conf, motioni));
-									dofs[size] = dihedral.make_dof(assignment);
-									size += 1;
+									dihedral.make_dofs(dofs, assignment);
 								} break;
 
-								default: throw std::invalid_argument("unrecognized motion id");
+								default: {
+									std::cout << "motion id: " << motionid << std::endl;
+									throw std::invalid_argument("unrecognized motion id for conformation");
+								}
 							}
 						}
 					}
 				}
 
 				// make the inters for each dof
-				for (int d=0; d<size; d++) {
-					dofs[d]->set_inters(inters);
+				for (int d=0; d<dofs->get_size(); d++) {
+					(*dofs)[d]->set_inters(inters);
 				}
 			}
 
 			Dofs(const Dofs<T> & other) = delete;
 
 			~Dofs() {
-				delete[] dofs;
+				delete dofs;
 			}
 
 			inline int get_size() const {
-				return size;
+				return dofs->get_size();
 			}
 
 			Dof<T> & operator [] (int i) {
-				return *dofs[i];
+				return *(*dofs)[i];
 			}
 
 			inline void set(const Array<T> & x) {
 				for (int d=0; d<x.get_size(); d++) {
-					dofs[d]->set(x[d]);
+					(*dofs)[d]->set(x[d]);
 				}
 			}
 
@@ -112,14 +118,13 @@ namespace osprey {
 			}
 
 			inline T eval_efunc(int d, T x) {
-				Dof<T> & dof = *dofs[d];
+				Dof<T> & dof = *(*dofs)[d];
 				dof.set(x);
 				return efunc(assignment, dof.get_inters());
 			}
 
 		private:
-			int size;
-			Dof<T> ** dofs;
+			AutoArray<Dof<T> *> * dofs;
 	};
 
 

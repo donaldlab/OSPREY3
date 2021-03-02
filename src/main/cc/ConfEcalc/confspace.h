@@ -9,14 +9,15 @@ namespace osprey {
 
 	template<typename T>
 	struct Conf {
-		int64_t atoms_offset;
+		int64_t atom_coords_offset;
+		int64_t atom_molis_offset;
 		int32_t frag_index;
 		// 4 bytes pad if T = float32_t
 		T internal_energy;
 		int64_t num_motions;
 		int64_t motions_offset;
 	};
-	ASSERT_JAVA_COMPATIBLE_REALS(Conf, 32, 40);
+	ASSERT_JAVA_COMPATIBLE_REALS(Conf, 40, 48);
 
 	struct alignas(8) Pos {
 		int32_t num_confs;
@@ -42,12 +43,20 @@ namespace osprey {
 				return *reinterpret_cast<const Conf<T> *>(offset(conf_offsets[confi]));
 			}
 
-			inline const Array<Real3<T>> & get_static_atoms() const {
-				return *reinterpret_cast<const Array<Real3<T>> *>(offset(static_atoms_offset));
+			inline const Array<Real3<T>> & get_static_atom_coords() const {
+				return *reinterpret_cast<const Array<Real3<T>> *>(offset(static_atom_coords_offset));
 			}
 
-			inline const Array<Real3<T>> & get_conf_atoms(const Conf<T> & conf) const {
-				return *reinterpret_cast<const Array<Real3<T>> *>(offset(conf.atoms_offset));
+			inline const Array<int32_t> & get_static_atom_molis() const {
+				return *reinterpret_cast<const Array<int32_t> *>(offset(static_atom_molis_offset));
+			}
+
+			inline const Array<Real3<T>> & get_conf_atom_coords(const Conf<T> & conf) const {
+				return *reinterpret_cast<const Array<Real3<T>> *>(offset(conf.atom_coords_offset));
+			}
+
+			inline const Array<int32_t> & get_conf_atom_molis(const Conf<T> & conf) const {
+				return *reinterpret_cast<const Array<int32_t> *>(offset(conf.atom_molis_offset));
 			}
 
 			inline const void * get_params() const {
@@ -162,7 +171,8 @@ namespace osprey {
 			int32_t max_num_dofs;
 			int32_t num_molecule_motions;
 			int64_t positions_offset;
-			int64_t static_atoms_offset;
+			int64_t static_atom_coords_offset;
+			int64_t static_atom_molis_offset;
 			int64_t params_offset;
 			int64_t pos_pairs_offset;
 			int64_t molecule_motions_offset;
@@ -177,7 +187,7 @@ namespace osprey {
 				return reinterpret_cast<const int64_t *>(offset(pos_pairs_offset));
 			}
 	};
-	ASSERT_JAVA_COMPATIBLE_REALS(ConfSpace, 64, 64);
+	ASSERT_JAVA_COMPATIBLE_REALS(ConfSpace, 72, 72);
 
 	template<typename T>
 	std::ostream & operator << (std::ostream & out, const ConfSpace<T> & conf_space) {

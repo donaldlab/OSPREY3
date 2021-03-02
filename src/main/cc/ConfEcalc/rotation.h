@@ -34,6 +34,7 @@ namespace osprey {
 	class Rotation {
 		public:
 
+			// these are row vectors
 			Real3<T> xaxis;
 			Real3<T> yaxis;
 			Real3<T> zaxis;
@@ -43,12 +44,56 @@ namespace osprey {
 
 			inline Rotation(): xaxis(1, 0, 0), yaxis(0, 1, 0), zaxis(0, 0, 1) {}
 
+			inline void set_x(T radians) {
+				T sin = std::sin(radians);
+				T cos = std::cos(radians);
+				xaxis = { 1, 0, 0 };
+				yaxis = { 0, cos, -sin };
+				zaxis = { 0, sin, cos };
+			}
+
+			inline void set_y(T radians) {
+				T sin = std::sin(radians);
+				T cos = std::cos(radians);
+				xaxis = { cos, 0, sin };
+				yaxis = { 0, 1, 0 };
+				zaxis = { -sin, 0, cos };
+			}
+
 			inline void set_z(T radians) {
 				T sin = std::sin(radians);
 				T cos = std::cos(radians);
 				xaxis = { cos, -sin, 0 };
 				yaxis = { sin, cos, 0 };
 				zaxis = { 0, 0, 1 };
+			}
+
+			void set_xyz(T radians_x, T radians_y, T radians_z) {
+
+				T sin_x = std::sin(radians_x);
+				T cos_x = std::cos(radians_x);
+				T sin_y = std::sin(radians_y);
+				T cos_y = std::cos(radians_y);
+				T sin_z = std::sin(radians_z);
+				T cos_z = std::cos(radians_z);
+
+				xaxis = {
+					cos_y*cos_z,
+					-cos_y*sin_z,
+					sin_y
+				};
+
+				yaxis = {
+					sin_x*sin_y*cos_z + cos_x*sin_z,
+					-sin_x*sin_y*sin_z + cos_x*cos_z,
+					-sin_x*cos_y
+				};
+
+				zaxis = {
+					-cos_x*sin_y*cos_z + sin_x*sin_z,
+					cos_x*sin_y*sin_z + sin_x*cos_z,
+					cos_x*cos_y
+				};
 			}
 
 			inline void set_look(const Real3<T> & zaxis_unnorm, const Real3<T> & yaxis_unnorm) {

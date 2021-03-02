@@ -95,6 +95,54 @@ namespace osprey {
 			}
 	};
 	ASSERT_JAVA_COMPATIBLE(Array<int>, 16);
+
+	// a size-tracking array backed by Array
+	// useful when you don't know the size of the array in advance, but you can easily bound it
+	template<typename T>
+	class AutoArray {
+		public:
+
+			Array<T> array;
+
+			AutoArray(int64_t capacity):
+				array(capacity), size(0) {
+			}
+
+			int64_t get_capacity() const {
+				return array.get_size();
+			}
+
+			int64_t get_size() const {
+				return size;
+			}
+
+			inline T & operator [] (int64_t i) {
+
+				// just in case ...
+				assert (i < size);
+
+				return array[i];
+			}
+
+			inline const T & operator [] (int64_t i) const {
+
+				// just in case ...
+				assert (i < size);
+
+				return array[i];
+			}
+
+			void add(T value) {
+
+				// just in case ...
+				assert (size < array.get_size());
+
+				array[size++] = value;
+			}
+
+		private:
+			int64_t size;
+	};
 }
 
 

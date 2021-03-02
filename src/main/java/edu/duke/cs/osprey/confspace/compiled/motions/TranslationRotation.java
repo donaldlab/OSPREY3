@@ -65,14 +65,11 @@ public class TranslationRotation implements ContinuousMotion {
 		this.desc = desc;
 		this.coords = coords;
 
-		// this motion modifies the whole molecule,
-		// so assume that also includes the static atoms too
-		modifiedPosIndices.add(PosInter.StaticPos);
-
 		// collect all the static indices for our molecule
 		for (int atomi=0; atomi<coords.confSpace.numStaticAtoms; atomi++) {
 			if (coords.confSpace.staticMolInfoIndices[atomi] == molInfoIndex) {
 				atomIndices.add(coords.getStaticIndex(atomi));
+				modifiedPosIndices.add(PosInter.StaticPos);
 			}
 		}
 
@@ -115,9 +112,8 @@ public class TranslationRotation implements ContinuousMotion {
 	private void apply() {
 
 		Vector3d pos = new Vector3d();
-		Quaterniond q = new Quaterniond(new Quaterniond().rotationX(dofPsi.value))
-			.premul(new Quaterniond().rotationY(dofTheta.value))
-			.premul(new Quaterniond().rotationZ(dofPhi.value));
+		Quaterniond q = new Quaterniond()
+			.rotationXYZ(dofPsi.value, dofTheta.value, dofPhi.value);
 		Vector3d t = new Vector3d(dofX.value, dofY.value, dofZ.value);
 
 		// transform each atom

@@ -29,6 +29,9 @@ public class IntelConfEnergyCalculator implements ConfEnergyCalculator {
 	private static class NativeLib {
 
 		static {
+			// TODO: I think there's some bugs in here? getting weird JVM crashes
+			//   but no one uses this code, so there's no need to try and fix it right now
+			if (true) throw new UnsupportedOperationException("Intel-specific energy caculator not ready yet");
 			Native.register("IntelConfEcalc");
 		}
 

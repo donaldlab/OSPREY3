@@ -13,11 +13,12 @@ namespace osprey {
 				: conf_space(_conf_space), conf(_conf), atoms(_conf_space.max_num_conf_atoms) {
 
 				int32_t offset = 0;
+				auto _index_offsets = new int64_t[conf_space.num_pos];
 				auto _atom_pairs = new const void *[1 + 2*conf_space.num_pos + conf_space.num_pos*(conf_space.num_pos - 1)/2];
 				auto _conf_energies = new T[conf_space.num_pos];
 
 				// copy the static atoms
-				offset += atoms.copy_from(conf_space.get_static_atoms());
+				offset += atoms.copy_from(conf_space.get_static_atom_coords());
 				_atom_pairs[conf_space.index_static_static()] = conf_space.get_static_static_pair();
 
 				for (int posi1=0; posi1<conf_space.num_pos; posi1++) {
@@ -25,13 +26,16 @@ namespace osprey {
 
 					int64_t num_copied = 0;
 
+					// save the offset for this position, for later lookups
+					_index_offsets[posi1] = offset;
+
 					// is pos1 assigned?
 					int32_t confi1 = conf[posi1];
 					if (confi1 >= 0) {
 						const Conf<T> & pconf1 = conf_space.get_conf(pos1, confi1);
 
 						// yup, copy the atoms
-						num_copied = atoms.copy_from(conf_space.get_conf_atoms(pconf1), offset);
+						num_copied = atoms.copy_from(conf_space.get_conf_atom_coords(pconf1), offset);
 						offset += num_copied;
 
 						// collect the conf internal energies
@@ -63,6 +67,7 @@ namespace osprey {
 					offset += atoms_remaining;
 				}
 
+				index_offsets = _index_offsets;
 				atom_pairs = _atom_pairs;
 				conf_energies = _conf_energies;
 			}
@@ -70,6 +75,7 @@ namespace osprey {
 			Assignment(const Assignment & other) = delete;
 
 			~Assignment() {
+				delete[] index_offsets;
 				delete[] atom_pairs;
 				delete[] conf_energies;
 			}
@@ -82,11 +88,21 @@ namespace osprey {
 				return conf_energies[posi];
 			}
 
+			inline int64_t get_static_index(int atomi) const {
+				// static atoms are first in the array
+				return atomi;
+			}
+
+			inline int64_t get_index(int posi, int atomi) const {
+				return index_offsets[posi] + atomi;
+			}
+
 			const ConfSpace<T> & conf_space;
 			const int32_t * conf;
 			Array<Real3<T>> atoms;
 
 		private:
+			const int64_t * index_offsets;
 			const void ** atom_pairs;
 			const T * conf_energies;
 	};

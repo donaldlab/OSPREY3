@@ -344,4 +344,45 @@ public class TestConfSpace {
 			.sum();
 		assertThat(numAtoms, is(1602));
 	}
+
+
+	public static class SmallMolAffinityCompiled {
+
+		public final ConfSpace complex;
+		public final ConfSpace protein;
+		public final ConfSpace smallMol;
+
+		public SmallMolAffinityCompiled(ConfSpace complex, ConfSpace protein, ConfSpace smallMol) {
+			this.complex = complex;
+			this.protein = protein;
+			this.smallMol = smallMol;
+		}
+
+		public int[] makeConfComplexWt() {
+
+			ConfSpace confSpace = complex;
+
+			int[] conf = Conf.make(confSpace);
+			for (int posi=0; posi<confSpace.numPos(); posi++) {
+				int fposi = posi;
+				conf[posi] = IntStream.range(0, confSpace.numConf(posi))
+					.filter(confi -> confSpace.confId(fposi, confi).startsWith("wt-"))
+					.findFirst()
+					.orElseThrow();
+			}
+
+			return conf;
+		}
+	}
+
+	public static class DesignSmallMolAffinity6f {
+
+		public static SmallMolAffinityCompiled makeCompiled() {
+			return new SmallMolAffinityCompiled(
+				ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/1dg9.6f.complex.ccsx")),
+				ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/1dg9.6f.bptpase.ccsx")),
+				ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/1dg9.6f.hepes.ccsx"))
+			);
+		}
+	}
 }

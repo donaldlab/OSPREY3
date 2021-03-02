@@ -319,6 +319,10 @@ public class Structs {
 		public StructField(T struct) {
 			super(struct.bytes());
 		}
+
+		public MemoryAddress addressOf(MemoryAddress addr) {
+			return addr.addOffset(offset);
+		}
 	}
 	public static <T extends Struct> StructField<T> struct(T struct) {
 		return new StructField<>(struct);
