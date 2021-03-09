@@ -40,11 +40,14 @@ import java.nio.file.StandardCopyOption
 import java.nio.file.Files
 import java.nio.file.Path
 import org.gradle.internal.os.OperatingSystem
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 
 
 plugins {
 	`java-library`
+	kotlin("jvm") version "1.3.60"
+	kotlin("plugin.serialization") version "1.3.61"
 	application
 	idea
 	id("org.openjfx.javafxplugin") version("0.0.7")
@@ -68,6 +71,7 @@ val docBuildDir = pythonBuildDir.resolve("doc")
 group = "edu.duke.cs"
 version = Files.readAllLines(projectDir.resolve("src/main/resources/config/version"))[0]
 
+val versionService = "0.3"
 
 repositories {
 	jcenter()
@@ -93,9 +97,13 @@ application {
 
 dependencies {
 
+	// kotlin runtime
+	implementation(kotlin("stdlib-jdk8"))
+
 	// test dependencies
 	testImplementation("org.hamcrest:hamcrest-all:1.3")
 	testImplementation("junit:junit:4.12")
+	testImplementation("io.kotlintest:kotlintest-runner-junit5:3.4.0")
 
 	// handle logging
 	implementation("ch.qos.logback:logback-classic:1.2.3")
@@ -122,11 +130,18 @@ dependencies {
 	implementation("net.java.dev.jna:jna:5.5.0")
 	implementation("com.google.guava:guava:29.0-jre")
 
+	// TODO: get rid of "api" dependencies after merging everything into the majestic monolith
+
 	// libs used by the GUI
 	api("org.apache.commons:commons-lang3:3.4")
 	api("commons-io:commons-io:2.5")
 	api("org.tomlj:tomlj:1.0.0")
 	api(files("lib/kdtree.jar")) // no authoritative source on the internet
+
+	// used by the service
+	val ktorVersion = "1.3.0"
+	api("io.ktor:ktor-server-netty:$ktorVersion")
+	implementation("io.ktor:ktor-serialization:$ktorVersion")
 
 	// for JCuda, gradle tries (and fails) download the natives jars automatically,
 	// so turn off transitive dependencies. we'll deal with natives manually
@@ -218,9 +233,21 @@ tasks.withType<JavaCompile> {
 	options.compilerArgs.addAll(moduleArgs)
 }
 
+tasks.withType<KotlinCompile> {
+
+	kotlinOptions {
+
+		jvmTarget = "1.8"
+
+		// enable experimental features so we can use the fancy ktor stuff
+		freeCompilerArgs += "-Xuse-experimental=kotlin.Experimental"
+	}
+}
+
 tasks.withType<Test> {
 	// the default 512m is too little memory to run test designs
 	maxHeapSize = "2g"
+	useJUnitPlatform()
 }
 
 runtime {
@@ -442,6 +469,21 @@ tasks {
 		.forEach { it.enabled = false }
 
 	val testClasses = "testClasses" {}
+
+	// tell gradle to write down the version numbers where apps can read them
+	processResources {
+
+		// always update the build properties
+		outputs.upToDateWhen { false }
+
+		// write down the osprey service version
+		from(sourceSets["main"].resources.srcDirs) {
+			include("edu/cs/duke/osprey/service/build.properties")
+			expand(
+				"version" to versionService
+			)
+		}
+	}
 
 	val appendBuildNumber by creating {
 		dependsOn("processResources")

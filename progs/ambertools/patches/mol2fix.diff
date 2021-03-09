@@ -1,0 +1,25 @@
+--- src/leap/mol2File.c	2019-08-28 10:22:18.724480849 -0400
++++ src/leap/mol2File.c	2019-08-28 09:48:10.748158844 -0400
+@@ -168,7 +168,10 @@
+ 
+     p.pdb.atom.serial_num = pwPFile->iRecordNumber++;
+ 
++	/* Jeff: residue.name is a 4-char array, we shouldn't strcpy 5-char strings into it, eg NALA\0
+     strcpy( p.pdb.atom.residue.name, pwPFile->sResidueName );
++	*/
++	strncpy( p.pdb.atom.residue.name, pwPFile->sResidueName, 4 );
+ 
+ 	strcpy( sName, sAtomType(aAtom) );
+ 	strcpy( sTemp, sContainerName((CONTAINER)aAtom) );
+--- src/leap/pdb_format.c	2019-08-28 10:21:29.388328689 -0400
++++ src/leap/pdb_format.c	2019-08-28 10:21:19.620298512 -0400
+@@ -127,6 +127,8 @@
+                 "", "ENDMDL" },
+         {                                       /* MOL2_ATOM */
+                 "%3d %6s   %12.6f%12.6f%12.6f %3s %3d %3s %12.4f", 
+-                "%3d %-4s %11.6f %11.6f %11.6f %-4s %2d %-5s %8.4f ****" },
++                /* Jeff: residue names are a 4-char array, don't overread */
++                /* "%3d %-4s %11.6f %11.6f %11.6f %-4s %2d %-5s %8.4f ****" }, */
++                "%3d %-4s %11.6f %11.6f %11.6f %-4s %2d %-5.4s %8.4f ****" },
+ };
+ 

@@ -306,3 +306,22 @@ in javadoc-based documentation.
 	
 	.. [KEY] ``citation``
 	
+
+
+Osprey Service
+~~~~~~~~~~~~~~
+
+Building AmberTools:
+
+#. upack the AmberTools19.tar.bz2 file
+#. export AMBERHOME=/path/to/unpacked/folder
+#. ./configure --skip-python gnu
+	yes to all patches
+#. apply patches in patches folder
+#. make -j 4 install
+#. copyable binaries are at bin/ and bin/to_be_dispatched
+
+Compile debug builds for testing:
+
+#. make clean
+#. make AMBERBUILDFLAGS='-O0 -g' ...

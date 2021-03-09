@@ -1,0 +1,131 @@
+--- src/leap/commands.c	2019-04-25 08:49:57.000000000 -0400
++++ src/leap/commands.c	2019-07-28 20:16:42.223157731 -0400
+@@ -7113,6 +7113,100 @@
+ }
+ 
+ 
++/*
++ *      oCmd_rebuildSelectedAtoms
++ *      Rebuilds external coordinates for all selected atoms
++ *      Based on XAUEMarkUnBuilt and XAUEBuildExternals in xaUnitEditor.c
++ *      Author: Jeff Martin (2019)
++ *      Donald Lab, Duke University 
++ *
++ */
++OBJEKT
++oCmd_rebuildSelectedAtoms(int iArgCount, ASSOC aaArgs[])
++{
++HELP            hTemp;
++LOOP            lAtom, lSpan;
++ATOM            aAtom, aStart;
++UNIT            uUnit;
++int             iDum;
++
++    if ( iArgCount != 1 ) {
++        VPFATAL(( "Illegal number of arguments.\n" ));
++        hTemp = hHelp( "rebuildSelectedAtoms" );
++        if ( hTemp == NULL ) {
++            VPFATALDELAYEDEXIT(( "No help available on rebuildSelectedAtoms.\n" ));
++        } else {
++            VPFATALDELAYEDEXIT(( "%s\n", sHelpText(hTemp) ));
++        }
++        return(NULL);
++    }
++
++    DisplayerAccumulateUpdates();
++    uUnit = (UNIT)oAssocObject(aaArgs[0]);
++    if ( uUnit == NULL ) return(NULL);
++
++        /* mark all selected atoms as unbuilt */
++
++    lAtom = lLoop((OBJEKT) uUnit, ATOMS );
++    while ( (aAtom = (ATOM)oNext(&lAtom)) ) {
++        if ( bAtomFlagsSet( aAtom, ATOMSELECTED ) ) {
++            AtomSetFlags( aAtom, ATOMPOSITIONDRAWN|ATOMNEEDSBUILD);
++            AtomResetFlags( aAtom, ATOMPOSITIONKNOWN );
++        }
++    }
++
++        /* Try to build geometries for simple rings */
++
++    BuildInternalsForSimpleRings( (CONTAINER)uUnit );
++
++        /* Assign internal coordinates for all internals that */
++        /* include atoms that need building */
++
++    lAtom = lLoop((OBJEKT) uUnit, ATOMS );
++    BuildInternalsUsingFlags( &lAtom, ATOMPOSITIONDRAWN, 0,
++                                ATOMNEEDSBUILD,
++                                ATOMPOSITIONDRAWN );
++
++        /* Build spanning trees for all atoms that need building */
++        /* and build external coordinates for those atoms */
++
++    lAtom = lLoop((OBJEKT) uUnit, ATOMS );
++    while ( (aAtom = (ATOM)oNext(&lAtom)) ) {
++        if ( bAtomFlagsSet( aAtom, ATOMNEEDSBUILD ) ) {
++
++                        /* Look for a collision with an ATOM that has */
++                        /* already been built */
++                        /* Then start building from there */
++
++            lSpan = lLoop((OBJEKT) aAtom, SPANNINGTREE );
++            LoopDefineVisibleAtoms( &lSpan, ATOMNEEDSBUILD );
++            while ( oNext(&lSpan) );
++            if ( iLoopInvisibleCollisionCount(&lSpan) > 0 ) {
++                aStart = aLoopLastCollisionAtom(&lSpan);
++                lSpan = lLoop((OBJEKT) aStart, SPANNINGTREE );
++            } else {
++                lSpan = lLoop((OBJEKT) aAtom, SPANNINGTREE );
++            }
++            LoopDefineVisibleAtoms( &lSpan, ATOMNEEDSBUILD );
++            iDum = 0;   /* for purify */
++            BuildExternalsUsingFlags( &lSpan, ATOMNEEDSBUILD, 0,
++                                        ATOMPOSITIONKNOWN,
++                                        ATOMNEEDSBUILD,
++                                        &iDum, &iDum, &iDum, TRUE );
++        }
++    }
++
++                /* Destroy all of the INTERNALs */
++
++    lAtom = lLoop((OBJEKT) uUnit, ATOMS );
++    BuildDestroyInternals( &lAtom );
++
++    DisplayerReleaseUpdates();
++
++    return(NULL);
++}
++
++
+ COMMANDt        cCommands[] = {
+ 
+         { "add",                oCmd_add },
+@@ -7171,6 +7265,7 @@
+         { "measureGeom",        oCmd_measureGeom },
+         { "memDebug",           oCmd_memDebug},
+         { "quit",               oCmd_quit },
++        { "rebuildSelectedAtoms", oCmd_rebuildSelectedAtoms },
+         { "relax",              oCmd_relax },
+         { "remove",             oCmd_remove },
+         { "restrainAngle",      oCmd_restrainAngle },
+--- src/leap/helptext.text	2018-12-05 15:34:34.000000000 -0500
++++ src/leap/helptext.text	2019-07-28 15:33:22.530239989 -0400
+@@ -2180,3 +2180,17 @@
+       $AMBERHOME/dat/leap/cmd contains the default leaprc and other scripts.
+ 
+ @@endHelp
++@@beginHelp:  rebuildSelectedAtoms
++
++
++    rebuildSelectedAtoms obj
++
++
++      UNIT                       _obj_
++
++
++
++Rebuilds external coordinates for all selected atoms in _obj_.
++
++@@endHelp
++
