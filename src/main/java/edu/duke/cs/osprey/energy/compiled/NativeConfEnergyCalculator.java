@@ -419,12 +419,11 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 	private final SConf confStruct = new SConf();
 
 	static class SArray extends Struct {
-		Int32 size = int32();
-		Pad pad = pad(4);
+		Int64 size = int64();
 		Int64 things_ptr = int64();
 		void init() {
 			init(
-				16, "size", "pad", "things_ptr"
+				16, "size", "things_ptr"
 			);
 		}
 	}

@@ -68,16 +68,25 @@ namespace osprey {
 	void assign_kernel(const ConfSpace<T> * conf_space, const Array<int32_t> * conf, Array<osprey::Real3<T>> * out_coords) {
 
 		// slice up the shared memory
-		extern __shared__ int8_t shared[];
-		int64_t shared_offset = 0;
-		auto shared_atom_pairs = reinterpret_cast<const void **>(shared + shared_offset);
-		shared_offset += Assignment<T>::sizeof_atom_pairs(conf_space->num_pos);
-		auto shared_conf_energies = reinterpret_cast<T *>(shared + shared_offset);
+		extern __shared__ int8_t _shared[];
+		auto shared = _shared;
+
+		auto shared_index_offsets = reinterpret_cast<int32_t *>(shared);
+		assert (cuda::is_aligned<16>(shared_index_offsets));
+		shared += cuda::pad_to_alignment<16>(Assignment<T>::sizeof_index_offsets(conf_space->num_pos));
+
+		auto shared_atom_pairs = reinterpret_cast<const void **>(shared);
+		assert (cuda::is_aligned<16>(shared_atom_pairs));
+		shared += cuda::pad_to_alignment<16>(Assignment<T>::sizeof_atom_pairs(conf_space->num_pos));
+
+		auto shared_conf_energies = reinterpret_cast<T *>(shared);
+		assert (cuda::is_aligned<16>(shared_conf_energies));
+		shared += cuda::pad_to_alignment<16>(Assignment<T>::sizeof_conf_energies(conf_space->num_pos));
 
 		// init the sizes for cudaMalloc'd Array instances
 		out_coords->init(conf_space->max_num_conf_atoms);
 
-		Assignment<T> assignment(*conf_space, *conf, *out_coords, shared_atom_pairs, shared_conf_energies);
+		Assignment<T> assignment(*conf_space, *conf, *out_coords, shared_index_offsets, shared_atom_pairs, shared_conf_energies);
 	}
 
 	template<typename T>
@@ -102,8 +111,9 @@ namespace osprey {
 
 		// compute the shared memory size
 		int64_t shared_size = 0
-			+ Assignment<T>::sizeof_atom_pairs(conf.get_size())
-			+ Assignment<T>::sizeof_conf_energies(conf.get_size());
+			+ cuda::pad_to_alignment<16>(Assignment<T>::sizeof_index_offsets(conf.get_size()))
+			+ cuda::pad_to_alignment<16>(Assignment<T>::sizeof_atom_pairs(conf.get_size()))
+			+ cuda::pad_to_alignment<16>(Assignment<T>::sizeof_conf_energies(conf.get_size()));
 
 		// launch the kernel
 		// TODO: optimize launch bounds
@@ -135,6 +145,10 @@ namespace osprey {
 		extern __shared__ int8_t _shared[];
 		auto shared = _shared;
 
+		auto shared_index_offsets = reinterpret_cast<int32_t *>(shared);
+		assert (cuda::is_aligned<16>(shared_index_offsets));
+		shared += cuda::pad_to_alignment<16>(Assignment<T>::sizeof_index_offsets(conf_space->num_pos));
+
 		auto shared_atom_pairs = reinterpret_cast<const void **>(shared);
 		assert (cuda::is_aligned<16>(shared_atom_pairs));
 		shared += cuda::pad_to_alignment<16>(Assignment<T>::sizeof_atom_pairs(conf_space->num_pos));
@@ -150,7 +164,7 @@ namespace osprey {
 		out_coords->init(conf_space->max_num_conf_atoms);
 
 		// make the atoms
-		osprey::Assignment<T> assignment(*conf_space, *conf, *out_coords, shared_atom_pairs, shared_conf_energies);
+		osprey::Assignment<T> assignment(*conf_space, *conf, *out_coords, shared_index_offsets, shared_atom_pairs, shared_conf_energies);
 
 		// call the energy function
 		*out_energy = efunc(assignment, *inters, thread_energy);
@@ -192,6 +206,7 @@ namespace osprey {
 
 		// compute the shared memory size
 		int64_t shared_size_static = 0
+			+ cuda::pad_to_alignment<16>(Assignment<T>::sizeof_index_offsets(conf.get_size()))
 			+ cuda::pad_to_alignment<16>(Assignment<T>::sizeof_atom_pairs(conf.get_size()))
 			+ cuda::pad_to_alignment<16>(Assignment<T>::sizeof_conf_energies(conf.get_size()));
 		int64_t shared_size_per_thread = sizeof(T);
@@ -228,6 +243,7 @@ namespace osprey {
 			int64_t inters_bytes;
 			int64_t coords_bytes;
 			int64_t dof_values_bytes;
+			int64_t mol_motions_bytes;
 			int64_t batch_size;
 
 			__host__
@@ -236,6 +252,7 @@ namespace osprey {
 				inters_bytes = Array<PosInter<T>>::get_bytes(sizes->max_num_inters);
 				coords_bytes = Array<Real3<T>>::get_bytes(sizes->num_atoms);
 				dof_values_bytes = DofValues<T>::get_bytes(sizes->max_num_dofs);
+				mol_motions_bytes = Dofs<T>::get_mol_motion_bytes(sizes->num_pos, sizes->num_mol_motions, sizes->num_atoms);
 				batch_size = _batch_size;
 				check_alignments();
 			}
@@ -246,6 +263,7 @@ namespace osprey {
 				inters_bytes = Array<PosInter<T>>::get_bytes(max_num_inters);
 				coords_bytes = Array<Real3<T>>::get_bytes(conf_space->max_num_conf_atoms);
 				dof_values_bytes = DofValues<T>::get_bytes(conf_space->max_num_dofs);
+				mol_motions_bytes = Dofs<T>::get_mol_motion_bytes(conf_space->num_pos, conf_space->num_mol_motions, conf_space->max_num_conf_atoms);
 				batch_size = _batch_size;
 				check_alignments();
 			}
@@ -255,7 +273,7 @@ namespace osprey {
 
 			__host__
 			inline int64_t get_bytes_device() const {
-				return (conf_bytes + inters_bytes + coords_bytes + dof_values_bytes)*batch_size;
+				return (conf_bytes + inters_bytes + coords_bytes + dof_values_bytes + mol_motions_bytes)*batch_size;
 			}
 
 			__host__
@@ -288,6 +306,11 @@ namespace osprey {
 				return reinterpret_cast<DofValues<T> *>(get_job_buf(job, buf) + conf_bytes + inters_bytes + coords_bytes);
 			}
 
+			__host__ __device__
+			inline int8_t * get_mol_motion_bufs(int job, int8_t * buf) const {
+				return get_job_buf(job, buf) + conf_bytes + inters_bytes + coords_bytes + dof_values_bytes;
+			}
+
 		private:
 
 			__host__ __device__
@@ -296,11 +319,12 @@ namespace osprey {
 				assert (cuda::is_aligned<16>(inters_bytes));
 				assert (cuda::is_aligned<16>(coords_bytes));
 				assert (cuda::is_aligned<16>(dof_values_bytes));
+				assert (cuda::is_aligned<16>(mol_motions_bytes));
 			}
 
 			__host__ __device__
 			inline int8_t * get_job_buf(int job, int8_t * buf) const {
-				return buf + (conf_bytes + inters_bytes + coords_bytes + dof_values_bytes)*job;
+				return buf + (conf_bytes + inters_bytes + coords_bytes + dof_values_bytes + mol_motions_bytes)*job;
 			}
 	};
 
@@ -341,8 +365,8 @@ namespace osprey {
 
 
 	// configure the launch bounds, so the compiler knows how many registers to use
-	#define MINIMIZE_THREADS_F32_VOLTA 128 // TEMP 1024
-	#define MINIMIZE_THREADS_F64_VOLTA 128 // TEMP 1024
+	#define MINIMIZE_THREADS_F32_VOLTA 1024
+	#define MINIMIZE_THREADS_F64_VOLTA 1024
 	#define MINIMIZE_THREADS_F32_PASCAL 1024 // TODO: optimize for pascal?
 	#define MINIMIZE_THREADS_F64_PASCAL 1024
 	#define MINIMIZE_THREADS_F32_MAXWELL 1024 // TODO: optimize for maxwell?
@@ -411,6 +435,10 @@ namespace osprey {
 		extern __shared__ int8_t shared[];
 		int64_t offset = 0;
 
+		auto shared_index_offsets = reinterpret_cast<int32_t *>(shared + offset);
+		assert (cuda::is_aligned<16>(shared_index_offsets));
+		offset += cuda::pad_to_alignment<16>(Assignment<T>::sizeof_index_offsets(conf_space->num_pos));
+
 		auto shared_atom_pairs = reinterpret_cast<const void **>(shared + offset);
 		assert (cuda::is_aligned<16>(shared_atom_pairs));
 		offset += cuda::pad_to_alignment<16>(Assignment<T>::sizeof_atom_pairs(conf_space->num_pos));
@@ -461,12 +489,14 @@ namespace osprey {
 			*conf_space,
 			*bufs.get_conf_buf(blockIdx.x, xfer_buf),
 			*bufs.get_coords_buf(blockIdx.x, xfer_buf),
+			shared_index_offsets,
 			shared_atom_pairs,
 			shared_conf_energies
 		);
 		Dofs<T> dofs(
 			assignment,
 			*bufs.get_inters_buf(blockIdx.x, xfer_buf),
+			bufs.get_mol_motion_bufs(blockIdx.x, xfer_buf),
 			efunc,
 			thread_energy,
 			shared_dof_bufs,
@@ -506,6 +536,7 @@ namespace osprey {
 	__host__
 	inline int64_t minimize_kernel_shared_size(const ConfSpaceSizes * conf_space_sizes) {
 		return 0
+			+ cuda::pad_to_alignment<16>(Assignment<T>::sizeof_index_offsets(conf_space_sizes->num_pos))
 			+ cuda::pad_to_alignment<16>(Assignment<T>::sizeof_atom_pairs(conf_space_sizes->num_pos))
 			+ cuda::pad_to_alignment<16>(Assignment<T>::sizeof_conf_energies(conf_space_sizes->num_pos))
 			+ (Dof<T>::buf_size + Array<const PosInter<T> *>::get_bytes(conf_space_sizes->max_num_inters))*conf_space_sizes->max_num_dofs
@@ -612,7 +643,7 @@ namespace osprey {
 		CUDACHECK(cudaMemcpyAsync(h_out_energy, d_out_energy, sizeof(T), cudaMemcpyDeviceToHost, stream->get_stream()));
 
 		auto d_out_dofs = DofValues<T>::x_ptr(buf.get_dof_values_buf(0, stream->get_d_buf()));
-		CUDACHECK(cudaMemcpyAsync(out_dofs, d_out_dofs, DofValues<T>::get_bytes(conf_space_sizes->num_pos), cudaMemcpyDeviceToHost, stream->get_stream()));
+		CUDACHECK(cudaMemcpyAsync(out_dofs, d_out_dofs, Array<T>::get_bytes(conf_space_sizes->max_num_dofs), cudaMemcpyDeviceToHost, stream->get_stream()));
 
 		auto d_out_coords = buf.get_coords_buf(0, stream->get_d_buf());
 		CUDACHECK(cudaMemcpyAsync(out_coords, d_out_coords, buf.coords_bytes, cudaMemcpyDeviceToHost, stream->get_stream()));

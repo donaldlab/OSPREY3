@@ -62,6 +62,14 @@ namespace osprey {
 			// bytes of shared memory for all threads
 			static const int32_t dofs_shared_size = 1024;
 
+			__host__ __device__
+			static int64_t get_mol_motion_bytes(int32_t num_pos, int32_t num_mol_motions, int32_t max_num_conf_atoms) {
+				return max(
+					motions::Dihedral<T>::get_motion_bytes(),
+					motions::TranslationRotation<T>::get_motion_bytes(num_pos, max_num_conf_atoms)
+				)*num_mol_motions;
+			}
+
 			Assignment<T> & assignment;
 			const Array<PosInter<T>> & inters;
 			const EnergyFunction<T> efunc;
@@ -71,6 +79,7 @@ namespace osprey {
 			__device__
 			Dofs(Assignment<T> & assignment,
 			     const Array<PosInter<T>> & inters,
+				 int8_t * mol_motion_bufs,
 			     EnergyFunction<T> efunc,
 			     T thread_energy[],
 			     int8_t * dof_bufs,
@@ -79,6 +88,48 @@ namespace osprey {
 					dof_bufs(dof_bufs), dofs_shared_mem(dofs_shared_mem) {
 
 				size = 0;
+
+				auto mol_motion_bytes = get_mol_motion_bytes(
+					assignment.conf_space.num_pos,
+					assignment.conf_space.num_mol_motions,
+					assignment.conf_space.max_num_conf_atoms
+				);
+
+				// make molecule dofs
+				for (int motioni=0; motioni < assignment.conf_space.num_mol_motions; motioni++) {
+
+					assert (size < assignment.conf_space.max_num_dofs);
+
+					// get the pre-allocated buffer for this molecule motion
+					int8_t * mol_motion_buf = mol_motion_bufs + mol_motion_bytes*motioni;
+
+					switch (assignment.conf_space.get_molecule_motion_id(motioni)) {
+
+						case motions::Dihedral<T>::Id: {
+							motions::make_dofs_dihedral(
+								assignment.conf_space.get_molecule_motion(motioni),
+								mol_motion_buf,
+								dof_bufs,
+								size,
+								assignment,
+								inters
+							);
+						} break;
+
+						case motions::TranslationRotation<T>::Id: {
+							motions::make_dofs_transrot(
+								assignment.conf_space.get_molecule_motion(motioni),
+								mol_motion_buf,
+								dof_bufs,
+								size,
+								assignment,
+								inters
+							);
+						} break;
+
+						default: assert(false);
+					}
+				}
 
 				// make the conf dofs
 				for (int posi=0; posi<assignment.conf_space.num_pos; posi++) {
@@ -97,12 +148,14 @@ namespace osprey {
 							switch (assignment.conf_space.get_conf_motion_id(conf, motioni)) {
 
 								case motions::Dihedral<T>::Id: {
-									if (threadIdx.x == 0) {
-										auto dihedral = reinterpret_cast<const motions::Dihedral<T> *>(assignment.conf_space.get_conf_motion(conf, motioni));
-										auto dof = reinterpret_cast<motions::DihedralDof<T> *>(get(size));
-										dof->init(dihedral, inters);
-									}
-									size += 1;
+									motions::make_dofs_dihedral(
+										assignment.conf_space.get_conf_motion(conf, motioni),
+										nullptr,
+										dof_bufs,
+										size,
+										assignment,
+										inters
+									);
 								} break;
 
 								default: assert(false);
@@ -110,7 +163,6 @@ namespace osprey {
 						}
 					}
 				}
-				__syncthreads();
 			}
 
 			Dofs(const Dofs<T> & other) = delete;
@@ -128,8 +180,7 @@ namespace osprey {
 
 			__device__
 			inline Dof<T> * get(int d) {
-				int64_t buf_size = Dof<T>::buf_size + Array<const PosInter<T> *>::get_bytes(inters.get_size());
-				return reinterpret_cast<Dof<T> *>(dof_bufs + buf_size*d);
+				return Dof<T>::get_buf(dof_bufs, d, inters);
 			}
 
 			__device__

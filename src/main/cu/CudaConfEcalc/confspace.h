@@ -9,15 +9,16 @@ namespace osprey {
 
 	template<typename T>
 	struct alignas(16) Conf {
-		int64_t atoms_offset;
+		int64_t atom_coords_offset;
+		int64_t atom_molis_offset;
 		int32_t frag_index;
 		// 4 bytes pad if T = float64_t
 		T internal_energy;
 		int64_t num_motions;
 		int64_t motions_offset;
-		// 8 bytes pad if T = float64_t
+		// 8 bytes pad if T = float32_t
 	};
-	ASSERT_JAVA_COMPATIBLE_REALS(Conf, 32, 48);
+	ASSERT_JAVA_COMPATIBLE_REALS(Conf, 48, 48);
 
 	struct alignas(16) Pos {
 		int32_t num_confs;
@@ -50,13 +51,23 @@ namespace osprey {
 			}
 
 			__host__ __device__
-			inline const Array<Real3<T>> & get_static_atoms() const {
-				return *reinterpret_cast<const Array<Real3<T>> *>(offset(static_atoms_offset));
+			inline const Array<Real3<T>> & get_static_atom_coords() const {
+				return *reinterpret_cast<const Array<Real3<T>> *>(offset(static_atom_coords_offset));
 			}
 
 			__host__ __device__
-			inline const Array<Real3<T>> & get_conf_atoms(const Conf<T> & conf) const {
-				return *reinterpret_cast<const Array<Real3<T>> *>(offset(conf.atoms_offset));
+			inline const Array<int32_t> & get_static_atom_molis() const {
+				return *reinterpret_cast<const Array<int32_t> *>(offset(static_atom_molis_offset));
+			}
+
+			__host__ __device__
+			inline const Array<Real3<T>> & get_conf_atom_coords(const Conf<T> & conf) const {
+				return *reinterpret_cast<const Array<Real3<T>> *>(offset(conf.atom_coords_offset));
+			}
+
+			__host__ __device__
+			inline const Array<int32_t> & get_conf_atom_molis(const Conf<T> & conf) const {
+				return *reinterpret_cast<const Array<int32_t> *>(offset(conf.atom_molis_offset));
 			}
 
 			__host__ __device__
@@ -139,7 +150,7 @@ namespace osprey {
 
 				// just in case ...
 				assert (i >= 0);
-				assert (i < num_molecule_motions);
+				assert (i < num_mol_motions);
 
 				auto offsets = reinterpret_cast<const int64_t *>(offset(molecule_motions_offset));
 				return *reinterpret_cast<const int64_t *>(offset(offsets[i]));
@@ -150,11 +161,10 @@ namespace osprey {
 
 				// just in case ...
 				assert (i >= 0);
-				assert (i < num_molecule_motions);
+				assert (i < num_mol_motions);
 
 				auto offsets = reinterpret_cast<const int64_t *>(offset(molecule_motions_offset));
-				auto p = reinterpret_cast<const int64_t *>(offset(offsets[i]));
-				return reinterpret_cast<const void *>(p + 1);
+				return reinterpret_cast<const void *>(offset(offsets[i]));
 			}
 
 			__host__ __device__
@@ -182,10 +192,11 @@ namespace osprey {
 			int32_t num_pos;
 			int32_t max_num_conf_atoms;
 			int32_t max_num_dofs;
-			int32_t num_molecule_motions;
+			int32_t num_mol_motions;
 			int64_t size;
 			int64_t positions_offset;
-			int64_t static_atoms_offset;
+			int64_t static_atom_coords_offset;
+			int64_t static_atom_molis_offset;
 			int64_t params_offset;
 			int64_t pos_pairs_offset;
 			int64_t molecule_motions_offset;
@@ -225,7 +236,7 @@ namespace osprey {
 		}
 
 		// show the static atoms
-		const Array<Real3<T>> & static_atoms = conf_space.get_static_atoms();
+		const Array<Real3<T>> & static_atoms = conf_space.get_static_atom_coords();
 		out << "\tstatic atoms: " << static_atoms.size() << std::endl;
 		out << fmt::set_indents(2) << static_atoms << fmt::set_indents(0);
 
@@ -237,8 +248,9 @@ namespace osprey {
 		int64_t max_num_inters;
 		int64_t num_atoms;
 		int64_t max_num_dofs;
+		int64_t num_mol_motions;
 	};
-	ASSERT_JAVA_COMPATIBLE(ConfSpaceSizes, 32);
+	ASSERT_JAVA_COMPATIBLE(ConfSpaceSizes, 40);
 }
 
 #endif //CONFECALC_CONFSPACE_H

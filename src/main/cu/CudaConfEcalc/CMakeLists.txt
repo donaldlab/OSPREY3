@@ -13,8 +13,9 @@ configure_file(config.h.in config.h)
 # define the source files to compile
 set(CXXFiles
         confecalc.cu
-        motions.cu
         cuda.cu
+        motions/dihedral.cu
+        motions/transrot.cu
         )
 
 SET(CMAKE_CXX_FLAGS -pedantic-errors)

@@ -10,6 +10,11 @@ namespace osprey {
 		public:
 
 			__host__ __device__
+			static int64_t sizeof_index_offsets(int num_pos) {
+				return num_pos*sizeof(int32_t);
+			}
+
+			__host__ __device__
 			static int64_t sizeof_atom_pairs(int num_pos) {
 				return (1 + 2*num_pos + num_pos*(num_pos - 1)/2)*sizeof(void *);
 			}
@@ -21,13 +26,13 @@ namespace osprey {
 
 			__device__
 			Assignment(const ConfSpace<T> & conf_space, const Array<int32_t> & conf, Array<Real3<T>> & atoms,
-			           const void * shared_atom_pairs[], T shared_conf_energies[])
-				: conf_space(conf_space), conf(conf), atoms(atoms), atom_pairs(shared_atom_pairs), conf_energies(shared_conf_energies) {
+			           int32_t * shared_index_offsets, const void * shared_atom_pairs[], T shared_conf_energies[])
+				: conf_space(conf_space), conf(conf), atoms(atoms), index_offsets(shared_index_offsets), atom_pairs(shared_atom_pairs), conf_energies(shared_conf_energies) {
 
 				int32_t offset = 0;
 
 				// copy the static atoms
-				offset += atoms.copy_from_device(conf_space.get_static_atoms(), offset);
+				offset += atoms.copy_from_device(conf_space.get_static_atom_coords(), offset);
 				if (threadIdx.x == 0) {
 					shared_atom_pairs[conf_space.index_static_static()] = conf_space.get_static_static_pair();
 				}
@@ -37,13 +42,16 @@ namespace osprey {
 
 					int64_t num_copied = 0;
 
+					// save the offset for this position, for later lookups
+					index_offsets[posi1] = offset;
+
 					// is this pos assigned?
 					int32_t confi1 = conf[posi1];
 					if (confi1 >= 0) {
 						const Conf<T> & pconf1 = conf_space.get_conf(pos1, confi1);
 
 						// yup, copy the atoms
-						num_copied = atoms.copy_from_device(conf_space.get_conf_atoms(pconf1), offset);
+						num_copied = atoms.copy_from_device(conf_space.get_conf_atom_coords(pconf1), offset);
 						offset += num_copied;
 
 						if (threadIdx.x == 0) {
@@ -96,11 +104,23 @@ namespace osprey {
 				return conf_energies[posi];
 			}
 
+			__device__
+			inline int64_t get_static_index(int atomi) const {
+				// static atoms are first in the array
+				return atomi;
+			}
+
+			__device__
+			inline int64_t get_index(int posi, int atomi) const {
+				return index_offsets[posi] + atomi;
+			}
+
 			const ConfSpace<T> & conf_space;
 			const Array<int32_t> & conf;
 			Array<Real3<T>> & atoms;
 
 		private:
+			int32_t * index_offsets;
 			const void * const * atom_pairs;
 			const T * conf_energies;
 	};

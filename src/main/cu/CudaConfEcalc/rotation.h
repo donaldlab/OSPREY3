@@ -35,6 +35,7 @@ namespace osprey {
 	class Rotation {
 		public:
 
+			// these are row vectors
 			Real3<T> xaxis;
 			Real3<T> yaxis;
 			Real3<T> zaxis;
@@ -52,6 +53,36 @@ namespace osprey {
 				xaxis = real3<T>(1, 0, 0);
 				yaxis = real3<T>(0, 1, 0);
 				zaxis = real3<T>(0, 0, 1);
+			}
+
+			__device__
+			inline void set_xyz(T radians_x, T radians_y, T radians_z) {
+
+				T sin_y, cos_y;
+				sincos_intr(radians_y, sin_y, cos_y);
+				T sin_z, cos_z;
+				sincos_intr(radians_z, sin_z, cos_z);
+
+				xaxis = real3(
+					cos_y*cos_z,
+					-cos_y*sin_z,
+					sin_y
+				);
+
+				T sin_x, cos_x;
+				sincos_intr(radians_x, sin_x, cos_x);
+
+				yaxis = real3(
+					sin_x*sin_y*cos_z + cos_x*sin_z,
+					-sin_x*sin_y*sin_z + cos_x*cos_z,
+					-sin_x*cos_y
+				);
+
+				zaxis = real3(
+					-cos_x*sin_y*cos_z + sin_x*sin_z,
+					cos_x*sin_y*sin_z + sin_x*cos_z,
+					cos_x*cos_y
+				);
 			}
 
 			__device__
