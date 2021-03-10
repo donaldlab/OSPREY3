@@ -1,0 +1,65 @@
+/* [wxMaxima batch file version 1] [ DO NOT EDIT BY HAND! ]*/
+/* [ Created with wxMaxima version 18.02.0 ] */
+/* [wxMaxima: input   start ] */
+batchload("geometry.wxm")$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: comment start ]
+Define a cylinder from a point, a normal, and a radius
+   [wxMaxima: comment end   ] */
+
+
+/* [wxMaxima: input   start ] */
+p:vec3(p_x,p_y,p_z)$
+nn:unit3xyn(n_x,n_y)$
+np:unit3xyp(n_x,n_y)$
+assume(r > 0)$
+cylinder(n,v):=r=len(perpendicularComponent(v-p,n))$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: comment start ]
+Define our ray from the framebuffer pixel, but in camera space
+   [wxMaxima: comment end   ] */
+
+
+/* [wxMaxima: input   start ] */
+r(z):=vec3(r_x,r_y,z)$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: comment start ]
+Compute the intesection of the cylinder and the ray
+(only need the first intersection, since we always want the close side)
+   [wxMaxima: comment end   ] */
+
+
+/* [wxMaxima: input   start ] */
+intersectionn:solve(cylinder(nn,r(z)), z)$
+intersectionp:solve(cylinder(np,r(z)), z)$
+[intersectionn[1],intersectionp[1]];
+/* [wxMaxima: input   end   ] */
+/* [wxMaxima: answer  start ] */
+positive;
+/* [wxMaxima: answer  end   ] */
+
+
+/* [wxMaxima: input   start ] */
+optimize(%);
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+psubst([sqrt(1-n_x^2-n_y^2)=abs(n_z)],%th(2));
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+optimize(%);
+/* [wxMaxima: input   end   ] */
+
+
+
+/* Old versions of Maxima abort on loading files that end in a comment. */
+"Created with wxMaxima 18.02.0"$

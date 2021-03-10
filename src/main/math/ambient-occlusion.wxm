@@ -1,0 +1,92 @@
+/* [wxMaxima batch file version 1] [ DO NOT EDIT BY HAND! ]*/
+/* [ Created with wxMaxima version 18.02.0 ] */
+/* [wxMaxima: input   start ] */
+batchload("geometry.wxm")$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: comment start ]
+Define a line that passes through the origin
+   [wxMaxima: comment end   ] */
+
+
+/* [wxMaxima: input   start ] */
+line(t):=vec3(v_x,v_y,v_z)*t$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: comment start ]
+Define a sphere from a point and a radius
+   [wxMaxima: comment end   ] */
+
+
+/* [wxMaxima: input   start ] */
+p:vec3(p_x,p_y,p_z)$
+assume(r > 0)$
+sphere(v):=r=len(v-p)$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: comment start ]
+Minimize the distance between the line and the point supporting the sphere
+   [wxMaxima: comment end   ] */
+
+
+/* [wxMaxima: input   start ] */
+solve(diff(dist2(p, line(t)), t)=0, t);
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: comment start ]
+Define a cylinder from two points and a radius
+   [wxMaxima: comment end   ] */
+
+
+/* [wxMaxima: input   start ] */
+p_0:vec3(p_0x,p_0y,p_0z)$
+p_1:vec3(p_1x,p_1y,p_1z)$
+assume(r > 0)$
+cylinder(v):=r=len(perpendicularComponent(v-p_0, p_1-p_0))$
+cylinderLine(t):=p_0+t*(p_1-p_0)$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: comment start ]
+Is the origin within the cylinder?
+(assume the cylinder has spherical end caps, just to be simpler)
+   [wxMaxima: comment end   ] */
+
+
+/* [wxMaxima: input   start ] */
+d(t_c):=len2(cylinderLine(t_c))$
+solve(diff(d(t_c), t_c)=0, t_c);
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+optimize(%);
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: comment start ]
+Minimize the distance between the line and the line supporting the cylinder
+   [wxMaxima: comment end   ] */
+
+
+/* [wxMaxima: input   start ] */
+d(t_c,t_l):=dist2(cylinderLine(t_c), line(t_l))$
+solve(
+    [diff(d(t_c,t_l), t_c)=0, diff(d(t_c,t_l), t_l)=0],
+    [t_c, t_l]
+);
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+optimize(%);
+/* [wxMaxima: input   end   ] */
+
+
+
+/* Old versions of Maxima abort on loading files that end in a comment. */
+"Created with wxMaxima 18.02.0"$

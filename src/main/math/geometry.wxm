@@ -1,0 +1,75 @@
+/* [wxMaxima batch file version 1] [ DO NOT EDIT BY HAND! ]*/
+/* [ Created with wxMaxima version 18.02.0 ] */
+/* [wxMaxima: input   start ] */
+load("vect")$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: comment start ]
+Standard library for vector geometry
+   [wxMaxima: comment end   ] */
+
+
+/* [wxMaxima: input   start ] */
+vec3(x,y,z):=[x,y,z]$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+unitSpherePos(x,y):=sqrt(1-x^2-y^2)$
+unitSphereNeg(x,y):=-unitSpherePos(x,y)$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+unit3xyp(x,y):=vec3(x,y,unitSpherePos(x,y))$
+unit3xyn(x,y):=vec3(x,y,unitSphereNeg(x,y))$
+unit3xzp(x,z):=vec3(x,unitSpherePos(x,z),z)$
+unit3xzn(x,z):=vec3(x,unitSphereNeg(x,z),z)$
+unit3yzp(y,z):=vec3(unitSpherePos(y,z),y,z)$
+unit3yzn(y,z):=vec3(unitSphereNeg(y,z),y,z)$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+len(v):=sqrt(v . v)$
+len2(v):=v . v$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+normalize(v):=v/len(v)$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+dist(a,b):=len(a-b)$
+dist2(a,b):=len2(a-b)$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+parallelComponent(v,a):=(v . a)*a$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+perpendicularComponent(v,a):=v-parallelComponent(v,a)$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+normalTowardsX(v):=normalize(perpendicularComponent(vec3(1,0,0),v))$
+normalTowardsY(v):=normalize(perpendicularComponent(vec3(0,1,0),v))$
+normalTowardsZ(v):=normalize(perpendicularComponent(vec3(0,0,1),v))$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+rotate(v,a,θ):=cos(θ)*v+sin(θ)*(a~v)+(1-sin(θ))*(a . v)$
+/* [wxMaxima: input   end   ] */
+
+
+
+/* Old versions of Maxima abort on loading files that end in a comment. */
+"Created with wxMaxima 18.02.0"$

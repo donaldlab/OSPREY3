@@ -1,0 +1,116 @@
+#version 450
+
+
+#include "view.glsl"
+#include "light.glsl"
+
+
+// define the input geometry
+
+struct Sphere {
+	vec3 pos;
+	float radius;
+};
+
+layout(binding = 4, std140) buffer readonly restrict Spheres {
+	uint size;
+	uint pad0; // 12 bytes padding so buf is aligned to 16 bytes
+	uint pad1; // NOTE: don't do uint pad[3] here, that apparently screws up the alignment
+	uint pad2;
+	Sphere buf[];
+} inSpheres;
+
+struct Cylinder {
+	vec3 pos0;
+	float pad0;
+	vec3 pos1;
+	float radius;
+};
+
+layout(binding = 5, std140) buffer readonly restrict Cylinders {
+	uint size;
+	uint pad0; // 12 bytes padding so buf is aligned to 16 bytes
+	uint pad1; // NOTE: don't do uint pad[3] here, that apparently screws up the alignment
+	uint pad2;
+	Cylinder buf[];
+} inCylinders;
+
+
+// use the 430 layout so the floats are tightly packed
+layout(binding = 6, std430) buffer writeonly restrict OutMin {
+	float outMin[];
+};
+
+
+void main() {
+
+	// read the sample and line indices
+	uint i = gl_GlobalInvocationID.x;
+
+	float minOcclusion = 1;
+
+	// get our sphere or cylinder
+	if (i < inSpheres.size) {
+
+		// sample the sphere
+		Sphere sphere = inSpheres.buf[i];
+		for (float theta=0; theta<TwoPI; theta+=TwoPI/8) {
+			float sinTheta = sin(theta);
+			float cosTheta = cos(theta);
+			for (float phi=-PI; phi<=PI; phi+=TwoPI/8) {
+				float sinPhi = sin(phi);
+				float cosPhi = cos(phi);
+
+				vec3 p = sphere.pos + vec3(
+					sinTheta*cosPhi,
+					sinTheta*sinPhi,
+					cosPhi
+				);
+
+				// lookup the occlusion
+				minOcclusion = min(minOcclusion, sampleOcclusion(worldToOcclusionField(p)));
+			}
+		}
+
+	} else {
+
+		Cylinder cylinder = inCylinders.buf[i - inSpheres.size];
+		vec3 axis = cylinder.pos1 - cylinder.pos0;
+		vec3 naxis = normalize(axis);
+
+		// get an arbitrary normal vector to the cylinder axis
+		vec3 normal;
+		if (axis.y == 0 && axis.x == 0) {
+			if (axis.z == 0) {
+				// this shouldn't happen, right?
+				normal = vec3(0, 0, 0);
+			} else {
+				normal = cross(axis, vec3(0, 1, 0));
+			}
+		} else {
+			normal = cross(axis, vec3(1, 0, 0));
+		}
+		normal *= cylinder.radius/length(normal);
+
+		// sample the cylinder
+		for (float theta=0; theta<TwoPI; theta+=TwoPI/8) {
+			float sinTheta = sin(theta);
+			float cosTheta = cos(theta);
+
+			// apply the axial rotation
+			vec3 p = cosTheta*normal + sinTheta*cross(naxis, normal) + (1 - cosTheta)*dot(naxis, normal)*naxis + cylinder.pos0;
+
+			for (float t=0; t<=1; t+=0.2) {
+
+				// apply the axial translation
+				p += axis*t;
+
+				// lookup the occlusion
+				minOcclusion = min(minOcclusion, sampleOcclusion(worldToOcclusionField(p)));
+			}
+		}
+	}
+
+	// save the result
+	outMin[i] = minOcclusion;
+}

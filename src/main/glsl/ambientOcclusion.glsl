@@ -1,0 +1,9 @@
+
+#ifndef _AMBIENTOCCLUSION_GLSL_
+#define _AMBIENTOCCLUSION_GLSL_
+
+
+const float RADIUS_CAMERA = 0.04;
+
+
+#endif // _AMBIENTOCCLUSION_GLSL_

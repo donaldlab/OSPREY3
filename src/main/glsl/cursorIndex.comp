@@ -1,0 +1,32 @@
+#version 450
+
+
+// buffer layout is shared with post.frag, but declared read only there
+layout(binding = 0, std140) buffer restrict Cursor {
+	int isActive;
+	int pad0;
+	int pad1;
+	int pad3;
+	ivec2 pos; // offset = 16
+	ivec2 indices; // offset = 24
+	uvec4 effects; // offset = 32
+} inCursor;
+
+layout(binding = 2) uniform isampler2D inIndices;
+
+bool inRange(ivec2 p) {
+	ivec2 size = textureSize(inIndices, 0);
+	return p.x >= 0 && p.x < size.x && p.y >= 0 && p.y < size.y;
+}
+
+ivec2 loadIndices(ivec2 p) {
+	if (inRange(p)) {
+		return texelFetch(inIndices, p, 0).rg;
+	} else {
+		return ivec2(-1, -1);
+	}
+}
+
+void main() {
+	inCursor.indices = loadIndices(inCursor.pos);
+}

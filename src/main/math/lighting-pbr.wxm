@@ -1,0 +1,94 @@
+/* [wxMaxima batch file version 1] [ DO NOT EDIT BY HAND! ]*/
+/* [ Created with wxMaxima version 18.02.0 ] */
+/* [wxMaxima: input   start ] */
+batchload("geometry.wxm")$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: comment start ]
+Define the surface normal to be a unit vector (either neg or pos z hemisphere).
+   [wxMaxima: comment end   ] */
+
+
+/* [wxMaxima: input   start ] */
+nn:unit3xyn(n_x,n_y)$
+np:unit3xyp(n_x,n_y)$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: comment start ]
+Define the light in vector to be a unit vector in the hemisphere centered on n.
+The light in vector is directed from the surface to the light source.
+   [wxMaxima: comment end   ] */
+
+
+/* [wxMaxima: input   start ] */
+w_i(n,θ,φ):=rotate(n, rotate(normalTowardsX(n), n, θ+π/2), φ)$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: comment start ]
+Define the view vector to be from the surface to the camera.
+In camera space, it's always the same.
+   [wxMaxima: comment end   ] */
+
+
+/* [wxMaxima: input   start ] */
+w_0:vec3(0,0,-1)$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: comment start ]
+Define the in radiance function
+l_i (in close-to-camera hemisphere) is full radiance, antipodal is none
+interpolates linearly with angle between n and l_i
+with a weight to adujst light intensity
+   [wxMaxima: comment end   ] */
+
+
+/* [wxMaxima: input   start ] */
+l_i:unit3xyn(l_x,l_y)$
+L_i(v,i):=i*((v . l_i)+1)/2$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: comment start ]
+Define a Lambert BRDF
+where a is the albedo color
+   [wxMaxima: comment end   ] */
+
+
+/* [wxMaxima: input   start ] */
+f_l:a/π$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: comment start ]
+Calculate the out radiance function using just the Lambert BRDF
+In camera space, we only need to consider normals with z < 0
+   [wxMaxima: comment end   ] */
+
+
+/* [wxMaxima: input   start ] */
+/*expr(n):=express(f_l*L_i(w_i(n,θ,φ),i)*(n . w_i(n,θ,φ)))$*/
+expr(n):=express(f_l*L_i(w_i(n,θ,φ),i)*cos(φ))$
+integrate(integrate(expr(nn)*sin(φ), φ, 0, π/2), θ, 0, 2*π);
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+psubst([
+        sqrt(1-n_x^2-n_y^2)=abs(n_z),
+        sqrt(1-l_x^2-l_y^2)=-l_z
+    ],%);
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+optimize(%);
+/* [wxMaxima: input   end   ] */
+
+
+
+/* Old versions of Maxima abort on loading files that end in a comment. */
+"Created with wxMaxima 18.02.0"$

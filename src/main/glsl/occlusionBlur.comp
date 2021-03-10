@@ -1,0 +1,113 @@
+#version 450
+
+
+layout(push_constant, std140) uniform readonly restrict Bounds {
+	// (with padding to align vec3s at 16-byte boundaries)
+	vec3 min; // in world space
+	float pad0;
+	vec3 max;
+	float pad1;
+	ivec3 samples;
+	int maxOcclusion;
+} inBounds;
+
+layout(binding = 0, r32i) uniform restrict iimage3D inOcclusion;
+layout(binding = 1, r32i) uniform restrict iimage3D outOcclusion;
+
+
+// weights for a 3x3x3 blur kernel, in order of increasing manhattan distance from the center
+const int[] weights = { 16, 9, 4, 1 };
+
+int getWeight(ivec3 offset) {
+	return weights[abs(offset.x) + abs(offset.y) + abs(offset.z)];
+}
+
+bool isOutside(int occlusion) {
+
+	// if any rays made it out, we'll say this value is "outside"
+	return occlusion < inBounds.maxOcclusion;
+}
+
+bool inRange(ivec3 i, ivec3 offset) {
+	return i.x - offset.x >= 0 && i.x + offset.x < inBounds.samples.x
+		&& i.y - offset.y >= 0 && i.y + offset.y < inBounds.samples.y
+		&& i.z - offset.z >= 0 && i.z + offset.z < inBounds.samples.z;
+}
+
+int sampleOcclusion(ivec3 i, ivec3 offset) {
+	return imageLoad(inOcclusion, i + offset)[0];
+}
+
+void writeOcclusion(ivec3 i, int occlusion){
+	imageStore(outOcclusion, i, ivec4(occlusion, 0, 0, 0));
+}
+
+struct Sum {
+	int occlusion;
+	int weight;
+};
+
+Sum updateSum(Sum sum, ivec3 i, ivec3 offset) {
+
+	if (inRange(i, offset)) {
+
+		int occlusion = sampleOcclusion(i, offset);
+
+		if (isOutside(occlusion)) {
+			int weight = getWeight(offset);
+			sum.occlusion += weight*occlusion;
+			sum.weight += weight;
+		}
+	}
+
+	return sum;
+}
+
+void main() {
+
+	ivec3 i = ivec3(gl_GlobalInvocationID);
+
+	// explore the 3x3x3 neighborhood
+	Sum sum = { 0, 0 };
+
+	sum = updateSum(sum, i, ivec3(-1, -1, -1));
+	sum = updateSum(sum, i, ivec3(-1, -1,  0));
+	sum = updateSum(sum, i, ivec3(-1, -1,  1));
+	sum = updateSum(sum, i, ivec3(-1,  0, -1));
+	sum = updateSum(sum, i, ivec3(-1,  0,  0));
+	sum = updateSum(sum, i, ivec3(-1,  0,  1));
+	sum = updateSum(sum, i, ivec3(-1,  1, -1));
+	sum = updateSum(sum, i, ivec3(-1,  1,  0));
+	sum = updateSum(sum, i, ivec3(-1,  1,  1));
+
+	sum = updateSum(sum, i, ivec3( 0, -1, -1));
+	sum = updateSum(sum, i, ivec3( 0, -1,  0));
+	sum = updateSum(sum, i, ivec3( 0, -1,  1));
+	sum = updateSum(sum, i, ivec3( 0,  0, -1));
+	sum = updateSum(sum, i, ivec3( 0,  0,  0));
+	sum = updateSum(sum, i, ivec3( 0,  0,  1));
+	sum = updateSum(sum, i, ivec3( 0,  1, -1));
+	sum = updateSum(sum, i, ivec3( 0,  1,  0));
+	sum = updateSum(sum, i, ivec3( 0,  1,  1));
+
+	sum = updateSum(sum, i, ivec3( 1, -1, -1));
+	sum = updateSum(sum, i, ivec3( 1, -1,  0));
+	sum = updateSum(sum, i, ivec3( 1, -1,  1));
+	sum = updateSum(sum, i, ivec3( 1,  0, -1));
+	sum = updateSum(sum, i, ivec3( 1,  0,  0));
+	sum = updateSum(sum, i, ivec3( 1,  0,  1));
+	sum = updateSum(sum, i, ivec3( 1,  1, -1));
+	sum = updateSum(sum, i, ivec3( 1,  1,  0));
+	sum = updateSum(sum, i, ivec3( 1,  1,  1));
+
+	if (sum.weight == 0) {
+
+		// the outside part of the neighborhood is empty, just use the current occlusion
+		writeOcclusion(i, sampleOcclusion(i, ivec3(0, 0, 0)));
+
+	} else {
+
+		// use the weighted average
+		writeOcclusion(i, sum.occlusion/sum.weight);
+	}
+}

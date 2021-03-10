@@ -138,6 +138,9 @@ dependencies {
 	api("org.tomlj:tomlj:1.0.0")
 	api(files("lib/kdtree.jar")) // no authoritative source on the internet
 
+	// used by the gui
+	api("com.cuchazinteractive:kludge:0.1")
+
 	// used by the service
 	val ktorVersion = "1.3.0"
 	api("io.ktor:ktor-server-netty:$ktorVersion")
@@ -241,6 +244,7 @@ tasks.withType<KotlinCompile> {
 
 		// enable experimental features so we can use the fancy ktor stuff
 		freeCompilerArgs += "-Xuse-experimental=kotlin.Experimental"
+		freeCompilerArgs += "-XXLanguage:+InlineClasses"
 	}
 }
 
@@ -462,6 +466,16 @@ distributions {
 	}
 }
 
+
+// assume we're doing a dev build if the top task is "classes"
+if (gradle.startParameter.taskNames.any { it.endsWith(":classes") }) {
+	System.setProperty("isDev", true.toString())
+}
+val isDev = object {
+	override fun toString() = System.getProperty("isDev") ?: false.toString()
+}
+
+
 tasks {
 
 	// turn off tar files for all distributions
@@ -475,6 +489,14 @@ tasks {
 
 		// always update the build properties
 		outputs.upToDateWhen { false }
+
+		// write down the osprey service version
+		from(sourceSets["main"].resources.srcDirs) {
+			include("edu/cs/duke/osprey/molscope/build.properties")
+			expand(
+				"dev" to isDev
+			)
+		}
 
 		// write down the osprey service version
 		from(sourceSets["main"].resources.srcDirs) {
@@ -763,6 +785,43 @@ tasks {
 	"testDistZip" {
 		dependsOn(testClasses, testRunScript)
 	}
+
+	val compileShaders by creating {
+		group = "build"
+		doLast {
+
+			val outDir = sourceSets["main"].resources.srcDirs.first()
+				.resolve("edu/duke/cs/osprey/molscope/shaders")
+
+			val inDir = file("src/main/glsl")
+			fileTree(inDir)
+				.matching {
+					include("**/*.vert")
+					include("**/*.geom")
+					include("**/*.frag")
+					include("**/*.comp")
+				}
+				.forEach { inFile ->
+					val inFileRel = inFile.relativeTo(inDir)
+					val outFile = inFileRel.resolveSibling(inFileRel.name + ".spv")
+					exec {
+						this.workingDir = outDir
+						commandLine(
+							"glslc",
+							"--target-env=vulkan1.0",
+							// some compilers don't have this flag, but it's redundant with vulkan1.0 anyway
+							//"--target-spv=spv1.0",
+							"-Werror",
+							"-x", "glsl",
+							"-o", outFile.path,
+							inFile.absolutePath
+						)
+					}
+				}
+		}
+	}
+
+	this["build"].dependsOn(compileShaders)
 
 	// TODO: replace this with the nifty licenser plugin?
 	//   https://github.com/Minecrell/licenser

@@ -1,0 +1,254 @@
+#version 450
+
+
+layout(push_constant, std140) uniform readonly restrict Bounds {
+	// (with padding to align vec3s at 16-byte boundaries)
+	vec3 min; // in world space
+	uint iLineMin;
+	vec3 max;
+	uint iLineMax;
+} inBounds;
+
+layout(binding = 0, std140) buffer readonly restrict Lines {
+	uvec3 samples;
+	uint size;
+	vec4 buf[];
+} inLines;
+
+
+// define the input geometry
+
+struct Sphere {
+	vec3 pos;
+	float radius;
+};
+
+layout(binding = 1, std140) buffer readonly restrict Spheres {
+	uint size;
+	uint pad0; // 12 bytes padding so buf is aligned to 16 bytes
+	uint pad1; // NOTE: don't do uint pad[3] here, that apparently screws up the alignment
+	uint pad2;
+	Sphere buf[];
+} inSpheres;
+
+struct Cylinder {
+	vec3 pos0;
+	float pad0;
+	vec3 pos1;
+	float radius;
+};
+
+layout(binding = 2, std140) buffer readonly restrict Cylinders {
+	uint size;
+	uint pad0; // 12 bytes padding so buf is aligned to 16 bytes
+	uint pad1; // NOTE: don't do uint pad[3] here, that apparently screws up the alignment
+	uint pad2;
+	Cylinder buf[];
+} inCylinders;
+
+
+layout(binding = 3, r32i) uniform restrict iimage3D outOcclusion;
+
+
+#include "math.glsl"
+
+
+const uint SIDE_NEG = 0;
+const uint SIDE_POS = 1;
+
+
+// test whether a sphere intersects the neg,pos sides of a line
+// see math/ambient-occlusion.wxm for derivation
+bool[2] intersect(Sphere sphere, vec3 line) {
+
+	bool[2] result = { false, false };
+
+	vec3 p = sphere.pos;
+	float r2 = sphere.radius*sphere.radius;
+	vec3 v = line;
+
+	// does the sphere contain the origin?
+	if (length2(p) <= r2) {
+
+		// yup, the sphere intersects both sides of the line
+		result[SIDE_NEG] = true;
+		result[SIDE_POS] = true;
+
+	} else {
+
+		// does the line intersect the sphere at all?
+		float tl = dot(p, v)/dot(v, v);
+		vec3 posl = v*tl;
+		if (distance2(posl, p) <= r2) {
+
+			// yup, which side?
+			// has to be exactly one, since the sphere doesn't contain the origin
+			if (tl < 0) {
+				result[SIDE_NEG] = true;
+			} else {
+				result[SIDE_NEG] = true;
+			}
+		}
+	}
+
+	return result;
+}
+
+// test whether a cylinder intersects the neg,pos sides of a line
+// see math/ambient-occlusion.wxm for derivation
+bool[2] intersect(Cylinder cylinder, vec3 line) {
+
+	bool[2] result = { false, false };
+
+	vec3 p0 = cylinder.pos0;
+	vec3 p1 = cylinder.pos1;
+	float r2 = cylinder.radius*cylinder.radius;
+	vec3 v = line;
+	
+	// does the cylinder contain the origin?
+	float a1 = p0.x*p0.x;
+	float a2 = p0.y*p0.y;
+	float a3 = p0.z*p0.z;
+	float tc = -(p0.z*p1.z+p0.y*p1.y+p0.x*p1.x-a3-a2-a1)/(p1.z*p1.z-2*p0.z*p1.z+p1.y*p1.y-2*p0.y*p1.y+p1.x*p1.x-2*p0.x*p1.x+a3+a2+a1);
+	if (tc >= 0 && tc <= 1 && length2(p0 + tc*(p1 - p0)) <= r2) {
+
+		// yup, the cylinder intersects with both sides of the line
+		result[SIDE_NEG] = true;
+		result[SIDE_POS] = true;
+
+	} else {
+
+		// does the line intersect the cylinder at all?
+		float b1 = p0.y*p0.y;
+		float b2 = -b1;
+		float b3 = p0.z*p0.z;
+		float b4 = -b3;
+		float b5 = p0.y*p1.y;
+		float b6 = p0.z*p1.z;
+		float b7 = v.x*v.x;
+		float b8 = p0.x*p0.x;
+		float b9 = -b8;
+		float b10 = p0.x*p1.x;
+		float b11 = v.y*v.y;
+		float b12 = b5+b10+b2+b9;
+		float b13 = v.z*v.z;
+		float b14 = -2*p0.y*p1.y;
+		float b15 = p1.y*p1.y;
+		float b16 = -2*p0.z*p1.z;
+		float b17 = p1.z*p1.z;
+		float b18 = 2*p0.x-2*p1.x;
+		float b19 = -2*p0.x*p1.x;
+		float b20 = p1.x*p1.x;
+		float b21 = (1)/((b15+b14+b20+b19+b1+b8)*b13+(((2*p0.y-2*p1.y)*p1.z+2*p0.z*p1.y-2*p0.y*p0.z)*v.y+(b18*p1.z+2*p0.z*p1.x-2*p0.x*p0.z)*v.x)*v.z+(b17+b16+b20+b19+b3+b8)*b11+(b18*p1.y+2*p0.y*p1.x-2*p0.x*p0.y)*v.x*v.y+(b17+b16+b15+b14+b3+b1)*b7);
+		float tc = -(b12*b13+((-p0.y*p1.z-p0.z*p1.y+2*p0.y*p0.z)*v.y+(-p0.x*p1.z-p0.z*p1.x+2*p0.x*p0.z)*v.x)*v.z+(b6+b10+b4+b9)*b11+(-p0.x*p1.y-p0.y*p1.x+2*p0.x*p0.y)*v.x*v.y+(b6+b5+b4+b2)*b7)*b21;
+		float tl = -((b12*p1.z-p0.z*b15+p0.y*p0.z*p1.y-p0.z*b20+p0.x*p0.z*p1.x)*v.z+(-p0.y*b17+(p0.z*p1.y+p0.y*p0.z)*p1.z+(b10+b4+b9)*p1.y-p0.y*b20+p0.x*p0.y*p1.x)*v.y+(-p0.x*b17+(p0.z*p1.x+p0.x*p0.z)*p1.z-p0.x*b15+(p0.y*p1.x+p0.x*p0.y)*p1.y+(b4+b2)*p1.x)*v.x)*b21;
+		if (tc >= 0 && tc <= 1 && distance2(p0 + tc*(p1 - p0), tl*v) <= r2) {
+
+			// yup, which side?
+			// has to be exactly one, since the cylinder doesn't contain the origin
+			if (tl < 0) {
+				result[SIDE_NEG] = true;
+			} else {
+				result[SIDE_NEG] = true;
+			}
+		}
+	}
+
+	return result;
+}
+
+
+// shoot rays in all directions from each sample point
+// what percentage of rays are obscured by geometry?
+// bin rays by cardinal direction
+
+// TODO: use some kind of acceleration structure to speed this up?
+//       currently, we're just using naive brute force
+
+void main() {
+
+	// read the sample and line indices
+	uvec3 iSample = uvec3(
+		gl_GlobalInvocationID.x,
+		gl_GlobalInvocationID.y,
+		gl_GlobalInvocationID.z
+	);
+
+	// convert the sample index to a position in world space within the bounds
+	vec3 p = inBounds.min + vec3(iSample)*(inBounds.max - inBounds.min)/vec3(inLines.samples - uvec3(1));
+
+	// loop over the lines in the range and count the occlusions
+	int occlusions = 0;
+	for (uint iLine=inBounds.iLineMin; iLine<=inBounds.iLineMax; iLine++) {
+		vec3 line = inLines.buf[iLine].xyz;
+
+		// cast both rays on this line
+		bool castingNeg = true;
+		bool castingPos = true;
+
+		// 1. check all the spheres
+		if (castingNeg || castingPos) {
+			for (uint i=0; i<inSpheres.size; i++) {
+				Sphere sphere = inSpheres.buf[i];
+
+				// transform the sphere into a coord system relative to the ray source
+				sphere.pos -= p;
+
+				// intersect the sphere and line
+				bool[2] hit = intersect(sphere, line);
+
+				// update rays based on side hits
+				if (hit[SIDE_NEG] && castingNeg) {
+					castingNeg = false;
+				}
+				if (hit[SIDE_POS] && castingPos) {
+					castingPos = false;
+				}
+
+				// if we're done casting, we can stop early
+				if (!castingNeg && !castingPos) {
+					break;
+				}
+			}
+		}
+
+		// 2. check all the cylinders
+		if (castingNeg || castingPos) {
+			for (uint i=0; i<inCylinders.size; i++) {
+				Cylinder cylinder = inCylinders.buf[i];
+
+				// transform the cylinder into a coord system relative to the ray source
+				cylinder.pos0 -= p;
+				cylinder.pos1 -= p;
+
+				// intersect the sphere and line
+				bool[2] hit = intersect(cylinder, line);
+
+				// update rays based on side hits
+				if (hit[SIDE_NEG] && castingNeg) {
+					castingNeg = false;
+				}
+				if (hit[SIDE_POS] && castingPos) {
+					castingPos = false;
+				}
+
+				// if we're done casting, we can stop early
+				if (!castingNeg && !castingPos) {
+					break;
+				}
+			}
+		}
+
+		// update occlusion counts for both rays
+		if (!castingNeg) {
+			occlusions++;
+		}
+		if (!castingPos) {
+			occlusions++;
+		}
+	}
+
+	// NOTE: imageAtomicAdd is apparently not supported on OSX (via MoltenVK, via Metal)
+	// like ... at all. Just give up now. Don't run this code on OSX
+	imageAtomicAdd(outOcclusion, ivec3(iSample), occlusions);
+}
