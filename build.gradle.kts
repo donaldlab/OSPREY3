@@ -39,6 +39,7 @@ import java.nio.file.attribute.PosixFilePermission
 import java.nio.file.StandardCopyOption
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.Paths
 import org.gradle.internal.os.OperatingSystem
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
@@ -59,19 +60,25 @@ javafx {
 	modules("javafx.controls")
 }
 
+
 val projectDir = project.projectDir.toPath().toAbsolutePath()
+val buildDir = project.buildDir.toPath().toAbsolutePath()
 val pythonSrcDir = projectDir.resolve("src/main/python")
-val pythonBuildDir = projectDir.resolve("build/python")
+val pythonBuildDir = buildDir.resolve("python")
 val pythonWheelDir = pythonBuildDir.resolve("wheel")
 val pythonWheelhouseDir = pythonSrcDir.resolve("wheelhouse")
 val docSrcDir = pythonSrcDir.resolve("doc")
 val docBuildDir = pythonBuildDir.resolve("doc")
+val versionFile = buildDir.resolve("osprey-version")
 
 
 group = "edu.duke.cs"
-version = Files.readAllLines(projectDir.resolve("src/main/resources/config/version"))[0]
+version = "3.2"
 
 val versionService = "0.3"
+
+val packagePath = "edu/duke/cs/osprey"
+
 
 repositories {
 	jcenter()
@@ -99,6 +106,7 @@ dependencies {
 
 	// kotlin runtime
 	implementation(kotlin("stdlib-jdk8"))
+	implementation(kotlin("reflect"))
 
 	// test dependencies
 	testImplementation("org.hamcrest:hamcrest-all:1.3")
@@ -130,20 +138,21 @@ dependencies {
 	implementation("net.java.dev.jna:jna:5.5.0")
 	implementation("com.google.guava:guava:29.0-jre")
 
-	// TODO: get rid of "api" dependencies after merging everything into the majestic monolith
-
 	// libs used by the GUI
-	api("org.apache.commons:commons-lang3:3.4")
-	api("commons-io:commons-io:2.5")
-	api("org.tomlj:tomlj:1.0.0")
-	api(files("lib/kdtree.jar")) // no authoritative source on the internet
+	implementation("org.apache.commons:commons-lang3:3.4")
+	implementation("commons-io:commons-io:2.5")
+	implementation("org.tomlj:tomlj:1.0.0")
+	implementation(files("lib/kdtree.jar")) // no authoritative source on the internet
+
+	val ktorVersion = "1.3.0"
 
 	// used by the gui
-	api("com.cuchazinteractive:kludge:0.1")
+	implementation("com.cuchazinteractive:kludge:0.1")
+	implementation("io.ktor:ktor-client-cio:$ktorVersion")
+	implementation("io.ktor:ktor-client-serialization-jvm:$ktorVersion")
 
 	// used by the service
-	val ktorVersion = "1.3.0"
-	api("io.ktor:ktor-server-netty:$ktorVersion")
+	implementation("io.ktor:ktor-server-netty:$ktorVersion")
 	implementation("io.ktor:ktor-serialization:$ktorVersion")
 
 	// for JCuda, gradle tries (and fails) download the natives jars automatically,
@@ -179,8 +188,7 @@ dependencies {
 	}
 
 	// TPIE-Java isn't in the maven/jcenter repos yet, download directly from Github
-	// use `api` instead of `implementation` here, since the compiler sometimes complains about these types not being available in downstream projects
-	api(url("https://github.com/donaldlab/TPIE-Java/releases/download/v1.1/edu.duke.cs.tpie-1.1.jar"))
+	implementation(url("https://github.com/donaldlab/TPIE-Java/releases/download/v1.1/edu.duke.cs.tpie-1.1.jar"))
 
 	// native libs for GPU stuff
 	listOf("natives-linux-amd64", "natives-macosx-universal", "natives-windows-amd64").forEach {
@@ -254,7 +262,21 @@ tasks.withType<Test> {
 	useJUnitPlatform()
 }
 
+
+// get the OS we're building on
+val os = OperatingSystem.current()
+val osname: String by lazy {
+	when (os) {
+		OperatingSystem.LINUX -> "linux"
+		OperatingSystem.WINDOWS -> "win"
+		OperatingSystem.MAC_OS -> "osx"
+		else -> throw Error("unrecognized operating system: $os")
+	}
+}
+
+
 runtime {
+
 	options.addAll(
 		"--strip-debug",
 		"--compress", "2",
@@ -273,10 +295,54 @@ runtime {
 		"jdk.httpserver",
 		"jdk.zipfs" // needed to provide jar:// file system
 	)
+
+	fun checkJpackage(path: Path) {
+		if (!Files.exists(path)) {
+			throw NoSuchElementException("""
+				|jpackage was not found at the path given: $path
+				|Make sure JDK 14 (or higher) is installed and that systemProp.jpackage.home path points to its home directory.
+			""".trimMargin())
+		}
+	}
+
+	jpackage {
+
+		imageName = "Osprey"
+		installerName = imageName
+		mainClass = "$group.osprey.gui.MainKt"
+
+		when (os) {
+
+			OperatingSystem.LINUX -> {
+
+				checkJpackage(Paths.get(jpackageHome).resolve("bin").resolve("jpackage"))
+
+				installerType = "deb"
+			}
+
+			OperatingSystem.MAC_OS -> {
+
+				checkJpackage(Paths.get(jpackageHome).resolve("bin").resolve("jpackage"))
+
+				installerType = "dmg"
+				jvmArgs = listOf("-XstartOnFirstThread")
+			}
+
+			OperatingSystem.WINDOWS -> {
+
+				checkJpackage(Paths.get(jpackageHome).resolve("bin").resolve("jpackage.exe"))
+
+				installerType = "msi"
+				installerOptions = listOf("--win-per-user-install", "--win-dir-chooser", "--win-menu", "--win-shortcut")
+				// useful for debugging launcher issues
+				//imageOptions = listOf("--win-console")
+			}
+
+			else -> throw Error("unrecognized operating system: $os")
+		}
+	}
 }
 
-
-val os = OperatingSystem.current()
 
 fun isCommand(cmd: String) =
 	exec {
@@ -355,16 +421,6 @@ logger.info("""
 	|        Python 3:  ${if (python3 != null) "✓" else "✗"}
 	|  default Python:  $defaultPython = ${defaultPython.cmd}
 """.trimMargin())
-
-// get the OS name
-val osname: String by lazy {
-	when (os) {
-		OperatingSystem.LINUX -> "linux"
-		OperatingSystem.WINDOWS -> "win"
-		OperatingSystem.MAC_OS -> "osx"
-		else -> throw Error("unrecognized operating system: $os")
-	}
-}
 
 
 distributions {
@@ -464,6 +520,8 @@ distributions {
 			}
 		}
 	}
+
+	// TODO: add distribution for the service
 }
 
 
@@ -484,52 +542,36 @@ tasks {
 
 	val testClasses = "testClasses" {}
 
-	// tell gradle to write down the version numbers where apps can read them
 	processResources {
 
-		// always update the build properties
+		// always update the build properties, versions, etc
 		outputs.upToDateWhen { false }
 
-		// write down the osprey service version
-		from(sourceSets["main"].resources.srcDirs) {
-			include("edu/cs/duke/osprey/molscope/build.properties")
-			expand(
-				"dev" to isDev
-			)
+		var version = version.toString()
+
+		// append the CI build ID, if available
+		version += if (rootProject.hasProperty("AZURE_BUILD_ID")) {
+			val versionId = rootProject.property("AZURE_BUILD_ID")
+			".$versionId\n"
+		} else {
+			"-dev\n"
 		}
 
-		// write down the osprey service version
+		// write the version to a build file so other tools (eg python scripts) can find it
+		versionFile.toFile().writeText(version)
+
+		// write the build properties to the app can find them
 		from(sourceSets["main"].resources.srcDirs) {
-			include("edu/cs/duke/osprey/service/build.properties")
+			include("$packagePath/build.properties")
 			expand(
-				"version" to versionService
+				"dev" to isDev,
+				"version" to version,
+				"versionService" to versionService
 			)
 		}
 	}
 
-	val appendBuildNumber by creating {
-		dependsOn("processResources")
-		doLast {
-
-			// read the version number
-			val versionFile = projectDir.resolve("build/resources/main/config/version").toFile()
-			var version = versionFile.readText().trim()
-
-			// append the CI build ID, if available
-
-			version += if (rootProject.hasProperty("AZURE_BUILD_ID")) {
-				val versionId = rootProject.property("AZURE_BUILD_ID")
-				".$versionId\n"
-			} else {
-				"-dev\n"
-			}
-			versionFile.writeText(version)
-		}
-	}
-
-	val jar = "jar" {
-		dependsOn(appendBuildNumber)
-	}.get()
+	val jar = "jar" {}.get()
 
 	val compileCuda_residueForcefield by creating(Exec::class) {
 		nvcc(this, "residueForcefield")
@@ -556,6 +598,7 @@ tasks {
 		group = "documentation"
 		description = "Build python documentation"
 		workingDir = docSrcDir.toFile()
+		dependsOn(processResources)
 		commandLine("sphinx-build", "-b", "html", ".", "$docBuildDir")
 	}
 	val remakeDoc by creating {
@@ -568,6 +611,7 @@ tasks {
 		group = "develop"
 		description = "Install python package in development mode"
 		workingDir = pythonSrcDir.toFile()
+		dependsOn(processResources)
 		commandLine(
 			defaultPython.cmd, "-m", "pip",
 			"install",
@@ -600,7 +644,7 @@ tasks {
 	fun Exec.pythonWheel(python: Python) {
 		group = "build"
 		description = "Build $python wheel"
-		dependsOn("runtime")
+		dependsOn("runtime", processResources)
 
 		inputs.files(jar.outputs.files)
 		outputs.dir(pythonWheelDir)
@@ -776,7 +820,7 @@ tasks {
 				.joinToString(":")
 
 			writeScript(
-				buildDir.toPath(), "run",
+				buildDir, "run",
 				"java -cp \"$classpath\" $@"
 			)
 		}
@@ -791,7 +835,7 @@ tasks {
 		doLast {
 
 			val outDir = sourceSets["main"].resources.srcDirs.first()
-				.resolve("edu/duke/cs/osprey/molscope/shaders")
+				.resolve("$packagePath/molscope/shaders")
 
 			val inDir = file("src/main/glsl")
 			fileTree(inDir)
@@ -822,6 +866,24 @@ tasks {
 	}
 
 	this["build"].dependsOn(compileShaders)
+
+	// add documentation to the gui distribution
+	jpackageImage {
+		doLast {
+			val jp = project.runtime.jpackageData.get()
+			val imageDir = when (os) {
+				OperatingSystem.MAC_OS -> jp.imageOutputDir.resolve(jp.imageName + ".app").resolve("Contents")
+				else -> jp.imageOutputDir.resolve(jp.imageName)
+			}
+			copy {
+				from(
+					projectDir.resolve("readme.md"),
+					projectDir.resolve("LICENSE.txt")
+				)
+				into(imageDir)
+			}
+		}
+	}
 
 	// TODO: replace this with the nifty licenser plugin?
 	//   https://github.com/Minecrell/licenser

@@ -4,7 +4,7 @@ import cuchaz.kludge.tools.AutoCloser
 import cuchaz.kludge.tools.IntFlags
 import cuchaz.kludge.tools.toFlagsString
 import cuchaz.kludge.vulkan.*
-import edu.duke.cs.osprey.molscope.Molscope
+import edu.duke.cs.osprey.Osprey
 
 
 class VulkanDevice(
@@ -15,8 +15,8 @@ class VulkanDevice(
 	private fun <R:AutoCloseable> R.autoClose() = also { autoCloser.add(this@autoClose) }
 	override fun close() = autoCloser.close()
 
-	private val canDebug = Molscope.dev && Vulkan.DebugExtension in Vulkan.supportedExtensions
-	private val canReport = Molscope.dev && Vulkan.ReportExtension in Vulkan.supportedExtensions
+	private val canDebug = Osprey.dev && Vulkan.DebugExtension in Vulkan.supportedExtensions
+	private val canReport = Osprey.dev && Vulkan.ReportExtension in Vulkan.supportedExtensions
 
 	// make the main vulkan instance with the extensions we need
 	val vulkan =
@@ -28,7 +28,7 @@ class VulkanDevice(
 					add(Vulkan.ReportExtension)
 				}
 			},
-			layerNames = if (Molscope.dev) {
+			layerNames = if (Osprey.dev) {
 				mutableSetOf<String>().apply {
 					if (Vulkan.StandardValidationLayer in Vulkan.supportedLayers) {
 						add(Vulkan.StandardValidationLayer)

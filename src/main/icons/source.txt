@@ -1,0 +1,6 @@
+Icons in Osprey GUI were adapted from the "small-n-flat" icon set at:
+https://github.com/paomedia/small-n-flat
+
+The "small-n-flat" icon set is provided by its authors under the CC0 1.0 Universal license:
+https://github.com/paomedia/small-n-flat/blob/master/LICENSE
+

@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
 
+import edu.duke.cs.osprey.Osprey;
 import edu.duke.cs.osprey.energy.LigandResEnergies;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.gmec.GMECFinder;
@@ -59,7 +60,7 @@ import edu.duke.cs.osprey.tools.Stopwatch;
 
 public class Main {
 	
-	public static final String Version = FileTools.readResource("/config/version").trim();
+	public static final String Version = Osprey.INSTANCE.getVersion();
 	
 	public static enum Command {
 		

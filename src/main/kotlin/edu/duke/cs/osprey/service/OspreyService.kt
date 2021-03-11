@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.service
 
+import edu.duke.cs.osprey.Osprey
 import edu.duke.cs.osprey.service.services.*
 import io.ktor.application.call
 import io.ktor.application.install
@@ -23,9 +24,7 @@ import kotlinx.serialization.serializer
 import org.slf4j.LoggerFactory
 import java.nio.charset.Charset
 import java.nio.file.Path
-import java.util.*
 import java.util.concurrent.TimeUnit
-import kotlin.NoSuchElementException
 import kotlin.reflect.KClass
 
 
@@ -33,16 +32,7 @@ object OspreyService {
 
 	const val name = "Osprey Service"
 
-	private val properties =
-		Properties().apply {
-			getResourceAsStream("build.properties")
-				?.use { load(it) }
-				?: throw Error("can't find build.properties")
-		}
-
-	private fun string(name: String) = properties.getProperty(name) ?: throw NoSuchElementException("no property named $name")
-
-	val version = string("version")
+	val version = Osprey.versionService
 
 	fun getResourceAsStream(path: String) = OspreyService.javaClass.getResourceAsStream(path)
 

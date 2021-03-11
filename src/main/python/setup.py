@@ -41,14 +41,14 @@ import sys
 
 # this script gets run in multiple folders by different gradle tasks,
 # so we need a configurable root
-rootDir = '../'
+rootDir = '../../../'
 
 # when run in the current folder by the gradle task `pythonDevelop`, we keep this rootDir
 # the gradle task `pythonBdist` will re-write rootDir when it copies this script to the build dir
 
 
 # read the osprey version
-with open(os.path.join(rootDir, 'resources/config/version'), 'r') as file:
+with open(os.path.join(rootDir, 'build/osprey-version'), 'r') as file:
 	version = file.read()
 
 

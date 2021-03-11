@@ -4,6 +4,7 @@ import cuchaz.kludge.imgui.Commands
 import cuchaz.kludge.tools.expand
 import cuchaz.kludge.tools.toFloat
 import cuchaz.kludge.vulkan.Extent2D
+import edu.duke.cs.osprey.Osprey
 import edu.duke.cs.osprey.molscope.gui.SlideCommands
 import edu.duke.cs.osprey.molscope.gui.SlideFeature
 import edu.duke.cs.osprey.molscope.gui.features.FeatureId
@@ -87,7 +88,7 @@ class Slide(
 		val features = SlideFeatures().apply {
 
 			// add dev-only features if needed
-			if (Molscope.dev) {
+			if (Osprey.dev) {
 				menu("Dev") {
 					add(DevOcclusionField())
 				}

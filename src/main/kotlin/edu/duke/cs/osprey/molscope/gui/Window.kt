@@ -10,6 +10,7 @@ import cuchaz.kludge.window.Monitors
 import cuchaz.kludge.window.Size
 import cuchaz.kludge.window.Window as KWindow
 import cuchaz.kludge.window.Windows
+import edu.duke.cs.osprey.Osprey
 import edu.duke.cs.osprey.molscope.Molscope
 import edu.duke.cs.osprey.molscope.Slide
 import edu.duke.cs.osprey.molscope.gui.features.FeatureId
@@ -239,7 +240,7 @@ internal class WindowCore(
 	val features = Features<WindowFeature>().apply {
 
 		// add dev-only features if desired
-		if (Molscope.dev) {
+		if (Osprey.dev) {
 			menu("Dev").apply {
 				add(DevFps())
 				add(DevImguiDemo())

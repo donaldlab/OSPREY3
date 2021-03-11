@@ -94,7 +94,7 @@ copyright = '2017, Donald Lab, Department of Computer Science, Duke University'
 # built documents.
 #
 # The full version, including alpha/beta/rc tags.
-with open('../../resources/config/version', 'r') as versionFile:
+with open('../../../../build/osprey-version', 'r') as versionFile:
 	release = versionFile.read()
 # The short X.Y version.
 version = release.split('-')[0]
@@ -146,7 +146,7 @@ html_static_path = ['_static']
 
 
 # ospreydoc settings
-javadoc_sources_dir = '../../src'
+javadoc_sources_dir = '../../java'
 javadoc_package_prefix = 'edu.duke.cs.osprey'
 
 
