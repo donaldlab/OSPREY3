@@ -11,6 +11,7 @@ import edu.duke.cs.osprey.minimization.ObjectiveFunction;
 import edu.duke.cs.osprey.minimization.SimpleCCDMinimizer;
 
 import java.util.List;
+import java.util.Set;
 
 
 public class CPUConfEnergyCalculator implements ConfEnergyCalculator {
@@ -50,9 +51,26 @@ public class CPUConfEnergyCalculator implements ConfEnergyCalculator {
 
 		double energy = 0.0;
 
-		for (EnergyCalculator ecalc : confSpace.ecalcs) {
-			for (PosInter inter : inters) {
+		for (PosInter inter : inters) {
+			for (EnergyCalculator ecalc : confSpace.ecalcs) {
 				energy += ecalc.calcEnergy(coords, inter);
+			}
+			energy += inter.weight*inter.offset;
+		}
+
+		return energy;
+	}
+
+	public double calcSubEnergy(AssignedCoords coords, List<PosInter> inters, Set<Integer> posIndices) {
+
+		double energy = 0.0;
+
+		for (PosInter inter : inters) {
+			if (inter.isIncludedIn(posIndices)) {
+				for (EnergyCalculator ecalc : confSpace.ecalcs) {
+					energy += ecalc.calcEnergy(coords, inter);
+				}
+				energy += inter.weight*inter.offset;
 			}
 		}
 
@@ -103,26 +121,14 @@ public class CPUConfEnergyCalculator implements ConfEnergyCalculator {
 
 			@Override
 			public double getValue(DoubleMatrix1D x) {
-
 				setDOFs(x);
-
-				double energy = 0.0;
-				for (EnergyCalculator ecalc : confSpace.ecalcs) {
-					energy += ecalc.calcEnergy(coords, inters);
-				}
-				return energy;
+				return calcEnergy(coords, inters);
 			}
 
 			@Override
 			public double getValForDOF(int dof, double val) {
-
 				setDOF(dof, val);
-
-				double energy = 0.0;
-				for (EnergyCalculator ecalc : confSpace.ecalcs) {
-					energy += ecalc.calcSubEnergy(coords, inters, coords.dofs.get(dof).modifiedPosIndices());
-				}
-				return energy;
+				return calcSubEnergy(coords, inters, coords.dofs.get(dof).modifiedPosIndices());
 			}
 
 			@Override

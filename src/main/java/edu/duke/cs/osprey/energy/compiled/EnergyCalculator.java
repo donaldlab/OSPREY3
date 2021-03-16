@@ -9,8 +9,6 @@ import org.joml.Vector3d;
 import java.io.DataInput;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.List;
-import java.util.Set;
 
 
 /**
@@ -214,35 +212,7 @@ public interface EnergyCalculator {
 			energy = calcEnergyPair(coords, inter.posi1, inter.posi2);
 		}
 
-		// apply weight and offset
-		return inter.weight*(energy + inter.offset);
-	}
-
-	/** calculate the conformation energy using just the given position interactions */
-	default double calcEnergy(AssignedCoords coords, List<PosInter> inters) {
-
-		double energy = 0.0;
-
-		for (PosInter inter : inters) {
-			energy += calcEnergy(coords, inter);
-		}
-
-		return energy;
-	}
-
-	/**
-	 * Calculate just the energy from the given positions using the given position interactions
-	 */
-	default double calcSubEnergy(AssignedCoords coords, List<PosInter> inters, Set<Integer> posIndices) {
-
-		double energy = 0.0;
-
-		for (PosInter inter : inters) {
-			if (inter.isIncludedIn(posIndices)) {
-				energy += calcEnergy(coords, inter);
-			}
-		}
-
-		return energy;
+		// apply weight (but not the offset)
+		return inter.weight*energy;
 	}
 }

@@ -32,13 +32,17 @@
 
 package edu.duke.cs.osprey.ematrix;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import java.io.Serializable;
+import java.util.stream.Collectors;
+
 
 /**
  * This class stores a reference energy for each residue position & AA type
@@ -125,5 +129,22 @@ public class SimpleReferenceEnergies implements Serializable {
 	@Override
 	public int hashCode() {
 		return energies.hashCode();
+	}
+
+	public String toString(ConfSpace confSpace) {
+		var buf = new StringBuilder();
+		buf.append("Reference Energies:\n");
+		for (var pos : confSpace.positions) {
+			var types = Arrays.stream(pos.confs)
+				.map(conf -> confSpace.confType(pos.index, conf.index))
+				.collect(Collectors.toSet())
+				.stream()
+				.sorted()
+				.collect(Collectors.toList());
+			for (var type : types) {
+				buf.append(String.format("\tpos=%2d, type=%3s: %f\n", pos.index, type, get(pos.index, type)));
+			}
+		}
+		return buf.toString();
 	}
 }

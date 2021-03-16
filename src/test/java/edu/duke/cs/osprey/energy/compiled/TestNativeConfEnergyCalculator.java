@@ -48,38 +48,38 @@ public class TestNativeConfEnergyCalculator {
 		{ 0, 0, 0, 0, 0, 0, -1 }
 	};
 	private static final double[] calcEnergy_all_2RL0 = {
-		2199.44093411,
-		2205.48998686,
-		2607.45981769,
-		2307.90672767,
-		749133.92904943,
-		2241.54003600,
-		2179.54796288,
-		2171.14773794,
+		2176.40071876,
+		2182.45388162,
+		2584.42494751,
+		2284.90337276,
+		748973.94910103,
+		2219.05977140,
+		2179.85753037,
+		2146.91624831,
 		-1456.82332401,
 		-1462.23330457,
 		-1436.56711552,
 		-1444.30456665,
 		2166.86260702,
-		2162.91402230,
-		2179.35366839
+		2164.67974429,
+		2155.08997600
 	};
 	private static final double[] minimize_all_2RL0 = {
-		-1359.27208010,
-		-1357.74512549,
-		-1110.74689221,
-		-1328.74084045,
-		14471.08373607,
-		-1348.55609879,
-		-1364.70178141,
-		-1360.70959143,
+		-1362.64390107,
+		-1361.11261013,
+		-1114.09579684,
+		-1332.05841161,
+		14430.93366726,
+		-1351.42260872,
+		-1360.32909951,
+		-1365.25643808,
 		-1456.82332401,
 		-1462.23330457,
 		-1447.62657956,
 		-1455.35974041,
 		-1344.76116367,
-		-1348.71185049,
-		-1352.20687426
+		-1346.94402640,
+		-1356.75731324
 	};
 
 	private static final ConfSpace confSpace_1DG9_6f = TestConfSpace.DesignSmallMolAffinity6f.makeCompiled().complex;
@@ -94,22 +94,22 @@ public class TestNativeConfEnergyCalculator {
 		{ 4, 6,  5, 7, 7 }
 	};
 	private static final double[] calcEnergy_all_1DG9_6f = {
-		-2410.40260979,
-		-2409.43285354,
-		-2401.20983442,
-		-2308.15152838,
-		-2410.56187477,
-		-2405.16517485,
-		-2292.86345610
+		-2417.45460979,
+		-2416.48485354,
+		-2408.26183442,
+		-2315.20352838,
+		-2417.61387477,
+		-2412.21717485,
+		-2299.91545610
 	};
 	private static final double[] minimize_all_1DG9_6f = {
-		-2413.13885410,
-		-2412.70804489,
-		-2405.26589687,
-		-2399.24997771,
-		-2413.15282630,
-		-2409.89634506,
-		-2386.73740292
+		-2420.19085412,
+		-2419.76004489,
+		-2412.31788821,
+		-2406.30197518,
+		-2420.20482632,
+		-2416.94846133,
+		-2393.78935952
 	};
 
 	public static void assertCoords(int[] conf, AssignedCoords exp, CoordsList obs, double maxDist) {
@@ -170,6 +170,7 @@ public class TestNativeConfEnergyCalculator {
 		}
 	}
 
+
 	private void assign_native(ConfSpace confSpace, int[][] confs, Structs.Precision precision) {
 		try (var confEcalc = new NativeConfEnergyCalculator(confSpace, precision)) {
 			assign(confEcalc, confs, conf -> confEcalc.assign(conf).coords);
@@ -191,6 +192,7 @@ public class TestNativeConfEnergyCalculator {
 	@Test public void assign_cuda_1DG9_6f_f32() { assign_cuda(confSpace_1DG9_6f, confs_1DG9_6f, Structs.Precision.Float32); }
 	@Test public void assign_cuda_1DG9_6f_f64() { assign_cuda(confSpace_1DG9_6f, confs_1DG9_6f, Structs.Precision.Float64); }
 
+
 	private void calcEnergy_all(ConfEnergyCalculator confEcalc, int[][] confs, double[] energies, double epsilon) {
 
 		assertThat(energies.length, is(confs.length));
@@ -202,6 +204,14 @@ public class TestNativeConfEnergyCalculator {
 		}
 	}
 
+	private void calcEnergy_cpu_all(ConfSpace confSpace, int[][] confs, double[] energies, double epsilon) {
+		try (var confEcalc = new CPUConfEnergyCalculator(confSpace)) {
+			calcEnergy_all(confEcalc, confs, energies, epsilon);
+		}
+	}
+	@Test public void calcEnergy_cpu_all_2RL0() { calcEnergy_cpu_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, 1e-9); }
+	@Test public void calcEnergy_cpu_all_1DG9_6f() { calcEnergy_cpu_all(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, 1e-9); }
+
 	private void calcEnergy_native_all(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision, double epsilon) {
 		try (var confEcalc = new NativeConfEnergyCalculator(confSpace, precision)) {
 			calcEnergy_all(confEcalc, confs, energies, epsilon);
@@ -209,7 +219,7 @@ public class TestNativeConfEnergyCalculator {
 	}
 	@Test public void calcEnergy_native_all_2RL0_f32() { calcEnergy_native_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float32, 1e-5); }
 	@Test public void calcEnergy_native_all_2RL0_f64() { calcEnergy_native_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float64, 1e-8); }
-	@Test public void calcEnergy_native_all_1DG9_6f_f32() { calcEnergy_native_all(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, Structs.Precision.Float32, 1e-5); }
+	@Test public void calcEnergy_native_all_1DG9_6f_f32() { calcEnergy_native_all(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, Structs.Precision.Float32, 1e-6); }
 	@Test public void calcEnergy_native_all_1DG9_6f_f64() { calcEnergy_native_all(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, Structs.Precision.Float64, 1e-8); }
 
 	private void calcEnergy_cuda_all(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision, double epsilon) {
@@ -219,9 +229,141 @@ public class TestNativeConfEnergyCalculator {
 		}
 	}
 	@Test public void calcEnergy_cuda_all_2RL0_f32() { calcEnergy_cuda_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float32, 1e-5); }
-	@Test public void calcEnergy_cuda_all_2RL0_f64() { calcEnergy_cuda_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float64, 1e-6); }
-	@Test public void calcEnergy_cuda_all_1DG9_6f_f32() { calcEnergy_cuda_all(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, Structs.Precision.Float32, 1e-5); }
-	@Test public void calcEnergy_cuda_all_1DG9_6f_f64() { calcEnergy_cuda_all(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, Structs.Precision.Float64, 1e-6); }
+	@Test public void calcEnergy_cuda_all_2RL0_f64() { calcEnergy_cuda_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float64, 1e-7); }
+	@Test public void calcEnergy_cuda_all_1DG9_6f_f32() { calcEnergy_cuda_all(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, Structs.Precision.Float32, 1e-6); }
+	@Test public void calcEnergy_cuda_all_1DG9_6f_f64() { calcEnergy_cuda_all(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, Structs.Precision.Float64, 1e-8); }
+
+
+	private void calcEnergy_weights(ConfEnergyCalculator confEcalc, int[][] confs, double[] energies, double epsilon) {
+
+		assertThat(energies.length, is(confs.length));
+
+		int i = 0;
+		var inters = PosInterDist.all(confEcalc.confSpace(), confs[i]);
+		inters = inters.stream()
+			.map(inter -> new PosInter(inter.posi1, inter.posi2, 2.0, 0.0))
+			.collect(Collectors.toList());
+		double energy = confEcalc.calcEnergy(confs[i], inters);
+		assertThat(energy, isRelatively(energies[i]*2.0, epsilon));
+	}
+
+	private void calcEnergy_cpu_weights(ConfSpace confSpace, int[][] confs, double[] energies, double epsilon) {
+		try (var confEcalc = new CPUConfEnergyCalculator(confSpace)) {
+			calcEnergy_weights(confEcalc, confs, energies, epsilon);
+		}
+	}
+	@Test public void calcEnergy_cpu_weights_2RL0() { calcEnergy_cpu_weights(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, 1e-9); }
+	@Test public void calcEnergy_cpu_weights_1DG9_6f() { calcEnergy_cpu_weights(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, 1e-9); }
+
+	private void calcEnergy_native_weights(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision, double epsilon) {
+		try (var confEcalc = new NativeConfEnergyCalculator(confSpace, precision)) {
+			calcEnergy_weights(confEcalc, confs, energies, epsilon);
+		}
+	}
+	@Test public void calcEnergy_native_weights_2RL0_f32() { calcEnergy_native_weights(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float32, 1e-5); }
+	@Test public void calcEnergy_native_weights_2RL0_f64() { calcEnergy_native_weights(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float64, 1e-8); }
+	@Test public void calcEnergy_native_weights_1DG9_6f_f32() { calcEnergy_native_weights(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, Structs.Precision.Float32, 1e-6); }
+	@Test public void calcEnergy_native_weights_1DG9_6f_f64() { calcEnergy_native_weights(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, Structs.Precision.Float64, 1e-8); }
+
+	private void calcEnergy_cuda_weights(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision, double epsilon) {
+		assumeTrue(CudaConfEnergyCalculator.isSupported());
+		try (var confEcalc = new CudaConfEnergyCalculator(confSpace, precision)) {
+			calcEnergy_weights(confEcalc, confs, energies, epsilon);
+		}
+	}
+	@Test public void calcEnergy_cuda_weights_2RL0_f32() { calcEnergy_cuda_weights(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float32, 1e-5); }
+	@Test public void calcEnergy_cuda_weights_2RL0_f64() { calcEnergy_cuda_weights(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float64, 1e-7); }
+	@Test public void calcEnergy_cuda_weights_1DG9_6f_f32() { calcEnergy_cuda_weights(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, Structs.Precision.Float32, 1e-6); }
+	@Test public void calcEnergy_cuda_weights_1DG9_6f_f64() { calcEnergy_cuda_weights(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, Structs.Precision.Float64, 1e-8); }
+
+
+	private void calcEnergy_offsets(ConfEnergyCalculator confEcalc, int[][] confs, double[] energies, double epsilon) {
+
+		assertThat(energies.length, is(confs.length));
+
+		int i = 0;
+		var inters = PosInterDist.all(confEcalc.confSpace(), confs[i]);
+		inters = inters.stream()
+			.map(inter -> new PosInter(inter.posi1, inter.posi2, 1.0, 5.0))
+			.collect(Collectors.toList());
+		double energy = confEcalc.calcEnergy(confs[i], inters);
+		double offset = inters.size()*5.0;
+		assertThat(energy, isRelatively(energies[i] + offset, epsilon));
+	}
+
+	private void calcEnergy_cpu_offsets(ConfSpace confSpace, int[][] confs, double[] energies, double epsilon) {
+		try (var confEcalc = new CPUConfEnergyCalculator(confSpace)) {
+			calcEnergy_offsets(confEcalc, confs, energies, epsilon);
+		}
+	}
+	@Test public void calcEnergy_cpu_offsets_2RL0() { calcEnergy_cpu_offsets(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, 1e-9); }
+	@Test public void calcEnergy_cpu_offsets_1DG9_6f() { calcEnergy_cpu_offsets(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, 1e-9); }
+
+	private void calcEnergy_native_offsets(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision, double epsilon) {
+		try (var confEcalc = new NativeConfEnergyCalculator(confSpace, precision)) {
+			calcEnergy_offsets(confEcalc, confs, energies, epsilon);
+		}
+	}
+	@Test public void calcEnergy_native_offsets_2RL0_f32() { calcEnergy_native_offsets(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float32, 1e-5); }
+	@Test public void calcEnergy_native_offsets_2RL0_f64() { calcEnergy_native_offsets(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float64, 1e-8); }
+	@Test public void calcEnergy_native_offsets_1DG9_6f_f32() { calcEnergy_native_offsets(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, Structs.Precision.Float32, 1e-6); }
+	@Test public void calcEnergy_native_offsets_1DG9_6f_f64() { calcEnergy_native_offsets(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, Structs.Precision.Float64, 1e-8); }
+
+	private void calcEnergy_cuda_offsets(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision, double epsilon) {
+		assumeTrue(CudaConfEnergyCalculator.isSupported());
+		try (var confEcalc = new CudaConfEnergyCalculator(confSpace, precision)) {
+			calcEnergy_offsets(confEcalc, confs, energies, epsilon);
+		}
+	}
+	@Test public void calcEnergy_cuda_offsets_2RL0_f32() { calcEnergy_cuda_offsets(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float32, 1e-5); }
+	@Test public void calcEnergy_cuda_offsets_2RL0_f64() { calcEnergy_cuda_offsets(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float64, 1e-7); }
+	@Test public void calcEnergy_cuda_offsets_1DG9_6f_f32() { calcEnergy_cuda_offsets(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, Structs.Precision.Float32, 1e-6); }
+	@Test public void calcEnergy_cuda_offsets_1DG9_6f_f64() { calcEnergy_cuda_offsets(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, Structs.Precision.Float64, 1e-8); }
+
+
+	private void calcEnergy_weightsOffsets(ConfEnergyCalculator confEcalc, int[][] confs, double[] energies, double epsilon) {
+
+		assertThat(energies.length, is(confs.length));
+
+		int i = 0;
+		var inters = PosInterDist.all(confEcalc.confSpace(), confs[i]);
+		inters = inters.stream()
+			.map(inter -> new PosInter(inter.posi1, inter.posi2, 2.0, 5.0))
+			.collect(Collectors.toList());
+		double energy = confEcalc.calcEnergy(confs[i], inters);
+		double offset = inters.size()*2.0*5.0;
+		assertThat(energy, isRelatively(energies[i]*2.0 + offset, epsilon));
+	}
+
+	private void calcEnergy_cpu_weightsOffsets(ConfSpace confSpace, int[][] confs, double[] energies, double epsilon) {
+		try (var confEcalc = new CPUConfEnergyCalculator(confSpace)) {
+			calcEnergy_weightsOffsets(confEcalc, confs, energies, epsilon);
+		}
+	}
+	@Test public void calcEnergy_cpu_weightsOffsets_2RL0() { calcEnergy_cpu_weightsOffsets(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, 1e-9); }
+	@Test public void calcEnergy_cpu_weightsOffsets_1DG9_6f() { calcEnergy_cpu_weightsOffsets(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, 1e-9); }
+
+	private void calcEnergy_native_weightsOffsets(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision, double epsilon) {
+		try (var confEcalc = new NativeConfEnergyCalculator(confSpace, precision)) {
+			calcEnergy_weightsOffsets(confEcalc, confs, energies, epsilon);
+		}
+	}
+	@Test public void calcEnergy_native_weightsOffsets_2RL0_f32() { calcEnergy_native_weightsOffsets(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float32, 1e-5); }
+	@Test public void calcEnergy_native_weightsOffsets_2RL0_f64() { calcEnergy_native_weightsOffsets(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float64, 1e-8); }
+	@Test public void calcEnergy_native_weightsOffsets_1DG9_6f_f32() { calcEnergy_native_weightsOffsets(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, Structs.Precision.Float32, 1e-6); }
+	@Test public void calcEnergy_native_weightsOffsets_1DG9_6f_f64() { calcEnergy_native_weightsOffsets(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, Structs.Precision.Float64, 1e-8); }
+
+	private void calcEnergy_cuda_weightsOffsets(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision, double epsilon) {
+		assumeTrue(CudaConfEnergyCalculator.isSupported());
+		try (var confEcalc = new CudaConfEnergyCalculator(confSpace, precision)) {
+			calcEnergy_weightsOffsets(confEcalc, confs, energies, epsilon);
+		}
+	}
+	@Test public void calcEnergy_cuda_weightsOffsets_2RL0_f32() { calcEnergy_cuda_weightsOffsets(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float32, 1e-5); }
+	@Test public void calcEnergy_cuda_weightsOffsets_2RL0_f64() { calcEnergy_cuda_weightsOffsets(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float64, 1e-7); }
+	@Test public void calcEnergy_cuda_weightsOffsets_1DG9_6f_f32() { calcEnergy_cuda_weightsOffsets(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, Structs.Precision.Float32, 1e-6); }
+	@Test public void calcEnergy_cuda_weightsOffsets_1DG9_6f_f64() { calcEnergy_cuda_weightsOffsets(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, Structs.Precision.Float64, 1e-8); }
+
 
 	private void calc_all(ConfEnergyCalculator confEcalc, int[][] confs, double[] energies, double epsilon) {
 
@@ -238,6 +380,14 @@ public class TestNativeConfEnergyCalculator {
 		}
 	}
 
+	private void calc_cpu_all(ConfSpace confSpace, int[][] confs, double[] energies, double epsilon) {
+		try (var confEcalc = new CPUConfEnergyCalculator(confSpace)) {
+			calc_all(confEcalc, confs, energies, epsilon);
+		}
+	}
+	@Test public void calc_cpu_all_2RL0() { calc_cpu_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, 1e-9); }
+	@Test public void calc_cpu_all_1DG9_6f() { calc_cpu_all(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, 1e-9); }
+
 	private void calc_native_all(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision, double epsilon) {
 		try (var confEcalc = new NativeConfEnergyCalculator(confSpace, precision)) {
 			calc_all(confEcalc, confs, energies, epsilon);
@@ -245,7 +395,7 @@ public class TestNativeConfEnergyCalculator {
 	}
 	@Test public void calc_native_all_2RL0_f32() { calc_native_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float32, 1e-5); }
 	@Test public void calc_native_all_2RL0_f64() { calc_native_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float64, 1e-8); }
-	@Test public void calc_native_all_1DG9_6f_f32() { calc_native_all(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, Structs.Precision.Float32, 1e-5); }
+	@Test public void calc_native_all_1DG9_6f_f32() { calc_native_all(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, Structs.Precision.Float32, 1e-6); }
 	@Test public void calc_native_all_1DG9_6f_f64() { calc_native_all(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, Structs.Precision.Float64, 1e-8); }
 
 	private void calc_cuda_all(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision, double epsilon) {
@@ -255,9 +405,9 @@ public class TestNativeConfEnergyCalculator {
 		}
 	}
 	@Test public void calc_cuda_all_2RL0_f32() { calc_cuda_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float32, 1e-5); }
-	@Test public void calc_cuda_all_2RL0_f64() { calc_cuda_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float64, 1e-6); }
-	@Test public void calc_cuda_all_1DG9_6f_f32() { calc_cuda_all(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, Structs.Precision.Float32, 1e-5); }
-	@Test public void calc_cuda_all_1DG9_6f_f64() { calc_cuda_all(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, Structs.Precision.Float64, 1e-6); }
+	@Test public void calc_cuda_all_2RL0_f64() { calc_cuda_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float64, 1e-7); }
+	@Test public void calc_cuda_all_1DG9_6f_f32() { calc_cuda_all(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, Structs.Precision.Float32, 1e-6); }
+	@Test public void calc_cuda_all_1DG9_6f_f64() { calc_cuda_all(confSpace_1DG9_6f, confs_1DG9_6f, calcEnergy_all_1DG9_6f, Structs.Precision.Float64, 1e-8); }
 
 
 	private void minimizeEnergy_all(ConfEnergyCalculator confEcalc, int[][] confs, double[] energies, double epsilon) {
@@ -271,12 +421,20 @@ public class TestNativeConfEnergyCalculator {
 		}
 	}
 
+	private void minimizeEnergy_cpu_all(ConfSpace confSpace, int[][] confs, double[] energies, double epsilon) {
+		try (var confEcalc = new CPUConfEnergyCalculator(confSpace)) {
+			minimizeEnergy_all(confEcalc, confs, energies, epsilon);
+		}
+	}
+	@Test public void minimizeEnergy_cpu_all_2RL0() { minimizeEnergy_cpu_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, 1e-9); }
+	@Test public void minimizeEnergy_cpu_all_1DG9_6f() { minimizeEnergy_cpu_all(confSpace_1DG9_6f, confs_1DG9_6f, minimize_all_1DG9_6f, 1e-9); }
+
 	private void minimizeEnergy_native_all(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision, double epsilon) {
 		try (var confEcalc = new NativeConfEnergyCalculator(confSpace, precision)) {
 			minimizeEnergy_all(confEcalc, confs, energies, epsilon);
 		}
 	}
-	@Test public void minimizeEnergy_native_2RL0_f32() { minimizeEnergy_native_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float32, 1e-4); }
+	@Test public void minimizeEnergy_native_2RL0_f32() { minimizeEnergy_native_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float32, 1e-3); }
 	@Test public void minimizeEnergy_native_2RL0_f64() { minimizeEnergy_native_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float64, 1e-8); }
 	@Test public void minimizeEnergy_native_1DG9_6f_f32() { minimizeEnergy_native_all(confSpace_1DG9_6f, confs_1DG9_6f, minimize_all_1DG9_6f, Structs.Precision.Float32, 1e-3); }
 	@Test public void minimizeEnergy_native_1DG9_6f_f64() { minimizeEnergy_native_all(confSpace_1DG9_6f, confs_1DG9_6f, minimize_all_1DG9_6f, Structs.Precision.Float64, 1e-7); }
@@ -287,8 +445,8 @@ public class TestNativeConfEnergyCalculator {
 			minimizeEnergy_all(confEcalc, confs, energies, epsilon);
 		}
 	}
-	@Test public void minimizeEnergy_cuda_2RL0_f32() { minimizeEnergy_cuda_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float32, 1e-4); }
-	@Test public void minimizeEnergy_cuda_2RL0_f64() { minimizeEnergy_cuda_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float64, 1e-7); }
+	@Test public void minimizeEnergy_cuda_2RL0_f32() { minimizeEnergy_cuda_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float32, 1e-3); }
+	@Test public void minimizeEnergy_cuda_2RL0_f64() { minimizeEnergy_cuda_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float64, 1e-5); }
 	@Test public void minimizeEnergy_cuda_1DG9_6f_f32() { minimizeEnergy_cuda_all(confSpace_1DG9_6f, confs_1DG9_6f, minimize_all_1DG9_6f, Structs.Precision.Float32, 1e-3); }
 	@Test public void minimizeEnergy_cuda_1DG9_6f_f64() { minimizeEnergy_cuda_all(confSpace_1DG9_6f, confs_1DG9_6f, minimize_all_1DG9_6f, Structs.Precision.Float64, 1e-4); }
 
@@ -322,12 +480,20 @@ public class TestNativeConfEnergyCalculator {
 		}
 	}
 
+	private void minimize_cpu_all(ConfSpace confSpace, int[][] confs, double[] energies, double epsilon) {
+		try (var confEcalc = new CPUConfEnergyCalculator(confSpace)) {
+			minimize_all(confEcalc, confs, energies, epsilon);
+		}
+	}
+	@Test public void minimize_cpu_all_2RL0() { minimize_cpu_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, 1e-9); }
+	@Test public void minimize_cpu_all_1DG9_6f() { minimize_cpu_all(confSpace_1DG9_6f, confs_1DG9_6f, minimize_all_1DG9_6f, 1e-9); }
+
 	private void minimize_native_all(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision, double epsilon) {
 		try (var confEcalc = new NativeConfEnergyCalculator(confSpace, precision)) {
 			minimize_all(confEcalc, confs, energies, epsilon);
 		}
 	}
-	@Test public void minimize_native_2RL0_f32() { minimize_native_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float32, 1e-4); }
+	@Test public void minimize_native_2RL0_f32() { minimize_native_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float32, 1e-3); }
 	@Test public void minimize_native_2RL0_f64() { minimize_native_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float64, 1e-8); }
 	@Test public void minimize_native_1DG9_6f_f32() { minimize_native_all(confSpace_1DG9_6f, confs_1DG9_6f, minimize_all_1DG9_6f, Structs.Precision.Float32, 1e-3); }
 	@Test public void minimize_native_1DG9_6f_f64() { minimize_native_all(confSpace_1DG9_6f, confs_1DG9_6f, minimize_all_1DG9_6f, Structs.Precision.Float64, 1e-7); }
@@ -338,8 +504,8 @@ public class TestNativeConfEnergyCalculator {
 			minimize_all(confEcalc, confs, energies, epsilon);
 		}
 	}
-	@Test public void minimize_cuda_2RL0_f32() { minimize_cuda_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float32, 1e-4); }
-	@Test public void minimize_cuda_2RL0_f64() { minimize_cuda_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float64, 1e-7); }
+	@Test public void minimize_cuda_2RL0_f32() { minimize_cuda_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float32, 1e-3); }
+	@Test public void minimize_cuda_2RL0_f64() { minimize_cuda_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float64, 1e-5); }
 	@Test public void minimize_cuda_1DG9_6f_f32() { minimize_cuda_all(confSpace_1DG9_6f, confs_1DG9_6f, minimize_all_1DG9_6f, Structs.Precision.Float32, 1e-3); }
 	@Test public void minimize_cuda_1DG9_6f_f64() { minimize_cuda_all(confSpace_1DG9_6f, confs_1DG9_6f, minimize_all_1DG9_6f, Structs.Precision.Float64, 1e-4); }
 
@@ -362,12 +528,20 @@ public class TestNativeConfEnergyCalculator {
 		}
 	}
 
+	private void minimizeEnergies_cpu_all(ConfSpace confSpace, int[][] confs, double[] energies, double epsilon) {
+		try (var confEcalc = new CPUConfEnergyCalculator(confSpace)) {
+			minimizeEnergies_all(confEcalc, confs, energies, epsilon);
+		}
+	}
+	@Test public void minimizeEnergies_cpu_all_2RL0() { minimizeEnergies_cpu_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, 1e-9); }
+	@Test public void minimizeEnergies_cpu_all_1DG9_6f() { minimizeEnergies_cpu_all(confSpace_1DG9_6f, confs_1DG9_6f, minimize_all_1DG9_6f, 1e-9); }
+
 	private void minimizeEnergies_native_all(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision, double epsilon) {
 		try (var confEcalc = new NativeConfEnergyCalculator(confSpace, precision)) {
 			minimizeEnergies_all(confEcalc, confs, energies, epsilon);
 		}
 	}
-	@Test public void minimizeEnergies_native_2RL0_f32() { minimizeEnergies_native_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float32, 1e-4); }
+	@Test public void minimizeEnergies_native_2RL0_f32() { minimizeEnergies_native_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float32, 1e-3); }
 	@Test public void minimizeEnergies_native_2RL0_f64() { minimizeEnergies_native_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float64, 1e-8); }
 	@Test public void minimizeEnergies_native_1DG9_6f_f32() { minimizeEnergies_native_all(confSpace_1DG9_6f, confs_1DG9_6f, minimize_all_1DG9_6f, Structs.Precision.Float32, 1e-3); }
 	@Test public void minimizeEnergies_native_1DG9_6f_f64() { minimizeEnergies_native_all(confSpace_1DG9_6f, confs_1DG9_6f, minimize_all_1DG9_6f, Structs.Precision.Float64, 1e-7); }
@@ -378,8 +552,8 @@ public class TestNativeConfEnergyCalculator {
 			minimizeEnergies_all(confEcalc, confs, energies, epsilon);
 		}
 	}
-	@Test public void minimizeEnergies_cuda_2RL0_f32() { minimizeEnergies_cuda_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float32, 1e-2); }
-	@Test public void minimizeEnergies_cuda_2RL0_f64() { minimizeEnergies_cuda_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float64, 1e-2); }
+	@Test public void minimizeEnergies_cuda_2RL0_f32() { minimizeEnergies_cuda_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float32, 1e-3); }
+	@Test public void minimizeEnergies_cuda_2RL0_f64() { minimizeEnergies_cuda_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float64, 1e-5); }
 	@Test public void minimizeEnergies_cuda_1DG9_6f_f32() { minimizeEnergies_cuda_all(confSpace_1DG9_6f, confs_1DG9_6f, minimize_all_1DG9_6f, Structs.Precision.Float32, 1e-3); }
 	@Test public void minimizeEnergies_cuda_1DG9_6f_f64() { minimizeEnergies_cuda_all(confSpace_1DG9_6f, confs_1DG9_6f, minimize_all_1DG9_6f, Structs.Precision.Float64, 1e-4); }
 
@@ -387,7 +561,7 @@ public class TestNativeConfEnergyCalculator {
 	public static void main(String[] args) {
 
 		// generate the expected values
-		//dumpEnergiesAll(confSpace_2RL0, confs_2RL0);
+		dumpEnergiesAll(confSpace_2RL0, confs_2RL0);
 		dumpEnergiesAll(confSpace_1DG9_6f, confs_1DG9_6f);
 	}
 

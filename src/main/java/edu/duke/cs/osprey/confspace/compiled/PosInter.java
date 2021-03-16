@@ -40,6 +40,6 @@ public class PosInter {
 
 	@Override
 	public String toString() {
-		return String.format("[%d,%d,%f]", posi1, posi2, weight);
+		return String.format("[%d,%d,%f,%f]", posi1, posi2, weight, offset);
 	}
 }
