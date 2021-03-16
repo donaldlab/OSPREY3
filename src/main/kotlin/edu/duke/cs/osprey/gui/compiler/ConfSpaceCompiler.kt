@@ -224,11 +224,13 @@ class ConfSpaceCompiler(val confSpace: ConfSpace) {
 			fixedAtomsTask.increment()
 
 			// index the molecules and residues
-			val infoIndexer = InfoIndexer(confSpaceIndex.mols)
+			val molInfos = confSpaceIndex.mols
+				.map { CompiledConfSpace.MolInfo(it.name, it.type) }
+			val resIndex = ResidueIndex(confSpaceIndex.mols)
 
 			// compile the static atoms
 			val staticAtoms = fixedAtoms.statics
-				.map { it.atom.compile(infoIndexer, it.mol) }
+				.map { it.atom.compile(resIndex, it.moli, it.mol) }
 
 			// also map the wild-type atom indices to the static atom indices
 			val staticAtomsIndex = HashMap<Int,Int>().apply {
@@ -242,9 +244,8 @@ class ConfSpaceCompiler(val confSpace: ConfSpace) {
 
 			// compile the molecule motions
 			for ((moli, mol) in confSpaceIndex.mols.withIndex()) {
-				val motions = infoIndexer.molInfos[moli].motions
 				for (description in confSpace.molMotions.getOrDefault(mol, mutableListOf())) {
-					motions.add(description.compile(mol, fixedAtoms))
+					molInfos[moli].motions.add(description.compile(mol, fixedAtoms))
 				}
 			}
 
@@ -282,7 +283,20 @@ class ConfSpaceCompiler(val confSpace: ConfSpace) {
 				forcefields
 					.map { ff ->
 						async {
-							ForcefieldCalculator.calc(
+
+							// start with the internal energies for affected atoms
+							var staticEnergy = staticAffectedAtomsByMol
+								.mapIndexed { moli, atoms ->
+									val molParams = params[ff, moli]
+									val atomIndices = confSpaceIndex.atomIndexWildType(moli)
+									atoms.mapNotNull { atom ->
+										val atomi = atomIndices.getOrThrow(atom)
+										molParams[atomi]?.internalEnergy()
+									}.sum()
+								}.sum()
+
+							// add the pairwise energies for unaffected atoms
+							staticEnergy += ForcefieldCalculator.calc(
 								ff.parameterizeAtomPairs(staticUnaffectedAtomsByMol.mapIndexed { moli, _ ->
 									ForcefieldParams.MolInfo(moli, confSpaceIndex.mols[moli], params[ff, moli], confSpaceIndex.atomIndexWildType(moli))
 								}),
@@ -291,7 +305,9 @@ class ConfSpaceCompiler(val confSpace: ConfSpace) {
 								},
 								ff.unconnectedDistance
 							)
-							.also { staticEnergiesTask.increment() }
+
+							return@async staticEnergy
+								.also { staticEnergiesTask.increment() }
 						}
 					}
 					.awaitAll()
@@ -314,7 +330,7 @@ class ConfSpaceCompiler(val confSpace: ConfSpace) {
 					val confInfos = ArrayList<CompiledConfSpace.ConfInfo>()
 					posInfo.forEachConf { assignments, assignmentInfo, confInfo ->
 						launchLimits.launch {
-							confInfos.add(confInfo.compile(infoIndexer, assignments, assignmentInfo, confInfo, confSpaceIndex, fixedAtoms, params))
+							confInfos.add(confInfo.compile(resIndex, assignments, assignmentInfo, confInfo, confSpaceIndex, fixedAtoms, params))
 						}
 					}
 
@@ -369,8 +385,8 @@ class ConfSpaceCompiler(val confSpace: ConfSpace) {
 				CompiledConfSpace(
 					confSpace.name,
 					forcefieldInfos,
-					infoIndexer.molInfos,
-					infoIndexer.resInfos,
+					molInfos,
+					resIndex.resInfos,
 					staticAtoms,
 					staticEnergies,
 					posInfos,
@@ -392,31 +408,18 @@ class ConfSpaceCompiler(val confSpace: ConfSpace) {
 		}
 	}
 
-	private class InfoIndexer(val mols: List<Molecule>) {
-
-		// index all the molecules
-		val molInfos: List<CompiledConfSpace.MolInfo>
-		val molIndices: Map<Molecule,Int>
-		init {
-			val molInfos = ArrayList<CompiledConfSpace.MolInfo>()
-			molIndices = IdentityHashMap()
-			for (mol in mols) {
-				molIndices[mol] = molInfos.size
-				molInfos.add(CompiledConfSpace.MolInfo(mol.name, mol.type))
-			}
-			this.molInfos = molInfos
-		}
+	private class ResidueIndex(mols: List<Molecule>) {
 
 		// index all the residues
 		val resInfos: List<CompiledConfSpace.ResInfo>
-		val resIndices: Map<Polymer.Residue,Int>
+		val resIndices: Map<String,Int>
 		init {
 			val resInfos = ArrayList<CompiledConfSpace.ResInfo>()
-			resIndices = IdentityHashMap()
+			resIndices = HashMap()
 			for (mol in mols.filterIsInstance<Polymer>()) {
 				for (chain in mol.chains) {
 					for ((resi, res) in chain.residues.withIndex()) {
-						resIndices[res] = resInfos.size
+						resIndices[res.id] = resInfos.size
 						resInfos.add(CompiledConfSpace.ResInfo(chain.id, res.id, res.type, resi))
 					}
 				}
@@ -424,13 +427,9 @@ class ConfSpaceCompiler(val confSpace: ConfSpace) {
 			this.resInfos = resInfos
 		}
 
-		fun indexOfMol(mol: Molecule): Int =
-			molIndices[mol]
-				?: throw IllegalArgumentException("molecule has no index: $mol")
-
 		fun indexOfRes(res: Polymer.Residue?): Int =
 			if (res != null) {
-				resIndices[res] ?: throw IllegalArgumentException("residue has no index: $res")
+				resIndices[res.id] ?: throw IllegalArgumentException("residue has no index: $res")
 			} else {
 				-1
 			}
@@ -484,7 +483,7 @@ class ConfSpaceCompiler(val confSpace: ConfSpace) {
 	 * Compiles the conformation
 	 */
 	private fun ConfSpaceIndex.ConfInfo.compile(
-		infoIndexer: InfoIndexer,
+		resIndex: ResidueIndex,
 		assignments: Assignments,
 		assignmentInfo: Assignments.AssignmentInfo,
 		confInfo: ConfSpaceIndex.ConfInfo,
@@ -515,7 +514,7 @@ class ConfSpaceCompiler(val confSpace: ConfSpace) {
 		return CompiledConfSpace.ConfInfo(
 			id = id,
 			type = fragInfo.frag.type,
-			atoms = confAtoms.map { it.compile(infoIndexer, posInfo.pos.mol) },
+			atoms = confAtoms.map { it.compile(resIndex, posInfo.moli, assignmentInfo.molInfo.assignedMol) },
 			fragIndex = fragInfo.index,
 			motions = motions,
 			internalEnergies = internalEnergies
@@ -558,12 +557,12 @@ class ConfSpaceCompiler(val confSpace: ConfSpace) {
 		}
 	}
 
-	private fun Atom.compile(infoIndexer: InfoIndexer, mol: Molecule): CompiledConfSpace.AtomInfo =
+	private fun Atom.compile(resIndex: ResidueIndex, moli: Int, mol: Molecule): CompiledConfSpace.AtomInfo =
 		CompiledConfSpace.AtomInfo(
 			name,
 			Vector3d(pos.checkForErrors(name)),
-			infoIndexer.indexOfMol(mol),
-			infoIndexer.indexOfRes((mol as? Polymer)?.findResidue(this))
+			moli,
+			resIndex.indexOfRes((mol as? Polymer)?.findResidue(this))
 		)
 
 	/**

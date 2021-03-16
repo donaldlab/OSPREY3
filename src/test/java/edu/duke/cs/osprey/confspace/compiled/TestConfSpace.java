@@ -37,9 +37,7 @@ public class TestConfSpace {
 			this.chainB = chainB;
 		}
 
-		public int[] makeConfComplexWt() {
-
-			SimpleConfSpace confSpace = complex;
+		public int[] makeConfWt(SimpleConfSpace confSpace) {
 
 			int[] conf = Conf.make(confSpace);
 			for (int posi=0; posi<confSpace.numPos(); posi++) {
@@ -51,6 +49,10 @@ public class TestConfSpace {
 			}
 
 			return conf;
+		}
+
+		public Molecule makeWtMol(SimpleConfSpace confSpace) {
+			return confSpace.makeMolecule(makeConfWt(confSpace)).mol;
 		}
 	}
 
@@ -66,9 +68,7 @@ public class TestConfSpace {
 			this.chainB = chainB;
 		}
 
-		public int[] makeConfComplexWt() {
-
-			ConfSpace confSpace = complex;
+		public int[] makeConfWt(ConfSpace confSpace) {
 
 			int[] conf = Conf.make(confSpace);
 			for (int posi=0; posi<confSpace.numPos(); posi++) {
@@ -80,6 +80,14 @@ public class TestConfSpace {
 			}
 
 			return conf;
+		}
+
+		public AssignedCoords makeWtCoords(ConfSpace confSpace) {
+			return confSpace.makeCoords(makeConfWt(confSpace));
+		}
+
+		public Molecule makeWtMol(ConfSpace confSpace) {
+			return makeWtCoords(confSpace).toMol();
 		}
 	}
 
@@ -191,29 +199,28 @@ public class TestConfSpace {
 	public void check2RL0_compiled() {
 
 		AffinityCompiled design = Design2RL0Interface7Mut.makeCompiled();
-
 		assert2RL0(design.chainB, design.chainA, design.complex);
 
-		// make a molecule of the wild-type complex
+		// check wild-type molecules
+		var chainB = design.makeWtMol(design.chainB);
+		var chainA = design.makeWtMol(design.chainA);
+		var complex = design.makeWtMol(design.complex);
+		assert2RL0WildType(chainB, chainA, complex);
+
+		// check the complex wild-type rigid energy
 		ConfSpace confSpace = design.complex;
-		int[] conf = design.makeConfComplexWt();
-		AssignedCoords coords = confSpace.makeCoords(conf);
-		Molecule mol = coords.toMol();
-
-		assert2RL0WildType(mol);
-
-		// check the rigid energy
+		int[] conf = design.makeConfWt(design.complex);
 		ConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(confSpace);
-
 		List<PosInter> inters = PosInterDist.all(confSpace, conf);
 		double energy = ecalc.calcEnergy(conf, inters);
 
-		// This energy is off from the classic OSPREY's energy by about 8.5 kcal/mol.
+		// This energy is off from the classic OSPREY's energy by about 6.1 kcal/mol.
 		// As far as I can tell, the difference in energy is entirely due to differences in
 		// electrostatic charges (with premultiplied Coulomb factors)
 		// between osprey classic and AmberTools19.
 		// So this energy value is as correct as we're going to get.
-		assertThat(energy, isAbsolutely(-1556.9551045257604, 1e-9));
+		// although it's possible part of the difference is still due to unknown bugs =(
+		assertThat(energy, isAbsolutely(-1542.369034761845, 1e-9));
 	}
 
 	@Test
@@ -222,21 +229,21 @@ public class TestConfSpace {
 		// make a version of the 2RL0 "design" that matches the conf spaces prepped by the GUI
 
 		AffinityClassic design = Design2RL0Interface7Mut.makeClassic();
-
-
 		assert2RL0(design.chainB, design.chainA, design.complex);
 
-		// make a molecule of the wild-type complex
+		// check wild-type molecules
+		var chainB = design.makeWtMol(design.chainB);
+		var chainA = design.makeWtMol(design.chainA);
+		var complex = design.makeWtMol(design.complex);
+		assert2RL0WildType(chainB, chainA, complex);
+
+		// check the complex wild-type rigid energies
 		SimpleConfSpace confSpace = design.complex;
-		ParametricMolecule pmol = confSpace.makeMolecule(design.makeConfComplexWt());
-
-		assert2RL0WildType(pmol.mol);
-
-		// check the rigid energies
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
 			.setIsMinimizing(false)
 			.build()) {
 
+			ParametricMolecule pmol = confSpace.makeMolecule(design.makeConfWt(confSpace));
 			ResidueInteractions inters = new ResidueInteractions();
 			inters.addComplete(pmol.mol.residues);
 			double energy = ecalc.calcEnergy(pmol, inters).energy;
@@ -335,14 +342,25 @@ public class TestConfSpace {
 		assertThat(confSpace.numConf(posi), is(numConfs));
 	}
 
-	private static void assert2RL0WildType(Molecule mol) {
+	private static void assert2RL0WildType(Molecule chainB, Molecule chainA, Molecule complex) {
 
-		assertThat(mol.residues.size(), is(106));
-
-		int numAtoms = mol.residues.stream()
+		assertThat(chainB.residues.size(), is(17));
+		assertThat(chainB.residues.stream()
 			.mapToInt(res -> res.atoms.size())
-			.sum();
-		assertThat(numAtoms, is(1602));
+			.sum(),
+		is(245));
+
+		assertThat(chainA.residues.size(), is(89));
+		assertThat(chainA.residues.stream()
+			.mapToInt(res -> res.atoms.size())
+			.sum(),
+		is(1357));
+
+		assertThat(complex.residues.size(), is(106));
+		assertThat(complex.residues.stream()
+			.mapToInt(res -> res.atoms.size())
+			.sum(),
+		is(1602));
 	}
 
 

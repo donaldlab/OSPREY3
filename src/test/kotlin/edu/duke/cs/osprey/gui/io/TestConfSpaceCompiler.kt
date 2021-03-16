@@ -24,6 +24,7 @@ import edu.duke.cs.osprey.gui.forcefield.*
 import edu.duke.cs.osprey.gui.motions.DihedralAngle
 import edu.duke.cs.osprey.gui.motions.TranslationRotation
 import edu.duke.cs.osprey.gui.prep.*
+import edu.duke.cs.osprey.tools.FileTools
 import io.kotlintest.matchers.collections.shouldContain
 import io.kotlintest.matchers.doubles.shouldBeLessThan
 import io.kotlintest.matchers.numerics.shouldBeGreaterThan
@@ -184,6 +185,47 @@ class TestConfSpaceCompiler : SharedSpec({
 		}
 	}
 
+	fun checkMolSizes(confSpace: ConfSpace) {
+
+		// calculate the expected values
+		val mols = confSpace.mols.map { it.second }
+		val numResidues = mols
+			.filterIsInstance<Polymer>()
+			.sumBy { mol ->
+				mol.chains.sumBy { it.residues.size }
+			}
+		val numAtoms = mols.sumBy { it.atoms.size }
+
+		// get the compiled wild-type molecule
+		val compiledConfSpace = confSpace.compile()
+		val conf = compiledConfSpace
+			.positions.map { pos ->
+				pos.confs.first { it.id.startsWith("wt-") }!!.index
+			}
+			.toIntArray()
+		val confMol = compiledConfSpace.makeCoords(conf).toMol()
+
+		confMol.residues.size shouldBe numResidues
+		confMol.residues.sumBy { it.atoms.size } shouldBe numAtoms
+	}
+
+	fun checkMolSizes(resourcePath: String) =
+		checkMolSizes(ConfSpace.fromToml(FileTools.readResource(resourcePath)))
+
+
+	group("2RL0 conf spaces") {
+
+		test("G molecule sizes") {
+			checkMolSizes("/confSpaces/2RL0.G.confspace")
+		}
+		test("A molecule sizes") {
+			checkMolSizes("/confSpaces/2RL0.A.confspace")
+		}
+		test("complex molecule sizes") {
+			checkMolSizes("/confSpaces/2RL0.complex.confspace")
+		}
+	}
+
 	// this essentially tests the static energy calculation
 	group("1cc8 no positions") {
 
@@ -193,6 +235,12 @@ class TestConfSpaceCompiler : SharedSpec({
 		val conf = ConfSpace(listOf(MoleculeType.Protein to mol))
 			.compile()
 			.makeCoords()
+
+		test("molecule sizes") {
+			val confMol = conf.toMol()
+			confMol.residues.size shouldBe mol.chains.sumBy { it.residues.size }
+			confMol.residues.sumBy { it.atoms.size } shouldBe mol.atoms.size
+		}
 
 		test("amber") {
 			conf.calcAmber96().shouldBeEnergy(-489.08432295295387)
@@ -216,6 +264,12 @@ class TestConfSpaceCompiler : SharedSpec({
 			val conf = ConfSpace(listOf(MoleculeType.Protein to mol))
 				.compile()
 				.makeCoords()
+
+			test("molecule sizes") {
+				val confMol = conf.toMol()
+				confMol.residues.size shouldBe mol.chains.sumBy { it.residues.size }
+				confMol.residues.sumBy { it.atoms.size } shouldBe mol.atoms.size
+			}
 
 			test("amber") {
 				conf.calcAmber96().shouldBeEnergy(-2.908253272320646)
@@ -522,7 +576,7 @@ class TestConfSpaceCompiler : SharedSpec({
 				// check rigid/minimized energy
 				// (they're the same, rigid motions won't affect the energy of a single molecule)
 				(-2.908253272320646 + -47.75509989567506).let {
-					(calcAmber96() + calcEEF1()).shouldBeEnergy(it) // TODO: this test is failing!!!
+					(calcAmber96() + calcEEF1()).shouldBeEnergy(it)
 					calcEnergy().shouldBeEnergy(it)
 					minimizeEnergy().shouldBeEnergy(it)
 				}
@@ -561,7 +615,7 @@ class TestConfSpaceCompiler : SharedSpec({
 
 				// check minimized energy
 				(-50.6633531679957).let {
-					(calcAmber96() + calcEEF1()).shouldBeEnergy(it) // TODO: this test is failing!!!
+					(calcAmber96() + calcEEF1()).shouldBeEnergy(it)
 					calcEnergy().shouldBeEnergy(it)
 					minimizeEnergy() shouldBeLessThan it
 				}
@@ -617,7 +671,7 @@ class TestConfSpaceCompiler : SharedSpec({
 
 				// check minimized energy
 				(-48.01726089618421).let {
-					(calcAmber96() + calcEEF1()).shouldBeEnergy(it) // TODO: this test is failing!!!
+					(calcAmber96() + calcEEF1()).shouldBeEnergy(it)
 					calcEnergy().shouldBeEnergy(it)
 					minimizeEnergy() shouldBeLessThan it
 				}
