@@ -97,17 +97,13 @@ public class TestCombos {
 		transrot.dofPhi.set(Math.toRadians(6.0));
 
 		var v = new Vector3d();
-		var qx = new Quaterniond().rotationX(Math.toRadians(4.0));
-		var qy = new Quaterniond().rotationY(Math.toRadians(5.0));
-		var qz = new Quaterniond().rotationZ(Math.toRadians(6.0));
+		var q = new Quaterniond().rotationXYZ(Math.toRadians(4.0), Math.toRadians(5.0), Math.toRadians(6.0));
 		var t = new Vector3d(1.0, 2.0, 3.0);
 
 		forEachAtom(assignedCoords, initialCoords, (pos, ipos) -> {
 			v.set(ipos);
 			v.sub(c);
-			v.rotate(qx);
-			v.rotate(qy);
-			v.rotate(qz);
+			v.rotate(q);
 			v.add(t);
 			v.add(c);
 			assertPos(pos, v, Epsilon);
@@ -134,9 +130,7 @@ public class TestCombos {
 		dihedral.setAngle(Math.toRadians(initialDegrees + deltaDegrees));
 
 		var v = new Vector3d();
-		var qx = new Quaterniond().rotationX(Math.toRadians(43.0));
-		var qy = new Quaterniond().rotationY(Math.toRadians(57.0));
-		var qz = new Quaterniond().rotationZ(Math.toRadians(62.0));
+		var q = new Quaterniond().rotationXYZ(Math.toRadians(43.0), Math.toRadians(57.0), Math.toRadians(62.0));
 		var t = new Vector3d(16.0, 27.0, 32.0);
 
 		// check trans rot only atoms
@@ -145,9 +139,7 @@ public class TestCombos {
 		forEachAtom(onlyTransRotIndices, assignedCoords, initialCoords, (pos, ipos) -> {
 			v.set(ipos);
 			v.sub(c);
-			v.rotate(qx);
-			v.rotate(qy);
-			v.rotate(qz);
+			v.rotate(q);
 			v.add(t);
 			v.add(c);
 			assertPos(pos, v, Epsilon);

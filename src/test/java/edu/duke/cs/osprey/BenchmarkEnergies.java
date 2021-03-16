@@ -100,8 +100,8 @@ public class BenchmarkEnergies {
 		log("Minimize:");
 
 		// make the wild-type conformations
-		int[] classicConf = classic.makeConfComplexWt();
-		int[] compiledConf = compiled.makeConfComplexWt();
+		int[] classicConf = classic.makeConfWt(classic.complex);
+		int[] compiledConf = compiled.makeConfWt(compiled.complex);
 
 		// make interactions for the classic design case (ie, without the static-static contribution)
 		ResidueInteractions classicInters = EnergyPartition.makeFragment(classic.complex, null, false, new RCTuple(classicConf));

@@ -262,16 +262,12 @@ public class TestTranslationRotation {
 
 		// should be equivalent to just a rotation by phi=2, theta=4, phi=3
 		var v = new Vector3d();
-		var qx = new Quaterniond().rotationX(Math.toRadians(2.0));
-		var qy = new Quaterniond().rotationY(Math.toRadians(4.0));
-		var qz = new Quaterniond().rotationZ(Math.toRadians(3.0));
+		var q = new Quaterniond().rotationXYZ(Math.toRadians(2.0), Math.toRadians(4.0), Math.toRadians(3.0));
 
 		forEachAtom(assignedCoords, initialCoords, (pos, ipos) -> {
 			v.set(ipos);
 			v.sub(c);
-			v.rotate(qx);
-			v.rotate(qy);
-			v.rotate(qz);
+			v.rotate(q);
 			v.add(c);
 			assertPos(pos, v, Epsilon);
 		});
@@ -303,17 +299,13 @@ public class TestTranslationRotation {
 		transrot.dofPhi.set(Math.toRadians(4.0));
 
 		var v = new Vector3d();
-		var qx = new Quaterniond().rotationX(Math.toRadians(7.0));
-		var qy = new Quaterniond().rotationY(Math.toRadians(3.0));
-		var qz = new Quaterniond().rotationZ(Math.toRadians(4.0));
+		var q = new Quaterniond().rotationXYZ(Math.toRadians(7.0), Math.toRadians(3.0), Math.toRadians(4.0));
 		var t = new Vector3d(2.0, 5.0, 9.0);
 
 		forEachAtom(assignedCoords, initialCoords, (pos, ipos) -> {
 			v.set(ipos);
 			v.sub(c);
-			v.rotate(qx);
-			v.rotate(qy);
-			v.rotate(qz);
+			v.rotate(q);
 			v.add(t);
 			v.add(c);
 			assertPos(pos, v, Epsilon);
