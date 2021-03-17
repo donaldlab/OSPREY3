@@ -150,6 +150,10 @@ public class ResidueInteractions implements Iterable<ResidueInteractions.Pair> {
 		resNums.add(pair.resNum2);
 		pairs.put(pair.id, pair);
 	}
+
+	public void addAll(ResidueInteractions other) {
+		pairs.putAll(other.pairs);
+	}
 	
 	public void addSingle(String resNum) {
 		addSingle(resNum, Pair.IdentityWeight, Pair.IdentityOffset);

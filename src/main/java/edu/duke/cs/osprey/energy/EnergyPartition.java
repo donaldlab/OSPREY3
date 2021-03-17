@@ -313,7 +313,20 @@ public enum EnergyPartition {
 			.addShell(frag)
 			.make();
 	}
-	
+
+	public static ResidueInteractions makeShell(SimpleConfSpace confSpace) {
+		return ResInterGen.of(confSpace)
+			.addShellIntras()
+			.addShellInters()
+			.make();
+	}
+
+	public static ResidueInteractions makeAll(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, boolean addResEntropy, RCTuple frag) {
+		var inters = makeFragment(confSpace, eref, addResEntropy, frag);
+		inters.addAll(makeShell(confSpace));
+		return inters;
+	}
+
 	public static double getResEntropy(SimpleConfSpace confSpace, int pos, int rc) {
 		ResidueTemplate template = confSpace.positions.get(pos).resConfs.get(rc).template;
 		return confSpace.positions.get(pos).strand.templateLib.getResEntropy(template.name);

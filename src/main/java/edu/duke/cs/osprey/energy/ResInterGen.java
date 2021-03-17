@@ -36,6 +36,8 @@ import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.energy.ResidueInteractions.Pair;
 
+import java.util.ArrayList;
+
 /**
  * Helper class to create residue interactions.
  * 
@@ -163,5 +165,34 @@ public class ResInterGen {
 			}
 		}
 		return this;
+	}
+
+	/** energy += E(s) for all s in shell */
+	public ResInterGen addShellIntras() {
+		var resNumbers = new ArrayList<>(confSpace.shellResNumbers);
+		for (String resNumber : resNumbers) {
+			inters.addSingle(resNumber);
+		}
+		return this;
+	}
+
+	/** energy += E(s, s) for all pairs of s in shell */
+	public ResInterGen addShellInters() {
+		var resNumbers = new ArrayList<>(confSpace.shellResNumbers);
+		for (int i=0; i<resNumbers.size(); i++) {
+			for (int j=0; j<i; j++) {
+				inters.addPair(resNumbers.get(i), resNumbers.get(j));
+			}
+		}
+		return this;
+	}
+
+	/** adds all possible residue interactions */
+	public ResInterGen addAll(RCTuple frag) {
+		return addIntras(frag)
+			.addInters(frag)
+			.addShell(frag)
+			.addShellIntras()
+			.addShellInters();
 	}
 }

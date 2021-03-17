@@ -147,6 +147,13 @@ public interface PartitionFunction {
 				.get();
 		}
 
+		public MathTools.BigDecimalBounds calcBounds() {
+			return new MathTools.BigDecimalBounds(
+				calcLowerBound(),
+				calcUpperBound()
+			);
+		}
+
 		public double calcFreeEnergyLowerBound() {
 			return new BoltzmannCalculator(PartitionFunction.decimalPrecision).freeEnergy(calcUpperBound());
 		}
@@ -165,6 +172,21 @@ public interface PartitionFunction {
 			return new MathTools.DoubleBounds(
 				calcFreeEnergyLowerBound(),
 				calcFreeEnergyUpperBound()
+			);
+		}
+
+		public double calcFreeEnergyLowerBoundPrecise() {
+			return new BoltzmannCalculator(PartitionFunction.decimalPrecision).freeEnergyPrecise(calcUpperBound());
+		}
+
+		public double calcFreeEnergyUpperBoundPrecise() {
+			return new BoltzmannCalculator(PartitionFunction.decimalPrecision).freeEnergyPrecise(calcLowerBound());
+		}
+
+		public MathTools.DoubleBounds calcFreeEnergyBoundsPrecise() {
+			return new MathTools.DoubleBounds(
+				calcFreeEnergyLowerBoundPrecise(),
+				calcFreeEnergyUpperBoundPrecise()
 			);
 		}
 	}

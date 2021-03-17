@@ -76,6 +76,8 @@ public class ConfEnergyCalculator {
 
 		/** How much error can be tolerated for the energy of a conformation? */
 		private double approximationErrorBudget = 1e-2;
+
+		private boolean addShellInters = false;
 		
 		public Builder(SimpleConfSpace confSpace, EnergyCalculator ecalc) {
 			this.confSpace  = confSpace;
@@ -106,9 +108,14 @@ public class ConfEnergyCalculator {
 			this.approximationErrorBudget = val;
 			return this;
 		}
+
+		public Builder setAddShellInters(boolean val) {
+			this.addShellInters = val;
+			return this;
+		}
 		
 		public ConfEnergyCalculator build() {
-			return new ConfEnergyCalculator(confSpace, ecalc, epart, eref, addResEntropy, amat, approximationErrorBudget);
+			return new ConfEnergyCalculator(confSpace, ecalc, epart, eref, addResEntropy, amat, approximationErrorBudget, addShellInters);
 		}
 	}
 	
@@ -119,6 +126,7 @@ public class ConfEnergyCalculator {
 	public final boolean addResEntropy;
 	public final ApproximatorMatrix amat;
 	public final double approximationErrorBudget;
+	public final boolean addShellInters;
 
 	public final TaskExecutor tasks;
 
@@ -133,10 +141,11 @@ public class ConfEnergyCalculator {
 		this.addResEntropy = false;
 		this.amat = null;
 		this.approximationErrorBudget = Double.NaN;
+		this.addShellInters = false;
 		this.tasks = tasks;
 	}
 
-	protected ConfEnergyCalculator(SimpleConfSpace confSpace, EnergyCalculator ecalc, EnergyPartition epart, SimpleReferenceEnergies eref, boolean addResEntropy, ApproximatorMatrix amat, double approximationErrorBudget) {
+	protected ConfEnergyCalculator(SimpleConfSpace confSpace, EnergyCalculator ecalc, EnergyPartition epart, SimpleReferenceEnergies eref, boolean addResEntropy, ApproximatorMatrix amat, double approximationErrorBudget, boolean addShellInters) {
 		this.confSpace = confSpace;
 		this.ecalc = ecalc;
 		this.epart = epart;
@@ -144,6 +153,7 @@ public class ConfEnergyCalculator {
 		this.addResEntropy = addResEntropy;
 		this.amat = amat;
 		this.approximationErrorBudget = approximationErrorBudget;
+		this.addShellInters = addShellInters;
 		this.tasks = ecalc.tasks;
 	}
 
@@ -152,13 +162,13 @@ public class ConfEnergyCalculator {
 	}
 
 	public ConfEnergyCalculator(ConfEnergyCalculator other, EnergyCalculator ecalc) {
-		this(other.confSpace, ecalc, other.epart, other.eref, other.addResEntropy, other.amat, other.approximationErrorBudget);
+		this(other.confSpace, ecalc, other.epart, other.eref, other.addResEntropy, other.amat, other.approximationErrorBudget, other.addShellInters);
 	}
 
 	/**
 	 * This constructor is intended for the ConfEnergyCalculatorAdapter.
 	 */
-	protected ConfEnergyCalculator(TaskExecutor tasks) {
+	protected ConfEnergyCalculator(TaskExecutor tasks, boolean addShellInters) {
 
 		// yeah, lots of these are null, but hopefully the adapter can override
 		// enough functions that no one will see NullPointerExceptions
@@ -169,6 +179,7 @@ public class ConfEnergyCalculator {
 		this.addResEntropy = false;
 		this.amat = null;
 		this.approximationErrorBudget = 0.0;
+		this.addShellInters = addShellInters;
 		this.tasks = tasks;
 	}
 
@@ -205,9 +216,17 @@ public class ConfEnergyCalculator {
 	}
 	
 	public ResidueInteractions makeFragInters(RCTuple frag) {
-		return EnergyPartition.makeFragment(confSpace, eref, addResEntropy, frag);
+		if (addShellInters) {
+			return EnergyPartition.makeAll(confSpace, eref, addResEntropy, frag);
+		} else {
+			return EnergyPartition.makeFragment(confSpace, eref, addResEntropy, frag);
+		}
 	}
-	
+
+	public ResidueInteractions makeShellInters() {
+		return EnergyPartition.makeShell(confSpace);
+	}
+
 	public ResidueInteractions makeSingleInters(int pos, int rc) {
 		return epart.makeSingle(confSpace, eref, addResEntropy, pos, rc);
 	}
@@ -251,6 +270,10 @@ public class ConfEnergyCalculator {
 
 	public EnergyCalculator.EnergiedParametricMolecule calcTupleEnergy(RCTuple frag) {
 		return calcEnergy(frag, epart.makeTuple(confSpace, eref, addResEntropy, frag));
+	}
+
+	public EnergyCalculator.EnergiedParametricMolecule calcShellEnergy(RCTuple frag) {
+		return calcEnergy(frag, makeShellInters());
 	}
 
 	/**

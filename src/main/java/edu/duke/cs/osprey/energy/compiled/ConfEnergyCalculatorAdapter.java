@@ -87,7 +87,7 @@ public class ConfEnergyCalculatorAdapter extends edu.duke.cs.osprey.energy.ConfE
 	// TODO: support approximator matrices?
 
 	private ConfEnergyCalculatorAdapter(ConfEnergyCalculator confEcalc, TaskExecutor tasks, PosInterGen posInterGen, boolean minimize, boolean includeStaticStatic) {
-		super(tasks);
+		super(tasks, includeStaticStatic);
 
 		this.confEcalc = confEcalc;
 		this.posInterGen = posInterGen;

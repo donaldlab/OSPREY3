@@ -91,6 +91,8 @@ public class SimplerEnergyMatrixCalculator {
 		 * are below the given threshold. ie. ignore quads with clashes.
 		 */
 		private Double quadCorrectionThreshold = null;
+
+		private boolean calcConstantTerm = false;
 		
 		public Builder(SimpleConfSpace confSpace, EnergyCalculator ecalc) {
 			this(new ConfEnergyCalculator.Builder(confSpace, ecalc).build());
@@ -114,9 +116,14 @@ public class SimplerEnergyMatrixCalculator {
 			quadCorrectionThreshold = val;
 			return this;
 		}
+
+		public Builder setCalcConstantTerm(boolean val) {
+			calcConstantTerm = val;
+			return this;
+		}
 		
 		public SimplerEnergyMatrixCalculator build() {
-			return new SimplerEnergyMatrixCalculator(confEcalc, cacheFile, tripleCorrectionThreshold, quadCorrectionThreshold);
+			return new SimplerEnergyMatrixCalculator(confEcalc, cacheFile, tripleCorrectionThreshold, quadCorrectionThreshold, calcConstantTerm);
 		}
 	}
 
@@ -124,13 +131,15 @@ public class SimplerEnergyMatrixCalculator {
 	public final File cacheFile;
 	public final Double tripleCorrectionThreshold;
 	public final Double quadCorrectionThreshold;
+	public final boolean calcConstantTerm;
 
-	private SimplerEnergyMatrixCalculator(ConfEnergyCalculator confEcalc, File cacheFile, Double tripleCorrectionThreshold, Double quadCorrectionThreshold) {
+	private SimplerEnergyMatrixCalculator(ConfEnergyCalculator confEcalc, File cacheFile, Double tripleCorrectionThreshold, Double quadCorrectionThreshold, boolean calcConstantTerm) {
 
 		this.confEcalc = confEcalc;
 		this.cacheFile = cacheFile;
 		this.tripleCorrectionThreshold = tripleCorrectionThreshold;
 		this.quadCorrectionThreshold = quadCorrectionThreshold;
+		this.calcConstantTerm = calcConstantTerm;
 	}
 	
 	/**
@@ -168,6 +177,7 @@ public class SimplerEnergyMatrixCalculator {
 		EnergyMatrix emat = new EnergyMatrix(confEcalc.confSpaceIteration());
 
 		// count how much work there is to do (roughly based on number of residue pairs)
+		final int constCost = confEcalc.makeShellInters().size();
 		final int singleCost;
 		if (emat.getNumPos() <= 0) {
 			singleCost = 0;
@@ -180,6 +190,7 @@ public class SimplerEnergyMatrixCalculator {
 		} else {
 			pairCost = confEcalc.makePairInters(0, 0, 0, 0).size();
 		}
+		final int numConst = calcConstantTerm ? 1 : 0;
 		final int numSingles = confEcalc.confSpaceIteration().countSingles();
 		final int numPairs = confEcalc.confSpaceIteration().countPairs();
 		Progress progress = new Progress(numSingles*singleCost + numPairs*pairCost);
@@ -191,6 +202,11 @@ public class SimplerEnergyMatrixCalculator {
 			
 			List<RCTuple> fragments = new ArrayList<>();
 			int cost = 0;
+
+			void addConst() {
+				fragments.add(new RCTuple());
+				cost += constCost;
+			}
 			
 			void addSingle(int pos, int rc) {
 				fragments.add(new RCTuple(pos, rc));
@@ -210,7 +226,9 @@ public class SimplerEnergyMatrixCalculator {
 						// update the energy matrix
 						for (int i=0; i<fragments.size(); i++) {
 							RCTuple frag = fragments.get(i);
-							if (frag.size() == 1) {
+							if (frag.size() == 0) {
+								emat.setConstTerm(energies.get(i));
+							} else if (frag.size() == 1) {
 								emat.setOneBody(frag.pos.get(0), frag.RCs.get(0), energies.get(i));
 							} else if (frag.size() == 2) {
 								emat.setPairwise(frag.pos.get(0), frag.RCs.get(0), frag.pos.get(1), frag.RCs.get(1), energies.get(i));
@@ -254,7 +272,11 @@ public class SimplerEnergyMatrixCalculator {
 		Batcher batcher = new Batcher();
 		
 		// convert the workload into tasks for the task executor
-		log("Calculating energy matrix with %d entries", numSingles + numPairs);
+		log("Calculating energy matrix with %d entries", numConst + numSingles + numPairs);
+		if (calcConstantTerm) {
+			batcher.getBatch().addConst();
+			batcher.submitIfFull();
+		}
 		for (int pos1=0; pos1<emat.getNumPos(); pos1++) {
 			for (int rc1=0; rc1<emat.getNumConfAtPos(pos1); rc1++) {
 				
@@ -323,6 +345,9 @@ public class SimplerEnergyMatrixCalculator {
 
 					// nope, calculate the usual fragment energy
 					switch (frag.size()) {
+						case 0: {
+							energy = ctx.confEcalc.calcShellEnergy(frag).energy;
+						} break;
 						case 1: {
 							energy = ctx.confEcalc.calcSingleEnergy(frag).energy;
 						} break;
