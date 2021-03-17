@@ -15,15 +15,16 @@ import java.nio.file.Paths
 fun main() = withService {
 
 	val extension = ".confspace"
-	val ospreyDir = Paths.get("../osprey3")
+	val ospreyDir = Paths.get(".")
 	val dirs = listOf(
-		"test-resources/confSpaces",
+		"src/test/resources/confSpaces",
 		"examples/python.ccs/F98Y"
 	).map { ospreyDir.resolve(it) }
 
 	val netChargesByMolName = mapOf(
 		"NDP" to -3,
-		"06W" to -1
+		"06W" to -1,
+		"EPE" to 0
 	)
 
 	for (dir in dirs) {
@@ -41,7 +42,7 @@ fun main() = withService {
 				// compile it
 				ConfSpaceCompiler(confSpace).run {
 
-					// use default setings
+					// use default setings, to match classic osprey
 					forcefields.add(Forcefield.Amber96)
 					forcefields.add(Forcefield.EEF1)
 

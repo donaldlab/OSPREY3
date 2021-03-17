@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.gui.io
 
-import edu.duke.cs.osprey.tools.FileTools
 import edu.duke.cs.osprey.gui.compiler.ConfSpaceCompiler
 import edu.duke.cs.osprey.gui.forcefield.Forcefield
 import edu.duke.cs.osprey.gui.prep.ConfSpace
@@ -9,8 +8,7 @@ import java.nio.file.Paths
 
 fun main() {
 
-	//val toml = Paths.get("/home/jeff/dlab/osprey test cases/osprey 2 thanatin/EGFR/endogenous_ligand/osprey 3 newcs/complex.confspace").read()
-	val toml = Paths.get("/home/jeff/dlab/osprey3/src/test/resources/confSpaces/dipeptide.5hydrophobic.transrot.confspace").read()
+	val toml = Paths.get("").read()
 	val confSpace = ConfSpace.fromToml(toml)
 
 	// compile it
