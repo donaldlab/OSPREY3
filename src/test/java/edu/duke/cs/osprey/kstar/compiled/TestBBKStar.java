@@ -28,7 +28,9 @@ import java.util.concurrent.TimeUnit;
 public class TestBBKStar {
 
 	@Rule
-	public Timeout globalTimeout = new Timeout(2, TimeUnit.MINUTES);
+	public Timeout globalTimeout = new Timeout(5, TimeUnit.MINUTES);
+
+	// NOTE: these tests don't test for correctness, only that the code finishes and doesn't crash
 
 	@Test
 	public void test2RL0() {

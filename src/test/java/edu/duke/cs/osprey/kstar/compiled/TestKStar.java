@@ -27,10 +27,10 @@ import java.util.concurrent.TimeUnit;
 public class TestKStar {
 
 	@Rule
-	public Timeout globalTimeout = new Timeout(2, TimeUnit.MINUTES);
+	public Timeout globalTimeout = new Timeout(5, TimeUnit.MINUTES);
 
-	// TODO: this test is really slow! Probably need to optimize energy calculation
-	//  or look into the pfunc calculator... it's getting stuck somehow
+	// NOTE: these tests don't test for correctness, only that the code finishes and doesn't crash
+
 	@Test
 	public void test2RL0() {
 
