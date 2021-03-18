@@ -7,6 +7,7 @@ import static edu.duke.cs.osprey.tools.Log.log;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.coffee.directors.AffinityDirector;
+import edu.duke.cs.osprey.coffee.directors.PfuncDirector;
 import edu.duke.cs.osprey.coffee.directors.SequenceDirector;
 import edu.duke.cs.osprey.coffee.directors.Timing;
 import edu.duke.cs.osprey.coffee.seqdb.SeqFreeEnergies;
@@ -27,6 +28,8 @@ import edu.duke.cs.osprey.tools.MathTools.*;
 import org.junit.Test;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -334,7 +337,7 @@ public class TestCoffee {
 			seqSpace -> seqSpace.makeWildTypeSequence(),
 			PosInterDist.DesmetEtAl1992,
 			triples ? 10.0 : null,
-			new double[] { -1377.127950, -144.199934, -1187.667391 },
+			new double[] { -1374.377363, -144.199934, -1187.667391 },
 			bytes, precision, numMembers, parallelism
 		);
 	}
@@ -344,7 +347,7 @@ public class TestCoffee {
 			seqSpace -> seqSpace.makeWildTypeSequence().set("6 GLN", "ALA"),
 			PosInterDist.DesmetEtAl1992,
 			null,
-			new double[] { -1363.561940, -132.431356, -1187.667391 },
+			new double[] { -1362.578041, -132.431356, -1187.667391 },
 			bytes, precision, numMembers, parallelism
 		);
 	}
@@ -354,7 +357,7 @@ public class TestCoffee {
 			seqSpace -> seqSpace.makeWildTypeSequence().set("6 GLN", "ASN"),
 			PosInterDist.DesmetEtAl1992,
 			null,
-			new double[] { -1375.773406, -143.920583, -1187.667391 },
+			new double[] { -1374.067273, -143.920583, -1187.667391 },
 			bytes, precision, numMembers, parallelism
 		);
 	}
@@ -364,15 +367,15 @@ public class TestCoffee {
 			TestCoffee::bruteForceFreeEnergies
 		);
 		//sequence [6 GLN=gln]
-		//	state complex = -1377.127950
+		//	state complex = -1374.377363
 		//	state design = -144.199934
 		//	state target = -1187.667391
 		//sequence [6 GLN=ALA]
-		//	state complex = -1363.561940
+		//	state complex = -1362.578041
 		//	state design = -132.431356
 		//	state target = -1187.667391
 		//sequence [6 GLN=ASN]
-		//	state complex = -1375.773406
+		//	state complex = -1374.067273
 		//	state design = -143.920583
 		//	state target = -1187.667391
 	}
@@ -384,9 +387,9 @@ public class TestCoffee {
 			PosInterDist.TighterBounds, // tighter bounds here cuts the runtime in half!
 			triples ? 1.0 : null,
 			new DoubleBounds[] {
-				new DoubleBounds(-1380.529388,-1380.523437),
-				new DoubleBounds(-145.154147,-145.149392),
-				new DoubleBounds(-1190.451964,-1190.446127)
+				new DoubleBounds(-1374.219820,-1374.213863),
+				new DoubleBounds(-145.154147,-145.149667),
+				new DoubleBounds(-1190.451882,-1190.446064)
 			},
 			bytes, precision, numMembers, parallelism
 		);
@@ -398,9 +401,9 @@ public class TestCoffee {
 			PosInterDist.TighterBounds,
 			null,
 			new DoubleBounds[] {
-				new DoubleBounds(-1366.734330,-1366.728415),
-				new DoubleBounds(-133.531642,-133.531642),
-				new DoubleBounds(-1190.451955,-1190.446127)
+				new DoubleBounds(-1362.582950,-1362.577013),
+				new DoubleBounds(-133.531642,-133.530880),
+				new DoubleBounds(-1190.451926,-1190.446052)
 			},
 			bytes, precision, numMembers, parallelism
 		);
@@ -412,9 +415,9 @@ public class TestCoffee {
 			PosInterDist.TighterBounds,
 			null,
 			new DoubleBounds[] {
-				new DoubleBounds(-1378.941423,-1378.935472),
-				new DoubleBounds(-145.208390,-145.204453),
-				new DoubleBounds(-1190.451957,-1190.446108)
+				new DoubleBounds(-1374.263873,-1374.257917),
+				new DoubleBounds(-145.208390,-144.875955),
+				new DoubleBounds(-1190.451882,-1190.446064)
 			},
 			bytes, precision, numMembers, parallelism
 		);
@@ -424,42 +427,29 @@ public class TestCoffee {
 			makeCoffee(TestCoffee.affinity_6ov7_1mut6flex(), PosInterDist.TighterBounds, null, null, parallelism, 0),
 			TestCoffee::gradientDescentFreeEnergies
 		);
-		// GPU results
 		//sequence [6 GLN=gln]
-		//	state complex = -1380.512795
-		//	state design = -145.154178
-		//	state target = -1190.413094
+		//	state complex = [-1374.219820,-1374.213863]
+		//	state design = [-145.154147,-145.149667]
+		//	state target = [-1190.451882,-1190.446064]
 		//sequence [6 GLN=ALA]
-		//	state complex = -1366.686478
-		//	state design = -133.531642
-		//	state target = -1190.413094
+		//	state complex = [-1362.582950,-1362.577013]
+		//	state design = [-133.531642,-133.530880]
+		//	state target = [-1190.451926,-1190.446052]
 		//sequence [6 GLN=ASN]
-		//	state complex = -1378.915230
-		//	state design = -145.208459
-		//	state target = -1190.413094
-		// CPU results
-		//sequence [6 GLN=gln]
-		//	state complex = [-1380.529388,-1380.523437]
-		//	state design = [-145.154147,-145.149392]
-		//	state target = [-1190.451964,-1190.446127]
-		//sequence [6 GLN=ALA]
-		//	state complex = [-1366.734330,-1366.728415]
-		//	state design = [-133.531642,-133.531642]
-		//	state target = [-1190.451955,-1190.446127]
-		//sequence [6 GLN=ASN]
-		//	state complex = [-1378.941423,-1378.935472]
-		//	state design = [-145.208390,-145.204453]
-		//	state target = [-1190.451957,-1190.446108]
+		//	state complex = [-1374.263873,-1374.257917]
+		//	state design = [-145.208390,-144.875955]
+		//	state target = [-1190.451882,-1190.446064]
 	}
 
 	public static void main(String[] args) {
-		bruteForce_affinity_6ov7_1mut2flex(allCpus);
+		//bruteForce_affinity_6ov7_1mut2flex(allCpus);
 		//bruteForce_affinity_6ov7_1mut6flex(allCpus);
+		design_affinity_6ov7_2mut4flex_precise();
 	}
 
 	// TINY CONF SPACE
 
-	// TODO: having precision issues!! need to debug
+	// TODO: sometimes a couple of these tests fail, but most of the time they don't... concurrency/parallelism bug somewhere?
 
 	// the basic test
 	@Test public void seqFreeEnergy_affinity_6ov7_1mut2flex_wt_01_1x1_1m() {
@@ -546,63 +536,63 @@ public class TestCoffee {
 
 		// expected values computed by running COFFEE on each sequence separately to gWidthMax = 1e-3
 		// and with a SeqDB precision of 4096, to accurately compute the high-energy sequences
-		expgs.put("8 THR=thr 10 VAL=val", -1378.274);
+		expgs.put("8 THR=thr 10 VAL=val", -1358.285);
 
-		expgs.put("8 THR=ASN 10 VAL=val", -1379.407);
-		expgs.put("8 THR=ASP 10 VAL=val", -1381.103);
-		expgs.put("8 THR=GLN 10 VAL=val", -1383.747);
-		expgs.put("8 THR=GLU 10 VAL=val", -1381.935);
-		expgs.put("8 THR=GLY 10 VAL=val", -1369.435);
-		expgs.put("8 THR=SER 10 VAL=val", -1376.250);
+		expgs.put("8 THR=ASN 10 VAL=val", -1363.580);
+		expgs.put("8 THR=ASP 10 VAL=val", -1362.447);
+		expgs.put("8 THR=GLN 10 VAL=val", -1363.862);
+		expgs.put("8 THR=GLU 10 VAL=val", -1362.632);
+		expgs.put("8 THR=GLY 10 VAL=val", -1352.134);
+		expgs.put("8 THR=SER 10 VAL=val", -1357.175);
 
-		expgs.put("8 THR=thr 10 VAL=ALA", -1371.377);
-		expgs.put("8 THR=thr 10 VAL=ILE", -1370.218);
-		expgs.put("8 THR=thr 10 VAL=LEU", -1348.772);
-		expgs.put("8 THR=thr 10 VAL=PHE", -702.158);
-		expgs.put("8 THR=thr 10 VAL=TRP", 2132.812);
-		expgs.put("8 THR=thr 10 VAL=TYR", 1513.490);
+		expgs.put("8 THR=thr 10 VAL=ALA", -1355.824);
+		expgs.put("8 THR=thr 10 VAL=ILE", -1356.424);
+		expgs.put("8 THR=thr 10 VAL=LEU", -1358.014);
+		expgs.put("8 THR=thr 10 VAL=PHE", -1357.201);
+		expgs.put("8 THR=thr 10 VAL=TRP", -1361.944);
+		expgs.put("8 THR=thr 10 VAL=TYR", -1361.825);
 
-		expgs.put("8 THR=ASN 10 VAL=ALA", -1372.556);
-		expgs.put("8 THR=ASN 10 VAL=ILE", -1371.100);
-		expgs.put("8 THR=ASN 10 VAL=LEU", -1353.375);
-		expgs.put("8 THR=ASN 10 VAL=PHE", -706.786);
-		expgs.put("8 THR=ASN 10 VAL=TRP", 2129.810);
-		expgs.put("8 THR=ASN 10 VAL=TYR", 1504.753);
+		expgs.put("8 THR=ASN 10 VAL=ALA", -1361.202);
+		expgs.put("8 THR=ASN 10 VAL=ILE", -1361.732);
+		expgs.put("8 THR=ASN 10 VAL=LEU", -1363.141);
+		expgs.put("8 THR=ASN 10 VAL=PHE", -1362.931);
+		expgs.put("8 THR=ASN 10 VAL=TRP", -1367.344);
+		expgs.put("8 THR=ASN 10 VAL=TYR", -1367.642);
 
-		expgs.put("8 THR=ASP 10 VAL=ALA", -1374.421);
-		expgs.put("8 THR=ASP 10 VAL=ILE", -1372.843);
-		expgs.put("8 THR=ASP 10 VAL=LEU", -1353.971);
-		expgs.put("8 THR=ASP 10 VAL=PHE", -706.888);
-		expgs.put("8 THR=ASP 10 VAL=TRP", 2125.893);
-		expgs.put("8 THR=ASP 10 VAL=TYR", 1504.968);
+		expgs.put("8 THR=ASP 10 VAL=ALA", -1360.079);
+		expgs.put("8 THR=ASP 10 VAL=ILE", -1360.594);
+		expgs.put("8 THR=ASP 10 VAL=LEU", -1362.059);
+		expgs.put("8 THR=ASP 10 VAL=PHE", -1361.258);
+		expgs.put("8 THR=ASP 10 VAL=TRP", -1365.894);
+		expgs.put("8 THR=ASP 10 VAL=TYR", -1365.907);
 
-		expgs.put("8 THR=GLN 10 VAL=ALA", -1376.818);
-		expgs.put("8 THR=GLN 10 VAL=ILE", -1375.701);
-		expgs.put("8 THR=GLN 10 VAL=LEU", -1356.205);
-		expgs.put("8 THR=GLN 10 VAL=PHE", -709.313);
-		expgs.put("8 THR=GLN 10 VAL=TRP", 2124.343);
-		expgs.put("8 THR=GLN 10 VAL=TYR", 1502.252);
+		expgs.put("8 THR=GLN 10 VAL=ALA", -1361.343);
+		expgs.put("8 THR=GLN 10 VAL=ILE", -1361.996);
+		expgs.put("8 THR=GLN 10 VAL=LEU", -1363.630);
+		expgs.put("8 THR=GLN 10 VAL=PHE", -1363.106);
+		expgs.put("8 THR=GLN 10 VAL=TRP", -1367.680);
+		expgs.put("8 THR=GLN 10 VAL=TYR", -1367.820);
 
-		expgs.put("8 THR=GLU 10 VAL=ALA", -1375.199);
-		expgs.put("8 THR=GLU 10 VAL=ILE", -1373.809);
-		expgs.put("8 THR=GLU 10 VAL=LEU", -1355.209);
-		expgs.put("8 THR=GLU 10 VAL=PHE", -708.985);
-		expgs.put("8 THR=GLU 10 VAL=TRP", 2124.959);
-		expgs.put("8 THR=GLU 10 VAL=TYR", 1502.685);
+		expgs.put("8 THR=GLU 10 VAL=ALA", -1360.277);
+		expgs.put("8 THR=GLU 10 VAL=ILE", -1360.778);
+		expgs.put("8 THR=GLU 10 VAL=LEU", -1362.338);
+		expgs.put("8 THR=GLU 10 VAL=PHE", -1362.132);
+		expgs.put("8 THR=GLU 10 VAL=TRP", -1366.898);
+		expgs.put("8 THR=GLU 10 VAL=TYR", -1367.326);
 
-		expgs.put("8 THR=GLY 10 VAL=ALA", -1362.851);
-		expgs.put("8 THR=GLY 10 VAL=ILE", -1361.027);
-		expgs.put("8 THR=GLY 10 VAL=LEU", -1342.512);
-		expgs.put("8 THR=GLY 10 VAL=PHE", -699.969);
-		expgs.put("8 THR=GLY 10 VAL=TRP", 2137.699);
-		expgs.put("8 THR=GLY 10 VAL=TYR", 1510.260);
+		expgs.put("8 THR=GLY 10 VAL=ALA", -1349.961);
+		expgs.put("8 THR=GLY 10 VAL=ILE", -1350.297);
+		expgs.put("8 THR=GLY 10 VAL=LEU", -1351.665);
+		expgs.put("8 THR=GLY 10 VAL=PHE", -1351.577);
+		expgs.put("8 THR=GLY 10 VAL=TRP", -1355.794);
+		expgs.put("8 THR=GLY 10 VAL=TYR", -1356.124);
 
-		expgs.put("8 THR=SER 10 VAL=ALA", -1369.562);
-		expgs.put("8 THR=SER 10 VAL=ILE", -1368.029);
-		expgs.put("8 THR=SER 10 VAL=LEU", -1349.555);
-		expgs.put("8 THR=SER 10 VAL=PHE", -704.956);
-		expgs.put("8 THR=SER 10 VAL=TRP", 2130.538);
-		expgs.put("8 THR=SER 10 VAL=TYR", 1506.171);
+		expgs.put("8 THR=SER 10 VAL=ALA", -1354.888);
+		expgs.put("8 THR=SER 10 VAL=ILE", -1355.330);
+		expgs.put("8 THR=SER 10 VAL=LEU", -1356.764);
+		expgs.put("8 THR=SER 10 VAL=PHE", -1356.622);
+		expgs.put("8 THR=SER 10 VAL=TRP", -1361.082);
+		expgs.put("8 THR=SER 10 VAL=TYR", -1361.279);
 
 		final double epsilon = 1e-3;
 
@@ -684,6 +674,91 @@ public class TestCoffee {
 		}
 	}
 
+	private static void design_affinity_6ov7_2mut4flex_precise() {
+
+		var confSpace = TestCoffee.affinity_6ov7_2mut4flex();
+
+		var coffee = new Coffee.Builder(confSpace)
+			.setSeqDBMathContext(new MathContext(4096, RoundingMode.HALF_UP))
+			.configEachState((config, ecalc) -> config.posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null))
+			.build();
+
+		var seqs = Arrays.asList(
+			confSpace.seqSpace.makeSequence("thr", "val"),
+			confSpace.seqSpace.makeSequence("ASN", "val"),
+			confSpace.seqSpace.makeSequence("ASP", "val"),
+			confSpace.seqSpace.makeSequence("GLN", "val"),
+			confSpace.seqSpace.makeSequence("GLU", "val"),
+			confSpace.seqSpace.makeSequence("GLY", "val"),
+			confSpace.seqSpace.makeSequence("SER", "val"),
+			confSpace.seqSpace.makeSequence("thr", "ALA"),
+			confSpace.seqSpace.makeSequence("thr", "ILE"),
+			confSpace.seqSpace.makeSequence("thr", "LEU"),
+			confSpace.seqSpace.makeSequence("thr", "PHE"),
+			confSpace.seqSpace.makeSequence("thr", "TRP"),
+			confSpace.seqSpace.makeSequence("thr", "TYR"),
+			confSpace.seqSpace.makeSequence("ASN", "ALA"),
+			confSpace.seqSpace.makeSequence("ASN", "ILE"),
+			confSpace.seqSpace.makeSequence("ASN", "LEU"),
+			confSpace.seqSpace.makeSequence("ASN", "PHE"),
+			confSpace.seqSpace.makeSequence("ASN", "TRP"),
+			confSpace.seqSpace.makeSequence("ASN", "TYR"),
+			confSpace.seqSpace.makeSequence("ASP", "ALA"),
+			confSpace.seqSpace.makeSequence("ASP", "ILE"),
+			confSpace.seqSpace.makeSequence("ASP", "LEU"),
+			confSpace.seqSpace.makeSequence("ASP", "PHE"),
+			confSpace.seqSpace.makeSequence("ASP", "TRP"),
+			confSpace.seqSpace.makeSequence("ASP", "TYR"),
+			confSpace.seqSpace.makeSequence("GLN", "ALA"),
+			confSpace.seqSpace.makeSequence("GLN", "ILE"),
+			confSpace.seqSpace.makeSequence("GLN", "LEU"),
+			confSpace.seqSpace.makeSequence("GLN", "PHE"),
+			confSpace.seqSpace.makeSequence("GLN", "TRP"),
+			confSpace.seqSpace.makeSequence("GLN", "TYR"),
+			confSpace.seqSpace.makeSequence("GLU", "ALA"),
+			confSpace.seqSpace.makeSequence("GLU", "ILE"),
+			confSpace.seqSpace.makeSequence("GLU", "LEU"),
+			confSpace.seqSpace.makeSequence("GLU", "PHE"),
+			confSpace.seqSpace.makeSequence("GLU", "TRP"),
+			confSpace.seqSpace.makeSequence("GLU", "TYR"),
+			confSpace.seqSpace.makeSequence("GLY", "ALA"),
+			confSpace.seqSpace.makeSequence("GLY", "ILE"),
+			confSpace.seqSpace.makeSequence("GLY", "LEU"),
+			confSpace.seqSpace.makeSequence("GLY", "PHE"),
+			confSpace.seqSpace.makeSequence("GLY", "TRP"),
+			confSpace.seqSpace.makeSequence("GLY", "TYR"),
+			confSpace.seqSpace.makeSequence("SER", "ALA"),
+			confSpace.seqSpace.makeSequence("SER", "ILE"),
+			confSpace.seqSpace.makeSequence("SER", "LEU"),
+			confSpace.seqSpace.makeSequence("SER", "PHE"),
+			confSpace.seqSpace.makeSequence("SER", "TRP"),
+			confSpace.seqSpace.makeSequence("SER", "TYR")
+		);
+
+		for (var state : confSpace.states) {
+			log("state: %s", state.name);
+
+			var stateSeqs = Collections.singletonList((Sequence)null);
+			if (state.isSequenced) {
+				stateSeqs = seqs;
+			}
+
+			for (var seq : stateSeqs) {
+
+				var director = new PfuncDirector.Builder(confSpace, state, seq)
+					.setTiming(Timing.Precise)
+					.setGWidthMax(1e-3)
+					.build();
+				coffee.run(director);
+
+				var g = director.getFreeEnergy();
+				assertThat(g.size(), lessThanOrEqualTo(1e-3));
+
+				log("\texpgs.put(\"%s\", %.3f);", seq, g.lower);
+			}
+		}
+	}
+
 	private void design_affinity_6ov7_2mut4flex(int numMembers, int numThreads) {
 		withPseudoCluster(numMembers, cluster -> {
 			var confSpace = TestCoffee.affinity_6ov7_2mut4flex();
@@ -695,14 +770,14 @@ public class TestCoffee {
 				.build();
 
 			var director = new AffinityDirector.Builder(confSpace, "complex", "design", "target")
-				.setK(28) // just the sequences that are quick to get... the other 21 sequences have high energies and VERY loose bounds
+				.setK(28) // just the sequences that are quick to get... some of the other sequences have high energies and VERY loose bounds
 				.setMaxSimultaneousMutations(null)
 				.setTiming(Timing.Precise)
 				.build();
 			coffee.run(director);
 
 			if (cluster.nodeId == 0) {
-				assertThat(director.bestSeqs.size(), is(28));
+				assertThat(director.bestSeqs.size(), is(30)); // we get a couple extra sequences for free
 				assertFreeEnergies_2m4f_complex(director.bestSeqs, confSpace.getState("complex").index);
 				assertFreeEnergies_2m4f_design(director.bestSeqs, confSpace.getState("design").index);
 				assertThat(director.targetFreeEnergy, isAbsoluteBound(-1187.609, 1e-3));
