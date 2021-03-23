@@ -40,6 +40,7 @@ public class TestConfEnergyCalculatorAdapter {
 			PosInterDist posInterDist = PosInterDist.DesmetEtAl1992;
 			EnergyMatrix emat = new EmatCalculator.Builder(confEcalc)
 				.setPosInterDist(posInterDist)
+				.setIncludeStaticStatic(false)
 				.setMinimize(false)
 				.build()
 				.calc();
@@ -47,6 +48,7 @@ public class TestConfEnergyCalculatorAdapter {
 			// compare to the energy matrix computed using the adapted old calculator
 			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc, tasks)
 				.setPosInterDist(posInterDist)
+				.setIncludeStaticStatic(false)
 				.setMinimize(false)
 				.build();
 			EnergyMatrix adaptedEmat = new SimplerEnergyMatrixCalculator.Builder(adapter)
@@ -66,6 +68,7 @@ public class TestConfEnergyCalculatorAdapter {
 			PosInterDist posInterDist = PosInterDist.DesmetEtAl1992;
 			EnergyMatrix emat = new EmatCalculator.Builder(confEcalc)
 				.setPosInterDist(posInterDist)
+				.setIncludeStaticStatic(false)
 				.setMinimize(true)
 				.build()
 				.calc();
@@ -73,6 +76,7 @@ public class TestConfEnergyCalculatorAdapter {
 			// compare to the energy matrix computed using the adapted old calculator
 			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc, tasks)
 				.setPosInterDist(posInterDist)
+				.setIncludeStaticStatic(false)
 				.setMinimize(true)
 				.build();
 			EnergyMatrix adaptedEmat = new SimplerEnergyMatrixCalculator.Builder(adapter)
@@ -101,6 +105,7 @@ public class TestConfEnergyCalculatorAdapter {
 			// compare to the reference energies computed using the adapted old calculator
 			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc, tasks)
 				.setMinimize(false)
+				.setIncludeStaticStatic(false)
 				.build();
 			SimpleReferenceEnergies adaptedEref = new SimplerEnergyMatrixCalculator.Builder(adapter)
 				.build()
@@ -124,6 +129,7 @@ public class TestConfEnergyCalculatorAdapter {
 
 			// compare to the reference energies computed using the adapted old calculator
 			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc, tasks)
+				.setIncludeStaticStatic(false)
 				.setMinimize(true)
 				.build();
 			SimpleReferenceEnergies adaptedEref = new SimplerEnergyMatrixCalculator.Builder(adapter)
@@ -148,6 +154,7 @@ public class TestConfEnergyCalculatorAdapter {
 			PosInterDist posInterDist = PosInterDist.DesmetEtAl1992;
 			EnergyMatrix emat = new EmatCalculator.Builder(confEcalc)
 				.setPosInterDist(posInterDist)
+				.setIncludeStaticStatic(false)
 				.setReferenceEnergies(eref)
 				.setMinimize(false)
 				.build()
@@ -156,6 +163,7 @@ public class TestConfEnergyCalculatorAdapter {
 			// compare to the energy matrix computed using the adapted old calculator
 			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc, tasks)
 				.setPosInterDist(posInterDist)
+				.setIncludeStaticStatic(false)
 				.setReferenceEnergies(eref)
 				.setMinimize(false)
 				.build();
@@ -210,6 +218,7 @@ public class TestConfEnergyCalculatorAdapter {
 			PosInterDist posInterDist = PosInterDist.DesmetEtAl1992;
 			EnergyMatrix emat = new EmatCalculator.Builder(confEcalc)
 				.setPosInterDist(posInterDist)
+				.setIncludeStaticStatic(false)
 				.setMinimize(true)
 				.build()
 				.calc();
@@ -229,6 +238,7 @@ public class TestConfEnergyCalculatorAdapter {
 
 			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc, tasks)
 				.setPosInterDist(posInterDist)
+				.setIncludeStaticStatic(false)
 				.setMinimize(true)
 				.build();
 			checkAstar(emat, adapter, exp);
@@ -251,6 +261,7 @@ public class TestConfEnergyCalculatorAdapter {
 			PosInterDist posInterDist = PosInterDist.DesmetEtAl1992;
 			EnergyMatrix emat = new EmatCalculator.Builder(confEcalc)
 				.setPosInterDist(posInterDist)
+				.setIncludeStaticStatic(false)
 				.setReferenceEnergies(eref)
 				.setMinimize(true)
 				.build()
@@ -271,6 +282,7 @@ public class TestConfEnergyCalculatorAdapter {
 
 			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc, tasks)
 				.setPosInterDist(posInterDist)
+				.setIncludeStaticStatic(false)
 				.setMinimize(true)
 				.setReferenceEnergies(eref)
 				.build();
@@ -286,11 +298,13 @@ public class TestConfEnergyCalculatorAdapter {
 			// compute the energy matrix, with reference energies
 			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc, tasks)
 				.setMinimize(true)
+				.setIncludeStaticStatic(false)
 				.build();
 			SimpleReferenceEnergies eref = new SimplerEnergyMatrixCalculator.Builder(adapter)
 				.build()
 				.calcReferenceEnergies();
 			adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc, tasks)
+				.setIncludeStaticStatic(false)
 				.setReferenceEnergies(eref)
 				.setMinimize(true)
 				.build();
@@ -324,6 +338,7 @@ public class TestConfEnergyCalculatorAdapter {
 
 			// compute the energy matrix
 			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc, tasks)
+				.setIncludeStaticStatic(false)
 				.setMinimize(true)
 				.build();
 			EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(adapter)

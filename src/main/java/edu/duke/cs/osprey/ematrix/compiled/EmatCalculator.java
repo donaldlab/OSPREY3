@@ -37,7 +37,7 @@ public class EmatCalculator {
 		private boolean minimize = true;
 
 		/** True to include the static-static energies in conformation energies */
-		private boolean includeStaticStatic = false;
+		private boolean includeStaticStatic = true;
 
 		/**
 		 * Path to file where energy matrix should be saved between computations.

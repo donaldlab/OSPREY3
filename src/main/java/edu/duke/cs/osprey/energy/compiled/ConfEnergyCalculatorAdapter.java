@@ -41,7 +41,7 @@ public class ConfEnergyCalculatorAdapter extends edu.duke.cs.osprey.energy.ConfE
 		private boolean minimize = true;
 
 		/** True to include the static-static energies in conformation energies */
-		private boolean includeStaticStatic = false;
+		private boolean includeStaticStatic = true;
 
 		public Builder(ConfEnergyCalculator confEcalc, TaskExecutor tasks) {
 			this.confEcalc = confEcalc;
@@ -104,6 +104,22 @@ public class ConfEnergyCalculatorAdapter extends edu.duke.cs.osprey.energy.ConfE
 	public ResidueInteractions makeFragInters(RCTuple frag) {
 		// only used internally, so we don't need to implement it
 		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public ResidueInteractions makeShellInters() {
+		// only used by SimplerEnergyMatrixCalculator
+		// so we only need to return a ResidueInteractions instance that has
+		// a size useful enough to calibrate the progress bar
+		ResidueInteractions inters = new ResidueInteractions();
+		int size = confEcalc.confSpace().resInfos.length;
+		for (int i=0; i<size; i++) {
+			inters.addSingle("a" + i); // these resnums will never be seen
+			for (int j=0; j<i; j++) {
+				inters.addPair("a" + i, "b" + i); //
+			}
+		}
+		return inters;
 	}
 
 	@Override

@@ -247,6 +247,7 @@ public class TestEnergyComparison {
 		try (var tasks = new TaskExecutor()) {
 			var adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc, tasks)
 				.setPosInterDist(posInterDist)
+				.setIncludeStaticStatic(false)
 				.setMinimize(Minimize)
 				.setIncludeStaticStatic(true)
 				.build();
