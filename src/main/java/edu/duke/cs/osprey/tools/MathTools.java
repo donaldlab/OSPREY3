@@ -242,7 +242,15 @@ public class MathTools {
 		return new BigDecimal(val);
 	}
 
+	public static BigDecimal biggen(String val) {
+		return new BigDecimal(val);
+	}
+
 	public static BigDecimalBounds biggen(double lower, double upper) {
+		return new BigDecimalBounds(biggen(lower), biggen(upper));
+	}
+
+	public static BigDecimalBounds biggen(String lower, String upper) {
 		return new BigDecimalBounds(biggen(lower), biggen(upper));
 	}
 
@@ -872,6 +880,10 @@ public class MathTools {
 			this(biggen(lower), biggen(upper));
 		}
 
+		public BigDecimalBounds(String lower, String upper) {
+			this(biggen(lower), biggen(upper));
+		}
+
 		public BigDecimal size(MathContext mathContext) {
 			return new BigMath(mathContext)
 				.set(upper)
@@ -891,6 +903,11 @@ public class MathTools {
 		public boolean contains(BigDecimalBounds d) {
 			return MathTools.isGreaterThanOrEqual(d.lower, lower)
 				&& MathTools.isLessThanOrEqual(d.upper, upper);
+		}
+
+		public boolean intersects(BigDecimalBounds other) {
+			return MathTools.isGreaterThanOrEqual(this.upper, other.lower)
+				&& MathTools.isLessThanOrEqual(this.lower, other.upper);
 		}
 
 		@Override
