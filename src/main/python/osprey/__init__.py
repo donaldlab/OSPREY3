@@ -138,7 +138,7 @@ def _start_jvm_common(fn_jvm_start):
 	else:
 
 		# development environment: use the gradle-defined classpath
-		osprey_dir = os.path.join(os.path.dirname(__file__), '../../')
+		osprey_dir = os.path.join(os.path.dirname(__file__), '../../../../')
 		classpath_path = os.path.join(osprey_dir, 'build/python/classpath.txt')
 		if not os.path.isfile(classpath_path):
 			raise Exception('dev classpath for python not generated yet. run ./gradlew pythonDevelop')
