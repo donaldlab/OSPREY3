@@ -5276,6 +5276,7 @@ bonds = [
 [molecule.1]
 name = "NDP"
 type = "NDP"
+netCharge = -3
 
 atoms = [
 	{ i=    0, name=   "PA", x=   -6.903562, y=   31.389025, z=    6.934968, elem="P" },
@@ -5444,6 +5445,7 @@ bonds = [
 [molecule.2]
 name = "06W"
 type = "06W"
+netCharge = -1
 
 atoms = [
 	{ i=    0, name=   "N1", x=    5.213052, y=   27.678527, z=    3.762299, elem="N" },

@@ -12,7 +12,7 @@ import java.util.*
  * A place to store net charges for molecules and their conformations.
  * Net charges are needed by Antechamber/Sqm to compute partial charges for atoms.
  */
-class NetCharges {
+class NetCharges() {
 
 	companion object {
 
@@ -28,6 +28,14 @@ class NetCharges {
 	}
 
 	private val smallMolNetCharges: MutableMap<Molecule,MolNetCharges> = IdentityHashMap()
+
+	constructor(mols: List<Pair<MoleculeType,Molecule>>) : this() {
+
+		// init values from the molecules
+		for ((moltype, mol) in mols) {
+			this[mol, moltype]?.netCharge = mol.netCharge
+		}
+	}
 
 	operator fun get(mol: Molecule?, moltype: MoleculeType? = null): MolNetCharges? {
 

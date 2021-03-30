@@ -27,7 +27,7 @@ import kotlin.collections.ArrayList
 class ConfSpaceCompiler(val confSpace: ConfSpace) {
 
 	val forcefields = ForcefieldSet()
-	val netCharges = NetCharges()
+	val netCharges = NetCharges(confSpace.mols)
 
 	data class Report(
 		val warnings: List<CompilerWarning>,

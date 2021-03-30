@@ -21,12 +21,6 @@ fun main() = withService {
 		"examples/python.ccs/F98Y"
 	).map { ospreyDir.resolve(it) }
 
-	val netChargesByMolName = mapOf(
-		"NDP" to -3,
-		"06W" to -1,
-		"EPE" to 0
-	)
-
 	for (dir in dirs) {
 		Files.list(dir)
 			.filter { it.fileName.toString().endsWith(extension) }
@@ -45,11 +39,6 @@ fun main() = withService {
 					// use default setings, to match classic osprey
 					forcefields.add(Forcefield.Amber96)
 					forcefields.add(Forcefield.EEF1)
-
-					// add necessary net charges
-					for ((type, mol) in confSpace.mols) {
-						netCharges.get(mol, type)?.netCharge = netChargesByMolName.getValue(mol.name)
-					}
 
 					println("compiling $basename ...")
 					val report = compile().run {

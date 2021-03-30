@@ -5178,6 +5178,7 @@ bonds = [
 [molecule.1]
 name = "EPE"
 type = "EPE"
+netCharge = 0
 
 atoms = [
 	{ i= 2493, name=   "N1", x=    7.933496, y=   42.727511, z=   27.330729, elem="N" },

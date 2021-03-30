@@ -303,8 +303,8 @@ class CompileConfSpace(val confSpace: ConfSpace) : SlideFeature {
 		)
 
 		init {
-			// initialize all the net charges to 0
-			wildType.value = 0
+			// for the wild-type value, initialize from the molecule, or zero
+			wildType.value = mol.netCharge ?: 0
 		}
 	}
 	private val netChargeInfos =
