@@ -120,6 +120,12 @@ def start(jrePath, heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=None, 
 		args.append("-Xnoagent")
 		args.append("-Xrunjdwp:transport=dt_socket,server=y,address=12999,suspend=n")
 
+	# suppress warnings about illegal reflection operations in newer JVMs
+	# yes, the code that generates these warnings can handle the exceptions that future JVMs
+    # will eventually throw when the reflection operations get forcibly denied
+	# there's no need to scare our users with warning messages
+	args.append('--add-opens=java.base/java.text=ALL-UNNAMED')
+
 	start_with_args(jrePath, args)
 
 	if attachJvmDebugger:

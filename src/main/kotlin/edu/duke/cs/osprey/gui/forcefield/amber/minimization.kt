@@ -8,6 +8,7 @@ import edu.duke.cs.osprey.gui.forcefield.AtomIndex
 import edu.duke.cs.osprey.gui.io.OspreyService
 import edu.duke.cs.osprey.gui.io.toVector3d
 import edu.duke.cs.osprey.service.services.MinimizeRequest
+import kotlinx.coroutines.runBlocking
 import org.joml.Vector3d
 import java.util.*
 import kotlin.NoSuchElementException
@@ -62,6 +63,9 @@ class MinimizerInfo(
 	}
 }
 
+fun List<MinimizerInfo>.minimizeBlocking(numSteps: Int) =
+	runBlocking { minimize(numSteps) }
+
 suspend fun List<MinimizerInfo>.minimize(numSteps: Int) {
 
 	// capture the original coords
@@ -86,7 +90,16 @@ suspend fun List<MinimizerInfo>.minimize(numSteps: Int) {
 						atomIndex[atom] = atomIndex.size
 					}
 
-					val types = mol.calcTypesAmber(moltype, atomIndex)
+					// if the molecule has a net charge, pass it along so the small molecule charge generator can use it
+					val generateCharges = mol.netCharge?.let { netCharge ->
+						AmberChargeGeneration(
+							AmberDefaults.chargeMethod,
+							netCharge,
+							AmberDefaults.sqmMinimizationSteps
+						)
+					}
+
+					val types = mol.calcTypesAmber(moltype, atomIndex, generateCharges = generateCharges)
 					val frcmods = mol.calcModsAmber(types, atomIndex)
 						?.let { listOf(it) }
 						?: emptyList()

@@ -21,6 +21,38 @@ class Amber14SBParams : AmberForcefieldParams(mapOf(
 	override val forcefield = Forcefield.Amber14SB
 }
 
+
+object AmberDefaults {
+
+	/**
+	 * This appears to be a magic number (for now).
+	 * Maybe 6 is reasonable for a protein interior?
+	 *
+	 * For reference, this value seems to have a simlar relative permittivity
+	 * to neoperene (6.7), but is far less than water (~80).
+	 * See: https://en.wikipedia.org/wiki/Relative_permittivity
+	 */
+	const val dielectric = 6.0
+
+	const val distanceDependentDielectric = true
+
+	/**
+	 * The default value of 0.95 was determined empirically by early Osprey developers.
+	 */
+	const val vdwScale = 0.95
+
+	/**
+	 * The default AM1BCC method is currently recommended by Amber for most purposes.
+	 */
+	val chargeMethod = AmberChargeMethod.AM1BCC
+
+	/**
+	 * The default value of 0 assumes the input structure should not be perturbed via minimization.
+	 * ie, 0 minimization steps results in a single point energy calculation.
+	 */
+	const val sqmMinimizationSteps = 0
+}
+
 abstract class AmberForcefieldParams(val ffnameOverrides: Map<MoleculeType,ForcefieldName>) : ForcefieldParams {
 
 	// Amber has special non-bonded parameters for 1-4 bonds
@@ -30,43 +62,28 @@ abstract class AmberForcefieldParams(val ffnameOverrides: Map<MoleculeType,Force
 	/**
 	 * The dielectric constant of the environment (aka its relative permittivity),
 	 * which influences electrostatic calculations.
-	 *
-	 * This appears to be a magic number (for now).
-	 * Maybe 6 is reasonable for a protein interior?
-	 *
-	 * For reference, this value seems to have a simlar relative permittivity
-	 * to neoperene (6.7), but is far less than water (~80).
-	 * See: https://en.wikipedia.org/wiki/Relative_permittivity
 	 */
-	var dielectric = 6.0
+	var dielectric = AmberDefaults.dielectric
 
 	/**
 	 * If true, multiply the dielectric contstant by the atom pair distance (r)
 	 * for electrostatic interactions.
 	 */
-	var distanceDependentDielectric = true
+	var distanceDependentDielectric = AmberDefaults.distanceDependentDielectric
 
 	/**
 	 * Scaling to apply to the van der Waals calculations.
-	 *
-	 * The default value of 0.95 was determined empirically by Osprey developers
-	 * to avoid specific issues caused by extreme van der Waals repulsion.
 	 */
-	var vdwScale = 0.95
+	var vdwScale = AmberDefaults.vdwScale
 
 	/**
 	 * Method to generate partial charges for small molecules.
-	 *
-	 * The default AM1BCC method is currently recommended by Amber for most purposes.
 	 */
-	var chargeMethod = AmberChargeMethod.AM1BCC
+	var chargeMethod = AmberDefaults.chargeMethod
 
 	/**
 	 * Number of steps of `xmin` minimization to perform during partial charge calculation
 	 * for small molecules.
-	 *
-	 * The default value of 0 assumes the input structure should not be perturbed via minimization.
-	 * ie, 0 minimization steps results in a single point energy calculation.
 	 *
 	 * Minimization with `xmin` is slow, so adding minimization steps can add large amounts of time
 	 * to your conformation space compilations.

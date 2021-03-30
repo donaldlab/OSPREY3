@@ -13,11 +13,10 @@ import edu.duke.cs.osprey.molscope.render.HoverEffects
 import edu.duke.cs.osprey.molscope.render.MoleculeRenderEffects
 import edu.duke.cs.osprey.molscope.render.RenderEffect
 import edu.duke.cs.osprey.molscope.view.MoleculeRenderView
-import edu.duke.cs.osprey.gui.forcefield.amber.inferBondsAmber
+import edu.duke.cs.osprey.gui.forcefield.amber.inferBondsAmberBlocking
 import edu.duke.cs.osprey.gui.prep.BondGuesser
 import edu.duke.cs.osprey.gui.prep.covalentRange
 import edu.duke.cs.osprey.gui.prep.toTree
-import kotlinx.coroutines.runBlocking
 import java.util.*
 
 
@@ -298,7 +297,7 @@ class BondEditor : SlideFeature {
 	private fun guessBonds(views: List<MoleculeRenderView>) {
 		for (view in views) {
 			val mol = view.molStack.originalMol
-			val bonds = runBlocking { mol.inferBondsAmber() }
+			val bonds = mol.inferBondsAmberBlocking()
 			for ((a1, a2) in bonds) {
 				mol.bonds.add(a1, a2)
 			}

@@ -31,6 +31,7 @@ import kotlin.reflect.KClass
 object OspreyService {
 
 	const val name = "Osprey Service"
+	const val defaultPort = 8080
 
 	val version = Osprey.versionService
 
@@ -45,7 +46,7 @@ object OspreyService {
 	val log = LoggerFactory.getLogger(OspreyService::class.java)
 
 
-	class Instance(val dir: Path, wait: Boolean, port: Int = 8080) : AutoCloseable {
+	class Instance(val dir: Path, wait: Boolean, port: Int = defaultPort) : AutoCloseable {
 
 		private val service = embeddedServer(Netty, port) {
 

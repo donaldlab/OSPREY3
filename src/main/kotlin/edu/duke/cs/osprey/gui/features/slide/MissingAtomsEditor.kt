@@ -4,18 +4,16 @@ import cuchaz.kludge.imgui.Commands
 import cuchaz.kludge.tools.IntFlags
 import cuchaz.kludge.tools.Ref
 import cuchaz.kludge.tools.toFloat
+import edu.duke.cs.osprey.gui.forcefield.amber.MissingAtom
 import edu.duke.cs.osprey.molscope.Slide
 import edu.duke.cs.osprey.molscope.gui.SlideCommands
 import edu.duke.cs.osprey.molscope.gui.SlideFeature
 import edu.duke.cs.osprey.molscope.gui.features.FeatureId
 import edu.duke.cs.osprey.molscope.gui.features.WindowState
 import edu.duke.cs.osprey.molscope.gui.infoTip
-import edu.duke.cs.osprey.molscope.molecule.Atom
-import edu.duke.cs.osprey.molscope.molecule.Molecule
-import edu.duke.cs.osprey.molscope.molecule.Polymer
 import edu.duke.cs.osprey.molscope.view.MoleculeRenderView
-import edu.duke.cs.osprey.gui.forcefield.amber.inferMissingAtomsAmber
-import kotlinx.coroutines.runBlocking
+import edu.duke.cs.osprey.gui.forcefield.amber.inferMissingAtomsAmberBlocking
+
 
 class MissingAtomsEditor : SlideFeature {
 
@@ -24,10 +22,8 @@ class MissingAtomsEditor : SlideFeature {
 	private val winState = WindowState()
 
 	private data class AddedAtom(
-		val mol: Molecule,
-		val res: Polymer.Residue?,
-		val atom: Atom,
-		val location: String?
+		val view: MoleculeRenderView,
+		val missingAtom: MissingAtom
 	) {
 
 		val pIncluded = Ref.of(true)
@@ -82,30 +78,28 @@ class MissingAtomsEditor : SlideFeature {
 
 							if (addedAtoms.isNotEmpty()) {
 
+								var atomi = 0
+
 								// show a checkbox to toggle the atom on/off
 								for (addedAtom in addedAtoms) {
 
-									val location = addedAtom.location
-									val label = if (location != null) {
-										"${addedAtom.atom.name} @ $location"
-									} else {
-										addedAtom.atom.name
-									}
-
+									val label = "${addedAtom.missingAtom}##$atomi"
 									if (checkbox(label, addedAtom.pIncluded)) {
 										updateAtom(molViews, addedAtom)
 									}
 
 									// show a context menu for the checkbox
-									popupContextItem("addedAtom:$label") {
+									popupContextItem("addedAtom:$atomi") {
 
 										if (button("Center Camera")) {
-											slidewin.camera.lookAt(addedAtom.atom.pos.toFloat(), slide.views)
+											slidewin.camera.lookAt(addedAtom.missingAtom.atom.pos.toFloat(), slide.views)
 											slidewin.camera.changed()
 											closeCurrentPopup()
 										}
 									}
 								}
+
+								atomi += 1
 
 							} else {
 
@@ -115,7 +109,7 @@ class MissingAtomsEditor : SlideFeature {
 
 						if (addedAtoms.isNotEmpty()) {
 							if (button("Clear all automatically-added atoms")) {
-								clearAtoms(addedAtoms, molViews)
+								clearAtoms(addedAtoms)
 								this@MissingAtomsEditor.addedAtoms = null
 							}
 						}
@@ -134,24 +128,14 @@ class MissingAtomsEditor : SlideFeature {
 		for (view in views) {
 
 			val mol = view.molStack.originalMol
-			val missingAtoms = runBlocking { mol.inferMissingAtomsAmber() }
-			for ((atom, res) in missingAtoms) {
+			val missingAtoms = mol.inferMissingAtomsAmberBlocking()
+			for (missingAtom in missingAtoms) {
 
 				// add the atoms to the molecule
-				mol.atoms.add(atom)
-				res?.atoms?.add(atom)
-
-				// make a friendly description for the location
-				val resId = res?.id
-				val chainId = (mol as Polymer).chains.find { res in it.residues }?.id
-				val location = if (resId != null && chainId != null) {
-					"$chainId$resId"
-				} else {
-					null
-				}
+				missingAtom.add()
 
 				// add them to the internal state too, so we can see what was added
-				add(AddedAtom(mol, res, atom, location))
+				add(AddedAtom(view, missingAtom))
 			}
 
 			view.moleculeChanged()
@@ -160,36 +144,28 @@ class MissingAtomsEditor : SlideFeature {
 
 	private fun updateAtom(views: List<MoleculeRenderView>, addedAtom: AddedAtom) {
 
-		val view = views.find { it.molStack.originalMol == addedAtom.mol } ?: return
+		val view = views.find { it.molStack.originalMol == addedAtom.missingAtom.mol } ?: return
 
 		// add or remove the atom
-		addedAtom.run {
-			if (pIncluded.value) {
-				mol.atoms.add(atom)
-				res?.atoms?.add(atom)
-			} else {
-				mol.atoms.remove(atom)
-				res?.atoms?.remove(atom)
-			}
+		if (addedAtom.pIncluded.value) {
+			addedAtom.missingAtom.add()
+		} else {
+			addedAtom.missingAtom.remove()
 		}
 
 		view.moleculeChanged()
 	}
 
-	private fun clearAtoms(addedAtoms: MutableList<AddedAtom>, views: List<MoleculeRenderView>) {
+	private fun clearAtoms(addedAtoms: MutableList<AddedAtom>) {
 
 		for (addedAtom in addedAtoms) {
-			addedAtom.run {
-				mol.atoms.remove(atom)
-				res?.atoms?.remove(atom)
-			}
+			addedAtom.missingAtom.remove()
 		}
 
 		// update the affected views
 		addedAtoms
-			.map { it.mol }
+			.map { it.view }
 			.toSet()
-			.mapNotNull { mol -> views.find { it.molStack.originalMol == mol } }
 			.forEach { it.moleculeChanged() }
 	}
 }

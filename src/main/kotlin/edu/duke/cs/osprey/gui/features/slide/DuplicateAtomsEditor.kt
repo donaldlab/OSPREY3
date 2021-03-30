@@ -132,7 +132,7 @@ class DuplicateAtomsEditor : SlideFeature {
 
 								unindent(20f)
 
-								groupi++
+								groupi += 1
 							}
 
 						} else {

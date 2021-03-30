@@ -102,6 +102,7 @@ class MoleculePrep(
 				add(MissingAtomsEditor())
 				add(BondEditor())
 				add(ProtonationEditor())
+				add(NetChargeEditor(this@MoleculePrep))
 				add(MinimizerTool())
 			}
 		}

@@ -5,17 +5,22 @@ import edu.duke.cs.osprey.molscope.molecule.Molecule
 import edu.duke.cs.osprey.gui.io.OspreyService
 import edu.duke.cs.osprey.gui.io.fromMol2
 import edu.duke.cs.osprey.gui.io.toPDB
+import edu.duke.cs.osprey.molscope.molecule.AtomPair
 import edu.duke.cs.osprey.service.services.BondsRequest
+import kotlinx.coroutines.runBlocking
 
+
+fun Molecule.inferBondsAmberBlocking() =
+	runBlocking { inferBondsAmber() }
 
 /**
  * Uses Amber forecfields to infer atom connectivity,
  * but not bond order.
  */
-suspend fun Molecule.inferBondsAmber(): List<Pair<Atom,Atom>> {
+suspend fun Molecule.inferBondsAmber(): List<AtomPair> {
 
 	val dst = this
-	val dstBonds = ArrayList<Pair<Atom,Atom>>()
+	val dstBonds = ArrayList<AtomPair>()
 
 	// treat each molecule in the partition with the appropriate forcefield and ambertools
 	val (partition, atomMap) = dst.partitionAndAtomMap(combineSolvent = true)
@@ -44,7 +49,10 @@ suspend fun Molecule.inferBondsAmber(): List<Pair<Atom,Atom>> {
 		// translate the bonds to the input mol
 		val srcBonds = bondedMol.translateBonds(src)
 		for ((srcA1, srcA2) in srcBonds) {
-			dstBonds.add(atomMap.getAOrThrow(srcA1) to atomMap.getAOrThrow(srcA2))
+			dstBonds.add(AtomPair(
+				atomMap.getAOrThrow(srcA1),
+				atomMap.getAOrThrow(srcA2)
+			))
 		}
 	}
 

@@ -13,9 +13,11 @@ import kotlin.collections.ArrayList
  */
 open class Molecule(
 	/** A human-readable description for the molecule. */
-	val name: String,
+	var name: String,
 	/** A machine-readable descrition for the molecule, often 3 characters long. */
-	val type: String? = null
+	var type: String? = null,
+	/** a formal net charge for the molecule, used by some forcefields to parameterize small molecules */
+	var netCharge: Int? = null
 ) {
 
 	// define a companion object so we can extent it
@@ -276,6 +278,7 @@ open class Molecule(
 
 		hash = hash xor name.hashCode()
 		hash = hash xor type.hashCode()
+		hash = hash xor netCharge.hashCode()
 
 		/*
 		 * This hash code should be sensitive to changes in atom names,
@@ -308,6 +311,9 @@ open class Molecule(
 			return false
 		}
 		if (this.type != other.type) {
+			return false
+		}
+		if (this.netCharge != other.netCharge) {
 			return false
 		}
 

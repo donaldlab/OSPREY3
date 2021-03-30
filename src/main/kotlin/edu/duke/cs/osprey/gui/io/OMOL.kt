@@ -49,6 +49,11 @@ fun List<Molecule>.toOMOLMapped(
 			write("type = %s\n", type.quote())
 		}
 
+		// write the net charge, if any
+		mol.netCharge?.let {
+			write("netCharge = %d\n", it)
+		}
+
 		write("\n")
 
 		// write the atoms
@@ -172,6 +177,9 @@ fun Molecule.Companion.fromOMOLWithAtoms(
 		} else {
 			Molecule(name, type)
 		}
+
+		// read the net charge, if any
+		mol.netCharge = molTable.getInt("netCharge")
 
 		val atoms = HashMap<Int,Atom>()
 		fun getAtom(i: Int, pos: TomlPosition? = null): Atom? =

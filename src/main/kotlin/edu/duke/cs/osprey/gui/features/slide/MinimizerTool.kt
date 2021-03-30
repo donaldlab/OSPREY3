@@ -12,7 +12,6 @@ import edu.duke.cs.osprey.molscope.molecule.Element
 import edu.duke.cs.osprey.molscope.molecule.Molecule
 import edu.duke.cs.osprey.molscope.view.MoleculeRenderView
 import edu.duke.cs.osprey.gui.forcefield.amber.*
-import kotlinx.coroutines.runBlocking
 import org.joml.Vector3d
 import java.util.*
 import java.util.concurrent.atomic.AtomicBoolean
@@ -170,11 +169,9 @@ class MinimizerTool : SlideFeature {
 			Thread {
 
 				try {
-					runBlocking {
-						infos
-							.map { it.minInfo }
-							.minimize(numSteps)
-					}
+					infos
+						.map { it.minInfo }
+						.minimizeBlocking(numSteps)
 				} catch (t: Throwable) {
 					throwable = t
 				}

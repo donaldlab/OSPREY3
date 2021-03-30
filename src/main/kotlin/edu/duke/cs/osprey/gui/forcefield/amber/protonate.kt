@@ -10,6 +10,7 @@ import edu.duke.cs.osprey.gui.io.toMol2
 import edu.duke.cs.osprey.gui.io.toPDB
 import edu.duke.cs.osprey.service.services.ProtonateRequest
 import edu.duke.cs.osprey.service.services.ProtonationRequest
+import kotlinx.coroutines.runBlocking
 
 
 /**
@@ -56,6 +57,13 @@ fun Molecule.deprotonate() {
 			}
 		}
 }
+
+fun Molecule.findProtonation(atom: Atom, numH: Int, hybridization: Hybridization): Protonation? =
+	protonations(atom)
+		.find { it.numH == numH && it.hybridization == hybridization }
+
+fun Molecule.protonateBlocking(atom: Atom, protonation: Protonation) =
+	runBlocking { protonate(atom, protonation) }
 
 
 /**
@@ -168,14 +176,62 @@ suspend fun Molecule.protonate(atom: Atom, protonation: Protonation) {
 		}
 }
 
+
+data class ProtonatedAtom(
+	val mol: Molecule,
+	val chain: Polymer.Chain?,
+	val res: Polymer.Residue?,
+	val heavy: Atom,
+	val light: Atom
+) {
+
+	fun included(): Boolean =
+		mol.atoms.any { it === light }
+
+	fun add() {
+
+		// don't add more than once
+		if (included()) {
+			return
+		}
+
+		mol.atoms.add(light)
+		res?.atoms?.add(light)
+		mol.bonds.add(heavy, light)
+	}
+
+	fun remove() {
+		mol.atoms.remove(light)
+		res?.atoms?.remove(light)
+		mol.bonds.remove(heavy, light)
+	}
+
+	/** a friendly description for the location of the atom */
+	val location: String? get() =
+		if (res != null && chain != null) {
+			"${chain.id}${res.id}"
+		} else {
+			null
+		}
+
+	override fun toString() =
+		location
+			?.let { "${light.name} - ${heavy.name} @ $it" }
+			?: "${light.name} - ${heavy.name}"
+}
+
+
+fun Molecule.inferProtonationBlocking() =
+	runBlocking { inferProtonation() }
+
 /**
  * Returns a list of heavy-hydrogen atom pairs based on inferred
  * forcefield atom and bond types.
  */
-suspend fun Molecule.inferProtonation(): List<Pair<Atom,Atom>> {
+suspend fun Molecule.inferProtonation(): List<ProtonatedAtom> {
 
 	val dst = this
-	val dstAtoms = ArrayList<Pair<Atom,Atom>>()
+	val dstAtoms = ArrayList<ProtonatedAtom>()
 
 	// treat each molecule in the partition with the appropriate protocol
 	val (partition, atomMap) = dst.partitionAndAtomMap(combineSolvent = true)
@@ -208,7 +264,14 @@ suspend fun Molecule.inferProtonation(): List<Pair<Atom,Atom>> {
 		val srcAtoms = protonatedMol.translateHydrogens(src)
 		for ((srcHeavy, h) in srcAtoms) {
 			val dstHeavy = atomMap.getAOrThrow(srcHeavy)
-			dstAtoms.add(dstHeavy to h)
+			val chainRes = (dst as? Polymer)?.findChainAndResidue(dstHeavy)
+			dstAtoms.add(ProtonatedAtom(
+				mol = dst,
+				chain = chainRes?.first,
+				res = chainRes?.second,
+				heavy = dstHeavy,
+				light = h
+			))
 		}
 	}
 

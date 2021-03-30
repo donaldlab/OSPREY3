@@ -12,9 +12,9 @@ import io.kotlintest.shouldBe
 
 class TestMissingAtoms : SharedSpec({
 
-	fun List<Pair<Atom,Polymer.Residue?>>.shouldHave(expAtom: Atom, expRes: Polymer.Residue?) {
-		any { (obsAtom, obsRes) ->
-			obsAtom.name == expAtom.name && obsRes?.id == expRes?.id
+	fun List<MissingAtom>.shouldHave(expAtom: Atom, expRes: Polymer.Residue?) {
+		any { obs ->
+			obs.atom.name == expAtom.name && obs.res?.id == expRes?.id
 		} shouldBe true
 	}
 

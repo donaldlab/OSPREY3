@@ -8,15 +8,59 @@ import edu.duke.cs.osprey.gui.io.OspreyService
 import edu.duke.cs.osprey.gui.io.fromMol2
 import edu.duke.cs.osprey.gui.io.toPDB
 import edu.duke.cs.osprey.service.services.MissingAtomsRequest
+import kotlinx.coroutines.runBlocking
 
+
+data class MissingAtom(
+	val mol: Molecule,
+	val chain: Polymer.Chain?,
+	val res: Polymer.Residue?,
+	val atom: Atom
+) {
+	fun included() =
+		mol.atoms.any { it === atom }
+
+	fun add() {
+
+		// don't add it more than once
+		if (included()) {
+			return
+		}
+
+		mol.atoms.add(atom)
+		res?.atoms?.add(atom)
+	}
+
+	fun remove() {
+		mol.atoms.remove(atom)
+		res?.atoms?.remove(atom)
+	}
+
+	/** a friendly description for the location of the atom */
+	val location: String? get() =
+		if (res != null && chain != null) {
+			"${chain.id}${res.id}"
+		} else {
+			null
+		}
+
+	override fun toString() =
+		location
+			?.let { "${atom.name} @ $it" }
+			?: atom.name
+}
+
+
+fun Molecule.inferMissingAtomsAmberBlocking() =
+	runBlocking { inferMissingAtomsAmber() }
 
 /**
  * Uses Amber forecfields to infer missing heavy atoms and their positions.
  */
-suspend fun Molecule.inferMissingAtomsAmber(): List<Pair<Atom,Polymer.Residue?>> {
+suspend fun Molecule.inferMissingAtomsAmber(): List<MissingAtom> {
 
 	val dst = this
-	val dstAtoms = ArrayList<Pair<Atom,Polymer.Residue?>>()
+	val dstAtoms = ArrayList<MissingAtom>()
 
 	// treat each molecule in the partition with the appropriate forcefield and ambertools
 	partition@for ((type, src) in partition(combineSolvent = true)) {
@@ -33,17 +77,20 @@ suspend fun Molecule.inferMissingAtomsAmber(): List<Pair<Atom,Polymer.Residue?>>
 			else -> continue@partition
 		}
 
-		fun Polymer.Residue.translate(): Polymer.Residue {
-			val srcRes = this
-			val srcChain = (src as Polymer).chains.find { srcRes in it.residues }!!
-
-			return (dst as Polymer).chains.find { it.id == srcChain.id }!!
-				.residues.find { it.id == srcRes.id }!!
-		}
-
 		for ((atom, srcRes) in srcAtoms) {
-			val dstRes = srcRes?.translate()
-			dstAtoms.add(atom to dstRes)
+
+			if (srcRes != null) {
+
+				// translate the chains and residues
+				val srcChain = (src as Polymer).chains.find { srcRes in it.residues }!!
+				val dstChain = (dst as Polymer).chains.find { it.id == srcChain.id }!!
+				val dstRes = dstChain.residues.find { it.id == srcRes.id }!!
+
+				dstAtoms.add(MissingAtom(dst, dstChain, dstRes, atom))
+
+			} else {
+				dstAtoms.add(MissingAtom(dst, null, null, atom))
+			}
 		}
 	}
 

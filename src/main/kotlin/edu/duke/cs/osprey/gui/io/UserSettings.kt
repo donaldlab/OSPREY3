@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.gui.io
 
 import edu.duke.cs.osprey.service.read
+import edu.duke.cs.osprey.service.OspreyService
 import org.tomlj.Toml
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -14,7 +15,7 @@ object UserSettings {
 
 	data class ServiceProvider(
 		val hostname: String,
-		val port: Int = 8080
+		val port: Int = OspreyService.defaultPort
 	)
 
 	// init settings with defaults

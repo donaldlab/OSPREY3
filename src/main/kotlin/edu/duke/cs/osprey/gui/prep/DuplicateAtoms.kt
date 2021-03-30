@@ -16,11 +16,10 @@ class DuplicateAtoms private constructor(
 		val name: String,
 		val chain: Polymer.Chain?,
 		val res: Polymer.Residue?,
-		val atoms: List<Atom>,
-		val location: String?
+		val atoms: List<Atom>
 	) {
 		fun included(atomi: Int) =
-			atoms[atomi] in mol.atoms
+			mol.atoms.any { it === atoms[atomi] }
 
 		fun add(atomi: Int) {
 
@@ -38,12 +37,18 @@ class DuplicateAtoms private constructor(
 			res?.atoms?.remove(atoms[atomi])
 		}
 
-		override fun toString() =
-			if (location != null) {
-				"$name @ $location"
+		/** a friendly description for the location of the atom */
+		val location: String? get() =
+			if (res != null && chain != null) {
+				"${chain.id}${res.id}"
 			} else {
-				name
+				null
 			}
+
+		override fun toString() =
+			location
+				?.let { "$name @ $it" }
+				?: name
 	}
 
 	init {
@@ -77,17 +82,7 @@ class DuplicateAtoms private constructor(
 		// find the actual duplicates and flag them for user review
 		for ((name, dupes) in dupesByName) {
 			if (dupes.size > 1) {
-
-				// make a friendly description for the location
-				val resId = res?.id
-				val chainId = chain?.id
-				val location = if (resId != null && chainId != null) {
-					"$chainId$resId"
-				} else {
-					null
-				}
-
-				groups.add(AtomGroup(name, chain, res, dupes, location))
+				groups.add(AtomGroup(name, chain, res, dupes))
 			}
 		}
 	}

@@ -92,14 +92,8 @@ class TestMinimization : SharedSpec({
 				}
 
 				// add bonds and hydrogens
-				for ((a, b) in mol.inferBondsAmber()) {
-					mol.bonds.add(a, b)
-				}
-				for ((heavy, h) in mol.inferProtonation()) {
-					mol.atoms.add(h)
-					mol.bonds.add(heavy, h)
-					mol.findResidueOrThrow(heavy).atoms.add(h)
-				}
+				mol.inferBondsAmber().forEach { mol.bonds.add(it) }
+				mol.inferProtonation().forEach { it.add() }
 
 				val info = MinimizerInfo(mol)
 				listOf(info).minimize(10)

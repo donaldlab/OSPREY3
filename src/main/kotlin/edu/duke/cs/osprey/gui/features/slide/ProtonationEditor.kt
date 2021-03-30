@@ -8,7 +8,6 @@ import edu.duke.cs.osprey.molscope.gui.features.FeatureId
 import edu.duke.cs.osprey.molscope.gui.features.WindowState
 import edu.duke.cs.osprey.molscope.molecule.Atom
 import edu.duke.cs.osprey.molscope.molecule.Element
-import edu.duke.cs.osprey.molscope.molecule.Polymer
 import edu.duke.cs.osprey.molscope.render.HoverEffects
 import edu.duke.cs.osprey.molscope.render.MoleculeRenderEffects
 import edu.duke.cs.osprey.molscope.render.RenderEffect
@@ -16,7 +15,6 @@ import edu.duke.cs.osprey.molscope.view.MoleculeRenderView
 import edu.duke.cs.osprey.dof.DihedralRotation
 import edu.duke.cs.osprey.tools.Protractor
 import edu.duke.cs.osprey.gui.forcefield.amber.*
-import kotlinx.coroutines.runBlocking
 import org.joml.Vector3d
 import java.util.*
 import kotlin.math.cos
@@ -194,16 +192,8 @@ class ProtonationEditor : SlideFeature {
 	private fun autoProtonate(views: List<MoleculeRenderView>) {
 		for (view in views) {
 			val mol = view.molStack.originalMol
-			val protonation = runBlocking { mol.inferProtonation() }
-			for ((heavyAtom, hAtom) in protonation) {
-				mol.apply {
-					atoms.add(hAtom)
-					bonds.add(heavyAtom, hAtom)
-					if (this is Polymer) {
-						findResidue(heavyAtom)?.atoms?.add(hAtom)
-					}
-				}
-			}
+			mol.inferProtonationBlocking()
+				.forEach { it.add() }
 			view.moleculeChanged()
 		}
 	}
@@ -344,7 +334,7 @@ class ProtonationEditor : SlideFeature {
 
 			// update the molecule
 			if (protonation != null) {
-				runBlocking { mol.protonate(atom, protonation) }
+				mol.protonateBlocking(atom, protonation)
 			} else {
 				mol.deprotonate(atom)
 			}
