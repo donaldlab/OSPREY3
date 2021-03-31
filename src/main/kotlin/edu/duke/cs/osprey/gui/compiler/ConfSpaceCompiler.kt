@@ -42,7 +42,7 @@ class ConfSpaceCompiler(val confSpace: ConfSpace) {
 	 * Compilation is actually performed in a separate thread,
 	 * but progress can be monitored via the returned progress object.
 	 */
-	fun compile(): CompilerProgress {
+	fun compile(concurrency: Int = Parallelism.getMaxNumCPUs()): CompilerProgress {
 
 		// get stable orders for all the positions and conformations
 		val confSpaceIndex = ConfSpaceIndex(confSpace)
@@ -84,7 +84,7 @@ class ConfSpaceCompiler(val confSpace: ConfSpace) {
 
 		// make a thread to do the actual compilation and start it
 		thread = Thread {
-			compile(confSpaceIndex, progress, paramsTask, fixedAtomsTask, staticEnergiesTask, atomPairsTask)
+			compile(confSpaceIndex, progress, paramsTask, fixedAtomsTask, staticEnergiesTask, atomPairsTask, concurrency)
 		}.apply {
 			name = "ConfSpaceCompiler"
 			isDaemon = false
@@ -100,7 +100,8 @@ class ConfSpaceCompiler(val confSpace: ConfSpace) {
 		paramsTask: CompilerProgress.Task,
 		fixedAtomsTask: CompilerProgress.Task,
 		staticEnergiesTask: CompilerProgress.Task,
-		atomPairsTask: CompilerProgress.Task
+		atomPairsTask: CompilerProgress.Task,
+		concurrency: Int
 	) {
 
 		val warnings = ArrayList<CompilerWarning>()
@@ -108,8 +109,7 @@ class ConfSpaceCompiler(val confSpace: ConfSpace) {
 		try {
 
 			// limit coroutine max concurrency so we don't run out of memory
-			// TODO: make configurable?
-			val launchLimits = LaunchLimits(Parallelism.getMaxNumCPUs())
+			val launchLimits = LaunchLimits(concurrency)
 
 			// compile the forcefield metadata and settings
 			val forcefieldInfos = forcefields.map { ff ->
