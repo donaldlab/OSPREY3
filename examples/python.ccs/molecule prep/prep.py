@@ -73,7 +73,7 @@ with osprey.prep.LocalService():
 
     # Molecule Preparation Step 4: add hydrogens
     # Most PDB files based on X-ray crystallography don't describe Hydrogen atoms,
-    # usually because light atoms aren't seen in the electron density.
+    # usually because light atoms aren't well-resolved in the electron density.
     # Generally, automatic protonation inference works well on proteins,
     # so let's just protonate PTPase for now, we'll protonate HEPES later
     for mol in [ptpase]:
@@ -89,10 +89,13 @@ with osprey.prep.LocalService():
     for atom in ['C10', 'C9', 'C6', 'C5', 'C3', 'C2', 'C7', 'C8']:
         osprey.prep.protonate(hepes, hepes.getAtoms().findOrThrow(atom), 2, osprey.prep.Hybridization.Sp3)
 
-    # also add a formal net charge for HEPES, which will later be used by forcefields
+    # Molecule Preparation Step 5: formal net charges for small molecules
+    # Formal net charges are used by Amber to calculate partial charges
+    # which parameterize the electrostatic components of the forcefield for small molecules.
+    # Let's also add a formal net charge for HEPES, but we don't need to add one for PTPase.
     hepes.setNetCharge(osprey.jvm.boxInt(0))
 
-    # Molecule Preparation Step 5: minimize
+    # Molecule Preparation Step 6: minimize structures
     # Osprey picks sequences by looking for low-energy conformations.
     # Let's make sure our starting structure is low-energy
     # by doing an all-atom minimization against the Amber forcefield
@@ -106,7 +109,7 @@ with osprey.prep.LocalService():
     )
     print('minimization complete!')
 
-    # Moleclue Preparation Step 6: save the results
+    # Moleclue Preparation Step 7: save the results
     path = '1dg9.omol'
     open(path, 'w').write(osprey.prep.saveOMOL(mols))
     print('saved prepared molecules to %s' % path)
