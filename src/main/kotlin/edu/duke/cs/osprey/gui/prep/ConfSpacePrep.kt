@@ -48,6 +48,7 @@ class ConfSpacePrep(
 			}
 			s.features.menu("Edit") {
 				add(ConfSpaceNameEditor(confSpace))
+				add(ConfLibsSelector(confSpace))
 				add(MutationEditor(confSpace))
 				add(ConformationEditor(confSpace))
 			}

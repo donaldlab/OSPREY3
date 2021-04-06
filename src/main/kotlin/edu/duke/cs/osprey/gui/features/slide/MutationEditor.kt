@@ -137,10 +137,6 @@ class MutationEditor(val confSpace: ConfSpace) : SlideFeature {
 			)
 		}
 
-		private val conflibPicker = ConfLibPicker(confSpace).apply {
-			onAdd = { activateMutationsTab() }
-		}
-
 		inner class SeqInfo(
 			val type: String,
 			val label: String,
@@ -210,9 +206,6 @@ class MutationEditor(val confSpace: ConfSpace) : SlideFeature {
 		}
 
 		private fun renderMutationsTab(imgui: Commands, view: MoleculeRenderView) = imgui.run {
-
-			// show the conflib picker
-			conflibPicker.render(imgui)
 
 			// show the available mutations
 			text("Mutations:")

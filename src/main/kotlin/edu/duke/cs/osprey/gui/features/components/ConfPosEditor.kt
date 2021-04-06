@@ -31,9 +31,6 @@ class ConfPosEditor(val confSpace: ConfSpace, val molInfo: MolInfo, val posInfo:
 	private var resetTabSelection = true
 	private val discreteTabState = Commands.TabState()
 	private val continuousTabState = Commands.TabState()
-	private val conflibPicker = ConfLibPicker(confSpace).apply {
-		onAdd = { activateDiscreteTab() }
-	}
 
 	private val pDihedralRadiusDegrees = Ref.of(
 		getter = { posEditor.dihedralSettings.radiusDegrees.toFloat() },
@@ -241,9 +238,6 @@ class ConfPosEditor(val confSpace: ConfSpace, val molInfo: MolInfo, val posInfo:
 	}
 
 	private fun renderDiscreteTab(imgui: Commands, view: MoleculeRenderView) = imgui.run {
-
-		// show the conflib picker
-		conflibPicker.render(imgui)
 
 		var changed = false
 
