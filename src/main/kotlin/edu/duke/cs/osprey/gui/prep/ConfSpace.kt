@@ -313,7 +313,7 @@ class ConfSpace(val mols: List<Pair<MoleculeType,Molecule>>) {
 
 						// copy the motions
 						for (oldMotion in oldSpace.motions) {
-							newSpace.motions.add(oldMotion.copyTo(newPos))
+							newSpace.motions.add(oldMotion.copyTo(newSpace, newPos))
 						}
 					}
 				}

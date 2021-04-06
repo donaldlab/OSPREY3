@@ -8,6 +8,7 @@ import edu.duke.cs.osprey.molscope.molecule.Element
 import edu.duke.cs.osprey.molscope.molecule.Molecule
 import edu.duke.cs.osprey.molscope.tools.normalizeMinusPIToPI
 import edu.duke.cs.osprey.gui.io.ConfLib
+import edu.duke.cs.osprey.gui.prep.ConfSpace
 import edu.duke.cs.osprey.gui.prep.DesignPosition
 import org.joml.Quaterniond
 import org.joml.Vector3d
@@ -53,10 +54,11 @@ class DihedralAngle(
 				).let { it - radiusDegrees .. it + radiusDegrees }
 			)
 
-		override fun copyTo(pos: DesignPosition) =
+		override fun copyTo(confConfSpace: ConfSpace.ConfConfSpace, pos: DesignPosition) =
 			ConfDescription(
 				pos,
-				motion,
+				// find the motion in the new conf space's conflib
+				confConfSpace.frag.motions[motion.id] as ConfLib.ContinuousMotion.DihedralAngle,
 				minDegrees,
 				maxDegrees
 			)
