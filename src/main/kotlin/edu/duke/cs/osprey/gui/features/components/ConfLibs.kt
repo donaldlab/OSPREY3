@@ -22,10 +22,17 @@ object ConfLibs {
 
 	data class ConfLibInfo(
 		val path: String,
+		val id: String,
 		val name: String,
 		val description: String?,
 		val citation: String?
-	)
+	) {
+		fun read(): String =
+			OspreyGui.getResourceAsString(path)
+
+		fun load(): ConfLib =
+			ConfLib.from(read())
+	}
 
 	val infos: List<ConfLibInfo> by lazy {
 		ArrayList<ConfLibInfo>().apply {
@@ -33,6 +40,7 @@ object ConfLibs {
 				val conflib = ConfLib.from(OspreyGui.getResourceAsString(path))
 				add(ConfLibInfo(
 					path,
+					conflib.id,
 					conflib.name,
 					conflib.description,
 					conflib.citation
@@ -83,7 +91,7 @@ class ConfLibPicker(val confSpace: ConfSpace) {
 		popup("addlib") {
 			for (info in ConfLibs.infos) {
 				if (menuItem(info.name)) {
-					addLib(OspreyGui.getResourceAsString(info.path))
+					addLib(info.read())
 				}
 				conflibTooltip(null, info.description, info.citation)
 			}

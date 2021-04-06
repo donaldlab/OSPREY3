@@ -144,62 +144,32 @@ class DesignPositionEditor(
 		return label
 	}
 
-	private val DesignPosition.confSpace get() =
-		this@DesignPositionEditor.confSpace.positionConfSpaces.getOrMake(this)
-
 	private fun resetPosConfSpace() {
 
-		val posType = pos.type
-
-		// delete the old conf space
+		// delete the old pos conf space and make a new one
 		confSpace.positionConfSpaces.remove(pos)
+		confSpace.positionConfSpaces.getOrMake(pos)
 
-		// make a new conf space
-		pos.confSpace.apply {
+		// start with the wild-type "mutation" by default
+		confSpace.addMutations(pos, pos.type)
 
-			// find motions for the wildtype fragment, by finding a similar fragment from the library
-			val wtMotions = confSpace.conflibs
-				.flatMap { it.fragments.values }
-				.firstOrNull {
-					// grab the first compatible fragment with the same seqeuence type
-					// TODO: do some kind of more rigorous check that the motions themselves are compatible?
-					it.type == pos.type && pos.isFragmentCompatible(it)
-				}
-				?.motions
-				?: emptyList()
+		// add the libary confs
+		confSpace.addConformationsFromLibraries(pos, pos.type)
 
-			// make a new wildtype fragment, if possible
-			wildTypeFragment = try {
-				pos.makeFragment(
-					"wt-${pos.name.toTomlKey()}", "WildType @ ${pos.name}",
-					"conf1", "conf1",
-					motions = wtMotions
-				)
-			} catch (ex: DesignPosition.IllegalAnchorsException) {
-				null
-			}
+		// add the wild-type frag/conf
+		try {
+			confSpace.addWildTypeConformation(pos)
+		} catch (ex: DesignPosition.IllegalAnchorsException) {
+			// ignore this error here
+			// it means there's something wrong with the anchor configuration in the conflib,
+			// but we don't want to take down the whole GUI with a crash
+		}
 
-			// select the wild-type "mutation" by default
-			mutations.add(posType)
-
-			// gather all the possible fragments that match this design position
-			val frags = ArrayList<ConfLib.Fragment>().apply {
-				wildTypeFragment
-					?.let { add(it) }
-				confSpace.conflibs
-					.flatMap { pos.compatibleFragments(it) }
-					.filter { it.type == posType }
-					.forEach { add(it) }
-			}
-
-			for (frag in frags) {
-				for (conf in frag.confs.values) {
-					confs.add(frag, conf).apply {
-
-						// add default dihedral angles from the conformation library
-						DihedralAngle.ConfDescription.makeFromLibrary(pos, frag, conf, dihedralSettings)
-							.forEach { motions.add(it) }
-					}
+		// add default dihedral angles from the conformation library
+		for (type in confSpace.getMutations(pos)) {
+			for (confConfSpace in confSpace.getConformations(pos, type)) {
+				for (motion in DihedralAngle.ConfDescription.makeFromLibrary(pos, confConfSpace.frag, confConfSpace.conf, dihedralSettings)) {
+					confConfSpace.motions.add(motion)
 				}
 			}
 		}

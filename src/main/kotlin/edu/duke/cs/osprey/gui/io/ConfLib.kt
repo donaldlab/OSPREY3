@@ -48,6 +48,9 @@ class ConfLib(
 	fun confRuntimeId(frag: Fragment, conf: Conf) =
 		"$runtimeId.${frag.id}.${conf.id}"
 
+	fun getFragmentOrThrow(fragId: String) =
+		fragments[fragId] ?: throw NoSuchElementException("no fragment found with id $fragId")
+
 	override fun toString() = "$name ($runtimeId)"
 
 	data class AtomInfo(

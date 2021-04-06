@@ -312,14 +312,7 @@ class MutationEditor(val confSpace: ConfSpace) : SlideFeature {
 		var numSequences = BigInteger.ZERO
 
 		fun updateSequenceCount() {
-			if (posInfos.isEmpty()) {
-				numSequences = BigInteger.ZERO
-			} else {
-				numSequences = BigInteger.ONE
-				for (info in posInfos) {
-					numSequences *= info.pos.confSpace.mutations.size.toBigInteger()
-				}
-			}
+			numSequences = confSpace.countSequences()
 		}
 
 		fun makeNewPosition(): PosInfo {

@@ -5,7 +5,9 @@ import edu.duke.cs.osprey.molscope.molecule.Molecule
 import edu.duke.cs.osprey.molscope.molecule.toIdentitySet
 import edu.duke.cs.osprey.molscope.tools.identityHashSet
 import edu.duke.cs.osprey.gui.forcefield.amber.MoleculeType
+import edu.duke.cs.osprey.gui.forcefield.amber.findTypeOrThrow
 import edu.duke.cs.osprey.gui.io.ConfLib
+import edu.duke.cs.osprey.gui.io.toTomlKey
 import edu.duke.cs.osprey.gui.motions.ConfMotion
 import edu.duke.cs.osprey.gui.motions.MolMotion
 import java.math.BigInteger
@@ -14,6 +16,12 @@ import java.util.*
 
 class ConfSpace(val mols: List<Pair<MoleculeType,Molecule>>) {
 
+	companion object {
+
+		fun fromMols(mols: List<Molecule>) =
+			ConfSpace(mols.map { it.findTypeOrThrow() to it })
+	}
+
 	var name = "Conformation Space"
 
 	fun findMol(name: String): Molecule? =
@@ -21,6 +29,24 @@ class ConfSpace(val mols: List<Pair<MoleculeType,Molecule>>) {
 			.find { it.name == name }
 
 	val designPositionsByMol: MutableMap<Molecule,MutableList<DesignPosition>> = IdentityHashMap()
+
+	fun addPosition(pos: DesignPosition): DesignPosition {
+		designPositionsByMol
+			.getOrPut(pos.mol) { ArrayList() }
+			.add(pos)
+		return pos
+	}
+
+	fun containsPosition(pos: DesignPosition): Boolean {
+		val positions = designPositionsByMol[pos.mol] ?: return false
+		return pos in positions
+	}
+
+	fun checkPosition(pos: DesignPosition) {
+		if (!containsPosition(pos)) {
+			throw NoSuchElementException("conf space has no position ${pos.name}")
+		}
+	}
 
 	/**
 	 * Collect all the positions for all the molecules in a stable order.
@@ -65,6 +91,20 @@ class ConfSpace(val mols: List<Pair<MoleculeType,Molecule>>) {
 				add(conflib)
 			}
 		}
+
+		fun coversMutation(mutation: String): Boolean =
+			conflibs.values.any { conflib ->
+				conflib.fragments.values.any { it.type == mutation }
+			}
+
+		fun findMatchingFragments(pos: DesignPosition, type: String = pos.type): List<ConfLib.Fragment> =
+			conflibs.values.flatMap { conflib ->
+				conflib.fragments.values
+					// match the fragment type to the mutations
+					.filter { frag -> frag.type == type }
+					// math the fragment to the design position
+					.filter { frag -> pos.isFragmentCompatible(frag) }
+			}
 	}
 	val conflibs = ConfLibs()
 
@@ -178,12 +218,15 @@ class ConfSpace(val mols: List<Pair<MoleculeType,Molecule>>) {
 		}
 		val confs = Confs()
 	}
-	class PositionConfSpaces {
+	inner class PositionConfSpaces {
 
 		private val confSpaces: MutableMap<DesignPosition,PositionConfSpace> = IdentityHashMap()
 
 		operator fun get(pos: DesignPosition) = confSpaces[pos]
-		fun getOrMake(pos: DesignPosition) = confSpaces.getOrPut(pos) { PositionConfSpace() }
+		fun getOrMake(pos: DesignPosition) = confSpaces.getOrPut(pos) {
+			checkPosition(pos)
+			PositionConfSpace()
+		}
 		fun remove(pos: DesignPosition) = confSpaces.remove(pos)
 
 		fun sequenceSpaceSize(): BigInteger =
@@ -204,6 +247,70 @@ class ConfSpace(val mols: List<Pair<MoleculeType,Molecule>>) {
 
 	val molMotions = IdentityHashMap<Molecule,MutableList<MolMotion.Description>>()
 
+	fun addMutations(pos: DesignPosition, vararg mutations: String){
+		positionConfSpaces.getOrMake(pos).mutations.addAll(mutations)
+	}
+
+	fun getMutations(pos: DesignPosition) =
+		positionConfSpaces.getOrMake(pos).mutations
+
+	fun countSequences(): BigInteger =
+		positions()
+			.takeIf { it.isNotEmpty() }
+			?.map { getMutations(it).size.toBigInteger() }
+			?.reduce { a, b -> a*b }
+			?: BigInteger.ZERO
+
+	fun addConformationsFromLibraries(pos: DesignPosition, type: String) {
+		val posConfSpace = positionConfSpaces.getOrMake(pos)
+		for (frag in conflibs.findMatchingFragments(pos, type)) {
+			posConfSpace.confs.addAll(frag)
+		}
+	}
+
+	fun addWildTypeConformation(pos: DesignPosition) {
+		val posConfSpace = positionConfSpaces.getOrMake(pos)
+		val wtFrag = pos.makeFragment(
+			"wt-${pos.name.toTomlKey()}", "WildType @ ${pos.name}",
+			"conf1", "conf1",
+			// find motions for the wildtype fragment, by finding a similar fragment from the library
+			motions = conflibs.findMatchingFragments(pos)
+				// TODO: could match multiple fragments, need to check if the motions themselves are compatible?
+				.firstOrNull()
+				?.motions
+				?: emptyList()
+		)
+		posConfSpace.wildTypeFragment = wtFrag
+		posConfSpace.confs.addAll(wtFrag)
+	}
+
+	fun getFragments(pos: DesignPosition): List<ConfLib.Fragment> =
+		positionConfSpaces.getOrMake(pos).confs.fragments()
+
+	fun getFragments(pos: DesignPosition, type: String): List<ConfLib.Fragment> =
+		getFragments(pos)
+			.filter { it.type == type }
+
+	fun getConformations(pos: DesignPosition, type: String): List<ConfConfSpace> =
+		positionConfSpaces.getOrMake(pos).confs
+			.toList()
+			.filter { it.frag.type == type }
+
+	fun getConformations(pos: DesignPosition, frag: ConfLib.Fragment): List<ConfConfSpace> =
+		positionConfSpaces.getOrMake(pos).confs
+			.getByFragment(frag)
+
+	fun countConformations(): BigInteger =
+		positions()
+			.takeIf { it.isNotEmpty() }
+			?.map { positionConfSpaces.getOrMake(it).confs.size.toBigInteger() }
+			?.reduce { a, b -> a*b }
+			?: BigInteger.ZERO
+
+	fun addMotion(desc: MolMotion.Description) {
+		molMotions.getOrPut(desc.mol) { ArrayList() }.add(desc)
+	}
+
 	/**
 	 * Get all the atoms that aren't part of design positions.
 	 */
@@ -215,6 +322,9 @@ class ConfSpace(val mols: List<Pair<MoleculeType,Molecule>>) {
 		return mol.atoms
 			.filter { it !in posAtoms }
 	}
+
+	fun copy(vararg mols: Molecule) =
+		copy(mols.toList())
 
 	/**
 	 * Makes a copy of the selected molecules along with all their
@@ -329,9 +439,5 @@ class ConfSpace(val mols: List<Pair<MoleculeType,Molecule>>) {
 		}
 
 		return new
-	}
-
-	companion object {
-		// blank for now, but defined so it can be extended
 	}
 }

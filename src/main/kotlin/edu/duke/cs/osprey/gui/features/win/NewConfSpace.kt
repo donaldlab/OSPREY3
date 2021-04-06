@@ -39,6 +39,6 @@ class NewConfSpace : WindowFeature {
 			// be generous in the GUI and don't crash, sometimes users edit these files by hand
 			throwOnMissingAtoms = false
 		)
-		ConfSpacePrep(win, ConfSpace(mols.partition(combineSolvent = true)))
+		ConfSpacePrep(win, ConfSpace.fromMols(mols))
 	}
 }

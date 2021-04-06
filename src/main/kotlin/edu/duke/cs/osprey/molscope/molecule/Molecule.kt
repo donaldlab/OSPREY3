@@ -47,6 +47,9 @@ open class Molecule(
 	fun copyTo(dst: Molecule): MoleculeMaps {
 		val src = this
 
+		// copy the metadata
+		dst.netCharge = src.netCharge
+
 		val molMap = MoleculeMap()
 		molMap.add(src, dst)
 

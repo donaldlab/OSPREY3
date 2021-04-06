@@ -42,6 +42,7 @@ class ConfSpaceCompiler(val confSpace: ConfSpace) {
 	 * Compilation is actually performed in a separate thread,
 	 * but progress can be monitored via the returned progress object.
 	 */
+	@JvmOverloads
 	fun compile(concurrency: Int = Parallelism.getMaxNumCPUs()): CompilerProgress {
 
 		// get stable orders for all the positions and conformations
@@ -498,7 +499,7 @@ class ConfSpaceCompiler(val confSpace: ConfSpace) {
 		// compile the motions for this conformation
 		val confAtomsIndex = AtomIndex(confAtoms)
 		val motions = confConfSpace.motions
-			.map { it.compile(confAtomsIndex, fixedAtoms, assignmentInfo) }
+			.map { it.compile(this, confAtomsIndex, fixedAtoms, assignmentInfo) }
 
 		// compute the internal energies of the conformation atoms
 		val atomIndices = confSpaceIndex.matchAtoms(assignments)
@@ -525,6 +526,7 @@ class ConfSpaceCompiler(val confSpace: ConfSpace) {
 	 * Compiles the continuous motion
 	 */
 	private fun ConfMotion.Description.compile(
+		confInfo: ConfSpaceIndex.ConfInfo,
 		confAtoms: AtomIndex,
 		fixedAtoms: FixedAtoms,
 		assignmentInfo: Assignments.AssignmentInfo
@@ -538,10 +540,24 @@ class ConfSpaceCompiler(val confSpace: ConfSpace) {
 
 			is DihedralAngle.ConfDescription -> {
 
-				val a = assignmentInfo.confSwitcher.atomResolverOrThrow.resolveOrThrow(motion.a)
-				val b = assignmentInfo.confSwitcher.atomResolverOrThrow.resolveOrThrow(motion.b)
-				val c = assignmentInfo.confSwitcher.atomResolverOrThrow.resolveOrThrow(motion.c)
-				val d = assignmentInfo.confSwitcher.atomResolverOrThrow.resolveOrThrow(motion.d)
+				val a = assignmentInfo.confSwitcher.atomResolverOrThrow.resolve(motion.a)
+				val b = assignmentInfo.confSwitcher.atomResolverOrThrow.resolve(motion.b)
+				val c = assignmentInfo.confSwitcher.atomResolverOrThrow.resolve(motion.c)
+				val d = assignmentInfo.confSwitcher.atomResolverOrThrow.resolve(motion.d)
+				if (a == null || b == null || c == null || d == null) {
+					throw IllegalArgumentException("""
+						|can't find atoms
+						|	design position ${pos.name} has fragment:conformation ${assignmentInfo.confSwitcher.frag?.id}:${assignmentInfo.confSwitcher.conf?.id}
+						|	compiling conformation dihedral angle for ${confInfo.id}:
+						|	a: ${motion.a} = $a
+						|	b: ${motion.b} = $b
+						|	c: ${motion.c} = $c
+						|	d: ${motion.d} = $d
+						|among anchors:
+						|	${assignmentInfo.confSwitcher.anchorMatch?.pairs?.joinToString("\n\t") { (posAnchor, confAnchor) -> "$confAnchor <-> ${posAnchor.anchorAtoms}" }}
+						|among atoms:   ${assignmentInfo.confSwitcher.currentAtoms.toList().sortedBy { it.name }}
+					""".trimMargin())
+				}
 
 				return CompiledConfSpace.MotionInfo.DihedralAngle(
 					minDegrees,

@@ -60,13 +60,6 @@ class ConformationEditor(val confSpace: ConfSpace) : SlideFeature {
 			.mapIndexed { i, motion -> MotionInfo(i, motion) }
 			.toMutableList()
 
-		fun updateCounts() {
-			numConfs = BigInteger.ONE
-			for (posInfo in posInfos) {
-				numConfs *= posInfo.posConfSpace.confs.size.toBigInteger()
-			}
-		}
-
 		fun makeNewPosition(): PosInfo {
 
 			val positions = confSpace.designPositionsByMol
@@ -135,15 +128,7 @@ class ConformationEditor(val confSpace: ConfSpace) : SlideFeature {
 	private var selectedMotionInfo = null as MotionInfo?
 
 	private fun updateCounts() {
-		if (molInfos.isEmpty()) {
-			numConfs = BigInteger.ZERO
-		} else {
-			numConfs = BigInteger.ONE
-			for (molInfo in molInfos) {
-				molInfo.updateCounts()
-				numConfs *= molInfo.numConfs
-			}
-		}
+		numConfs = confSpace.countConformations()
 	}
 
 	override fun menu(imgui: Commands, slide: Slide.Locked, slidewin: SlideCommands) = imgui.run {

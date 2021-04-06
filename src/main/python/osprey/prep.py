@@ -79,6 +79,14 @@ def _check_local_service():
 # export enums
 Hybridization = osprey.c.gui.forcefield.amber.Hybridization
 
+# export statics
+confLibs = osprey.c.gui.features.components.ConfLibs.INSTANCE.getInfos()
+
+class Forcefield:
+    Amber96 = osprey.c.gui.forcefield.Forcefield.Amber96.INSTANCE
+    Amber14SB = osprey.c.gui.forcefield.Forcefield.Amber14SB.INSTANCE
+    EEF1 = osprey.c.gui.forcefield.Forcefield.EEF1.INSTANCE
+
 
 def loadPDB(pdb):
     pdb = osprey.c.gui.io.PDBKt.fromPDB(_kotlin_companion(osprey.c.molscope.molecule.Molecule), pdb)
@@ -92,6 +100,22 @@ def loadOMOL(omol):
 
 def saveOMOL(mols):
     return osprey.c.gui.io.OMOLKt.toOMOL(jvm.toArrayList(mols))
+
+
+def loadConfSpace(toml):
+    return osprey.c.gui.io.ConfSpaceKt.fromToml(
+        _kotlin_companion(osprey.c.gui.prep.ConfSpace),
+        toml
+    )
+
+
+def saveConfSpace(confSpace):
+    return osprey.c.gui.io.ConfSpaceKt.toToml(confSpace)
+
+
+def saveCompiledConfSpace(ccs):
+    bytes = osprey.c.gui.io.CompiledConfSpaceKt.toBytes(ccs)
+    return osprey.c.tools.LZMA2.compress(bytes)
 
 
 def molTypes(mol):
@@ -136,3 +160,51 @@ def minimizerInfo(mol, restrainedAtoms):
 def minimize(minimizerInfos, numSteps):
     _check_local_service()
     osprey.c.gui.forcefield.amber.MinimizationKt.minimizeBlocking(jvm.toArrayList(minimizerInfos), numSteps)
+
+
+def ConfSpace(mols):
+    return _kotlin_companion(osprey.c.gui.prep.ConfSpace).fromMols(mols)
+
+
+def ProteinDesignPosition(protein, chainId, resId, name=None):
+    res = protein.findResidueOrThrow(chainId, resId)
+    if name is None:
+        name = '%s %s' % (resId, res.getType())
+    return osprey.c.gui.prep.Proteins.INSTANCE.makeDesignPosition(protein, res, name)
+
+
+def DihedralAngleSettings():
+    return osprey.c.gui.motions.DihedralAngle.LibrarySettings(
+        # set some reasonable defaults
+        9.0, # radiusDegrees
+        True, # includeHydroxyls
+        False # includeNonHydroxylHGroups
+    )
+
+
+def conformationDihedralAngles(pos, confInfo, settings):
+    return _kotlin_companion(osprey.c.gui.motions.DihedralAngle.ConfDescription)\
+        .makeFromLibrary(pos, confInfo.getFrag(), confInfo.getConf(), settings)
+
+
+def moleculeDihedralAngle(mol, a, b, c, d, settings):
+    return osprey.c.gui.motions.DihedralAngle.MolDescription(
+        mol,
+        mol.getAtoms().findOrThrow(a),
+        mol.getAtoms().findOrThrow(b),
+        mol.getAtoms().findOrThrow(c),
+        mol.getAtoms().findOrThrow(d),
+        settings.getRadiusDegrees()
+    )
+
+
+def moleculeTranslationRotation(mol, dist=1.2, degrees=5.0):
+    return osprey.c.gui.motions.TranslationRotation.MolDescription(
+        mol,
+        dist,
+        degrees
+    )
+
+
+def ConfSpaceCompiler(confSpace):
+    return osprey.c.gui.compiler.ConfSpaceCompiler(confSpace)

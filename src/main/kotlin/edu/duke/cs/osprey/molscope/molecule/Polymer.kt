@@ -87,6 +87,9 @@ class Polymer(
 			.find { it.id == id }
 			?: throw NoSuchElementException("no chain with id=$id")
 
+	fun findResidueOrThrow(chainId: String, resId: String): Residue =
+		findChainOrThrow(chainId).findResidueOrThrow(resId)
+
 	fun findResidue(atom: Atom) =
 		chains
 			.flatMap { it.residues }
