@@ -32,7 +32,10 @@
 
 package edu.duke.cs.osprey.ematrix;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 
 import edu.duke.cs.osprey.confspace.*;
@@ -318,4 +321,18 @@ public class EnergyMatrix extends TupleMatrixDouble implements FragmentEnergies 
         eRefMat = val;
         eRefMat.correctEnergyMatrix(this);
     }
+
+    @Override
+	public void read(DataInputStream in)
+	throws IOException {
+    	constTerm = in.readDouble();
+    	super.read(in);
+	}
+
+	@Override
+	public void write(DataOutputStream out)
+	throws IOException {
+    	out.writeDouble(constTerm);
+    	super.write(out);
+	}
 }
