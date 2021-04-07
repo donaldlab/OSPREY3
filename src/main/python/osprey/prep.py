@@ -1,5 +1,11 @@
 
-import os, jpype
+import os, sys
+
+# throw an error for python 2
+if sys.version_info[0] <= 2:
+    raise Exception('Python v2 or earlier is not supported in this module')
+
+
 import osprey
 import osprey.jvm as jvm
 
@@ -40,7 +46,7 @@ class LocalService:
             raise Exception("can't find programs directory for osprey prep service")
 
         # start the service
-        service_path = osprey.jvm.c.java.nio.file.Paths.get(os.path.dirname(progs_dir))
+        service_path = jvm.c.java.nio.file.Paths.get(os.path.dirname(progs_dir))
         wait = False
         port = osprey.c.service.OspreyService.defaultPort
         cls._service = osprey.c.service.OspreyService.Instance(service_path, wait, port)

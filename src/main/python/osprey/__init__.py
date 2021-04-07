@@ -1711,8 +1711,3 @@ def SOFEA_SequenceLMFE(sequence, lmfe, minFreeEnergyWidth):
 	:rtype: :java:ref:`.sofea.SequenceLMFE`
 	'''
 	return c.sofea.SequenceLMFE(sequence, lmfe, minFreeEnergyWidth)
-
-
-# TODO: docme
-def readConfSpace(path):
-	return c.confspace.compiled.ConfSpace.fromBytes(c.tools.FileTools.readFileBytes(path))

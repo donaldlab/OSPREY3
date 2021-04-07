@@ -111,6 +111,12 @@ public class KStar {
 			 */
 			private String confDBPattern = "%s.confdb";
 
+			/**
+			 * True to attempt to resume a previous design using the conformation databases.
+			 * False to delete any existing conformation databases and start the design from scratch.
+			 */
+			private boolean resume = false;
+
 			public Builder setEpsilon(double val) {
 				epsilon = val;
 				return this;
@@ -165,8 +171,13 @@ public class KStar {
 				return this;
 			}
 
+			public Builder resume(boolean val) {
+				resume = val;
+				return this;
+			}
+
 			public Settings build() {
-				return new Settings(epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters, showPfuncProgress, useExternalMemory, confDBPattern);
+				return new Settings(epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters, showPfuncProgress, useExternalMemory, confDBPattern, resume);
 			}
 		}
 
@@ -177,8 +188,9 @@ public class KStar {
 		public final boolean showPfuncProgress;
 		public final boolean useExternalMemory;
 		public final String confDBPattern;
+		public final boolean resume;
 
-		public Settings(double epsilon, Double stabilityThreshold, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, boolean useExternalMemory, String confDBPattern) {
+		public Settings(double epsilon, Double stabilityThreshold, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, boolean useExternalMemory, String confDBPattern, boolean resume) {
 			this.epsilon = epsilon;
 			this.stabilityThreshold = stabilityThreshold;
 			this.maxSimultaneousMutations = maxSimultaneousMutations;
@@ -186,6 +198,7 @@ public class KStar {
 			this.showPfuncProgress = dumpPfuncConfs;
 			this.useExternalMemory = useExternalMemory;
 			this.confDBPattern = confDBPattern;
+			this.resume = resume;
 		}
 	}
 
@@ -259,6 +272,9 @@ public class KStar {
 
 		private AutoCloseableNoEx openConfDB() {
 			if (confDBFile != null) {
+				if (!settings.resume) {
+					confDBFile.delete();
+				}
 				confDB = new ConfDB(confSpace, confDBFile);
 			}
 			return () -> {

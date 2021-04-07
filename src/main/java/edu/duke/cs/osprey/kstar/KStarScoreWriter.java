@@ -33,6 +33,7 @@
 package edu.duke.cs.osprey.kstar;
 
 import edu.duke.cs.osprey.confspace.Sequence;
+import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.TimeFormatter;
 
 import java.io.File;
@@ -200,19 +201,34 @@ public interface KStarScoreWriter {
 				return String.join("\t",
 					"Seq ID",
 					"Sequence",
-					"K* Score (Log10)",
+
 					"K* Lower Bound",
 					"K* Upper Bound",
+					"K* Lower (log10)",
+					"K* Upper (log10)",
 					"Total # Confs.",
-					"Complex Partition Function",
+
+					"Complex Pfunc Lower",
+					"Complex Pfunc Upper",
+					"Complex Free Energy Lower",
+					"Complex Free Energy Upper",
 					"Complex Epsilon",
 					"Complex # Confs.",
-					"Protein Partition Function",
+
+					"Protein Pfunc Lower",
+					"Protein Pfunc Upper",
+					"Protein Free Energy Lower",
+					"Protein Free Energy Upper",
 					"Protein Epsilon",
 					"Protein # Confs.",
-					"Ligand Partition Function",
+
+					"Ligand Pfund Lower",
+					"Ligand Pfund Upper",
+					"Ligand Free Energy Lower",
+					"Ligand Free Energy Upper",
 					"Ligand Epsilon",
 					"Ligand # Confs.",
+
 					"Time (sec)"
 				);
 			}
@@ -222,19 +238,34 @@ public interface KStarScoreWriter {
 				return String.join("\t",
 					Integer.toString(info.sequenceNumber),
 					info.sequence.toString(Sequence.Renderer.AssignmentMutations, info.sequence.calcCellSize() + 1),
-					info.kstarScore.scoreLog10String(),
-					info.kstarScore.lowerBoundLog10String(),
-					info.kstarScore.upperBoundLog10String(),
+
+					edu.duke.cs.osprey.tools.Log.formatBigEngineering(info.kstarScore.lowerBound),
+					edu.duke.cs.osprey.tools.Log.formatBigEngineering(info.kstarScore.upperBound),
+					Double.toString(MathTools.log10(info.kstarScore.lowerBound)),
+					Double.toString(MathTools.log10(info.kstarScore.upperBound)),
 					Integer.toString(info.kstarScore.protein.numConfs + info.kstarScore.ligand.numConfs + info.kstarScore.complex.numConfs),
-					String.format("%e", info.kstarScore.complex.values.qstar.doubleValue()),
+
+					edu.duke.cs.osprey.tools.Log.formatBigEngineering(info.kstarScore.complex.values.calcLowerBound()),
+					edu.duke.cs.osprey.tools.Log.formatBigEngineering(info.kstarScore.complex.values.calcUpperBound()),
+					Double.toString(info.kstarScore.complex.values.calcFreeEnergyLowerBoundPrecise()),
+					Double.toString(info.kstarScore.complex.values.calcFreeEnergyUpperBoundPrecise()),
 					Double.toString(info.kstarScore.complex.values.getEffectiveEpsilon()),
 					Integer.toString(info.kstarScore.complex.numConfs),
-					String.format("%e", info.kstarScore.protein.values.qstar.doubleValue()),
+
+					edu.duke.cs.osprey.tools.Log.formatBigEngineering(info.kstarScore.protein.values.calcLowerBound()),
+					edu.duke.cs.osprey.tools.Log.formatBigEngineering(info.kstarScore.protein.values.calcUpperBound()),
+					Double.toString(info.kstarScore.protein.values.calcFreeEnergyLowerBoundPrecise()),
+					Double.toString(info.kstarScore.protein.values.calcFreeEnergyUpperBoundPrecise()),
 					Double.toString(info.kstarScore.protein.values.getEffectiveEpsilon()),
 					Integer.toString(info.kstarScore.protein.numConfs),
-					String.format("%e", info.kstarScore.ligand.values.qstar.doubleValue()),
+
+					edu.duke.cs.osprey.tools.Log.formatBigEngineering(info.kstarScore.ligand.values.calcLowerBound()),
+					edu.duke.cs.osprey.tools.Log.formatBigEngineering(info.kstarScore.ligand.values.calcUpperBound()),
+					Double.toString(info.kstarScore.ligand.values.calcFreeEnergyLowerBoundPrecise()),
+					Double.toString(info.kstarScore.ligand.values.calcFreeEnergyUpperBoundPrecise()),
 					Double.toString(info.kstarScore.ligand.values.getEffectiveEpsilon()),
 					Integer.toString(info.kstarScore.ligand.numConfs),
+
 					Long.toString((info.timeNs - startNs)/TimeFormatter.NSpS)
 				);
 			}

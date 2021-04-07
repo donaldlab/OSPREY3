@@ -126,6 +126,9 @@ def start(jrePath, heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=None, 
 	# there's no need to scare our users with warning messages
 	args.append('--add-opens=java.base/java.text=ALL-UNNAMED')
 
+	# enable FFI libraries in newer JVMs
+	args.append('--add-modules=jdk.incubator.foreign')
+
 	start_with_args(jrePath, args)
 
 	if attachJvmDebugger:

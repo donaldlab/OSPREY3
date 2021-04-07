@@ -176,6 +176,9 @@ public class BBKStar {
 
 		private AutoCloseableNoEx openConfDB() {
 			if (confDBFile != null) {
+				if (!kstarSettings.resume) {
+					confDBFile.delete();
+				}
 				confDB = new ConfDB(confSpace, confDBFile);
 			}
 			return () -> {
