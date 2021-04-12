@@ -556,6 +556,7 @@ tasks {
 		}
 
 		// write the version to a build file so other tools (eg python scripts) can find it
+		versionFile.parent.toFile().mkdirs()
 		versionFile.toFile().writeText(version)
 
 		// write the build properties to the app can find them
