@@ -6,10 +6,7 @@ import static edu.duke.cs.osprey.TestBase.*;
 import static edu.duke.cs.osprey.tools.Log.log;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.coffee.directors.AffinityDirector;
-import edu.duke.cs.osprey.coffee.directors.PfuncDirector;
-import edu.duke.cs.osprey.coffee.directors.SequenceDirector;
-import edu.duke.cs.osprey.coffee.directors.Timing;
+import edu.duke.cs.osprey.coffee.directors.*;
 import edu.duke.cs.osprey.coffee.seqdb.SeqFreeEnergies;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.SeqSpace;
@@ -813,5 +810,74 @@ public class TestCoffee {
 		assertFreeEnergies_2m4f_complex(director.bestSeqs, confSpace.getState("complex").index);
 		assertFreeEnergies_2m4f_design(director.bestSeqs, confSpace.getState("design").index);
 		assertThat(director.targetFreeEnergy, isAbsoluteBound(-1187.609, 1e-3));
+	}
+
+
+	@Test
+	public void design_kstar_6ov7_2mut4flex_1x4_nothreshold() {
+		var confSpace = TestCoffee.affinity_6ov7_2mut4flex();
+
+		Coffee coffee = new Coffee.Builder(confSpace)
+			.setParallelism(Parallelism.makeCpu(4))
+			.configEachState((config, ecalc) -> config.posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null))
+			.build();
+
+		var director = new KStarDirector.Builder(confSpace, "complex", "design", "target")
+			.setMaxSimultaneousMutations(null)
+			.setStabilityThreshold(null)
+			.setTiming(Timing.Precise)
+			.setReportStateProgress(false)
+			.build();
+
+		// use just a few sequences for this test
+		director.sequences.add(confSpace.seqSpace.makeSequence("GLN", "val"));
+		director.sequences.add(confSpace.seqSpace.makeSequence("ASN", "TYR"));
+		director.sequences.add(confSpace.seqSpace.makeSequence("GLU", "ILE"));
+
+		coffee.run(director);
+
+		assertThat(director.wildTypeG, is(nullValue()));
+		assertThat(director.sequenceGs.size(), is(3));
+		assertFreeEnergies_2m4f_complex(director.sequenceGs, confSpace.getState("complex").index);
+		assertFreeEnergies_2m4f_design(director.sequenceGs, confSpace.getState("design").index);
+		assertThat(director.targetG, isAbsoluteBound(-1187.609, 1e-3));
+	}
+
+	@Test
+	public void design_kstar_6ov7_2mut4flex_1x4_threshold5() {
+		var confSpace = TestCoffee.affinity_6ov7_2mut4flex();
+		var complexi = confSpace.getState("complex").index;
+		var designi = confSpace.getState("design").index;
+
+		Coffee coffee = new Coffee.Builder(confSpace)
+			.setParallelism(Parallelism.makeCpu(4))
+			.configEachState((config, ecalc) -> config.posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null))
+			.build();
+
+		var director = new KStarDirector.Builder(confSpace, "complex", "design", "target")
+			.setMaxSimultaneousMutations(null)
+			.setStabilityThreshold(5.0)
+			.setTiming(Timing.Precise)
+			.setReportStateProgress(false)
+			.build();
+
+		// use just a few sequences for this test
+		director.sequences.add(confSpace.seqSpace.makeSequence("GLN", "val"));
+		director.sequences.add(confSpace.seqSpace.makeSequence("GLY", "ALA"));
+		director.sequences.add(confSpace.seqSpace.makeSequence("GLU", "ILE"));
+
+		coffee.run(director);
+
+		assertThat(director.sequenceGs.size(), is(3));
+		assertFreeEnergies_2m4f_complex(List.of(director.wildTypeG), complexi);
+		assertFreeEnergies_2m4f_design(List.of(director.wildTypeG), designi);
+		assertFreeEnergies_2m4f_design(director.sequenceGs, designi);
+		assertThat(director.targetG, isAbsoluteBound(-1187.609, 1e-3));
+
+		// GLY, ALA should fail the stability filter
+		assertThat(director.sequenceGs.get(1).freeEnergies[complexi], is(nullValue()));
+
+		// but not the others
+		assertFreeEnergies_2m4f_complex(List.of(director.sequenceGs.get(0), director.sequenceGs.get(2)), complexi);
 	}
 }

@@ -34,6 +34,7 @@ public class PfuncDirector implements Coffee.Director {
 		public final Sequence seq;
 
 		private double gWidthMax = 1.0;
+		private Double gMax = null;
 		private Timing timing = Timing.Efficient;
 		private boolean reportProgress = false;
 		private int ensembleSize = 0;
@@ -67,6 +68,16 @@ public class PfuncDirector implements Coffee.Director {
 			return this;
 		}
 
+		/**
+		 * Sets the maximum free energy value that is useful.
+		 * The free energy calculation will be aborted early if the lower bound
+		 * can be proven to be above this maximum value.
+		 */
+		public Builder setGMax(Double val) {
+			gMax = val;
+			return this;
+		}
+
 		public Builder setTiming(Timing val) {
 			timing = val;
 			return this;
@@ -96,7 +107,7 @@ public class PfuncDirector implements Coffee.Director {
 		}
 
 		public PfuncDirector build() {
-			return new PfuncDirector(confSpace, state, seq, gWidthMax, timing, reportProgress, ensembleSize, ensembleFile, ensembleUpdate, ensembleUpdateUnit);
+			return new PfuncDirector(confSpace, state, seq, gWidthMax, gMax, timing, reportProgress, ensembleSize, ensembleFile, ensembleUpdate, ensembleUpdateUnit);
 		}
 	}
 
@@ -104,6 +115,7 @@ public class PfuncDirector implements Coffee.Director {
 	public final MultiStateConfSpace.State state;
 	public final Sequence seq;
 	public final double gWidthMax;
+	public final Double gMax;
 	public final Timing timing;
 	public final boolean reportProgress;
 	public final int ensembleSize;
@@ -117,11 +129,12 @@ public class PfuncDirector implements Coffee.Director {
 
 	private DoubleBounds freeEnergy;
 
-	private PfuncDirector(MultiStateConfSpace confSpace, MultiStateConfSpace.State state, Sequence seq, double gWidthMax, Timing timing, boolean reportProgress, int ensembleSize, File ensembleFile, long ensembleUpdate, TimeUnit ensembleUpdateUnit) {
+	private PfuncDirector(MultiStateConfSpace confSpace, MultiStateConfSpace.State state, Sequence seq, double gWidthMax, Double gMax, Timing timing, boolean reportProgress, int ensembleSize, File ensembleFile, long ensembleUpdate, TimeUnit ensembleUpdateUnit) {
 		this.confSpace = confSpace;
 		this.state = state;
 		this.seq = seq;
 		this.gWidthMax = gWidthMax;
+		this.gMax = gMax;
 		this.timing = timing;
 		this.reportProgress = reportProgress;
 		this.ensembleSize = ensembleSize;
@@ -142,10 +155,12 @@ public class PfuncDirector implements Coffee.Director {
 
 	DoubleBounds calc(Directions directions, NodeProcessor processor) {
 
-		if (seq != null) {
-			directions.member.log("Processing state %s, sequence [%s]", state.name, seq);
-		} else {
-			directions.member.log("Processing state %s", state.name);
+		if (reportProgress) {
+			if (seq != null) {
+				directions.member.log("Processing state %s, sequence [%s]", state.name, seq);
+			} else {
+				directions.member.log("Processing state %s", state.name);
+			}
 		}
 		Stopwatch stopwatch = new Stopwatch().start();
 
@@ -252,6 +267,11 @@ public class PfuncDirector implements Coffee.Director {
 
 			// are we there yet?
 			if (gWidth <= gWidthMax) {
+				break;
+			}
+
+			// are we always above the maximum useful value?
+			if (gMax != null && g.lower > gMax) {
 				break;
 			}
 		}

@@ -11,6 +11,7 @@ import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
+import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
 import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.NativeConfEnergyCalculator;
@@ -188,7 +189,8 @@ public class Coffee {
 		public final MultiStateConfSpace.State state;
 		public final ConfSpace confSpace;
 
-		public PosInterGen posInterGen;
+		// provide a simple default that should be fine for most cases
+		public PosInterGen posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null);
 
 		public StateConfig(MultiStateConfSpace.State state) {
 
