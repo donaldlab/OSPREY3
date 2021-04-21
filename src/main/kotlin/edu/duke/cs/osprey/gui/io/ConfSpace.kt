@@ -90,6 +90,7 @@ fun ConfSpace.toToml(): String {
 			write("atoms = [ %s ]\n",
 				pos.sourceAtoms
 					.map { it.index() }
+					.sorted()
 					.joinToString(", ")
 			)
 

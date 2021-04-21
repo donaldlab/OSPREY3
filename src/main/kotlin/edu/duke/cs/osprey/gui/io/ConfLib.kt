@@ -801,7 +801,7 @@ fun List<ConfLib.Fragment>.toToml(
 			conf.description?.let { write("description = %s\n", it.quote()) }
 
 			write("coords = [\n")
-			for ((atom, pos) in conf.coords) {
+			for ((atom, pos) in conf.coords.entries.sortedBy { (atom, _) -> atom.id }) {
 				write("\t{ id = %2d, xyz = %s }, # %s\n",
 					atom.id,
 					pos.toToml(),
@@ -811,7 +811,7 @@ fun List<ConfLib.Fragment>.toToml(
 			write("]\n")
 
 			write("anchorCoords = [\n")
-			for ((anchor, coords) in conf.anchorCoords) {
+			for ((anchor, coords) in conf.anchorCoords.entries.sortedBy { (anchor, _) -> anchor.id }) {
 				when (coords) {
 					is ConfLib.AnchorCoords.Single ->
 						write("\t{ id = %2d, a = %s, b = %s, c = %s },\n",
