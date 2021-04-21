@@ -32,7 +32,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 
 /**
@@ -70,19 +70,22 @@ public class Coffee {
 			stateConfigs = new StateConfig[confSpace.states.size()];
 		}
 
-		public Builder configState(MultiStateConfSpace.State state, BiConsumer<StateConfig,ConfEnergyCalculator> configurator) {
-			StateConfig config = new StateConfig(state);
-			var ecalc = new CPUConfEnergyCalculator(config.confSpace);
-			configurator.accept(config, ecalc);
-			stateConfigs[state.index] = config;
+		public Builder configState(StateConfig config) {
+			stateConfigs[config.state.index] = config;
 			return this;
 		}
 
-		public Builder configState(String stateName, BiConsumer<StateConfig,ConfEnergyCalculator> configurator) {
+		public Builder configState(MultiStateConfSpace.State state, Consumer<StateConfig> configurator) {
+			StateConfig config = new StateConfig(state);
+			configurator.accept(config);
+			return configState(config);
+		}
+
+		public Builder configState(String stateName, Consumer<StateConfig> configurator) {
 			return configState(confSpace.getState(stateName), configurator);
 		}
 
-		public Builder configEachState(BiConsumer<StateConfig,ConfEnergyCalculator> configurator) {
+		public Builder configEachState(Consumer<StateConfig> configurator) {
 			for (MultiStateConfSpace.State state : confSpace.states) {
 				configState(state, configurator);
 			}

@@ -16,9 +16,7 @@ public class CoffeeLab {
 
 	public static void main(String[] args) {
 
-		// configure hazelcast logging
-		SLF4JBridgeHandler.removeHandlersForRootLogger();
-		SLF4JBridgeHandler.install();
+		Cluster.fixHazelcastLogging();
 
 		int numMembers = 1;
 		var parallelism = Parallelism.makeCpu(4);
@@ -38,7 +36,7 @@ public class CoffeeLab {
 			.setParallelism(parallelism)
 			//.setSeqDBMathContext(new MathContext(4096, RoundingMode.HALF_UP))
 			//.setTripleCorrectionThreshold(10.0)
-			.configEachState((config, ecalc) -> {
+			.configEachState(config -> {
 				config.posInterGen = new PosInterGen(posInterDist, null);
 			})
 			.build();

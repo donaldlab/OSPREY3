@@ -43,10 +43,7 @@ public class TestCoffee {
 	private static final double freeEnergyEpsilon = 1e-6;
 
 	static {
-
-		// configure hazelcast logging
-		SLF4JBridgeHandler.removeHandlersForRootLogger();
-		SLF4JBridgeHandler.install();
+		Cluster.fixHazelcastLogging();
 	}
 
 	/**
@@ -138,7 +135,7 @@ public class TestCoffee {
 			.setParallelism(parallelism)
 			.setNodeDBMem(bytes)
 			.setTripleCorrectionThreshold(triplesThreshold)
-			.configEachState((config, ecalc) -> {
+			.configEachState(config -> {
 				config.posInterGen = new PosInterGen(posInterDist, null);
 			})
 			.build();
@@ -677,7 +674,9 @@ public class TestCoffee {
 
 		var coffee = new Coffee.Builder(confSpace)
 			.setSeqDBMathContext(new MathContext(4096, RoundingMode.HALF_UP))
-			.configEachState((config, ecalc) -> config.posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null))
+			.configEachState(config -> {
+				config.posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null);
+			})
 			.build();
 
 		var seqs = Arrays.asList(
@@ -763,7 +762,9 @@ public class TestCoffee {
 			Coffee coffee = new Coffee.Builder(confSpace)
 				.setCluster(cluster)
 				.setParallelism(Parallelism.makeCpu(numThreads))
-				.configEachState((config, ecalc) -> config.posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null))
+				.configEachState(config -> {
+					config.posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null);
+				})
 				.build();
 
 			var director = new AffinityDirector.Builder(confSpace, "complex", "design", "target")
@@ -792,7 +793,9 @@ public class TestCoffee {
 
 		Coffee coffee = new Coffee.Builder(confSpace)
 			.setParallelism(Parallelism.makeCpu(4))
-			.configEachState((config, ecalc) -> config.posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null))
+			.configEachState(config -> {
+				config.posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null);
+			})
 			.build();
 
 		var director = new AffinityDirector.Builder(confSpace, "complex", "design", "target")
@@ -819,7 +822,9 @@ public class TestCoffee {
 
 		Coffee coffee = new Coffee.Builder(confSpace)
 			.setParallelism(Parallelism.makeCpu(4))
-			.configEachState((config, ecalc) -> config.posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null))
+			.configEachState(config -> {
+				config.posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null);
+			})
 			.build();
 
 		var director = new KStarDirector.Builder(confSpace, "complex", "design", "target")
@@ -851,7 +856,9 @@ public class TestCoffee {
 
 		Coffee coffee = new Coffee.Builder(confSpace)
 			.setParallelism(Parallelism.makeCpu(4))
-			.configEachState((config, ecalc) -> config.posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null))
+			.configEachState(config -> {
+				config.posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null);
+			})
 			.build();
 
 		var director = new KStarDirector.Builder(confSpace, "complex", "design", "target")

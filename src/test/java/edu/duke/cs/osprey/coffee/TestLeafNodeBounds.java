@@ -11,6 +11,7 @@ import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
 import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
+import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.tools.BigExp;
 import org.junit.Test;
@@ -20,10 +21,7 @@ import org.slf4j.bridge.SLF4JBridgeHandler;
 public class TestLeafNodeBounds {
 
 	static {
-
-		// configure hazelcast logging
-		SLF4JBridgeHandler.removeHandlersForRootLogger();
-		SLF4JBridgeHandler.install();
+		Cluster.fixHazelcastLogging();
 	}
 
 	// pairwise bounds on 2 positions should be accurate
@@ -143,9 +141,9 @@ public class TestLeafNodeBounds {
 		var coffee = new Coffee.Builder(confSpace)
 			.setNodeDBMem(16*1024*1024) // 16 MiB should be enough space for these tiny tests
 			.setParallelism(Parallelism.makeCpu(Parallelism.getMaxNumCPUs()))
-			.configEachState((config, ecalc) ->
-				config.posInterGen = new PosInterGen(posInterDist, null)
-			)
+			.configEachState(config -> {
+				config.posInterGen = new PosInterGen(posInterDist, null);
+			})
 			.setStaticStatic(includeStaticStatic)
 			.setTripleCorrectionThreshold(tripleThreshold)
 			.build();

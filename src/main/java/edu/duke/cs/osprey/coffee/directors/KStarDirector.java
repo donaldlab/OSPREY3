@@ -155,6 +155,15 @@ public class KStarDirector implements Coffee.Director {
 		}
 
 		public KStarDirector build() {
+
+			// check for common errors early and give them friendlier error messages
+			if (stabilityThreshold != null && !confSpace.seqSpace.containsWildTypeSequence()) {
+				throw new IllegalArgumentException(
+					"Stability threshold is enabled, but the sequence space does not define the wild-type sequence."
+					+ "\nEither disable the stability threshold, or use a sequence space that contains the wild-type sequence."
+				);
+			}
+
 			return new KStarDirector(
 				confSpace, complex, design, target,
 				gWidthMax, stabilityThreshold, maxSimultaneousMutations, timing, reportStateProgress,
@@ -319,7 +328,7 @@ public class KStarDirector implements Coffee.Director {
 
 		// for the complex state, pass along the ensemble reporting settings
 		if (state == complex) {
-			pfunc.setEnsembleTracking(ensembleSize, ensembleDir);
+			pfunc.setEnsembleTracking(ensembleSize, new File(ensembleDir, String.format("seq.%s.pdb", seq.toString(Sequence.Renderer.AssignmentMutations))));
 			pfunc.setEnsembleMinUpdate(ensembleUpdate, ensembleUpdateUnit);
 		}
 

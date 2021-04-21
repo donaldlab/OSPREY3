@@ -37,7 +37,7 @@ public class Serializers {
 		return IntStream.range(0, confSpace.numPos())
 			.map(posi -> confSpace.numConf(posi) - 1)
 			.max()
-			.orElseThrow();
+			.orElse(0);
 	}
 
 	private static IntEncoding getConfEncoding(ConfSpaceIteration confSpace) {

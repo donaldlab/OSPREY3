@@ -7,6 +7,7 @@ import com.hazelcast.collection.IQueue;
 import com.hazelcast.config.Config;
 import com.hazelcast.core.*;
 import edu.duke.cs.osprey.tools.Log;
+import org.slf4j.bridge.SLF4JBridgeHandler;
 
 import java.io.Serializable;
 import java.util.HashMap;
@@ -586,5 +587,14 @@ public class Cluster {
 		public String toString() {
 			return String.format("TaskResult[id=%d, %s]", taskId, t == null ? "success" : "failure");
 		}
+	}
+
+	/**
+	 * The default logging settings for Hazelcast are completely obnoxious! So much log spam!!
+	 * Try to get it under control by installing our own logging settings.
+	 */
+	public static void fixHazelcastLogging() {
+		SLF4JBridgeHandler.removeHandlersForRootLogger();
+		SLF4JBridgeHandler.install();
 	}
 }

@@ -10,6 +10,7 @@ import edu.duke.cs.osprey.coffee.TestCoffee;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
+import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.tools.BigExp;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
@@ -28,10 +29,7 @@ import java.util.stream.IntStream;
 public class TestSeqDB {
 
 	static {
-
-		// configure hazelcast logging
-		SLF4JBridgeHandler.removeHandlersForRootLogger();
-		SLF4JBridgeHandler.install();
+		Cluster.fixHazelcastLogging();
 	}
 
 	private static final BigDecimalBounds unknownBound = new BigDecimalBounds(BigDecimal.ZERO, MathTools.BigPositiveInfinity);

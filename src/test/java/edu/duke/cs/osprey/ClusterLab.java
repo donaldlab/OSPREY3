@@ -27,9 +27,7 @@ public class ClusterLab {
 
 	public static void main(String[] args) {
 
-		// configure hazelcast logging
-		SLF4JBridgeHandler.removeHandlersForRootLogger();
-		SLF4JBridgeHandler.install();
+		Cluster.fixHazelcastLogging();
 
 		//forkCluster();
 		//multiProcessCluster(args);

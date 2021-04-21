@@ -24,6 +24,7 @@ import edu.duke.cs.osprey.energy.compiled.PosInterGen;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.gpu.Structs;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
+import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
@@ -41,9 +42,7 @@ public class BenchmarkCoffee {
 
 	public static void main(String[] args) {
 
-		// configure hazelcast logging
-		SLF4JBridgeHandler.removeHandlersForRootLogger();
-		SLF4JBridgeHandler.install();
+		Cluster.fixHazelcastLogging();
 
 		//vsClassic();
 		//affinity_6ov7_1mut6flex();
@@ -458,7 +457,7 @@ public class BenchmarkCoffee {
 			.setPrecision(precision)
 			.setTripleCorrectionThreshold(triples)
 			//.setNodeScoringLog(new File("nodescores.tsv"))
-			.configEachState((config, ecalc) -> {
+			.configEachState(config -> {
 				config.posInterGen = new PosInterGen(bounds.posInterDist, null);
 			})
 			.build();

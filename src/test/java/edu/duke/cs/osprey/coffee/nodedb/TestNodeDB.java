@@ -7,6 +7,7 @@ import edu.duke.cs.osprey.coffee.ClusterMember;
 import edu.duke.cs.osprey.coffee.TestCoffee;
 import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
+import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.tools.BigExp;
 import edu.duke.cs.osprey.tools.MathTools;
 import org.junit.Test;
@@ -27,10 +28,7 @@ import java.util.stream.LongStream;
 public class TestNodeDB {
 
 	static {
-
-		// configure hazelcast logging
-		SLF4JBridgeHandler.removeHandlersForRootLogger();
-		SLF4JBridgeHandler.install();
+		Cluster.fixHazelcastLogging();
 	}
 
 	private static final long MiB = 1024*1024;
