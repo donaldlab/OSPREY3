@@ -40,15 +40,15 @@ conf_space.getConflibs().add(lovell2000)
 pos13leu = conf_space.addPosition(osprey.prep.ProteinDesignPosition(ptpase, 'A', '13'))
 conf_space.addMutations(pos13leu, 'LEU', 'VAL')
 
-# force the 16 ILE residue to mutate from ILE to either LEU or VAL
+# allow the 16 ILE residue to either stay ILE, or mutate to a LEU or VAL
 pos16ile = conf_space.addPosition(osprey.prep.ProteinDesignPosition(ptpase, 'A', '16'))
-conf_space.addMutations(pos16ile, 'LEU', 'VAL')
+conf_space.addMutations(pos16ile, 'ILE', 'LEU', 'VAL')
 
 # allow the 1 ALA residue to either stay ALA, or mutate to VAL
 pos1ala = conf_space.addPosition(osprey.prep.ProteinDesignPosition(ptpase, 'A', '1'))
 conf_space.addMutations(pos1ala, 'ALA', 'VAL')
 
-# now we have defined a conformation space with 2x2x2=8 sequences in it
+# now we have defined a conformation space with 2x3x2=12 sequences in it
 print('conformation space describes %s sequences:' % conf_space.countSequences())
 for pos in conf_space.positions():
     print('\t%6s mutations: %s' % (pos.getName(), conf_space.getMutations(pos)))
@@ -69,7 +69,7 @@ for pos in conf_space.positions():
         # since the "wild-type" conformations are specifically adapted to the input structures.
         conf_space.addWildTypeConformation(pos)
 
-# now we have a conformation space with 9x8x5=360 conformations in it!
+# now we have a conformation space with 9x16x5=675 conformations in it!
 print('conformation space describes %s conformations:' % conf_space.countConformations())
 for pos in conf_space.positions():
     print('\t%6s conformations:' % pos.getName())
