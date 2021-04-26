@@ -101,6 +101,14 @@ def _java_aware_excepthook(exctype, value, traceback):
 		pass
 
 
+# should we print the preamble?
+_print_preamble = True
+try:
+	_print_preamble = os.environ['OSPREY_PREAMBLE'].lower() != 'false'
+except:
+	pass
+
+
 def _start_jvm_common(fn_jvm_start):
 
 	# disable buffered output on stdout, so python log messages line up with java log messages
@@ -192,11 +200,12 @@ def _start_jvm_common(fn_jvm_start):
 	Parallelism.makeCpu = c.parallelism.Parallelism.makeCpu
 	Parallelism.make = c.parallelism.Parallelism.make
 
-	# print the preamble
-	osprey_version = c.control.Main.Version
-	python_version = '.'.join([str(x) for x in sys.version_info[0:3]])
-	java_version = jpype.java.lang.System.getProperty('java.version')
-	print("OSPREY %s, Python %s, Java %s, %s" % (osprey_version, python_version, java_version, platform.platform()))
+	# print the preamble, if needed
+	if _print_preamble:
+		osprey_version = c.control.Main.Version
+		python_version = '.'.join([str(x) for x in sys.version_info[0:3]])
+		java_version = jpype.java.lang.System.getProperty('java.version')
+		print("OSPREY %s, Python %s, Java %s, %s" % (osprey_version, python_version, java_version, platform.platform()))
 
 
 def start_with_jvm_args(jvm_args=None):
@@ -236,9 +245,13 @@ def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=16, garbageSize
 	:param bool attachJvmDebugger: pass ``True`` to be able to attach a Java debugger to the JVM.
 	'''
 	_start_jvm_common(lambda jre_path: jvm.start(jre_path, heapSizeMiB, enableAssertions, stackSizeMiB, garbageSizeMiB, allowRemoteManagement, attachJvmDebugger))
-	print("Using up to %d MiB heap memory: %d MiB for garbage, %d MiB for storage" % (
-		heapSizeMiB, garbageSizeMiB, heapSizeMiB - garbageSizeMiB
-	))
+
+	# print the preamble, if needed
+	if _print_preamble:
+
+		print("Using up to %d MiB heap memory: %d MiB for garbage, %d MiB for storage" % (
+			heapSizeMiB, garbageSizeMiB, heapSizeMiB - garbageSizeMiB
+		))
 
 
 def readTextFile(path):
