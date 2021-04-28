@@ -1,0 +1,29 @@
+
+# basic hugo config
+#baseURL = "http://example.org/"
+languageCode = "en-us"
+title = "My New Hugo Site"
+theme = "hugo-theme-learn"
+
+
+[outputs]
+
+# "learn" theme search functionality
+# https://learn.netlify.app/en/basics/configuration/#activate-search
+home = [ "HTML", "RSS", "JSON" ]
+
+
+[params]
+
+# "learn" theme settings
+# https://learn.netlify.app/en/basics/configuration/#global-site-parameters
+disableInlineCopyToClipBoard = true
+
+# "learn" theme styles
+# https://learn.netlify.app/en/basics/style-customization/
+themeVariant = "blue"
+
+
+# https://gohugo.io/getting-started/configuration-markup#goldmark
+[markup.goldmark.renderer]
+unsafe = true

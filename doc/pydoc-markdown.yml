@@ -1,0 +1,15 @@
+
+# https://pydoc-markdown.readthedocs.io/en/latest/docs/configuration/
+
+loaders:
+  - type: python
+
+processors:
+  - type: filter
+  - type: smart
+  - type: crossref
+
+renderer:
+  # https://pydoc-markdown.readthedocs.io/en/latest/docs/renderers/markdown/
+  type: markdown
+  render_module_header: false

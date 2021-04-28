@@ -1,3 +1,7 @@
++++
+title = "Minimizers"
+weight = 1
++++
 
 # Task 2: Evaluate a conformation using physics
 

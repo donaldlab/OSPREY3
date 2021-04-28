@@ -1,3 +1,7 @@
++++
+title = "Graphs"
+weight = 1
++++
 
 # Task 1: Find a conformation using graph theory
 

@@ -70,7 +70,8 @@ val pythonWheelhouseDir = pythonSrcDir.resolve("wheelhouse")
 val docSrcDir = pythonSrcDir.resolve("doc")
 val docBuildDir = pythonBuildDir.resolve("doc")
 val versionFile = buildDir.resolve("osprey-version")
-
+val docDir = projectDir.resolve("doc")
+val docMainDir = docDir.resolve("content/documentation/main")
 
 group = "edu.duke.cs"
 version = "3.2"
@@ -891,6 +892,59 @@ tasks {
 		description = "updates license headers in all source files"
 		doLast {
 			updateLicenseHeaders()
+		}
+	}
+
+	val generateApiDocs by creating {
+		group = "documentation"
+		description = "Generate the Python API documentation for the main branch"
+		doLast {
+
+			val apiDir = docMainDir.resolve("api")
+
+			val modules = listOf(
+				"osprey",
+				"osprey.prep",
+				"osprey.ccs",
+				"osprey.slurm",
+				"osprey.jvm"
+			)
+			for (module in modules) {
+				pydocMarkdown(module, apiDir.resolve("$module.md"))
+			}
+		}
+	}
+}
+
+fun pydocMarkdown(module: String, file: Path, title: String = module, weight: Int = 5) {
+
+	val configPath = docDir.resolve("pydoc-markdown.yml")
+
+	file.toFile().outputStream().use { out ->
+
+		// write the hugo front matter
+		out.writer().apply {
+			write("""
+				|+++
+				|title = "$title"
+				|weight = $weight
+				|+++
+				|
+				|
+			""".trimMargin())
+			flush()
+		}
+
+		// generate the markdown from the python module using pydoc-markdown
+		// https://github.com/NiklasRosenstein/pydoc-markdown
+		exec {
+			commandLine(
+				"pydoc-markdown",
+				"-I", projectDir.resolve("src/main/python"),
+				"-m", module,
+				configPath.toString()
+			)
+			standardOutput = out
 		}
 	}
 }

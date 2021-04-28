@@ -1,5 +1,7 @@
-
-# Optimizing Osprey
++++
+title = "Optimizing Osprey"
+weight = 1
++++
 
 First of all, thanks for taking an interest in improving Osprey!
 We're so delighted you want to help. =D
