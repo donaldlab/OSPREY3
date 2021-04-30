@@ -143,11 +143,23 @@ private class ServiceSerializer : JsonSerializer {
 				// get the response type from the given type info
 				val rtype = type.kotlinType!!.arguments[0].type!!.jvmErasure
 
+				// read the response from the server
+				val text = body.readText()
+
 				// de-serialize the json
-				Server.json.parse(
-					ServiceResponse.serializer(rtype.serializer()),
-					body.readText()
-				)
+				try {
+					Server.json.parse(ServiceResponse.serializer(rtype.serializer()), text)
+				} catch (t: Throwable) {
+					// super rare concurrency bug here... can't reproduce reliably
+					// best I can do for now is add more info to the error log
+					throw IllegalArgumentException("""
+						|can't deserialize JSON
+						|read ${text.length} chars, end of input? ${body.endOfInput}
+						|Response from server:
+						|
+						|$text
+					""".trimMargin(), t)
+				}
 			}
 
 			// otherwise, pass on to the usual serializer
