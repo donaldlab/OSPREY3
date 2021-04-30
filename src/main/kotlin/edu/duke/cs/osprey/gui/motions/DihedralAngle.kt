@@ -58,7 +58,10 @@ class DihedralAngle(
 			ConfDescription(
 				pos,
 				// find the motion in the new conf space's conflib
-				confConfSpace.frag.motions[motion.id] as ConfLib.ContinuousMotion.DihedralAngle,
+				confConfSpace.frag.motions
+					.find { it.id == motion.id }
+					as ConfLib.ContinuousMotion.DihedralAngle?
+					?: throw NoSuchElementException("no motion with id=${motion.id} in motions for fragment ${confConfSpace.frag.id}"),
 				minDegrees,
 				maxDegrees
 			)
