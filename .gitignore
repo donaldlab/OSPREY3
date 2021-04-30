@@ -1,16 +1,16 @@
 
 # temp folders
-build
+/build
 **/*.egg-info
 **/*.pyc
 
 # netbeans things
-nbproject
+/nbproject
 build.xml
 nbbuild.xml
 
 # eclipse things
-bin
+/bin
 .classpath
 .project
 .settings
