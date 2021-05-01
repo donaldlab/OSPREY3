@@ -1,13 +1,20 @@
 package edu.duke.cs.osprey.service.services
 
 import edu.duke.cs.osprey.service.*
+import io.ktor.routing.*
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.modules.PolymorphicModuleBuilder
+import kotlinx.serialization.modules.subclass
 
 
-object AboutService {
+object AboutService : OspreyService.Provider {
 
-	fun registerResponses(registrar: ResponseRegistrar) {
-		registrar.addResponse<AboutResponse>()
+	override fun registerResponses(responses: PolymorphicModuleBuilder<ResponseInfo>) {
+		responses.subclass(AboutResponse::class)
+	}
+
+	override fun registerService(instance: OspreyService.Instance, routing: Routing) {
+		routing.service(instance, "/about", ::run)
 	}
 
 	fun run(instance: OspreyService.Instance): ServiceResponse<AboutResponse> =

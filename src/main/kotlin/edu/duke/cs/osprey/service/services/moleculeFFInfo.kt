@@ -2,14 +2,24 @@ package edu.duke.cs.osprey.service.services
 
 import edu.duke.cs.osprey.service.*
 import edu.duke.cs.osprey.service.amber.Parmchk
+import io.ktor.routing.*
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.modules.PolymorphicModuleBuilder
+import kotlinx.serialization.modules.subclass
 
 
-object MoleculeFFInfoService {
+object MoleculeFFInfoService : OspreyService.Provider {
 
-	fun registerResponses(registrar: ResponseRegistrar) {
-		registrar.addResponse<MoleculeFFInfoResponse>()
-		registrar.addError<MoleculeFFInfoError>()
+	override fun registerResponses(responses: PolymorphicModuleBuilder<ResponseInfo>) {
+		responses.subclass(MoleculeFFInfoResponse::class)
+	}
+
+	override fun registerErrors(errors: PolymorphicModuleBuilder<ErrorInfo>) {
+		errors.subclass(MoleculeFFInfoError::class)
+	}
+
+	override fun registerService(instance: OspreyService.Instance, routing: Routing) {
+		routing.service(instance, "/moleculeFFInfo", ::run)
 	}
 
 	fun run(instance: OspreyService.Instance, request: MoleculeFFInfoRequest): ServiceResponse<MoleculeFFInfoResponse> {

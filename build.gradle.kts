@@ -47,8 +47,8 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
 	`java-library`
-	kotlin("jvm") version "1.3.60"
-	kotlin("plugin.serialization") version "1.3.61"
+	kotlin("jvm") version "1.4.32"
+	kotlin("plugin.serialization") version "1.4.32"
 	application
 	idea
 	id("org.openjfx.javafxplugin") version("0.0.7")
@@ -93,8 +93,8 @@ java {
 idea {
 	module {
 		// use the same output folders as gradle, so the pythonDevelop task works correctly
-		outputDir = sourceSets["main"].output.classesDirs.singleFile
-		testOutputDir = sourceSets["test"].output.classesDirs.singleFile
+		outputDir = sourceSets["main"].output.classesDirs.files.first()
+		testOutputDir = sourceSets["test"].output.classesDirs.files.first()
 		inheritOutputDirs = false
 	}
 }
@@ -143,7 +143,7 @@ dependencies {
 	implementation("org.tomlj:tomlj:1.0.0")
 	implementation(files("lib/kdtree.jar")) // no authoritative source on the internet
 
-	val ktorVersion = "1.3.0"
+	val ktorVersion = "1.5.4"
 
 	// used by the gui
 	implementation("com.cuchazinteractive:kludge:0.1")
@@ -252,6 +252,9 @@ tasks.withType<KotlinCompile> {
 		// enable experimental features so we can use the fancy ktor stuff
 		freeCompilerArgs += "-Xuse-experimental=kotlin.Experimental"
 		freeCompilerArgs += "-XXLanguage:+InlineClasses"
+
+		// use the newer (and less buggier?) compiler backend
+		useIR = true
 	}
 }
 

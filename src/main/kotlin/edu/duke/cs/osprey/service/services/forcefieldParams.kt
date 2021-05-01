@@ -2,16 +2,26 @@ package edu.duke.cs.osprey.service.services
 
 import edu.duke.cs.osprey.service.*
 import edu.duke.cs.osprey.service.amber.Leap
+import io.ktor.routing.*
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.modules.PolymorphicModuleBuilder
+import kotlinx.serialization.modules.subclass
 import java.util.ArrayList
 import java.util.HashMap
 
 
-object ForcefieldParamsService {
+object ForcefieldParamsService : OspreyService.Provider {
 
-	fun registerResponses(registrar: ResponseRegistrar) {
-		registrar.addResponse<ForcefieldParamsResponse>()
-		registrar.addError<ForcefieldParamsError>()
+	override fun registerResponses(responses: PolymorphicModuleBuilder<ResponseInfo>) {
+		responses.subclass(ForcefieldParamsResponse::class)
+	}
+
+	override fun registerErrors(errors: PolymorphicModuleBuilder<ErrorInfo>) {
+		errors.subclass(ForcefieldParamsError::class)
+	}
+
+	override fun registerService(instance: OspreyService.Instance, routing: Routing) {
+		routing.service(instance, "/forcefieldParams", ::run)
 	}
 
 	fun run(instance: OspreyService.Instance, request: ForcefieldParamsRequest): ServiceResponse<ForcefieldParamsResponse> {

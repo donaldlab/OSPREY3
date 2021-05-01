@@ -4,6 +4,7 @@ import edu.duke.cs.osprey.Osprey
 import edu.duke.cs.osprey.service.services.*
 import io.ktor.application.call
 import io.ktor.application.install
+import io.ktor.client.features.json.serializer.*
 import io.ktor.features.ContentNegotiation
 import io.ktor.http.ContentType
 import io.ktor.request.receive
@@ -13,19 +14,19 @@ import io.ktor.routing.Routing
 import io.ktor.routing.get
 import io.ktor.routing.post
 import io.ktor.routing.routing
+import io.ktor.serialization.*
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.engine.stop
 import io.ktor.server.netty.Netty
-import kotlinx.serialization.ImplicitReflectionSerializer
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonConfiguration
+import kotlinx.serialization.modules.PolymorphicModuleBuilder
 import kotlinx.serialization.modules.SerializersModule
-import kotlinx.serialization.serializer
+import kotlinx.serialization.modules.polymorphic
+import kotlinx.serialization.modules.subclass
 import org.slf4j.LoggerFactory
 import java.nio.charset.Charset
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
-import kotlin.reflect.KClass
 
 
 object OspreyService {
@@ -38,12 +39,36 @@ object OspreyService {
 	fun getResourceAsStream(path: String) = OspreyService.javaClass.getResourceAsStream(path)
 
 	fun getResourceAsString(path: String, charset: Charset = Charsets.UTF_8) =
-		getResourceAsStream(path).use { stream -> stream.reader(charset).readText() }
+		getResourceAsStream(path)
+			?.use { stream -> stream.reader(charset).readText() }
+			?: throw NoSuchElementException("resource not found: $path")
 
 	fun getResourceAsBytes(path: String) =
-		getResourceAsStream(path).use { stream -> stream.readBytes() }
+		getResourceAsStream(path)
+			?.use { stream -> stream.readBytes() }
+			?: throw NoSuchElementException("resource not found: $path")
 
 	val log = LoggerFactory.getLogger(OspreyService::class.java)
+
+
+	interface Provider {
+		fun registerResponses(responses: PolymorphicModuleBuilder<ResponseInfo>) {}
+		fun registerErrors(errors: PolymorphicModuleBuilder<ErrorInfo>) {}
+		fun registerService(instance: Instance, routing: Routing)
+	}
+
+	val services: List<Provider> = listOf(
+		AboutService,
+		MissingAtomsService,
+		BondsService,
+		ProtonationService,
+		ProtonateService,
+		TypesService,
+		MoleculeFFInfoService,
+		ForcefieldParamsService,
+		MinimizeService,
+		ClashesService
+	)
 
 
 	class Instance(val dir: Path, wait: Boolean, port: Int = defaultPort) : AutoCloseable {
@@ -51,7 +76,7 @@ object OspreyService {
 		private val service = embeddedServer(Netty, port) {
 
 			install(ContentNegotiation) {
-				serializationForServiceResponse()
+				register(ContentType.Application.Json, SerializationConverter(json))
 			}
 
 			routing {
@@ -65,16 +90,9 @@ object OspreyService {
 				}
 
 				// map each service to a URL
-				service("/about", AboutService::run)
-				service("/missingAtoms", MissingAtomsService::run)
-				service("/bonds", BondsService::run)
-				service("/protonation", ProtonationService::run)
-				service("/protonate", ProtonateService::run)
-				service("/types", TypesService::run)
-				service("/moleculeFFInfo", MoleculeFFInfoService::run)
-				service("/forcefieldParams", ForcefieldParamsService::run)
-				service("/minimize", MinimizeService::run)
-				service("/clashes", ClashesService::run)
+				for (service in services) {
+					service.registerService(this@Instance, this@routing)
+				}
 			}
 		}
 
@@ -85,74 +103,51 @@ object OspreyService {
 		override fun close() {
 			service.stop(0L, 5L, TimeUnit.SECONDS)
 		}
-
-		private inline fun <reified R:ResponseInfo> Routing.service(path: String, crossinline func: (Instance) -> ServiceResponse<R>) {
-			get(path) {
-				try {
-					call.respond(func(this@Instance))
-				} catch (t: Throwable) {
-					call.respondError(t)
-				}
-			}
-		}
-
-		private inline fun <reified T:Any, reified R:ResponseInfo> Routing.service(path: String, crossinline func: (Instance, T) -> ServiceResponse<R>) {
-			post(path) {
-				try {
-					call.respond(func(this@Instance, call.receive()))
-				} catch (t: Throwable) {
-					call.respondError(t)
-				}
-			}
-		}
 	}
 
 	// register types for each service
-	@UseExperimental(ImplicitReflectionSerializer::class)
-	val serializationModule = SerializersModule {
+	private val serializationModule = SerializersModule {
 
-		val registrar = ResponseRegistrar()
-
-		// register built-in types
-		registrar.addError<InternalError>()
-		registrar.addError<RequestError>()
-
-		// ask each service to register their responses and errors
-		AboutService.registerResponses(registrar)
-		MissingAtomsService.registerResponses(registrar)
-		BondsService.registerResponses(registrar)
-		ProtonationService.registerResponses(registrar)
-		ProtonateService.registerResponses(registrar)
-		TypesService.registerResponses(registrar)
-		MoleculeFFInfoService.registerResponses(registrar)
-		ForcefieldParamsService.registerResponses(registrar)
-		MinimizeService.registerResponses(registrar)
-		ClashesService.registerResponses(registrar)
-
-		polymorphic<ResponseInfo> {
-			for (response in registrar.responses) {
-				@Suppress("UNCHECKED_CAST")
-				val c = response as KClass<ResponseInfo>
-				addSubclass(c, c.serializer())
+		polymorphic(ResponseInfo::class) {
+			for (service in services) {
+				service.registerResponses(this)
 			}
 		}
-		polymorphic<ErrorInfo> {
-			for (error in registrar.errors) {
-				@Suppress("UNCHECKED_CAST")
-				val c = error as KClass<ErrorInfo>
-				addSubclass(c, c.serializer())
+		polymorphic(ErrorInfo::class) {
+
+			// register built-in types
+			subclass(InternalError::class)
+			subclass(RequestError::class)
+
+			for (service in services) {
+				service.registerErrors(this)
 			}
 		}
 	}
 
-	val json = Json(
-		configuration = JsonConfiguration.Stable.copy(
-			encodeDefaults = true,
-			strictMode = false,
-			unquoted = false,
-			prettyPrint = false,
-			useArrayPolymorphism = true
-		),
-		context = serializationModule
-	)
+	val json = Json {
+		serializersModule = serializationModule
+	}
+
+	val serializer = KotlinxSerializer(json)
+}
+
+inline fun <reified R:ResponseInfo> Routing.service(instance: OspreyService.Instance, path: String, crossinline func: (OspreyService.Instance) -> ServiceResponse<R>) {
+	get(path) {
+		try {
+			call.respond(func(instance))
+		} catch (t: Throwable) {
+			call.respondError(t)
+		}
+	}
+}
+
+inline fun <reified T:Any, reified R:ResponseInfo> Routing.service(instance: OspreyService.Instance, path: String, crossinline func: (OspreyService.Instance, T) -> ServiceResponse<R>) {
+	post(path) {
+		try {
+			call.respond(func(instance, call.receive()))
+		} catch (t: Throwable) {
+			call.respondError(t)
+		}
+	}
 }

@@ -2,14 +2,24 @@ package edu.duke.cs.osprey.service.services
 
 import edu.duke.cs.osprey.service.*
 import edu.duke.cs.osprey.service.amber.Leap
+import io.ktor.routing.*
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.modules.PolymorphicModuleBuilder
+import kotlinx.serialization.modules.subclass
 
 
-object ProtonateService {
+object ProtonateService : OspreyService.Provider {
 
-	fun registerResponses(registrar: ResponseRegistrar) {
-		registrar.addResponse<ProtonateResponse>()
-		registrar.addError<ProtonateError>()
+	override fun registerResponses(responses: PolymorphicModuleBuilder<ResponseInfo>) {
+		responses.subclass(ProtonateResponse::class)
+	}
+
+	override fun registerErrors(errors: PolymorphicModuleBuilder<ErrorInfo>) {
+		errors.subclass(ProtonateError::class)
+	}
+
+	override fun registerService(instance: OspreyService.Instance, routing: Routing) {
+		routing.service(instance, "/protonate", ::run)
 	}
 
 	fun run(instance: OspreyService.Instance, request: ProtonateRequest): ServiceResponse<ProtonateResponse> {

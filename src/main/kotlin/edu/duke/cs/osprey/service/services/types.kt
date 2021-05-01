@@ -4,15 +4,25 @@ import edu.duke.cs.osprey.service.*
 import edu.duke.cs.osprey.service.amber.Antechamber
 import edu.duke.cs.osprey.service.amber.Leap
 import edu.duke.cs.osprey.service.amber.SQM
+import io.ktor.routing.*
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.modules.PolymorphicModuleBuilder
+import kotlinx.serialization.modules.subclass
 
 
-object TypesService {
+object TypesService : OspreyService.Provider {
 
-	fun registerResponses(registrar: ResponseRegistrar) {
-		registrar.addResponse<TypesResponse>()
-		registrar.addError<TypesLeapError>()
-		registrar.addError<TypesAntechamberError>()
+	override fun registerResponses(responses: PolymorphicModuleBuilder<ResponseInfo>) {
+		responses.subclass(TypesResponse::class)
+	}
+
+	override fun registerErrors(errors: PolymorphicModuleBuilder<ErrorInfo>) {
+		errors.subclass(TypesLeapError::class)
+		errors.subclass(TypesAntechamberError::class)
+	}
+
+	override fun registerService(instance: OspreyService.Instance, routing: Routing) {
+		routing.service(instance, "/types", ::run)
 	}
 
 	fun run(instance: OspreyService.Instance, request: TypesRequest): ServiceResponse<TypesResponse> {

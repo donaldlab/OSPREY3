@@ -2,14 +2,24 @@ package edu.duke.cs.osprey.service.services
 
 import edu.duke.cs.osprey.service.*
 import edu.duke.cs.osprey.service.amber.Leap
+import io.ktor.routing.*
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.modules.PolymorphicModuleBuilder
+import kotlinx.serialization.modules.subclass
 
 
-object MissingAtomsService {
+object MissingAtomsService : OspreyService.Provider {
 
-	fun registerResponses(registrar: ResponseRegistrar) {
-		registrar.addResponse<MissingAtomsResponse>()
-		registrar.addError<MissingAtomsError>()
+	override fun registerResponses(responses: PolymorphicModuleBuilder<ResponseInfo>) {
+		responses.subclass(MissingAtomsResponse::class)
+	}
+
+	override fun registerErrors(errors: PolymorphicModuleBuilder<ErrorInfo>) {
+		errors.subclass(MissingAtomsError::class)
+	}
+
+	override fun registerService(instance: OspreyService.Instance, routing: Routing) {
+		routing.service(instance, "/missingAtoms", ::run)
 	}
 
 	fun run(instance: OspreyService.Instance, request: MissingAtomsRequest): ServiceResponse<MissingAtomsResponse> {

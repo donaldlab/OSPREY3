@@ -3,15 +3,25 @@ package edu.duke.cs.osprey.service.services
 import edu.duke.cs.osprey.service.*
 import edu.duke.cs.osprey.service.amber.Antechamber
 import edu.duke.cs.osprey.service.amber.Leap
+import io.ktor.routing.*
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.modules.PolymorphicModuleBuilder
+import kotlinx.serialization.modules.subclass
 
 
-object BondsService {
+object BondsService : OspreyService.Provider {
 
-	fun registerResponses(registrar: ResponseRegistrar) {
-		registrar.addResponse<BondsResponse>()
-		registrar.addError<BondsLeapError>()
-		registrar.addError<BondsAntechamberError>()
+	override fun registerResponses(responses: PolymorphicModuleBuilder<ResponseInfo>) {
+		responses.subclass(BondsResponse::class)
+	}
+
+	override fun registerErrors(errors: PolymorphicModuleBuilder<ErrorInfo>) {
+		errors.subclass(BondsLeapError::class)
+		errors.subclass(BondsAntechamberError::class)
+	}
+
+	override fun registerService(instance: OspreyService.Instance, routing: Routing) {
+		routing.service(instance, "/bonds", ::run)
 	}
 
 	fun run(instance: OspreyService.Instance, request: BondsRequest): ServiceResponse<BondsResponse> {
