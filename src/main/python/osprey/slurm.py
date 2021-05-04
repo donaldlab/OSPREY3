@@ -49,7 +49,7 @@ def launch(num_nodes, parallelism, mem_mib, python=sys.executable, srun_args=[])
         '--export=OSPREY_PREAMBLE=false'
     ]
     if parallelism.numGpus > 0:
-        args += ['--gpus-per-task=%d' % parallelism.numGpus]
+        args += ['--gres=gpu:%d' % parallelism.numGpus]
 
     # call that command with srun to start the cluster job
     srun_cmd = ['srun'] + args + srun_args + script_cmd
