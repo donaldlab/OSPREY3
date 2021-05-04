@@ -11,6 +11,7 @@ import edu.duke.cs.osprey.coffee.seqdb.SeqInfo;
 import edu.duke.cs.osprey.coffee.seqdb.StateZ;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
+import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.parallelism.ThreadTools;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.MathTools;
@@ -68,6 +69,19 @@ public class AffinityDirector implements Coffee.Director {
 
 		public Builder(MultiStateConfSpace confSpace, String complexName, String designName, String targetName) {
 			this(confSpace, confSpace.getState(complexName), confSpace.getState(designName), confSpace.getState(targetName));
+		}
+
+		public Builder(ConfSpace complex, ConfSpace design, ConfSpace target) {
+			this(
+					new MultiStateConfSpace
+							.Builder("complex", complex)
+							.addMutableState("design", design)
+							.addUnmutableState("target", target)
+							.build(),
+					"complex",
+					"design",
+					"target"
+			);
 		}
 
 		public Builder setK(int val) {
