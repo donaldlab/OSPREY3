@@ -10,8 +10,6 @@ import edu.duke.cs.osprey.gui.prep.Assignments
 import edu.duke.cs.osprey.gui.prep.ConfSpace
 import edu.duke.cs.osprey.gui.tools.UnsupportedClassException
 import edu.duke.cs.osprey.gui.tools.pairs
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import org.joml.Vector3d
 import java.util.*
@@ -283,7 +281,9 @@ class ConfSpaceCompiler(val confSpace: ConfSpace) {
 			val staticEnergies = runBlocking {
 				forcefields
 					.map { ff ->
-						async {
+						// TEMP: due to a bug in Ktor (possibly), we can't compute these forcefields concurrently, see:
+						// https://youtrack.jetbrains.com/issue/KTOR-2622
+						//async {
 
 							// start with the internal energies for affected atoms
 							var staticEnergy = staticAffectedAtomsByMol
@@ -307,11 +307,11 @@ class ConfSpaceCompiler(val confSpace: ConfSpace) {
 								ff.unconnectedDistance
 							)
 
-							return@async staticEnergy
+							return@map staticEnergy
 								.also { staticEnergiesTask.increment() }
-						}
+						//}
 					}
-					.awaitAll()
+					//.awaitAll()
 			}
 
 			// compile the design positions
