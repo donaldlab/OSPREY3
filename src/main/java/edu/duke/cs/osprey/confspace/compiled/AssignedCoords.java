@@ -158,10 +158,60 @@ public class AssignedCoords {
 		// so it doesn't have to be super fast.
 		// It just needs to work correctly.
 
+		Function<Integer,String> makeResKey = resInfoIndex -> {
+			var resInfo = confSpace.resInfos[resInfoIndex];
+			return String.format("%s%s", resInfo.chainId, resInfo.resId);
+		};
+
+		// figure out which res infos to use with the current assignments
+		// start with res infos from the static atoms
+		Map<String,Integer> staticResInfos = new HashMap<>();
+		for (int i=0; i<confSpace.numStaticAtoms; i++) {
+			var resInfoIndex = confSpace.staticResInfoIndices[i];
+			staticResInfos.put(makeResKey.apply(resInfoIndex), resInfoIndex);
+		}
+
+		// then get the res infos from conf atoms
+		Map<String,Integer> assignedResInfos = new HashMap<>();
+		for (int posi=0; posi<confSpace.numPos(); posi++) {
+
+			// get the conf
+			int confi = assignments[posi];
+			if (confi == Conf.Unassigned) {
+				continue;
+			}
+			ConfSpace.Conf conf = confSpace.positions[posi].confs[confi];
+
+			for (int atomi=0; atomi<conf.numAtoms; atomi++) {
+				var resInfoIndex = conf.atomResInfoIndices[atomi];
+
+				// check for collisions first
+				// the compiled conf spaces allow making mutations that can't be expressed in PDB files
+				// so converting to the old molecule class, which is modeled closely to the PDB format, causes problems
+				var resKey = makeResKey.apply(resInfoIndex);
+				var oldResInfoIndex = assignedResInfos.get(resKey);
+				if (oldResInfoIndex != null && oldResInfoIndex != resInfoIndex) {
+					throw new IllegalArgumentException(
+						"Multiple assigments conflict at residue " + resKey + ", including position " + confSpace.positions[posi].name + "."
+						+ " Can't pick unique residue type for residue-centric molecule formats, like PDB."
+						+ " Probably caused by multiple design positions affecting the same residue."
+					);
+				}
+
+				// no collisions, make the assignment
+				assignedResInfos.put(resKey, resInfoIndex);
+			}
+		}
+
+		// combine the static and assigned res info maps to make a single authoritative source for residue assignments
+		Map<String,Integer> resInfoIndexMap = new HashMap<>();
+		resInfoIndexMap.putAll(staticResInfos);
+		resInfoIndexMap.putAll(assignedResInfos);
+
 		// collect all the atoms by molecule
 		// and also by chain and residue if possible
 		class AtomInfo {
-			Vector3d pos = new Vector3d();
+			final Vector3d pos = new Vector3d();
 			public String name;
 			int molInfoIndex;
 			int resInfoIndex;
@@ -185,20 +235,6 @@ public class AssignedCoords {
 			}
 		};
 
-		// figure out which res infos to use with the current assignments
-		Map<Integer,Integer> resInfoIndexMap = new HashMap<>();
-		Function<ConfSpace.ResInfo,List<Integer>> findResInfos = resInfo -> {
-			List<Integer> out = new ArrayList<>();
-			for (int i=0; i<confSpace.resInfos.length; i++) {
-				boolean sameRes = resInfo.chainId.equals(confSpace.resInfos[i].chainId)
-					&& resInfo.resId.equals(confSpace.resInfos[i].resId);
-				if (sameRes) {
-					out.add(i);
-				}
-			}
-			return out;
-		};
-
 		// first, collect all the conf atoms
 		for (int posi=0; posi<confSpace.numPos(); posi++) {
 
@@ -217,18 +253,14 @@ public class AssignedCoords {
 				atomInfo.molInfoIndex = conf.atomMolInfoIndices[atomi];
 				atomInfo.resInfoIndex = conf.atomResInfoIndices[atomi];
 
-				addInfo.accept(atomInfo);
-
-				// update the res info index map with this assignment
-				if (atomInfo.resInfoIndex >= 0 && !resInfoIndexMap.containsKey(atomInfo.resInfoIndex)) {
-					ConfSpace.ResInfo atomResInfo = confSpace.resInfos[atomInfo.resInfoIndex];
-					for (int sameResIndex : findResInfos.apply(atomResInfo)) {
-						resInfoIndexMap.put(sameResIndex, atomInfo.resInfoIndex);
-					}
+				// just in case...
+				if (atomInfo.resInfoIndex != resInfoIndexMap.get(makeResKey.apply(atomInfo.resInfoIndex))) {
+					throw new Error("residue assignments from conf atoms don't match previously-determined residue assignments... from the conf atoms. Obviously this is a bug");
 				}
+
+				addInfo.accept(atomInfo);
 			}
 		}
-
 
 		// collect all the static atoms
 		for (int i=0; i<confSpace.numStaticAtoms; i++) {
@@ -239,12 +271,13 @@ public class AssignedCoords {
 			atomInfo.molInfoIndex = confSpace.staticMolInfoIndices[i];
 			atomInfo.resInfoIndex = confSpace.staticResInfoIndices[i];
 
-			// use the res info index from any assignments
-			atomInfo.resInfoIndex = resInfoIndexMap.getOrDefault(atomInfo.resInfoIndex, atomInfo.resInfoIndex);
+			// apply the residue assignments
+			atomInfo.resInfoIndex = resInfoIndexMap.get(makeResKey.apply(atomInfo.resInfoIndex));
 
 			addInfo.accept(atomInfo);
 		}
 
+		// finally, build the new molecule instance
 		Molecule mol = new Molecule();
 
 		Set<String> usedChainIds = new HashSet<>();
