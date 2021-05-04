@@ -411,16 +411,23 @@ class ConfSpaceCompiler(val confSpace: ConfSpace) {
 
 	private class ResidueIndex(mols: List<Molecule>) {
 
+		data class ResKey(
+			val chainId: String,
+			val resId: String
+		) {
+			constructor(chain: Polymer.Chain, res: Polymer.Residue) : this(chain.id, res.id)
+		}
+
 		// index all the residues
 		val resInfos: List<CompiledConfSpace.ResInfo>
-		val resIndices: Map<String,Int>
+		private val resIndices: Map<ResKey,Int>
 		init {
 			val resInfos = ArrayList<CompiledConfSpace.ResInfo>()
 			resIndices = HashMap()
 			for (mol in mols.filterIsInstance<Polymer>()) {
 				for (chain in mol.chains) {
 					for ((resi, res) in chain.residues.withIndex()) {
-						resIndices[res.id] = resInfos.size
+						resIndices[ResKey(chain, res)] = resInfos.size
 						resInfos.add(CompiledConfSpace.ResInfo(chain.id, res.id, res.type, resi))
 					}
 				}
@@ -428,12 +435,23 @@ class ConfSpaceCompiler(val confSpace: ConfSpace) {
 			this.resInfos = resInfos
 		}
 
-		fun indexOfRes(res: Polymer.Residue?): Int =
-			if (res != null) {
-				resIndices[res.id] ?: throw IllegalArgumentException("residue has no index: $res")
+		fun indexOfRes(chain: Polymer.Chain?, res: Polymer.Residue?): Int =
+			if (chain != null && res != null) {
+				resIndices[ResKey(chain, res)] ?: throw IllegalArgumentException("residue has no index: $chain $res")
 			} else {
 				-1
 			}
+
+		fun indexOfRes(atom: Atom, mol: Molecule): Int =
+			(mol as? Polymer)
+				?.let { polymer ->
+					polymer
+						.findChainAndResidue(atom)
+						?.let { (chain, res) ->
+							indexOfRes(chain, res)
+						}
+				}
+				?: -1
 	}
 
 	/**
@@ -578,7 +596,7 @@ class ConfSpaceCompiler(val confSpace: ConfSpace) {
 			name,
 			Vector3d(pos.checkForErrors(name)),
 			moli,
-			resIndex.indexOfRes((mol as? Polymer)?.findResidue(this))
+			resIndex.indexOfRes(this, mol)
 		)
 
 	/**
