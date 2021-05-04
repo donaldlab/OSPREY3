@@ -47,7 +47,7 @@ def launch(num_nodes, parallelism, mem_mib, python=sys.executable, srun_args=[])
         '--ntasks=%d' % num_nodes,
         '--cpus-per-task=%d' % parallelism.numThreads,
         '--mem=%dM' % mem_mb,
-        '--export=OSPREY_PREAMBLE=false'
+        '--export=ALL,OSPREY_PREAMBLE=false'
     ]
     if parallelism.numGpus > 0:
         args += ['--gres=gpu:%d' % parallelism.numGpus]
