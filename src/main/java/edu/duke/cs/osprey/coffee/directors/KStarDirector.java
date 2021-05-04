@@ -260,7 +260,7 @@ public class KStarDirector implements Coffee.Director {
 			}
 
 			// compute the free energies
-			directions.member.log("wild-type sequence: %s ...", sequences.size(), seq);
+			directions.member.log("wild-type sequence ...", seq);
 			g[target.index] = calcG(directions, processor, target, null, null);
 			directions.member.log("\t%20s: %s", target.name, gToString(g[target.index]));
 			g[design.index] = calcG(directions, processor, design, seq, null);
