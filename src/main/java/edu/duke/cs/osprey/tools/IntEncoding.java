@@ -61,7 +61,7 @@ public enum IntEncoding {
 
 		@Override
 		public int read(ByteBuffer in) {
-			return in.get();
+			return in.get() & 0xff;
 		}
 	},
 	Short(2, 32767) {
@@ -85,7 +85,7 @@ public enum IntEncoding {
 
 		@Override
 		public int read(ByteBuffer in) {
-			return in.getShort();
+			return in.getShort() & 0xffff;
 		}
 
 	},
