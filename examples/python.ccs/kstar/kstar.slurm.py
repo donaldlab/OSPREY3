@@ -4,9 +4,12 @@
 free_energy_mib = 1*1024
 
 # Then, pick now much memory we want to allocate for the rest of JVM heap.
+# If you're seeing errors like this: "java.lang.OutOfMemoryError: Java heap space",
+# try increasing the JVM heap size.
 heap_mib = 256
 
 # Then, pick how much memory we want to allocate for the rest of the whole process.
+# If SLURM is canceling your jobs for using too much memory, try increasing this.
 process_mib = 256
 
 # Start osprey
