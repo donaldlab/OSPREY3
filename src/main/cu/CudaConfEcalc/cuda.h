@@ -359,10 +359,10 @@ namespace osprey {
 namespace cuda {
 
 	__host__
-	void check_error();
+	int get_arch();
 
 	__host__
-	int get_arch();
+	int get_max_shared_size(int device);
 
 	__host__
 	int optimize_threads_void(const void * func, size_t shared_size_static, size_t shared_size_per_thread);
@@ -412,6 +412,17 @@ namespace cuda {
 			auto msg = cudaGetErrorString(result); \
 			std::cerr << "CUDA error @ " __FILE__ ":" S__LINE__ " " << msg << std::endl; \
 			throw std::runtime_error(msg); \
+		} \
+	} while(0)
+
+#define CUDACHECK_ERR()  CUDACHECK(cudaGetLastError())
+
+#define CUDACHECK_SHAREDSIZE(device, requested_size) \
+	do { \
+		int max_size = cuda::get_max_shared_size(device); \
+		if ((requested_size) > max_size) { \
+			std::cerr << "CUDA error @ " __FILE__ ":" S__LINE__ " requested too much shared memory " << (requested_size) << " but only have " << max_size << std::endl; \
+			throw std::runtime_error("Requested too much shared memory"); \
 		} \
 	} while(0)
 

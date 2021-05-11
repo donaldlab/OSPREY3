@@ -6,14 +6,6 @@
 namespace cuda {
 
 	__host__
-	void check_error() {
-		cudaError_t error = cudaGetLastError();
-		if (error != cudaSuccess) {
-			throw std::runtime_error(cudaGetErrorString(error));
-		}
-	}
-
-	__host__
 	int get_arch() {
 
 		int major;
@@ -23,6 +15,13 @@ namespace cuda {
 		CUDACHECK(cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, 0));
 
 		return major*100 + minor*10;
+	}
+
+	__host__
+	int get_max_shared_size(int device) {
+		int val;
+		cudaDeviceGetAttribute(&val, cudaDevAttrMaxSharedMemoryPerBlock, device);
+		return val;
 	}
 
 	__host__

@@ -13,6 +13,7 @@
 #include <stdexcept>
 #include <algorithm>
 #include <cstdarg>
+#include <execinfo.h>
 
 
 // define some types for fixed-size floating point types
