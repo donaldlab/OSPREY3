@@ -42,6 +42,8 @@ class Stream {
 
 namespace osprey {
 
+	void exception_handler();
+
 	template<typename T>
 	void * alloc_conf_space(int device, const ConfSpace<T> & conf_space) {
 
@@ -96,6 +98,8 @@ namespace osprey {
 	            const Array<int32_t> & conf,
 	            Array<Real3<T>> & out_coords) {
 
+		std::set_terminate(exception_handler);
+
 		CUDACHECK(cudaSetDevice(device));
 
 		// upload the arguments
@@ -114,12 +118,13 @@ namespace osprey {
 			+ cuda::pad_to_alignment<16>(Assignment<T>::sizeof_index_offsets(conf.get_size()))
 			+ cuda::pad_to_alignment<16>(Assignment<T>::sizeof_atom_pairs(conf.get_size()))
 			+ cuda::pad_to_alignment<16>(Assignment<T>::sizeof_conf_energies(conf.get_size()));
+		CUDACHECK_SHAREDSIZE(device, shared_size);
 
 		// launch the kernel
 		// TODO: optimize launch bounds
 		int num_threads = cuda::optimize_threads(assign_kernel<T>, shared_size, 0);
 		assign_kernel<<<1, num_threads, shared_size, stream->get_stream()>>>(d_conf_space, d_conf, d_out_coords);
-		cuda::check_error();
+		CUDACHECK_ERR();
 
 		// download the coords
 		CUDACHECK(cudaMemcpy(&out_coords, d_out_coords, out_coords_bytes, cudaMemcpyDeviceToHost));
@@ -179,6 +184,8 @@ namespace osprey {
 	       osprey::Array<osprey::Real3<T>> * out_coords,
 	       int64_t num_atoms) {
 
+		std::set_terminate(exception_handler);
+
 		CUDACHECK(cudaSetDevice(device));
 
 		// upload the arguments
@@ -214,8 +221,9 @@ namespace osprey {
 		// launch the kernel
 		int num_threads = CALC_THREADS;
 		int64_t shared_size = shared_size_static + shared_size_per_thread*num_threads;
+		CUDACHECK_SHAREDSIZE(device, shared_size);
 		calc_kernel<T,efunc><<<1, num_threads, shared_size, stream->get_stream()>>>(d_conf_space, d_conf, d_inters, d_out_coords, d_out_energy);
-		cuda::check_error();
+		CUDACHECK_ERR();
 
 		// download the energy
 		T out_energy;
@@ -535,11 +543,15 @@ namespace osprey {
 	template<typename T>
 	__host__
 	inline int64_t minimize_kernel_shared_size(const ConfSpaceSizes * conf_space_sizes) {
+
+		// TODO: move quadratically-sized things out of shared memory?
+		//  this doesn't scale well to 10s of design positions
+
 		return 0
 			+ cuda::pad_to_alignment<16>(Assignment<T>::sizeof_index_offsets(conf_space_sizes->num_pos))
-			+ cuda::pad_to_alignment<16>(Assignment<T>::sizeof_atom_pairs(conf_space_sizes->num_pos))
+			+ cuda::pad_to_alignment<16>(Assignment<T>::sizeof_atom_pairs(conf_space_sizes->num_pos)) // TODO: quadratically-sized
 			+ cuda::pad_to_alignment<16>(Assignment<T>::sizeof_conf_energies(conf_space_sizes->num_pos))
-			+ (Dof<T>::buf_size + Array<const PosInter<T> *>::get_bytes(conf_space_sizes->max_num_inters))*conf_space_sizes->max_num_dofs
+			+ (Dof<T>::buf_size + Array<const PosInter<T> *>::get_bytes(conf_space_sizes->max_num_inters))*conf_space_sizes->max_num_dofs // TODO: quadratically-sized
 			+ Dofs<T>::dofs_shared_size
 			+ cuda::pad_to_alignment<16>(sizeof(LineSearchState<T>)*conf_space_sizes->max_num_dofs) // line_search_states
 			+ DofValues<T>::get_bytes(conf_space_sizes->max_num_dofs) // here
@@ -560,6 +572,8 @@ namespace osprey {
 	                    const MinimizationJobs<T> * jobs,
 	                    Array<T> * out_energies) {
 
+		std::set_terminate(exception_handler);
+
 		CUDACHECK(cudaSetDevice(device));
 
 		// upload the arguments
@@ -578,13 +592,14 @@ namespace osprey {
 		// launch the kernel
 		int num_threads = get_minimize_threads<T>();
 		int64_t shared_size = minimize_kernel_shared_size<T>(conf_space_sizes) + minimize_kernel_shared_size_thread<T>()*num_threads;
+		CUDACHECK_SHAREDSIZE(device, shared_size);
 		minimize_kernel<T,efunc><<<jobs->get_size(), num_threads, shared_size, stream->get_stream()>>>(
 			shared_size,
 			d_conf_space,
 			conf_space_sizes->max_num_inters,
 			stream->get_d_buf()
 		);
-		cuda::check_error();
+		CUDACHECK_ERR();
 
 		// download the energies
 		for (int j=0; j<jobs->get_size(); j++) {
@@ -613,6 +628,8 @@ namespace osprey {
 	           Array<Real3<T>> * out_coords,
 	           Array<T> * out_dofs) {
 
+		std::set_terminate(exception_handler);
+
 		CUDACHECK(cudaSetDevice(device));
 
 		// upload the arguments
@@ -629,13 +646,14 @@ namespace osprey {
 		// launch the kernel
 		int num_threads = get_minimize_threads<T>();
 		int64_t shared_size = minimize_kernel_shared_size<T>(conf_space_sizes) + minimize_kernel_shared_size_thread<T>()*num_threads;
+		CUDACHECK_SHAREDSIZE(device, shared_size);
 		minimize_kernel<T,efunc><<<jobs->get_size(), num_threads, shared_size, stream->get_stream()>>>(
 			shared_size,
 			d_conf_space,
 			conf_space_sizes->max_num_inters,
 			stream->get_d_buf()
 		);
-		cuda::check_error();
+		CUDACHECK_ERR();
 
 		// download the outputs
 		auto h_out_energy = buf.get_energy_buf(0, stream->get_h_buf());

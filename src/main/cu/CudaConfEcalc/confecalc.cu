@@ -16,6 +16,27 @@
 
 namespace osprey {
 
+	void exception_handler() {
+
+		// get the stack trace
+		const int SIZE = 32;
+		void * trace_elems[SIZE];
+		int num_frames = backtrace(trace_elems, SIZE);
+		char ** symbols = backtrace_symbols(trace_elems, num_frames);
+
+		// print it to the console
+		std::cerr << "Unhandled exception in CUDA conformation energy calculator native code!" << std::endl;
+		for (int i=0 ; i<num_frames; i++) {
+			std::cerr << "\t" << symbols[i] << std::endl;
+		}
+
+		// cleanup
+		free(symbols);
+
+		// exit the program with an error code
+		std::abort();
+	}
+
 	void free_conf_space(int device, void * p) {
 		CUDACHECK(cudaSetDevice(device));
 		CUDACHECK(cudaFree(p));
