@@ -202,6 +202,10 @@ public class PfuncDirector implements Coffee.Director {
 			DoubleBounds g = gcalc.calc(statez.zSumBounds);
 			double gWidth = g.size();
 
+			// If gWidth is NaN stop computation, since this means both free energy bounds are +Inf
+			if (Double.isNaN(gWidth))
+				gWidth = 0.0;
+
 			// what's the best precision we could ever get given the nodes we've already dropped?
 			double gWidthMin = Math.abs(gcalc.calc(
 				// NOTE: using the full seqdb precision here is quite slow!
