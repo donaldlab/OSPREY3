@@ -59,7 +59,7 @@ data class AmberTypes(
 		if (mol is Polymer) {
 			for (chain in mol.chains) {
 				for (res in chain.residues) {
-					metadata.dictionaryTypes[res] = Mol2Metadata.defaultDictionaryType
+					metadata.dictionaryTypes[res] = Mol2Metadata.defaultPolymerDictionaryType
 				}
 			}
 		}

@@ -20,13 +20,18 @@ class Mol2Metadata {
 	val bondTypes: MutableMap<AtomPair,String> = HashMap()
 	val dictionaryTypes: MutableMap<Polymer.Residue,String> = IdentityHashMap()
 	var smallMoleculeDictionaryType: String = defaultSmallMoleculeDictionaryType
+	
+	enum class DictionaryType(val id: String) {
+		SmallMolecule("0"), // ??? no idea, hopefully it's nothing bad
+		Protein("1") // defined in http://chemyang.ccnu.edu.cn/ccb/server/AIMMS/mol2.pdf, pg 41, admittedly in an example
+	}
 
 	companion object {
 
 		const val defaultCharge = "0.0"
 		const val defaultBondType = "1" // 1 is single bond
-		const val defaultDictionaryType = "1" // 1 is protein
-		const val defaultSmallMoleculeDictionaryType = "0" // ??? no idea, hopefully it's nothing bad
+		val defaultPolymerDictionaryType = DictionaryType.Protein.id
+		val defaultSmallMoleculeDictionaryType = DictionaryType.SmallMolecule.id
 	}
 }
 
@@ -195,10 +200,10 @@ fun Molecule.toMol2(metadata: Mol2Metadata? = null): String {
 			buf.append(' ')
 			buf.append(indicesByAtom[res.atoms.first()])
 			buf.append(" RESIDUE ")
-			buf.append(if (res == smallMoleculeRes) {
+			buf.append(if (res === smallMoleculeRes) {
 				metadata?.smallMoleculeDictionaryType ?: Mol2Metadata.defaultSmallMoleculeDictionaryType
 			} else {
-				metadata?.dictionaryTypes?.getValue(res) ?: Mol2Metadata.defaultDictionaryType
+				metadata?.dictionaryTypes?.getValue(res) ?: Mol2Metadata.defaultPolymerDictionaryType
 			})
 			buf.append(' ')
 			buf.append(chain.id)
@@ -266,8 +271,12 @@ fun Molecule.Companion.fromMol2WithMetadata(mol2: String): Pair<Molecule,Mol2Met
 
 		// try to get the mol type from the (single) substructure
 		val parts = sectionSub[0].tokenize()
-
-		Molecule(molName, parts[6])
+		val dictType = parts[4]
+		val resType = parts[6]
+		when (dictType) {
+			Mol2Metadata.DictionaryType.Protein.id -> Polymer(molName)
+			else -> Molecule(molName, resType)
+		}
 	}
 
 	// read the atoms
