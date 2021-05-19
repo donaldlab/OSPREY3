@@ -219,9 +219,15 @@ fun Molecule.toMol2(metadata: Mol2Metadata? = null): String {
 /**
  * Read a molecule in MOL2 format.
  */
-fun Molecule.Companion.fromMol2(mol2: String): Molecule = fromMol2WithMetadata(mol2).first
+fun Molecule.Companion.fromMol2(
+	mol2: String,
+	isPolymer: Boolean? = null
+): Molecule = fromMol2WithMetadata(mol2, isPolymer).first
 
-fun Molecule.Companion.fromMol2WithMetadata(mol2: String): Pair<Molecule,Mol2Metadata> {
+fun Molecule.Companion.fromMol2WithMetadata(
+	mol2: String,
+	isPolymer: Boolean? = null
+): Pair<Molecule,Mol2Metadata> {
 
 	// parse a few sections from the mol2 file
 	val lines = mol2.lines()
@@ -264,19 +270,37 @@ fun Molecule.Companion.fromMol2WithMetadata(mol2: String): Pair<Molecule,Mol2Met
 	val sectionSub = sections[Section.TRIPOS_SUBSTRUCTURE]
 		?: throw NoSuchElementException("missing SUBSTRUCTURE section")
 
-	// if there's more than one substructure, assume the molecule is a polymer
-	val mol = if (sectionSub.size > 1) {
+	// should we build a polymer or a small molecule?
+	val makePolymer = run {
+
+		// if the caller expressed a preference, do that
+		if (isPolymer != null) {
+			return@run isPolymer
+		}
+
+		// if there's more than one substructure, assume the molecule is a polymer
+		if (sectionSub.size > 1) {
+			return@run true
+		}
+
+		// look for a protein substructure type
+		val dictType = sectionSub.getOrNull(0)?.tokenize()?.getOrNull(4)
+		if (dictType == Mol2Metadata.DictionaryType.Protein.id) {
+			return@run true
+		}
+
+		// otherwise, nope
+		false
+	}
+
+	// instantiate the molecule
+	val mol = if (makePolymer) {
 		Polymer(molName)
 	} else {
 
 		// try to get the mol type from the (single) substructure
-		val parts = sectionSub[0].tokenize()
-		val dictType = parts[4]
-		val resType = parts[6]
-		when (dictType) {
-			Mol2Metadata.DictionaryType.Protein.id -> Polymer(molName)
-			else -> Molecule(molName, resType)
-		}
+		val resType = sectionSub.getOrNull(0)?.tokenize()?.getOrNull(6)
+		Molecule(molName, resType)
 	}
 
 	// read the atoms
