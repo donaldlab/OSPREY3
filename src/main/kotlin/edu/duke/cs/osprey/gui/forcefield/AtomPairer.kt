@@ -30,9 +30,19 @@ object AtomPairer {
 		val atomIndex: AtomIndex
 	)
 
+	/** get all unique pairs of molecules */
+	fun molPairs(infos: List<MolInfo>): List<MolPairInfo> = ArrayList<MolPairInfo>().apply {
+		for (mol1 in infos) {
+			for (mol2 in infos.filter { mol1.moli <= it.moli }) {
+				add(MolPairInfo(mol1, mol2))
+			}
+		}
+	}
+
+	/** get all unique pairs of molecules, the atoms of infos1 and infos2 must not overlap */
 	fun molPairs(infos1: List<MolInfo>, infos2: List<MolInfo>): List<MolPairInfo> = ArrayList<MolPairInfo>().apply {
 		for (mol1 in infos1) {
-			for (mol2 in infos2.filter { mol1.moli <= it.moli }) {
+			for (mol2 in infos2) {
 				add(MolPairInfo(mol1, mol2))
 			}
 		}

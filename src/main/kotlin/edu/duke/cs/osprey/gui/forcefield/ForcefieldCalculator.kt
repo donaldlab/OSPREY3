@@ -32,7 +32,7 @@ object ForcefieldCalculator {
 		}
 
 		// add the atom pair energies
-		for (molPair in AtomPairer.molPairs(infos, infos)) {
+		for (molPair in AtomPairer.molPairs(infos)) {
 			molPair.forEach(unconnectedDistance) { info1, atomi1, info2, atomi2, distance ->
 				atomPairsParams[info1.moli, atomi1, info2.moli, atomi2, distance]?.let { params ->
 					val atom1 = info1.atomIndex.getOrThrow(atomi1)
