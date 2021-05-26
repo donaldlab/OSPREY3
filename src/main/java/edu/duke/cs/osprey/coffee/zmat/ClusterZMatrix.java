@@ -7,6 +7,7 @@ import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
+import edu.duke.cs.osprey.parallelism.Generator;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.WorkLatch;
 import edu.duke.cs.osprey.tools.BigExp;
@@ -36,6 +37,7 @@ public class ClusterZMatrix {
 	private TripleMatrix<BigExp> triples;
 
 	private WorkLatch latch = null;
+	private Progress progress = null;
 	private AtomicLong droppedTuples = null;
 
 	public ClusterZMatrix(ConfSpace confSpace, PosInterGen posInterGen, BoltzmannCalculator bcalc) {
@@ -70,6 +72,13 @@ public class ClusterZMatrix {
 		member.unregisterService(ServiceName);
 	}
 
+	private int calcWorkSize(TaskExecutor tasks, ConfEnergyCalculator ecalc) {
+		// figure out how many singles to request at once
+		// the best value here probably varies per design,
+		// but a small multiple of the ecalc batch size and number of threads seems reasonable
+		return ecalc.maxBatchSize()*tasks.getParallelism()*4;
+	}
+
 	private void computeStaticStatic(ClusterMember member, ConfEnergyCalculator ecalc) {
 
 		member.log0("computing static-static ...");
@@ -87,41 +96,57 @@ public class ClusterZMatrix {
 
 	private void computeSingles(ClusterMember member, TaskExecutor tasks, ConfEnergyCalculator ecalc) {
 
-		var range = member.simplePartition(singlesPairs.getNumOneBody());
-		latch = new WorkLatch(singlesPairs.getNumOneBody());
-		droppedTuples = new AtomicLong(0L);
-
-		member.log0("computing %d singles ...", singlesPairs.getNumOneBody());
-		member.barrier(1, TimeUnit.MINUTES);
-
-		// track progress on the 0 member
-		Progress progress = null;
+		int numSingles = singlesPairs.getNumOneBody();
+		latch = new WorkLatch(numSingles);
 		if (member.id() == 0) {
-			progress = new Progress(range.size());
+			progress = new Progress(numSingles);
 		}
+		droppedTuples = new AtomicLong(0L);
+		member.log0("computing %d singles ...", numSingles);
 
-		// statically partition the workload among the members
-		Batch batch = new Batch(ecalc.maxBatchSize());
-		int index = 0;
-		for (int posi=0; posi<ecalc.confSpace().numPos(); posi++) {
-			for (int confi=0; confi<ecalc.confSpace().numConf(posi); confi++) {
-				if (range.contains(index)) {
+		// make the single generator
+		try (var gen = new Generator<int[]>(yielder -> {
+
+			for (int posi=0; posi<ecalc.confSpace().numPos(); posi++) {
+				for (int confi=0; confi<ecalc.confSpace().numConf(posi); confi++) {
+					yielder.yield(new int[] { posi, confi });
+				}
+			}
+		})) {
+
+			// partiton the workload onto the cluster
+			var partition = member.dynamicPartition(gen.iterator());
+			member.barrier(1, TimeUnit.MINUTES);
+
+			// do the work
+			int worksSize = calcWorkSize(tasks, ecalc);
+			Batch batch = new Batch(ecalc.maxBatchSize());
+			while (true) {
+
+				// get the next works
+				var works = partition.nextWorks(worksSize);
+				if (works.isEmpty()) {
+					break;
+				}
+
+				// calculate the batches
+				for (int[] work : works) {
+					int posi = work[0];
+					int confi = work[1];
 					batch.tuples.add(new Single(posi, confi));
 					if (batch.isFull()) {
-						batch.submit(tasks, progress, ecalc, member);
+						batch.submit(tasks, ecalc, member);
 						batch = new Batch(ecalc.maxBatchSize());
 					}
 				}
-				index += 1;
+				if (!batch.isEmpty()) {
+					batch.submit(tasks, ecalc, member);
+				}
 			}
+			tasks.waitForFinish();
 		}
-		if (!batch.isEmpty()) {
-			batch.submit(tasks, progress, ecalc, member);
-		}
-		tasks.waitForFinish();
 
 		// wait for all the other members to finish sending results
-		member.log0("finishing cluster synchronization ...");
 		latch.await(1, TimeUnit.MINUTES);
 
 		// double-check that we have all the entries locally, just in case
@@ -139,6 +164,7 @@ public class ClusterZMatrix {
 
 		// cleanup
 		latch = null;
+		progress = null;
 		droppedTuples = null;
 
 		member.barrier(1, TimeUnit.MINUTES);
@@ -147,45 +173,63 @@ public class ClusterZMatrix {
 
 	private void computePairs(ClusterMember member, TaskExecutor tasks, ConfEnergyCalculator ecalc) {
 
-		var range = member.simplePartition(singlesPairs.getNumPairwise());
-		latch = new WorkLatch(singlesPairs.getNumPairwise());
-		droppedTuples = new AtomicLong(0L);
-
-		member.log0("computing %d pairs ...", singlesPairs.getNumPairwise());
-		member.barrier(1, TimeUnit.MINUTES);
-
-		// track progress on the 0 member
-		Progress progress = null;
+		int numPairs = singlesPairs.getNumPairwise();
+		latch = new WorkLatch(numPairs);
 		if (member.id() == 0) {
-			progress = new Progress(range.size());
+			progress = new Progress(numPairs);
 		}
+		droppedTuples = new AtomicLong(0L);
+		member.log0("computing %d pairs ...", numPairs);
 
-		// statically partition the workload among the members
-		Batch batch = new Batch(ecalc.maxBatchSize());
-		int index = 0;
-		for (int posi1=0; posi1<ecalc.confSpace().numPos(); posi1++) {
-			for (int posi2=0; posi2<posi1; posi2++) {
-				for (int confi1=0; confi1<ecalc.confSpace().numConf(posi1); confi1++) {
-					for (int confi2=0; confi2<ecalc.confSpace().numConf(posi2); confi2++) {
-						if (range.contains(index)) {
-							batch.tuples.add(new Pair(posi1, confi1, posi2, confi2));
-							if (batch.isFull()) {
-								batch.submit(tasks, progress, ecalc, member);
-								batch = new Batch(ecalc.maxBatchSize());
-							}
+		// make the pair generator
+		try (var gen = new Generator<int[]>(yielder -> {
+
+			for (int posi1=0; posi1<ecalc.confSpace().numPos(); posi1++) {
+				for (int posi2=0; posi2<posi1; posi2++) {
+					for (int confi1=0; confi1<ecalc.confSpace().numConf(posi1); confi1++) {
+						for (int confi2=0; confi2<ecalc.confSpace().numConf(posi2); confi2++) {
+							yielder.yield(new int[] { posi1, confi1, posi2, confi2 });
 						}
-						index += 1;
 					}
 				}
 			}
+		})) {
+
+			// partiton the workload onto the cluster
+			var partition = member.dynamicPartition(gen.iterator());
+			member.barrier(1, TimeUnit.MINUTES);
+
+			// do the work
+			int worksSize = calcWorkSize(tasks, ecalc);
+			Batch batch = new Batch(ecalc.maxBatchSize());
+			while (true) {
+
+				// get the next works
+				var works = partition.nextWorks(worksSize);
+				if (works.isEmpty()) {
+					break;
+				}
+
+				// calculate the batches
+				for (int[] work : works) {
+					int posi1 = work[0];
+					int confi1 = work[1];
+					int posi2 = work[2];
+					int confi2 = work[3];
+					batch.tuples.add(new Pair(posi1, confi1, posi2, confi2));
+					if (batch.isFull()) {
+						batch.submit(tasks, ecalc, member);
+						batch = new Batch(ecalc.maxBatchSize());
+					}
+				}
+				if (!batch.isEmpty()) {
+					batch.submit(tasks, ecalc, member);
+				}
+			}
+			tasks.waitForFinish();
 		}
-		if (!batch.isEmpty()) {
-			batch.submit(tasks, progress, ecalc, member);
-		}
-		tasks.waitForFinish();
 
 		// wait for all the other members to finish sending results
-		member.log0("finishing cluster synchronization ...");
 		latch.await(1, TimeUnit.MINUTES);
 
 		// double-check that we have all the entries locally, just in case
@@ -207,6 +251,7 @@ public class ClusterZMatrix {
 
 		// cleanup
 		latch = null;
+		progress = null;
 		droppedTuples = null;
 
 		member.barrier(1, TimeUnit.MINUTES);
@@ -218,135 +263,159 @@ public class ClusterZMatrix {
 		// allocate space
 		triples = new TripleMatrix<>(confSpace);
 
+		member.log0("filtering triples ...");
+
 		// filter the triples by the threshold
 		int numTriples = 0;
 		BigExp zThreshold = new BigExp(bcalc.calcPrecise(energyThreshold));
 		boolean[] passed = new boolean[triples.size()];
 		Arrays.fill(passed, false);
-		int index = 0;
-		for (int posi1=0; posi1<ecalc.confSpace().numPos(); posi1++) {
-			int n1 = ecalc.confSpace().numConf(posi1);
-			for (int posi2=0; posi2<posi1; posi2++) {
-				int n2 = ecalc.confSpace().numConf(posi2);
-				for (int posi3=0; posi3<posi2; posi3++) {
-					int n3 = ecalc.confSpace().numConf(posi3);
+		{
+			int index = 0;
+			for (int posi1=0; posi1<ecalc.confSpace().numPos(); posi1++) {
+				int n1 = ecalc.confSpace().numConf(posi1);
+				for (int posi2=0; posi2<posi1; posi2++) {
+					int n2 = ecalc.confSpace().numConf(posi2);
+					for (int posi3=0; posi3<posi2; posi3++) {
+						int n3 = ecalc.confSpace().numConf(posi3);
 
-					for (int confi1=0; confi1<n1; confi1++) {
-
-						// skip triples whose constituents are below the z threshold
-						if (singlesPairs.getOneBody(posi1, confi1).lessThan(zThreshold)) {
-							index += n2*n3;
-							continue;
-						}
-
-						for (int confi2=0; confi2<n2; confi2++) {
+						for (int confi1=0; confi1<n1; confi1++) {
 
 							// skip triples whose constituents are below the z threshold
-							if (singlesPairs.getOneBody(posi2, confi2).lessThan(zThreshold)
-							|| singlesPairs.getPairwise(posi1, confi1, posi2, confi2).lessThan(zThreshold)) {
-								index += n3;
+							if (singlesPairs.getOneBody(posi1, confi1).lessThan(zThreshold)) {
+								index += n2*n3;
 								continue;
 							}
 
-							for (int confi3=0; confi3<n3; confi3++) {
+							for (int confi2=0; confi2<n2; confi2++) {
 
 								// skip triples whose constituents are below the z threshold
-								if (singlesPairs.getOneBody(posi3, confi3).lessThan(zThreshold)
-								|| singlesPairs.getPairwise(posi1, confi1, posi3, confi3).lessThan(zThreshold)
-								|| singlesPairs.getPairwise(posi2, confi2, posi3, confi3).lessThan(zThreshold)) {
-									index += 1;
+								if (singlesPairs.getOneBody(posi2, confi2).lessThan(zThreshold)
+								|| singlesPairs.getPairwise(posi1, confi1, posi2, confi2).lessThan(zThreshold)) {
+									index += n3;
 									continue;
 								}
 
-								// triple passed the threshold!
-								passed[index++] = true;
-								numTriples += 1;
-							}
-						}
-					}
-				}
-			}
-		}
-		assert (index == triples.size());
+								for (int confi3=0; confi3<n3; confi3++) {
 
-		var range = member.simplePartition(numTriples);
-		latch = new WorkLatch(numTriples);
-		droppedTuples = new AtomicLong(0L);
-
-		member.log0("computing %d triples ...", numTriples);
-		member.barrier(1, TimeUnit.MINUTES);
-
-		// track progress on the 0 member
-		Progress progress = null;
-		if (member.id() == 0) {
-			progress = new Progress(range.size());
-		}
-
-		// statically partition the workload among the members
-		Batch batch = new Batch(ecalc.maxBatchSize());
-		index = 0;
-		int triplei = 0;
-		for (int posi1=0; posi1<ecalc.confSpace().numPos(); posi1++) {
-			for (int posi2=0; posi2<posi1; posi2++) {
-				for (int posi3=0; posi3<posi2; posi3++) {
-					for (int confi1=0; confi1<ecalc.confSpace().numConf(posi1); confi1++) {
-						for (int confi2=0; confi2<ecalc.confSpace().numConf(posi2); confi2++) {
-							for (int confi3=0; confi3<ecalc.confSpace().numConf(posi3); confi3++) {
-
-								if (passed[index]) {
-
-									if (range.contains(triplei)) {
-										batch.tuples.add(new Triple(posi1, confi1, posi2, confi2, posi3, confi3));
-										if (batch.isFull()) {
-											batch.submit(tasks, progress, ecalc, member);
-											batch = new Batch(ecalc.maxBatchSize());
-										}
+									// skip triples whose constituents are below the z threshold
+									if (singlesPairs.getOneBody(posi3, confi3).lessThan(zThreshold)
+									|| singlesPairs.getPairwise(posi1, confi1, posi3, confi3).lessThan(zThreshold)
+									|| singlesPairs.getPairwise(posi2, confi2, posi3, confi3).lessThan(zThreshold)) {
+										index += 1;
+										continue;
 									}
-									triplei += 1;
+
+									// triple passed the threshold!
+									passed[index++] = true;
+									numTriples += 1;
 								}
-								index += 1;
 							}
 						}
 					}
 				}
 			}
+			assert (index == triples.size());
 		}
-		if (!batch.isEmpty()) {
-			batch.submit(tasks, progress, ecalc, member);
+
+		latch = new WorkLatch(numTriples);
+		if (member.id() == 0) {
+			progress = new Progress(numTriples);
 		}
-		tasks.waitForFinish();
+		droppedTuples = new AtomicLong(0L);
+		member.log0("computing %d triples ...", numTriples);
+
+		// make the triple generator
+		try (var gen = new Generator<int[]>(yielder -> {
+
+			int index = 0;
+			for (int posi1=0; posi1<ecalc.confSpace().numPos(); posi1++) {
+				for (int posi2=0; posi2<posi1; posi2++) {
+					for (int posi3=0; posi3<posi2; posi3++) {
+						for (int confi1=0; confi1<ecalc.confSpace().numConf(posi1); confi1++) {
+							for (int confi2=0; confi2<ecalc.confSpace().numConf(posi2); confi2++) {
+								for (int confi3=0; confi3<ecalc.confSpace().numConf(posi3); confi3++) {
+									if (passed[index]) {
+										yielder.yield(new int[] { posi1, confi1, posi2, confi2, posi3, confi3 });
+									}
+									index += 1;
+								}
+							}
+						}
+					}
+				}
+			}
+		})) {
+
+			// partiton the workload onto the cluster
+			var partition = member.dynamicPartition(gen.iterator());
+			member.barrier(1, TimeUnit.MINUTES);
+
+			// do the work
+			int worksSize = calcWorkSize(tasks, ecalc);
+			Batch batch = new Batch(ecalc.maxBatchSize());
+			while (true) {
+
+				// get the next works
+				var works = partition.nextWorks(worksSize);
+				if (works.isEmpty()) {
+					break;
+				}
+
+				// calculate the batches
+				for (int[] work : works) {
+					int posi1 = work[0];
+					int confi1 = work[1];
+					int posi2 = work[2];
+					int confi2 = work[3];
+					int posi3 = work[4];
+					int confi3 = work[5];
+					batch.tuples.add(new Triple(posi1, confi1, posi2, confi2, posi3, confi3));
+					if (batch.isFull()) {
+						batch.submit(tasks, ecalc, member);
+						batch = new Batch(ecalc.maxBatchSize());
+					}
+				}
+				if (!batch.isEmpty()) {
+					batch.submit(tasks, ecalc, member);
+				}
+			}
+			tasks.waitForFinish();
+		}
 
 		// wait for all the other members to finish sending results
-		member.log0("finishing cluster synchronization ...");
 		latch.await(1, TimeUnit.MINUTES);
 
 		// double-check that we have all the entries locally, just in case
-		index = 0;
-		long missing = -droppedTuples.get();
-		for (int posi1=0; posi1<ecalc.confSpace().numPos(); posi1++) {
-			for (int posi2=0; posi2<posi1; posi2++) {
-				for (int posi3=0; posi3<posi2; posi3++) {
-					for (int confi1=0; confi1<ecalc.confSpace().numConf(posi1); confi1++) {
-						for (int confi2=0; confi2<ecalc.confSpace().numConf(posi2); confi2++) {
-							for (int confi3=0; confi3<ecalc.confSpace().numConf(posi3); confi3++) {
-								if (passed[index]) {
-									if (triples.get(posi1, confi1, posi2, confi2, posi3, confi3) == null) {
-										missing += 1;
+		{
+			int index = 0;
+			long missing = -droppedTuples.get();
+			for (int posi1=0; posi1<ecalc.confSpace().numPos(); posi1++) {
+				for (int posi2=0; posi2<posi1; posi2++) {
+					for (int posi3=0; posi3<posi2; posi3++) {
+						for (int confi1=0; confi1<ecalc.confSpace().numConf(posi1); confi1++) {
+							for (int confi2=0; confi2<ecalc.confSpace().numConf(posi2); confi2++) {
+								for (int confi3=0; confi3<ecalc.confSpace().numConf(posi3); confi3++) {
+									if (passed[index]) {
+										if (triples.get(posi1, confi1, posi2, confi2, posi3, confi3) == null) {
+											missing += 1;
+										}
 									}
+									index += 1;
 								}
-								index += 1;
 							}
 						}
 					}
 				}
 			}
-		}
-		if (missing > 0) {
-			throw new IllegalStateException("missing " + missing + " Z matrix triple corrections!");
+			if (missing > 0) {
+				throw new IllegalStateException("missing " + missing + " Z matrix triple corrections!");
+			}
 		}
 
 		// cleanup
 		latch = null;
+		progress = null;
 		droppedTuples = null;
 
 		member.barrier(1, TimeUnit.MINUTES);
@@ -375,7 +444,7 @@ public class ClusterZMatrix {
 			return size() == capacity;
 		}
 
-		void submit(TaskExecutor tasks, Progress progress, ConfEnergyCalculator ecalc, ClusterMember member) {
+		void submit(TaskExecutor tasks, ConfEnergyCalculator ecalc, ClusterMember member) {
 			assert (!isEmpty());
 			tasks.submit(
 				() -> {
@@ -397,24 +466,25 @@ public class ClusterZMatrix {
 
 					return 42;
 				},
-				answer -> {
-					// update progress if needed
-					if (progress != null) {
-						assert (size() != 0);
-						progress.incrementProgress(size());
-					}
-				}
+				answer -> {}
 			);
 		}
 	}
 
 	void writeTuples(List<Tuple> tuples) {
-		// ths function gets hit from multiple threads, but we don't need to synchronize anything
-		// the static partition of tuples guarantees none of the writes will ever race
+		// WARNING: this function gets hit from multiple threads!
+		// We don't need to synchronize the tuple writes though.
+		// Phe partition of tuples guarantees none of those writes will ever race.
 		for (var tuple : tuples) {
 			boolean wasWritten = tuple.write(singlesPairs, triples);
 			if (!wasWritten) {
 				droppedTuples.incrementAndGet();
+			}
+		}
+		if (progress != null) {
+			// we do need to prevent races on the progress bar though
+			synchronized (this) {
+				progress.incrementProgress(tuples.size());
 			}
 		}
 		latch.finished(tuples.size());
@@ -470,5 +540,9 @@ public class ClusterZMatrix {
 	}
 	public void set(int posi1, int confi1, int posi2, int confi2, int posi3, int confi3, BigExp val) {
 		triples.set(posi1, confi1, posi2, confi2, posi3, confi3, val);
+	}
+
+	public String singlesPairsToString(int cellWidth, int precision) {
+		return singlesPairs.toString(cellWidth, f -> f.toString(precision));
 	}
 }

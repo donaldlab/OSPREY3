@@ -160,7 +160,12 @@ suspend fun Molecule.protonate(atom: Atom, protonation: Protonation) {
 			}
 	)
 
-	val hmol = Molecule.fromMol2(OspreyService.protonate(request).mol2)
+	val hmol = Molecule.fromMol2(
+		OspreyService.protonate(request).mol2,
+		// HACKHACK: AmberTools19 LEaP won't return protein formatted mol2 files for single residue chains,
+		// so force the Mol2 code to build a polymer if we're expecting one
+		isPolymer = mol is Polymer
+	)
 
 	// read the output mol2 and copy the new hydrogens
 	val centerAtom = hmol.atoms.find { it.name == atom.name }
@@ -258,7 +263,12 @@ suspend fun Molecule.inferProtonation(): List<ProtonatedAtom> {
 			// synthetics aren't real molecules, just ignore them
 			MoleculeType.Synthetic -> continue@partition
 		}
-		val protonatedMol = Molecule.fromMol2(OspreyService.protonation(request).mol2)
+		val protonatedMol = Molecule.fromMol2(
+			OspreyService.protonation(request).mol2,
+			// HACKHACK: AmberTools19 LEaP won't return protein formatted mol2 files for single residue chains,
+			// so force the Mol2 code to build a polymer if we're expecting one
+			isPolymer = dst is Polymer
+		)
 
 		// translate the atoms to the input mol
 		val srcAtoms = protonatedMol.translateHydrogens(src)

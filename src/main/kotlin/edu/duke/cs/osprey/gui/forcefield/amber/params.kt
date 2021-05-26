@@ -59,7 +59,7 @@ data class AmberTypes(
 		if (mol is Polymer) {
 			for (chain in mol.chains) {
 				for (res in chain.residues) {
-					metadata.dictionaryTypes[res] = Mol2Metadata.defaultDictionaryType
+					metadata.dictionaryTypes[res] = Mol2Metadata.defaultPolymerDictionaryType
 				}
 			}
 		}
@@ -183,7 +183,12 @@ suspend fun Molecule.calcTypesAmber(
 					)
 				}
 			).toRequest()
-			val (src, srcMetadata) = Molecule.fromMol2WithMetadata(OspreyService.types(request).mol2)
+			val (src, srcMetadata) = Molecule.fromMol2WithMetadata(
+				OspreyService.types(request).mol2,
+				// HACKHACK: AmberTools19 LEaP won't return protein formatted mol2 files for single residue chains,
+				// so force the Mol2 code to build a polymer if we're expecting one
+				isPolymer = dst is Polymer
+			)
 
 			// Tragically, we antechamber doesn't write the residue info back into the mol2 file,
 			// so we can't use our usual MoleculeMapper to do the atom mapping here.
@@ -209,7 +214,12 @@ suspend fun Molecule.calcTypesAmber(
 				),
 				ffname = ffname.name
 			).toRequest()
-			val (src, srcMetadata) = Molecule.fromMol2WithMetadata(OspreyService.types(request).mol2)
+			val (src, srcMetadata) = Molecule.fromMol2WithMetadata(
+				OspreyService.types(request).mol2,
+				// HACKHACK: AmberTools19 LEaP won't return protein formatted mol2 files for single residue chains,
+				// so force the Mol2 code to build a polymer if we're expecting one
+				isPolymer = dst is Polymer
+			)
 
 			// check for unmapped atoms with the dst->src mapping
 			MoleculeMapper(dst, src)

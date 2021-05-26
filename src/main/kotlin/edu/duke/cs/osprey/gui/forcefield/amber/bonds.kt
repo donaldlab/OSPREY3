@@ -6,6 +6,7 @@ import edu.duke.cs.osprey.gui.io.OspreyService
 import edu.duke.cs.osprey.gui.io.fromMol2
 import edu.duke.cs.osprey.gui.io.toPDB
 import edu.duke.cs.osprey.molscope.molecule.AtomPair
+import edu.duke.cs.osprey.molscope.molecule.Polymer
 import edu.duke.cs.osprey.service.services.BondsRequest
 import kotlinx.coroutines.runBlocking
 
@@ -44,7 +45,12 @@ suspend fun Molecule.inferBondsAmber(): List<AtomPair> {
 			// synthetics aren't real molecules, just ignore them
 			MoleculeType.Synthetic -> continue@partition
 		}
-		val bondedMol = Molecule.fromMol2(OspreyService.bonds(request).mol2)
+		val bondedMol = Molecule.fromMol2(
+			OspreyService.bonds(request).mol2,
+			// HACKHACK: AmberTools19 LEaP won't return protein formatted mol2 files for single residue chains,
+			// so force the Mol2 code to build a polymer if we're expecting one
+			isPolymer = dst is Polymer
+		)
 
 		// translate the bonds to the input mol
 		val srcBonds = bondedMol.translateBonds(src)

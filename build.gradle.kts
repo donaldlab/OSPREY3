@@ -146,7 +146,7 @@ dependencies {
 	val ktorVersion = "1.5.4"
 
 	// used by the gui
-	implementation("com.cuchazinteractive:kludge:0.1")
+	implementation("com.cuchazinteractive:kludge:0.2")
 	implementation("io.ktor:ktor-client-cio:$ktorVersion")
 	implementation("io.ktor:ktor-client-serialization-jvm:$ktorVersion")
 
