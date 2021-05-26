@@ -43,6 +43,7 @@ import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.kstar.KStarScore;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.BigMath;
+import edu.duke.cs.osprey.tools.Duration;
 import edu.duke.cs.osprey.tools.MathTools;
 
 
@@ -261,6 +262,25 @@ public interface PartitionFunction {
 
 	default void compute() {
 		compute(Integer.MAX_VALUE);
+	}
+
+	/**
+	 * Compute the partition function to the given epsilon,
+	 * but stop earaly if the timeout was reached.
+	 */
+	default void compute(Duration timeout) {
+		long startNs = System.nanoTime();
+		long timeoutNs = timeout.toNanos();
+		while (getStatus().canContinue) {
+			// use the parallelism as the batch size
+			// that's probably good, right? YOLO!
+			int batchSize = getParallelism();
+			compute(batchSize);
+			long elapsedNs = System.nanoTime() - startNs;
+			if (elapsedNs >= timeoutNs) {
+				break;
+			}
+		}
 	}
 
 	public default Result makeResult() {
