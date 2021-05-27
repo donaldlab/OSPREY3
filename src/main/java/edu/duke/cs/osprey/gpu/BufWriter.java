@@ -29,7 +29,7 @@ public class BufWriter {
 	public long pos = 0;
 
 	public BufWriter(MemorySegment mem) {
-		this.base = mem.baseAddress();
+		this.base = mem.address();
 	}
 
 	public void int32(long pos, int value) {

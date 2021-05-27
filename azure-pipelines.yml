@@ -10,21 +10,21 @@ jobs:
     matrix:
       Linux:
         imageName: ubuntu-latest
-        openJdkUrl: https://download.java.net/java/GA/jdk14.0.1/664493ef4a6946b186ff29eb326336a2/7/GPL/
-        jdkName: openjdk-14.0.1_linux-x64_bin.tar.gz
-        javaHome: $(Build.BinariesDirectory)/java/jdk-14.0.1
+        openJdkUrl: https://download.java.net/java/GA/jdk16.0.1/7147401fd7354114ac51ef3e1328291f/9/GPL/
+        jdkName: openjdk-16.0.1_linux-x64_bin.tar.gz
+        javaHome: $(Build.BinariesDirectory)/java/jdk-16.0.1
         gradleWrapper: gradlew
       Mac:
         imageName: macos-latest
-        openJdkUrl: https://download.java.net/java/GA/jdk14.0.1/664493ef4a6946b186ff29eb326336a2/7/GPL/
-        jdkName: openjdk-14.0.1_osx-x64_bin.tar.gz
-        javaHome: $(Build.BinariesDirectory)/java/jdk-14.0.1.jdk/Contents/Home/
+        openJdkUrl: https://download.java.net/java/GA/jdk16.0.1/7147401fd7354114ac51ef3e1328291f/9/GPL/
+        jdkName: openjdk-16.0.1_osx-x64_bin.tar.gz
+        javaHome: $(Build.BinariesDirectory)/java/jdk-16.0.1.jdk/Contents/Home/
         gradleWrapper: gradlew
       Windows:
         imageName: windows-latest
-        openJdkUrl: https://download.java.net/java/GA/jdk14.0.1/664493ef4a6946b186ff29eb326336a2/7/GPL/
-        jdkName: openjdk-14.0.1_windows-x64_bin.zip
-        javaHome: $(Build.BinariesDirectory)/java/jdk-14.0.1
+        openJdkUrl: https://download.java.net/java/GA/jdk16.0.1/7147401fd7354114ac51ef3e1328291f/9/GPL/
+        jdkName: openjdk-16.0.1_windows-x64_bin.zip 
+        javaHome: $(Build.BinariesDirectory)/java/jdk-16.0.1
         gradleWrapper: gradlew.bat
 
   pool:
@@ -100,7 +100,7 @@ jobs:
       targetType: 'inline'
       script: |
         export JAVA_HOME=$(JAVA_HOME)
-        ./$(gradleWrapper) -POSPREY_PYTHON3=$(python3) -POSPREY_PYTHON2=$(python2) -PAZURE_BUILD_ID=$(Build.BuildId) assemble
+        ./$(gradleWrapper) --no-daemon --exclude-task testDistZip -POSPREY_PYTHON3=$(python3) -POSPREY_PYTHON2=$(python2) -PAZURE_BUILD_ID=$(Build.BuildId) assemble
 
   - task: CopyFiles@2
     inputs:

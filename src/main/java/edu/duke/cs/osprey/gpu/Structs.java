@@ -105,10 +105,6 @@ public class Structs {
 		public long offset() {
 			return offset;
 		}
-
-		public void assertAlignment(MemoryAddress addr, int alignment) {
-			assert (addr.offset() % alignment == 0);
-		}
 	}
 
 	public static abstract class Array {

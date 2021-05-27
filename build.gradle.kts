@@ -52,7 +52,7 @@ plugins {
 	application
 	idea
 	id("org.openjfx.javafxplugin") version("0.0.7")
-	id("org.beryx.runtime") version "1.8.0"
+	id("org.beryx.runtime") version "1.12.5"
 }
 
 javafx {
@@ -86,8 +86,9 @@ repositories {
 }
 
 java {
-	sourceCompatibility = JavaVersion.VERSION_14
-	targetCompatibility = JavaVersion.VERSION_14
+	toolchain {
+		languageVersion.set(JavaLanguageVersion.of(16))
+	}
 }
 
 idea {
@@ -312,6 +313,7 @@ runtime {
 		imageName = "Osprey"
 		installerName = imageName
 		mainClass = "$group.osprey.gui.MainKt"
+		jpackageHome = jPackageHomeOrDefault
 
 		when (os) {
 
@@ -572,6 +574,8 @@ tasks {
 				"versionService" to versionService
 			)
 		}
+
+		duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 	}
 
 	val jar = "jar" {}.get()

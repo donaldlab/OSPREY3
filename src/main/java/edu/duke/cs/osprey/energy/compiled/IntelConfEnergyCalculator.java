@@ -623,7 +623,7 @@ public class IntelConfEnergyCalculator implements ConfEnergyCalculator {
 		// TODO: add space for the conf motions
 
 		// allocate the buffer for the conf space
-		confSpaceMem = MemorySegment.allocateNative(bufSize);
+		confSpaceMem = MemorySegment.allocateNative(bufSize).share();
 		BufWriter buf = new BufWriter(confSpaceMem);
 
 		// write the header
@@ -798,11 +798,9 @@ public class IntelConfEnergyCalculator implements ConfEnergyCalculator {
 
 	public AssignedCoords assign(int[] conf) {
 		try (var coordsMem = makeArray(confSpace.maxNumConfAtoms, real3Struct.bytes())) {
-			try (var confSpaceMem = this.confSpaceMem.acquire()) {
-				switch (precision) {
-					case Float32 -> NativeLib.assign_f32(confSpaceMem.asByteBuffer(), conf, coordsMem.asByteBuffer());
-					case Float64 -> NativeLib.assign_f64(confSpaceMem.asByteBuffer(), conf, coordsMem.asByteBuffer());
-				}
+			switch (precision) {
+				case Float32 -> NativeLib.assign_f32(confSpaceMem.asByteBuffer(), conf, coordsMem.asByteBuffer());
+				case Float64 -> NativeLib.assign_f64(confSpaceMem.asByteBuffer(), conf, coordsMem.asByteBuffer());
 			}
 			return makeCoords(coordsMem, conf);
 		}
@@ -841,13 +839,11 @@ public class IntelConfEnergyCalculator implements ConfEnergyCalculator {
 	public EnergiedCoords calc(int[] conf, List<PosInter> inters) {
 		try (var intersMem = makeIntersMem(inters)) {
 			try (var coordsMem = makeArray(confSpace.maxNumConfAtoms, real3Struct.bytes())) {
-				try (var confSpaceMem = this.confSpaceMem.acquire()) {
-					double energy = forcefieldsImpl.calc(confSpaceMem.asByteBuffer(), conf, intersMem.asByteBuffer(), coordsMem.asByteBuffer());
-					return new EnergiedCoords(
+				double energy = forcefieldsImpl.calc(confSpaceMem.asByteBuffer(), conf, intersMem.asByteBuffer(), coordsMem.asByteBuffer());
+				return new EnergiedCoords(
 						makeCoords(coordsMem, conf),
 						energy
-					);
-				}
+				);
 			}
 		}
 	}
@@ -855,9 +851,7 @@ public class IntelConfEnergyCalculator implements ConfEnergyCalculator {
 	@Override
 	public double calcEnergy(int[] conf, List<PosInter> inters) {
 		try (var intersMem = makeIntersMem(inters)) {
-			try (var confSpaceMem = this.confSpaceMem.acquire()) {
-				return forcefieldsImpl.calc(confSpaceMem.asByteBuffer(), conf, intersMem.asByteBuffer(), null);
-			}
+			return forcefieldsImpl.calc(confSpaceMem.asByteBuffer(), conf, intersMem.asByteBuffer(), null);
 		}
 	}
 
@@ -880,14 +874,12 @@ public class IntelConfEnergyCalculator implements ConfEnergyCalculator {
 		try (var intersMem = makeIntersMem(inters)) {
 			try (var coordsMem = makeArray(confSpace.maxNumConfAtoms, real3Struct.bytes())) {
 				try (var dofsMem = makeArray(confSpace.maxNumDofs, precision.bytes)) {
-					double energy;
-					try (var confSpaceMem = this.confSpaceMem.acquire()) {
-						energy = forcefieldsImpl.minimize(
+					var energy = forcefieldsImpl.minimize(
 							confSpaceMem.asByteBuffer(), conf,
 							intersMem.asByteBuffer(),
 							coordsMem.asByteBuffer(), dofsMem.asByteBuffer()
-						);
-					}
+					);
+
 					return new EnergiedCoords(
 						makeCoords(coordsMem, conf),
 						energy,
@@ -901,20 +893,18 @@ public class IntelConfEnergyCalculator implements ConfEnergyCalculator {
 	@Override
 	public double minimizeEnergy(int[] conf, List<PosInter> inters) {
 		try (var intersMem = makeIntersMem(inters)) {
-			try (var confSpaceMem = this.confSpaceMem.acquire()) {
-				return forcefieldsImpl.minimize(
+			return forcefieldsImpl.minimize(
 					confSpaceMem.asByteBuffer(), conf,
 					intersMem.asByteBuffer(),
 					null, null
-				);
-			}
+			);
 		}
 	}
 
 	private MemorySegment makeIntersMem(List<PosInter> inters) {
 		MemorySegment mem = makeArray(inters.size(), posInterStruct.bytes());
 		BufWriter buf = new BufWriter(mem);
-		buf.pos = getArrayAddress(mem).offset();
+		buf.pos = getArrayAddress(mem).segmentOffset(mem);
 		for (var inter : inters) {
 			var addr = buf.place(posInterStruct);
 			posInterStruct.posi1.set(addr, inter.posi1);
@@ -937,10 +927,10 @@ public class IntelConfEnergyCalculator implements ConfEnergyCalculator {
 
 	private long getArraySize(MemorySegment mem) {
 		var h = MemoryHandles.varHandle(long.class, ByteOrder.nativeOrder());
-		return (long)h.get(mem.baseAddress());
+		return (long)h.get(mem.address());
 	}
 
 	private MemoryAddress getArrayAddress(MemorySegment mem) {
-		return mem.baseAddress().addOffset(Int64.bytes*2);
+		return mem.address().addOffset(Int64.bytes*2);
 	}
 }

@@ -472,12 +472,8 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 				// write enough stuff to directly call minimize_batch_amber_eef1_fXX() on the C++ side
 				out.writeInt(precision.ordinal());
-				try (var mem = confSpaceMem.acquire()) {
-					writeBuf(out, mem.asByteBuffer());
-				}
-				try (var mem = confSpaceSizesMem.acquire()) {
-					writeBuf(out, mem.asByteBuffer());
-				}
+				writeBuf(out, confSpaceMem.asByteBuffer());
+				writeBuf(out, confSpaceSizesMem.asByteBuffer());
 				writeBuf(out, jobsBuf);
 
 			} catch (IOException ex) {
@@ -1144,7 +1140,7 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 		// allocate the buffer for the conf space
 		long bufSize = confSpaceSize + positionsSize + staticCoordsSize + forcefieldSize + molMotionsSize;
-		confSpaceMem = MemorySegment.allocateNative(bufSize);
+		confSpaceMem = MemorySegment.allocateNative(bufSize).share();
 		BufWriter buf = new BufWriter(confSpaceMem);
 
 		assert (buf.isAligned(WidestGpuLoad));
@@ -1357,11 +1353,11 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 		// make the conf space sizes struct
 		confSpaceSizesMem = MemorySegment.allocateNative(confSpaceSizesStruct.bytes());
-		confSpaceSizesStruct.num_pos.set(confSpaceSizesMem.baseAddress(), confSpace.numPos());
-		confSpaceSizesStruct.max_num_inters.set(confSpaceSizesMem.baseAddress(), numPosPairs);
-		confSpaceSizesStruct.num_atoms.set(confSpaceSizesMem.baseAddress(), confSpace.maxNumConfAtoms);
-		confSpaceSizesStruct.max_num_dofs.set(confSpaceSizesMem.baseAddress(), confSpace.maxNumDofs);
-		confSpaceSizesStruct.num_mol_motions.set(confSpaceSizesMem.baseAddress(), numMolMotions);
+		confSpaceSizesStruct.num_pos.set(confSpaceSizesMem.address(), confSpace.numPos());
+		confSpaceSizesStruct.max_num_inters.set(confSpaceSizesMem.address(), numPosPairs);
+		confSpaceSizesStruct.num_atoms.set(confSpaceSizesMem.address(), confSpace.maxNumConfAtoms);
+		confSpaceSizesStruct.max_num_dofs.set(confSpaceSizesMem.address(), confSpace.maxNumDofs);
+		confSpaceSizesStruct.num_mol_motions.set(confSpaceSizesMem.address(), numMolMotions);
 		confSpaceSizesBuf = confSpaceSizesMem.asByteBuffer();
 
 		// keep track of how many streams are left to give out
@@ -1773,7 +1769,7 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 	private MemorySegment makeIntersMem(List<PosInter> inters) {
 		MemorySegment mem = makeArray(inters.size(), posInterStruct.bytes());
 		BufWriter buf = new BufWriter(mem);
-		buf.pos = getArrayAddress(mem).offset();
+		buf.pos = getArrayAddress(mem).segmentOffset(mem);
 		for (var inter : inters) {
 			var addr = buf.place(posInterStruct);
 			posInterStruct.posi1.set(addr, inter.posi1);
@@ -1800,10 +1796,10 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 	private static long getArraySize(MemorySegment mem) {
 		var h = MemoryHandles.varHandle(long.class, ByteOrder.nativeOrder());
-		return (long)h.get(mem.baseAddress());
+		return (long)h.get(mem.address());
 	}
 
 	private static MemoryAddress getArrayAddress(MemorySegment mem) {
-		return mem.baseAddress().addOffset(Int64.bytes*2);
+		return mem.address().addOffset(Int64.bytes*2);
 	}
 }
