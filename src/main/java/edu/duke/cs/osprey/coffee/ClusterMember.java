@@ -191,9 +191,12 @@ public class ClusterMember implements AutoCloseable {
 
 		private List<T> nextWorksLocal(int size) {
 			var works = new ArrayList<T>(size);
-			for (int i=0; i<size; i++) {
-				if (workload.hasNext()) {
-					works.add(workload.next());
+			// this can be hit from different threads, so don't race on the workload
+			synchronized (workload) {
+				for (int i=0; i<size; i++) {
+					if (workload.hasNext()) {
+						works.add(workload.next());
+					}
 				}
 			}
 			return works;
