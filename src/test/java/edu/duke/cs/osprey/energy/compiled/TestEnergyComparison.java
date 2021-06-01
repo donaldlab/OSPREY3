@@ -89,7 +89,7 @@ public class TestEnergyComparison {
 		assertEnergy(
 			calcEnergy(classic.complex, classic.makeConfWt(classic.complex)),
 			calcEnergy(compiled.complex, compiled.makeConfWt(compiled.complex)),
-			7.0
+			9.0
 		);
 	}
 
@@ -178,7 +178,7 @@ public class TestEnergyComparison {
 		assertConfs(
 			astarConfs(classic.complex, NumConfs),
 			astarConfs(compiled.complex, NumConfs),
-			3.0
+			9.0
 		);
 	}
 
@@ -284,7 +284,7 @@ public class TestEnergyComparison {
 		assertPfuncs(
 			pfunc(classic.complex, Epsilon),
 			pfunc(compiled.complex, Epsilon),
-			7.0
+			9.0
 		);
 	}
 }

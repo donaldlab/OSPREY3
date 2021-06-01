@@ -14,12 +14,11 @@ import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.tools.Duration;
 import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.Log;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.Timeout;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -30,10 +29,6 @@ import static org.junit.Assert.assertThat;
 
 
 public class TestKStar {
-
-	// buggy versions of these tests sometimes take a very long time to run
-	@Rule
-	public Timeout globalTimeout = new Timeout(5, TimeUnit.MINUTES);
 
 	private boolean generate = false;
 	private double epsilon = Double.NaN;
@@ -54,29 +49,29 @@ public class TestKStar {
 		var result = run(chainG, chainA, complex, posInterDist, epsilon);
 
 		// check the results
-		// answers computed with epsilon=0.1 using the GPU ecalc
-		assertSequence(result,   0, "PHE LYS ILE THR PHE ASP GLU", "1.545472e+119", "1.684915e+119", "4.723506e+934", "5.144046e+934", "3.712483e+1106", "4.124440e+1106");
-		assertSequence(result,   1, "PHE LYS ILE THR PHE ASP ASP", "3.698526e+117", "3.964339e+117", "4.723506e+934", "5.144046e+934", "8.815333e+1104", "9.792659e+1104");
-		assertSequence(result,   2, "PHE LYS ILE THR PHE GLU GLU", "2.183036e+119", "2.374596e+119", "4.723506e+934", "5.144046e+934", "5.219978e+1106", "5.799442e+1106");
-		assertSequence(result,   3, "PHE LYS ILE THR ALA ASP GLU", "4.452034e+116", "4.715925e+116", "4.723506e+934", "5.144046e+934", "1.053552e+1104", "1.170024e+1104");
-		assertSequence(result,   4, "PHE LYS ILE THR ILE ASP GLU", "2.993563e+116", "3.234977e+116", "4.723506e+934", "5.144046e+934", "7.158340e+1103", "7.952307e+1103");
-		assertSequence(result,   5, "PHE LYS ILE THR LEU ASP GLU", "4.011891e+117", "4.363522e+117", "4.723506e+934", "5.144046e+934", "9.591381e+1104", "1.065557e+1105");
-		assertSequence(result,   6, "PHE LYS ILE THR TYR ASP GLU", "2.109162e+119", "2.287207e+119", "4.723506e+934", "5.144046e+934", "5.048081e+1106", "5.608080e+1106");
-		assertSequence(result,   7, "PHE LYS ILE THR VAL ASP GLU", "7.490372e+115", "7.946553e+115", "4.723506e+934", "5.144046e+934", "1.782366e+1103", "1.979794e+1103");
-		assertSequence(result,   8, "PHE LYS ILE ASN PHE ASP GLU", "1.545472e+119", "1.684915e+119", "3.918142e+933", "4.205637e+933", "1.533457e+1105", "1.702591e+1105");
-		assertSequence(result,   9, "PHE LYS ILE SER PHE ASP GLU", "1.545472e+119", "1.684915e+119", "2.063374e+934", "2.281592e+934", "2.232865e+1106", "2.480699e+1106");
-		assertSequence(result,  10, "PHE LYS ALA THR PHE ASP GLU", "1.545472e+119", "1.684915e+119", "3.980326e+931", "4.382659e+931", "1.601785e+1103", "1.779294e+1103");
-		assertSequence(result,  11, "PHE LYS LEU THR PHE ASP GLU", "1.545472e+119", "1.684915e+119", "4.687707e+903", "5.131922e+903", "3.218183e+1075", "3.574845e+1075");
-		assertSequence(result,  12, "PHE LYS PHE THR PHE ASP GLU", "1.545472e+119", "1.684915e+119", "1.274839e+930", "1.388108e+930", "1.339810e+1103", "1.488344e+1103");
-		assertSequence(result,  13, "PHE LYS TYR THR PHE ASP GLU", "1.545472e+119", "1.684915e+119", "2.274307e+930", "2.497399e+930", "3.926699e+1103", "4.362458e+1103");
-		assertSequence(result,  14, "PHE LYS VAL THR PHE ASP GLU", "1.545472e+119", "1.684915e+119", "8.756688e+932", "9.644181e+932", "5.116884e+1104", "5.684792e+1104");
-		assertSequence(result,  15, "PHE ASP ILE THR PHE ASP GLU", "1.545472e+119", "1.684915e+119", "2.756439e+926", "2.983265e+926", "7.913709e+1095", "8.787334e+1095");
-		assertSequence(result,  16, "PHE GLU ILE THR PHE ASP GLU", "1.545472e+119", "1.684915e+119", "1.070749e+927", "1.114131e+927", "1.578784e+1096", "1.752743e+1096");
-		assertSequence(result,  17, "ALA LYS ILE THR PHE ASP GLU", "1.545472e+119", "1.684915e+119", "1.622001e+931", "1.747574e+931", "9.186497e+1101", "1.020473e+1102");
-		assertSequence(result,  18, "ILE LYS ILE THR PHE ASP GLU", "1.545472e+119", "1.684915e+119", "9.889412e+932", "1.086031e+933", "4.469246e+1104", "4.964611e+1104");
-		assertSequence(result,  19, "LEU LYS ILE THR PHE ASP GLU", "1.545472e+119", "1.684915e+119", "6.964435e+932", "7.652128e+932", "4.328846e+1103", "4.808722e+1103");
-		assertSequence(result,  20, "TYR LYS ILE THR PHE ASP GLU", "1.545472e+119", "1.684915e+119", "7.924623e+934", "8.691902e+934", "6.128211e+1106", "6.807914e+1106");
-		assertSequence(result,  21, "VAL LYS ILE THR PHE ASP GLU", "1.545472e+119", "1.684915e+119", "2.563908e+932", "2.780140e+932", "4.652633e+1103", "5.168006e+1103");
+		// answers computed with epsilon=0.1, on 48 threads, with a 5 minute timeout for each pfunc
+		assertSequence(result,   0, "PHE LYS ILE THR PHE ASP GLU", "1.599167e+119", "1.603392e+119", "4.697497e+934", "5.044775e+934", "1.695936e+1117", "1.876755e+1117");
+		assertSequence(result,   1, "PHE LYS ILE THR PHE ASP ASP", "3.792600e+117", "4.129520e+117", "4.697497e+934", "5.044775e+934", "2.404320e+1113", "2.596913e+1113");
+		assertSequence(result,   2, "PHE LYS ILE THR PHE GLU GLU", "2.201263e+119", "2.245939e+119", "4.697497e+934", "5.044775e+934", "1.015415e+1117", "1.115463e+1117");
+		assertSequence(result,   3, "PHE LYS ILE THR ALA ASP GLU", "4.565707e+116", "4.565707e+116", "4.697497e+934", "5.044775e+934", "1.040126e+1111", "1.111272e+1111");
+		assertSequence(result,   4, "PHE LYS ILE THR ILE ASP GLU", "3.062507e+116", "3.070559e+116", "4.697497e+934", "5.044775e+934", "1.626136e+1112", "1.797470e+1112");
+		assertSequence(result,   5, "PHE LYS ILE THR LEU ASP GLU", "4.078772e+117", "4.123589e+117", "4.697497e+934", "5.044775e+934", "8.573269e+1113", "9.389148e+1113");
+		assertSequence(result,   6, "PHE LYS ILE THR TYR ASP GLU", "2.166241e+119", "2.179750e+119", "4.697497e+934", "5.044775e+934", "1.079470e+1114", "1.197624e+1114");
+		assertSequence(result,   7, "PHE LYS ILE THR VAL ASP GLU", "7.693108e+115", "7.804112e+115", "4.697497e+934", "5.044775e+934", "1.383324e+1111", "1.497185e+1111");
+		assertSequence(result,   8, "PHE LYS ILE ASN PHE ASP GLU", "1.599167e+119", "1.603392e+119", "4.120907e+933", "4.131389e+933", "4.525219e+1115", "4.653164e+1115");
+		assertSequence(result,   9, "PHE LYS ILE SER PHE ASP GLU", "1.599167e+119", "1.603392e+119", "2.009793e+934", "2.215483e+934", "1.720875e+1117", "1.863201e+1117");
+		assertSequence(result,  10, "PHE LYS ALA THR PHE ASP GLU", "1.599167e+119", "1.603392e+119", "4.112727e+931", "4.392889e+931", "1.326162e+1113", "1.473341e+1113");
+		assertSequence(result,  11, "PHE LYS LEU THR PHE ASP GLU", "1.599167e+119", "1.603392e+119", "4.639921e+903", "4.946852e+903", "8.850462e+1083", "9.648729e+1083");
+		assertSequence(result,  12, "PHE LYS PHE THR PHE ASP GLU", "1.599167e+119", "1.603392e+119", "1.250916e+930", "1.343667e+930", "1.214005e+885", "2.684640e+905");
+		assertSequence(result,  13, "PHE LYS TYR THR PHE ASP GLU", "1.599167e+119", "1.603392e+119", "2.225535e+930", "2.390111e+930", "2.176774e+828", "1.104128e+864");
+		assertSequence(result,  14, "PHE LYS VAL THR PHE ASP GLU", "1.599167e+119", "1.603392e+119", "8.928763e+932", "9.483391e+932", "9.999413e+1114", "1.103053e+1115");
+		assertSequence(result,  15, "PHE ASP ILE THR PHE ASP GLU", "1.599167e+119", "1.603392e+119", "2.916204e+926", "2.949550e+926", "1.149242e+1104", "1.251620e+1104");
+		assertSequence(result,  16, "PHE GLU ILE THR PHE ASP GLU", "1.599167e+119", "1.603392e+119", "1.102772e+927", "1.104368e+927", "7.773140e+1103", "8.353264e+1103");
+		assertSequence(result,  17, "ALA LYS ILE THR PHE ASP GLU", "1.599167e+119", "1.603392e+119", "1.676580e+931", "1.701650e+931", "4.094726e+1112", "4.535013e+1112");
+		assertSequence(result,  18, "ILE LYS ILE THR PHE ASP GLU", "1.599167e+119", "1.603392e+119", "9.521737e+932", "1.056179e+933", "1.999694e+1115", "2.209177e+1115");
+		assertSequence(result,  19, "LEU LYS ILE THR PHE ASP GLU", "1.599167e+119", "1.603392e+119", "7.164489e+932", "7.452615e+932", "1.942237e+1114", "2.148226e+1114");
+		assertSequence(result,  20, "TYR LYS ILE THR PHE ASP GLU", "1.599167e+119", "1.603392e+119", "7.725090e+934", "8.475823e+934", "2.815613e+1117", "3.103106e+1117");
+		assertSequence(result,  21, "VAL LYS ILE THR PHE ASP GLU", "1.599167e+119", "1.603392e+119", "2.647316e+932", "2.727974e+932", "2.073171e+1114", "2.296308e+1114");
 	}
 	@Test public void test2RL0_DesmetEtAl1992() { test2RL0(PosInterDist.DesmetEtAl1992); }
 	// tragically, calculating the energy matrices for the tighter bounds takes longer than the time limit here, so this doesn't make a good test case
@@ -84,30 +79,28 @@ public class TestKStar {
 
 	// TODO: add more test cases here?
 
-
 	private Result run(ConfSpace protein, ConfSpace ligand, ConfSpace complex, PosInterDist posInterDist, double epsilon) {
 
 		var settings = new KStar.Settings.Builder()
 			.setEpsilon(epsilon)
 			.setStabilityThreshold(null)
-			.setMaxSimultaneousMutations(1);
+			.setMaxSimultaneousMutations(1)
+			.setPfuncTimeout(new Duration(10, TimeUnit.SECONDS));
 
 		if (generate) {
 
+			// override the settings to generate the expected vaules
 			settings.setEpsilon(this.epsilon);
-			//settings.setShowPfuncProgress(true);
+			settings.setPfuncTimeout(new Duration(5, TimeUnit.MINUTES));
 
 			settings.addScoreConsoleWriter(info -> {
 
 				Function<PartitionFunction.Result,String> formatPfunc = (pfuncResult) -> {
-					if (pfuncResult.status == PartitionFunction.Status.Estimated) {
-						var bounds = pfuncResult.values.calcBounds();
-						return String.format("\"%-12s\", \"%-12s\"",
-							Log.formatBigEngineering(bounds.lower),
-							Log.formatBigEngineering(bounds.upper)
-						);
-					}
-					return "null";
+					var bounds = pfuncResult.values.calcBounds();
+					return String.format("\"%-12s\", \"%-12s\"",
+						Log.formatBigEngineering(bounds.lower),
+						Log.formatBigEngineering(bounds.upper)
+					);
 				};
 
 				return String.format("assertSequence(result, %3d, \"%s\", %s, %s, %s);",
@@ -118,6 +111,16 @@ public class TestKStar {
 					formatPfunc.apply(info.kstarScore.complex)
 				);
 			});
+
+		} else {
+
+			settings.addScoreConsoleWriter(info ->
+				String.format("finished sequence %d/%d [%s]",
+					info.sequenceNumber + 1,
+					info.numSequences,
+					info.sequence.toString(Sequence.Renderer.ResType)
+				)
+			);
 		}
 
 		KStar kstar = new KStar(protein, ligand, complex, settings.build());
@@ -187,10 +190,26 @@ public class TestKStar {
 		KStar.ScoredSequence seq = result.scores.get(index);
 		assertThat(seq.sequence.toString(Sequence.Renderer.ResType), is(seqstr));
 
+		var proteinObs = seq.score.protein.values.calcBounds();
+		var ligandObs = seq.score.ligand.values.calcBounds();
+		var complexObs = seq.score.complex.values.calcBounds();
+
 		// the two pfunc bounds should overlap for each state
-		assertThat(seq.score.protein.values.calcBounds().intersects(proteinExp), is(true));
-		assertThat(seq.score.ligand.values.calcBounds().intersects(ligandExp), is(true));
-		assertThat(seq.score.complex.values.calcBounds().intersects(complexExp), is(true));
+		assertThat(
+			String.format("\n\texp=%s\n\tobs=%s", proteinExp, proteinObs),
+			proteinObs.intersects(proteinExp),
+			is(true)
+		);
+		assertThat(
+			String.format("\n\texp=%s\n\tobs=%s", ligandExp, ligandObs),
+			ligandObs.intersects(ligandExp),
+			is(true)
+		);
+		assertThat(
+			String.format("\n\texp=%s\n\tobs=%s", complexExp, complexObs),
+			complexObs.intersects(complexExp),
+			is(true)
+		);
 	}
 
 	public static void main(String[] args) {

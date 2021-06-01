@@ -185,7 +185,7 @@ public class TestSimplePartitionFunction {
 		info.ffparams = new ForcefieldParams();
 
 		// choose a molecule
-		info.mol = PDBIO.readFile("examples/2RL0.kstar/2RL0.min.reduce.pdb");
+		info.mol = PDBIO.readResource("/2RL0.min.reduce.pdb");
 
 		// make sure all strands share the same template library
 		info.templateLib = new ResidueTemplateLibrary.Builder(info.ffparams.forcefld).build();
@@ -297,7 +297,7 @@ public class TestSimplePartitionFunction {
 		info.ffparams = new ForcefieldParams();
 
 		// choose a molecule
-		info.mol = PDBIO.readFile("test-resources/1gua_adj.min.pdb");
+		info.mol = PDBIO.readResource("/1gua_adj.min.pdb");
 
 		// make sure all strands share the same template library
 		info.templateLib = new ResidueTemplateLibrary.Builder(info.ffparams.forcefld).build();
@@ -473,7 +473,7 @@ public class TestSimplePartitionFunction {
 		info.ffparams = new ForcefieldParams();
 
 		// choose a molecule
-		info.mol = PDBIO.readFile("examples/2RL0.kstar/2RL0.min.reduce.pdb");
+		info.mol = PDBIO.readResource("/2RL0.min.reduce.pdb");
 
 		// make sure all strands share the same template library
 		info.templateLib = new ResidueTemplateLibrary.Builder(info.ffparams.forcefld).build();
