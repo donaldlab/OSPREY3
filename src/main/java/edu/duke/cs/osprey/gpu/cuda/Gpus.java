@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import jcuda.CudaException;
 import jcuda.driver.CUdevice;
 import jcuda.driver.JCudaDriver;
 
@@ -90,6 +91,12 @@ public class Gpus {
 			StringWriter buf = new StringWriter();
 			ex.printStackTrace(new PrintWriter(buf));
 			print(buf.toString());
+		} catch (CudaException ex) {
+			if (ex.getMessage().equals("CUDA_ERROR_NO_DEVICE")) {
+				// ignore it
+			} else {
+				throw ex;
+			}
 		} finally {
 			if (gpus.isEmpty()) {
 				print(" none found\n");
