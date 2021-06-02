@@ -132,7 +132,7 @@ dependencies {
 	implementation("com.github.haifengl:smile-core:1.5.1")
 	implementation("com.github.haifengl:smile-netlib:1.5.1")
 	implementation("de.lmu.ifi.dbs.elki:elki:0.7.1")
-	implementation("ch.obermuhlner:big-math:2.0.1")
+	implementation("ch.obermuhlner:big-math:2.3.0")
 	implementation("org.joml:joml:1.9.19")
 	implementation("org.tukaani:xz:1.8")
 	implementation("com.hazelcast:hazelcast:4.0")

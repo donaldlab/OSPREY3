@@ -1,0 +1,21 @@
+REMARK Gly GlyAla
+REMARK A Glycine free amino acid interacting with a Glycine-Alinine dipeptide
+REMARK Coordinates borrowed lovingly from our favorite metallochaperone protein ATX1 in PDB ID 1CC8
+REMARK A17 -> A1
+REMARK A20 -> B2
+REMARN A21 -> B3
+REMARK Ask your doctor if Glyala (TM) is right for you!
+ATOM      1  N   GLY A  1        4.400  -0.515   7.533  1.00  7.54           N  
+ATOM      2  CA  GLY A  1        5.791  -0.751   7.871  1.00  8.10           C  
+ATOM      3  C   GLY A  1        6.672   0.451   7.612  1.00  7.08           C  
+ATOM      4  O   GLY A  1        7.716   0.674   8.236  1.00  8.01           O  
+ATOM      5  N   GLY B  2        6.124   2.886  10.277  1.00  6.30           N  
+ATOM      6  CA  GLY B  2        6.834   2.327  11.416  1.00  6.25           C  
+ATOM      7  C   GLY B  2        8.328   2.590  11.400  1.00  4.99           C  
+ATOM      8  O   GLY B  2        8.953   2.898  12.415  1.00  5.60           O  
+ATOM      9  N   ALA B  3        8.953   2.496  10.228  1.00  5.53           N  
+ATOM     10  CA  ALA B  3       10.391   2.781  10.119  1.00  5.58           C  
+ATOM     11  C   ALA B  3       10.720   4.212  10.519  1.00  5.14           C  
+ATOM     12  O   ALA B  3       11.712   4.502  11.209  1.00  6.37           O  
+ATOM     13  CB  ALA B  3       10.850   2.513   8.682  1.00  7.58           C  
+END

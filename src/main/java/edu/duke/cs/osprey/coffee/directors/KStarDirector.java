@@ -327,7 +327,7 @@ public class KStarDirector implements Coffee.Director {
 			.setGMax(gMax);
 
 		// for the complex state, pass along the ensemble reporting settings
-		if (state == complex) {
+		if (state == complex && ensembleDir != null) {
 			pfunc.setEnsembleTracking(ensembleSize, new File(ensembleDir, String.format("seq.%s.pdb", seq.toString(Sequence.Renderer.AssignmentMutations))));
 			pfunc.setEnsembleMinUpdate(ensembleUpdate, ensembleUpdateUnit);
 		}

@@ -214,13 +214,13 @@ public class TestConfSpace {
 		List<PosInter> inters = PosInterDist.all(confSpace, conf);
 		double energy = ecalc.calcEnergy(conf, inters);
 
-		// This energy is off from the classic OSPREY's energy by about 6.1 kcal/mol.
+		// This energy is off from the classic OSPREY's energy by about 8.5 kcal/mol.
 		// As far as I can tell, the difference in energy is entirely due to differences in
 		// electrostatic charges (with premultiplied Coulomb factors)
 		// between osprey classic and AmberTools19.
 		// So this energy value is as correct as we're going to get.
 		// although it's possible part of the difference is still due to unknown bugs =(
-		assertThat(energy, isAbsolutely(-1542.369034761845, 1e-9));
+		assertThat(energy, isAbsolutely(-1556.9551045257347, 1e-9));
 	}
 
 	@Test

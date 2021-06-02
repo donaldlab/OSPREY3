@@ -159,7 +159,7 @@ public class SeqSpace implements Serializable {
 			// index them by name
 			resTypesByName = new HashMap<>();
 			for (ResType rt : this.resTypes) {
-				resTypesByName.put(rt.name, rt);
+				resTypesByName.put(normalizeResType(rt.name), rt);
 			}
 
 			// get the wild type, if present for this position
@@ -172,15 +172,19 @@ public class SeqSpace implements Serializable {
 		}
 
 		public ResType getResType(String name) {
-			return resTypesByName.get(name);
+			return resTypesByName.get(normalizeResType(name));
 		}
 
 		public ResType getResTypeOrThrow(String name) {
-			ResType rt = getResType(name.toUpperCase());
+			ResType rt = getResType(name);
 			if (rt != null) {
 				return rt;
 			}
 			throw new NoSuchElementException("Res type " + name + " not allowed at position " + resNum + ". Try one of " + resTypes);
+		}
+
+		private String normalizeResType(String type) {
+			return type.toUpperCase();
 		}
 
 		public boolean hasMutants() {

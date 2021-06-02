@@ -23,7 +23,6 @@ import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.tools.*;
 import edu.duke.cs.osprey.tools.MathTools.*;
 import org.junit.Test;
-import org.slf4j.bridge.SLF4JBridgeHandler;
 
 import java.math.MathContext;
 import java.math.RoundingMode;
@@ -331,7 +330,7 @@ public class TestCoffee {
 			seqSpace -> seqSpace.makeWildTypeSequence(),
 			PosInterDist.DesmetEtAl1992,
 			triples ? 10.0 : null,
-			new double[] { -1374.377363, -144.199934, -1187.667391 },
+			new double[] { -1377.127950, -144.199934, -1187.667391 },
 			bytes, precision, numMembers, parallelism
 		);
 	}
@@ -341,7 +340,7 @@ public class TestCoffee {
 			seqSpace -> seqSpace.makeWildTypeSequence().set("6 GLN", "ALA"),
 			PosInterDist.DesmetEtAl1992,
 			null,
-			new double[] { -1362.578041, -132.431356, -1187.667391 },
+			new double[] { -1363.561940, -132.431356, -1187.667391 },
 			bytes, precision, numMembers, parallelism
 		);
 	}
@@ -351,7 +350,7 @@ public class TestCoffee {
 			seqSpace -> seqSpace.makeWildTypeSequence().set("6 GLN", "ASN"),
 			PosInterDist.DesmetEtAl1992,
 			null,
-			new double[] { -1374.067273, -143.920583, -1187.667391 },
+			new double[] { -1375.773406, -143.920583, -1187.667391 },
 			bytes, precision, numMembers, parallelism
 		);
 	}
@@ -361,15 +360,15 @@ public class TestCoffee {
 			TestCoffee::bruteForceFreeEnergies
 		);
 		//sequence [6 GLN=gln]
-		//	state complex = -1374.377363
+		//	state complex = -1377.127950
 		//	state design = -144.199934
 		//	state target = -1187.667391
 		//sequence [6 GLN=ALA]
-		//	state complex = -1362.578041
+		//	state complex = -1363.561940
 		//	state design = -132.431356
 		//	state target = -1187.667391
 		//sequence [6 GLN=ASN]
-		//	state complex = -1374.067273
+		//	state complex = -1375.773406
 		//	state design = -143.920583
 		//	state target = -1187.667391
 	}
@@ -381,9 +380,9 @@ public class TestCoffee {
 			PosInterDist.TighterBounds, // tighter bounds here cuts the runtime in half!
 			triples ? 1.0 : null,
 			new DoubleBounds[] {
-				new DoubleBounds(-1374.219820,-1374.213863),
-				new DoubleBounds(-145.154147,-145.149667),
-				new DoubleBounds(-1190.451882,-1190.446064)
+				new DoubleBounds(-1380.529262, -1380.523417),
+				new DoubleBounds(-145.154147, -145.153834),
+				new DoubleBounds(-1190.451347, -1190.446539)
 			},
 			bytes, precision, numMembers, parallelism
 		);
@@ -395,9 +394,9 @@ public class TestCoffee {
 			PosInterDist.TighterBounds,
 			null,
 			new DoubleBounds[] {
-				new DoubleBounds(-1362.582950,-1362.577013),
-				new DoubleBounds(-133.531642,-133.530880),
-				new DoubleBounds(-1190.451926,-1190.446052)
+				new DoubleBounds(-1366.733962, -1366.728450),
+				new DoubleBounds(-133.531642, -133.531642),
+				new DoubleBounds(-1190.451347, -1190.446539)
 			},
 			bytes, precision, numMembers, parallelism
 		);
@@ -409,9 +408,9 @@ public class TestCoffee {
 			PosInterDist.TighterBounds,
 			null,
 			new DoubleBounds[] {
-				new DoubleBounds(-1374.263873,-1374.257917),
-				new DoubleBounds(-145.208390,-144.875955),
-				new DoubleBounds(-1190.451882,-1190.446064)
+				new DoubleBounds(-1378.941314, -1378.935465),
+				new DoubleBounds(-145.208390, -145.208390),
+				new DoubleBounds(-1190.451347, -1190.446539)
 			},
 			bytes, precision, numMembers, parallelism
 		);
@@ -422,28 +421,27 @@ public class TestCoffee {
 			TestCoffee::gradientDescentFreeEnergies
 		);
 		//sequence [6 GLN=gln]
-		//	state complex = [-1374.219820,-1374.213863]
-		//	state design = [-145.154147,-145.149667]
-		//	state target = [-1190.451882,-1190.446064]
+		//	state complex = [-1380.529262,-1380.523417]
+		//	state design = [-145.154147,-145.153834]
+		//	state target = [-1190.451347,-1190.446539]
 		//sequence [6 GLN=ALA]
-		//	state complex = [-1362.582950,-1362.577013]
-		//	state design = [-133.531642,-133.530880]
-		//	state target = [-1190.451926,-1190.446052]
+		//	state complex = [-1366.733962,-1366.728450]
+		//	state design = [-133.531642,-133.531642]
+		//	state target = [-1190.451347,-1190.446539]
+
 		//sequence [6 GLN=ASN]
-		//	state complex = [-1374.263873,-1374.257917]
-		//	state design = [-145.208390,-144.875955]
-		//	state target = [-1190.451882,-1190.446064]
+		//	state complex = [-1378.941314,-1378.935465]
+		//	state design = [-145.208390,-145.208390]
+		//	state target = [-1190.451347,-1190.446539]
 	}
 
 	public static void main(String[] args) {
-		//bruteForce_affinity_6ov7_1mut2flex(allCpus);
-		//bruteForce_affinity_6ov7_1mut6flex(allCpus);
+		bruteForce_affinity_6ov7_1mut2flex(allCpus);
+		bruteForce_affinity_6ov7_1mut6flex(allCpus);
 		design_affinity_6ov7_2mut4flex_precise();
 	}
 
 	// TINY CONF SPACE
-
-	// TODO: sometimes a couple of these tests fail, but most of the time they don't... concurrency/parallelism bug somewhere?
 
 	// the basic test
 	@Test public void seqFreeEnergy_affinity_6ov7_1mut2flex_wt_01_1x1_1m() {
@@ -530,63 +528,63 @@ public class TestCoffee {
 
 		// expected values computed by running COFFEE on each sequence separately to gWidthMax = 1e-3
 		// and with a SeqDB precision of 4096, to accurately compute the high-energy sequences
-		expgs.put("8 THR=thr 10 VAL=val", -1358.285);
+		expgs.put("8 THR=thr 10 VAL=val", -1378.275);
 
-		expgs.put("8 THR=ASN 10 VAL=val", -1363.580);
-		expgs.put("8 THR=ASP 10 VAL=val", -1362.447);
-		expgs.put("8 THR=GLN 10 VAL=val", -1363.862);
-		expgs.put("8 THR=GLU 10 VAL=val", -1362.632);
-		expgs.put("8 THR=GLY 10 VAL=val", -1352.134);
-		expgs.put("8 THR=SER 10 VAL=val", -1357.175);
+		expgs.put("8 THR=ASN 10 VAL=val", -1379.407);
+		expgs.put("8 THR=ASP 10 VAL=val", -1381.103);
+		expgs.put("8 THR=GLN 10 VAL=val", -1383.748);
+		expgs.put("8 THR=GLU 10 VAL=val", -1381.936);
+		expgs.put("8 THR=GLY 10 VAL=val", -1369.435);
+		expgs.put("8 THR=SER 10 VAL=val", -1376.251);
 
-		expgs.put("8 THR=thr 10 VAL=ALA", -1355.824);
-		expgs.put("8 THR=thr 10 VAL=ILE", -1356.424);
-		expgs.put("8 THR=thr 10 VAL=LEU", -1358.014);
-		expgs.put("8 THR=thr 10 VAL=PHE", -1357.201);
-		expgs.put("8 THR=thr 10 VAL=TRP", -1361.944);
-		expgs.put("8 THR=thr 10 VAL=TYR", -1361.825);
+		expgs.put("8 THR=thr 10 VAL=ALA", -1371.377);
+		expgs.put("8 THR=thr 10 VAL=ILE", -1370.219);
+		expgs.put("8 THR=thr 10 VAL=LEU", -1348.772);
+		expgs.put("8 THR=thr 10 VAL=PHE", -702.158);
+		expgs.put("8 THR=thr 10 VAL=TRP", 2132.812);
+		expgs.put("8 THR=thr 10 VAL=TYR", 1513.490);
 
-		expgs.put("8 THR=ASN 10 VAL=ALA", -1361.202);
-		expgs.put("8 THR=ASN 10 VAL=ILE", -1361.732);
-		expgs.put("8 THR=ASN 10 VAL=LEU", -1363.141);
-		expgs.put("8 THR=ASN 10 VAL=PHE", -1362.931);
-		expgs.put("8 THR=ASN 10 VAL=TRP", -1367.344);
-		expgs.put("8 THR=ASN 10 VAL=TYR", -1367.642);
+		expgs.put("8 THR=ASN 10 VAL=ALA", -1372.557);
+		expgs.put("8 THR=ASN 10 VAL=ILE", -1371.100);
+		expgs.put("8 THR=ASN 10 VAL=LEU", -1353.375);
+		expgs.put("8 THR=ASN 10 VAL=PHE", -706.786);
+		expgs.put("8 THR=ASN 10 VAL=TRP", 2129.810);
+		expgs.put("8 THR=ASN 10 VAL=TYR", 1504.753);
 
-		expgs.put("8 THR=ASP 10 VAL=ALA", -1360.079);
-		expgs.put("8 THR=ASP 10 VAL=ILE", -1360.594);
-		expgs.put("8 THR=ASP 10 VAL=LEU", -1362.059);
-		expgs.put("8 THR=ASP 10 VAL=PHE", -1361.258);
-		expgs.put("8 THR=ASP 10 VAL=TRP", -1365.894);
-		expgs.put("8 THR=ASP 10 VAL=TYR", -1365.907);
+		expgs.put("8 THR=ASP 10 VAL=ALA", -1374.422);
+		expgs.put("8 THR=ASP 10 VAL=ILE", -1372.843);
+		expgs.put("8 THR=ASP 10 VAL=LEU", -1353.972);
+		expgs.put("8 THR=ASP 10 VAL=PHE", -706.888);
+		expgs.put("8 THR=ASP 10 VAL=TRP", 2125.895);
+		expgs.put("8 THR=ASP 10 VAL=TYR", 1504.968);
 
-		expgs.put("8 THR=GLN 10 VAL=ALA", -1361.343);
-		expgs.put("8 THR=GLN 10 VAL=ILE", -1361.996);
-		expgs.put("8 THR=GLN 10 VAL=LEU", -1363.630);
-		expgs.put("8 THR=GLN 10 VAL=PHE", -1363.106);
-		expgs.put("8 THR=GLN 10 VAL=TRP", -1367.680);
-		expgs.put("8 THR=GLN 10 VAL=TYR", -1367.820);
+		expgs.put("8 THR=GLN 10 VAL=ALA", -1376.819);
+		expgs.put("8 THR=GLN 10 VAL=ILE", -1375.701);
+		expgs.put("8 THR=GLN 10 VAL=LEU", -1356.205);
+		expgs.put("8 THR=GLN 10 VAL=PHE", -709.313);
+		expgs.put("8 THR=GLN 10 VAL=TRP", 2124.343);
+		expgs.put("8 THR=GLN 10 VAL=TYR", 1502.252);
 
-		expgs.put("8 THR=GLU 10 VAL=ALA", -1360.277);
-		expgs.put("8 THR=GLU 10 VAL=ILE", -1360.778);
-		expgs.put("8 THR=GLU 10 VAL=LEU", -1362.338);
-		expgs.put("8 THR=GLU 10 VAL=PHE", -1362.132);
-		expgs.put("8 THR=GLU 10 VAL=TRP", -1366.898);
-		expgs.put("8 THR=GLU 10 VAL=TYR", -1367.326);
+		expgs.put("8 THR=GLU 10 VAL=ALA", -1375.200);
+		expgs.put("8 THR=GLU 10 VAL=ILE", -1373.810);
+		expgs.put("8 THR=GLU 10 VAL=LEU", -1355.209);
+		expgs.put("8 THR=GLU 10 VAL=PHE", -708.984);
+		expgs.put("8 THR=GLU 10 VAL=TRP", 2124.959);
+		expgs.put("8 THR=GLU 10 VAL=TYR", 1502.685);
 
-		expgs.put("8 THR=GLY 10 VAL=ALA", -1349.961);
-		expgs.put("8 THR=GLY 10 VAL=ILE", -1350.297);
-		expgs.put("8 THR=GLY 10 VAL=LEU", -1351.665);
-		expgs.put("8 THR=GLY 10 VAL=PHE", -1351.577);
-		expgs.put("8 THR=GLY 10 VAL=TRP", -1355.794);
-		expgs.put("8 THR=GLY 10 VAL=TYR", -1356.124);
+		expgs.put("8 THR=GLY 10 VAL=ALA", -1362.851);
+		expgs.put("8 THR=GLY 10 VAL=ILE", -1361.027);
+		expgs.put("8 THR=GLY 10 VAL=LEU", -1342.512);
+		expgs.put("8 THR=GLY 10 VAL=PHE", -699.969);
+		expgs.put("8 THR=GLY 10 VAL=TRP", 2137.699);
+		expgs.put("8 THR=GLY 10 VAL=TYR", 1510.260);
 
-		expgs.put("8 THR=SER 10 VAL=ALA", -1354.888);
-		expgs.put("8 THR=SER 10 VAL=ILE", -1355.330);
-		expgs.put("8 THR=SER 10 VAL=LEU", -1356.764);
-		expgs.put("8 THR=SER 10 VAL=PHE", -1356.622);
-		expgs.put("8 THR=SER 10 VAL=TRP", -1361.082);
-		expgs.put("8 THR=SER 10 VAL=TYR", -1361.279);
+		expgs.put("8 THR=SER 10 VAL=ALA", -1369.563);
+		expgs.put("8 THR=SER 10 VAL=ILE", -1368.029);
+		expgs.put("8 THR=SER 10 VAL=LEU", -1349.555);
+		expgs.put("8 THR=SER 10 VAL=PHE", -704.956);
+		expgs.put("8 THR=SER 10 VAL=TRP", 2130.538);
+		expgs.put("8 THR=SER 10 VAL=TYR", 1506.171);
 
 		final double epsilon = 1e-3;
 
@@ -673,6 +671,7 @@ public class TestCoffee {
 		var confSpace = TestCoffee.affinity_6ov7_2mut4flex();
 
 		var coffee = new Coffee.Builder(confSpace)
+			.setParallelism(allCpus)
 			.setSeqDBMathContext(new MathContext(4096, RoundingMode.HALF_UP))
 			.configEachState(config -> {
 				config.posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null);
@@ -775,7 +774,7 @@ public class TestCoffee {
 			coffee.run(director);
 
 			if (cluster.nodeId == 0) {
-				assertThat(director.bestSeqs.size(), is(30)); // we get a couple extra sequences for free
+				assertThat(director.bestSeqs.size(), is(28));
 				assertFreeEnergies_2m4f_complex(director.bestSeqs, confSpace.getState("complex").index);
 				assertFreeEnergies_2m4f_design(director.bestSeqs, confSpace.getState("design").index);
 				assertThat(director.targetFreeEnergy, isAbsoluteBound(-1187.609, 1e-3));

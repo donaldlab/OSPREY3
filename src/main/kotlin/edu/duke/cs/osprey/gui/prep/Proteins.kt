@@ -14,12 +14,13 @@ object Proteins {
 
 	private fun Polymer.Residue.getProteinAtom(name: String) =
 		atoms
-			.find { it.name.toLowerCase() == name.toLowerCase() }
+			.find { it.name.equals(name, ignoreCase = true) }
 			?: throw NotAProteinException("residue does not have atom $name")
 
 	fun makeDesignPosition(mol: Polymer, res: Polymer.Residue, name: String) =
 		DesignPosition(name, res.type, mol).apply {
 			setDesignPosition(this, res)
+			this.name = name
 		}
 
 	fun setDesignPosition(pos: DesignPosition, res: Polymer.Residue) = pos.apply {

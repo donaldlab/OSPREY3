@@ -41,12 +41,15 @@ import com.google.common.collect.Iterables;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
+import edu.duke.cs.osprey.energy.compiled.ForcefieldDebugger;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield;
 import edu.duke.cs.osprey.energy.forcefield.ResPairCache.ResPair;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.structure.Residues;
 import edu.duke.cs.osprey.tools.Streams;
+
+import static edu.duke.cs.osprey.tools.Log.log;
 
 public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof {
 
@@ -204,6 +207,20 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 				}
 				
 				// read the bit flags
+
+				/* DEBUG
+				var atomPair = new ForcefieldDebugger.AtomPair(
+					pair.res1.getPDBResNumber() + ":" + pair.res1.atoms.get(atomOffset1/3).name,
+					pair.res2.getPDBResNumber() + ":" + pair.res2.atoms.get(atomOffset2/3).name
+				);
+				var atomPairCoords = new ForcefieldDebugger.Coords(
+					coords1[atomOffset1], coords1[atomOffset1 + 1], coords1[atomOffset1 + 2],
+					coords2[atomOffset2], coords2[atomOffset2 + 1], coords2[atomOffset2 + 2],
+					r
+				);
+				double ambere = 0.0;
+				double eef1e = 0.0;
+				*/
 				
 				// electrostatics
 				if (isHeavyPair || useHEs) {
@@ -211,12 +228,16 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 					if (is14Bonded) {
 						if (distDepDielect) {
 							resPairEnergy += scaledCoulombFactor*charge/r2;
+							// DEBUG
+							//ambere += scaledCoulombFactor*charge/r2;
 						} else {
 							resPairEnergy += scaledCoulombFactor*charge/r;
 						}
 					} else {
 						if (distDepDielect) {
 							resPairEnergy += coulombFactor*charge/r2;
+							// DEBUG
+							//ambere += coulombFactor*charge/r2;
 						} else {
 							resPairEnergy += coulombFactor*charge/r;
 						}
@@ -235,6 +256,9 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 					double r6 = r2*r2*r2;
 					double r12 = r6*r6;
 					resPairEnergy += Aij/r12 - Bij/r6;
+
+					// DEBUG
+					//ambere += Aij/r12 - Bij/r6;
 					
 				} else {
 					pos += 2;
@@ -255,12 +279,23 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 						double Xij = (r - radius1)/lambda1;
 						double Xji = (r - radius2)/lambda2;
 						resPairEnergy -= (alpha1*Math.exp(-Xij*Xij) + alpha2*Math.exp(-Xji*Xji))/r2;
+
+						// DEBUG
+						//eef1e -= (alpha1*Math.exp(-Xij*Xij) + alpha2*Math.exp(-Xji*Xji))/r2;
 						
 					} else {
 						pos += 6;
 					}
 				}
+
+				// DEBUG
+				//ForcefieldDebugger.instance.addInteractionCoords(atomPair, "classic", atomPairCoords);
+				//ForcefieldDebugger.instance.addInteractionEnergy(atomPair, "classic amber", ambere);
+				//ForcefieldDebugger.instance.addInteractionEnergy(atomPair, "classic eef1", eef1e);
 			}
+
+			// DEBUG
+			//ForcefieldDebugger.instance.addInternal(pair.res1.getPDBResNumber(), pair.res2.getPDBResNumber(), "eef1", pair.solvEnergy);
 			
 			// apply weights and offsets
 			energy += (resPairEnergy + pair.offset + pair.solvEnergy)*pair.weight;

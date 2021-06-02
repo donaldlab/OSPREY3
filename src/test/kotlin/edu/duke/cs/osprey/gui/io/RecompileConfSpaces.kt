@@ -18,7 +18,7 @@ fun main() = withService {
 	val ospreyDir = Paths.get(".")
 	val dirs = listOf(
 		"src/test/resources/confSpaces",
-		"examples/python.ccs/F98Y"
+		"examples/python.ccs/conf space prep"
 	).map { ospreyDir.resolve(it) }
 
 	for (dir in dirs) {
