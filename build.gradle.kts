@@ -262,7 +262,15 @@ tasks.withType<KotlinCompile> {
 tasks.withType<Test> {
 	// the default 512m is too little memory to run test designs
 	maxHeapSize = "2g"
-	useJUnitPlatform()
+	useJUnit()
+
+	// add the module args, if not already there
+	for (arg in moduleArgs) {
+		if (arg !in jvmArgs!!) {
+			jvmArgs = jvmArgs!! + listOf(arg)
+			// NOTE: for some reason, .add() and += don't work here
+		}
+	}
 }
 
 
