@@ -75,8 +75,8 @@ public class GLibC {
 
 	public static class RLimit {
 
-		long curr;
-		long max;
+		public long curr;
+		public long max;
 
 		private RLimit(NativeLib.RLimit n) {
 			curr = n.rlim_curr.longValue();
