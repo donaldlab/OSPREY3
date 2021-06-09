@@ -35,6 +35,7 @@ package edu.duke.cs.osprey.kstar.pfunc;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.util.function.Function;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
@@ -43,7 +44,6 @@ import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.kstar.KStarScore;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.BigMath;
-import edu.duke.cs.osprey.tools.Duration;
 import edu.duke.cs.osprey.tools.MathTools;
 
 
