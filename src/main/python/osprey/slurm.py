@@ -31,7 +31,8 @@ if is_slurm:
 def launch(num_nodes, parallelism, mem_mib, python=sys.executable, srun_args=[]):
 
     # convert MiB to MB for slurm
-    mem_mb = int(math.ceil(mem_mib*1024*1024/1000/1000))
+    # NOPE: empirically, it looks like SLURM uses MiB, GiB, etc after all
+    #mem_mb = int(math.ceil(mem_mib*1024*1024/1000/1000))
 
     # python buffers stdout by default,
     # so flush it before spawning another process,

@@ -40,10 +40,10 @@ import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.AutoCloseableNoEx;
-import edu.duke.cs.osprey.tools.Duration;
 
 import java.io.File;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.*;
 
 

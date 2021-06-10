@@ -34,52 +34,102 @@ package edu.duke.cs.osprey.tools;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryPoolMXBean;
-import java.lang.management.MemoryUsage;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.time.Duration;
+import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.stream.Collectors;
 
 public class JvmMem {
+
+	private static boolean warnedAboutLimits = false;
 
 	public static class MemInfo {
 
 		public final String name;
-		public final long usedBytes;
+
+		/** the limit, if any, on this memory pool */
 		public final long maxBytes;
+
+		/** number of bytes used by the JVM */
+		public final long usedBytes;
 		public final double usedPercent;
 
-		public MemInfo(String name, long usedBytes, long maxBytes) {
+		/** number of bytes allocated by the JVM from the OS */
+		public final long allocatedBytes;
+		public final double allocatedPercent;
+
+		public MemInfo(String name, long maxBytes, long usedBytes, long allocatedBytes) {
 			this.name = name;
-			this.usedBytes = usedBytes;
 			this.maxBytes = maxBytes;
+			this.usedBytes = usedBytes;
 			this.usedPercent = 100.0*usedBytes/maxBytes;
+			this.allocatedBytes = allocatedBytes;
+			this.allocatedPercent = 100.0*allocatedBytes/maxBytes;
 		}
 
 		public MemInfo(MemoryPoolMXBean pool) {
-			this(pool.getName(), pool.getUsage());
+			this(pool.getName(), List.of(pool));
 		}
 
-		public MemInfo(String name, MemoryUsage usage) {
-			this(name, usage.getUsed(), usage.getMax());
-		}
-
-		public MemInfo(MemInfo a, MemInfo b) {
+		public MemInfo(String name, List<MemoryPoolMXBean> pools) {
 			this(
-				String.format("%s, %s", a.name, b.name),
-				a.usedBytes + b.usedBytes,
-				a.maxBytes + b.maxBytes
+				name,
+				sumMax(pools),
+				pools.stream().mapToLong(it -> it.getUsage().getUsed()).sum(),
+				pools.stream().mapToLong(it -> it.getUsage().getCommitted()).sum()
 			);
+		}
+
+		private static long sumMax(List<MemoryPoolMXBean> pools) {
+
+			if (pools.stream().anyMatch(it -> it.getUsage().getMax() < 0)) {
+				return -1;
+			}
+
+			return pools.stream().mapToLong(it -> it.getUsage().getMax()).sum();
 		}
 
 		@Override
 		public String toString() {
-			return String.format("%.1f%% of %s", usedPercent, MathTools.formatBytes(maxBytes));
+			if (maxBytes >= 0) {
+				return String.format("%.1f%% of %s, %s alloc",
+					usedPercent,
+					MathTools.formatBytes(maxBytes),
+					MathTools.formatBytes(allocatedBytes)
+				);
+			} else {
+				return String.format("%s, %s alloc",
+					MathTools.formatBytes(usedBytes),
+					MathTools.formatBytes(allocatedBytes)
+				);
+			}
 		}
 	}
 
-	private static MemoryPoolMXBean getPool(String name) {
+	private static List<MemoryPoolMXBean> getPools(List<String> name) {
 		return ManagementFactory.getMemoryPoolMXBeans().stream()
-			.filter((pool) -> pool.getName().endsWith(name))
+			.filter(pool ->
+				name.stream()
+					.anyMatch(n -> pool.getName().endsWith(n))
+			)
+			.collect(Collectors.toList());
+	}
+
+	private static MemoryPoolMXBean getPool(String name) {
+		return getPools(List.of(name)).stream()
 			.findFirst()
 			.orElseThrow(() -> new NoSuchElementException("no memory pool named " + name));
+	}
+
+	private static List<MemoryPoolMXBean> getOtherPools(List<String> name) {
+		return ManagementFactory.getMemoryPoolMXBeans().stream()
+			.filter(pool ->
+				name.stream()
+					.noneMatch(n -> pool.getName().endsWith(n))
+			)
+			.collect(Collectors.toList());
 	}
 
 	/*
@@ -104,19 +154,116 @@ public class JvmMem {
 		v14 JVMs seem have the same default GC settings as the v11 JVMs
 	*/
 
+	private static final String EdenSuffix = "Eden Space";
+	private static final String SurvivorSuffix = "Survivor Space";
+	private static final String OldSuffix = "Old Gen";
+
 	public static MemInfo getEdenPool() {
-		return new MemInfo(getPool("Eden Space"));
+		return new MemInfo(getPool(EdenSuffix));
 	}
 
 	public static MemInfo getSurvivorPool() {
-		return new MemInfo(getPool("Survivor Space"));
+		return new MemInfo(getPool(SurvivorSuffix));
 	}
 
 	public static MemInfo getYoungPool() {
-		return new MemInfo(getEdenPool(), getSurvivorPool());
+		return new MemInfo("Young Gen", getPools(List.of(
+			EdenSuffix, SurvivorSuffix
+		)));
 	}
 
 	public static MemInfo getOldPool() {
-		return new MemInfo(getPool("Old Gen"));
+		return new MemInfo(getPool(OldSuffix));
+	}
+
+	public static MemInfo getOverheadPool() {
+		return new MemInfo("Overhead", getOtherPools(List.of(
+			EdenSuffix, SurvivorSuffix, OldSuffix
+		)));
+	}
+
+	public static MemInfo getProcess() {
+
+		var young = getYoungPool();
+		var old = getOldPool();
+		var overhead = getOverheadPool();
+
+		// look up memory limits for this process, if any
+		// eg, SLURM will set limits on RSS
+		long max = -1;
+		try {
+			max = GLibC.getrlimit(GLibC.RLimitResource.RSS).max;
+		} catch (Throwable t) {
+			if (!warnedAboutLimits) {
+				System.err.println("WARN: can't determine process memory limits");
+				t.printStackTrace(System.err);
+				warnedAboutLimits = true;
+			}
+		}
+
+		return new MemInfo(
+			"Total",
+			max,
+			young.usedBytes + old.usedBytes + overhead.usedBytes,
+			young.allocatedBytes + old.allocatedBytes + overhead.allocatedBytes
+		);
+	}
+
+	/**
+	 * A one line string memory report that shows usage and limits for the JVM heap and the JVM process.
+	 */
+	public static String oneLineReport() {
+		var old = getOldPool();
+		var process = getProcess();
+		return String.format("JvmMem[Heap: %s; Process: %s]", old, process);
+	}
+
+	/**
+	 * Launches a thread that periodically reports memory usage statistics to stdout.
+	 * The thread will run until the JVM exits.
+	 */
+	public static void monitorMemoryToStdout(Duration interval, boolean showHostname) {
+
+		// try to get the hostname, if needed
+		String hostname = null;
+		if (showHostname) {
+			try {
+				hostname = InetAddress.getLocalHost().getHostName();
+			} catch (UnknownHostException ex) {
+				System.err.println("WARN: can't find hostname");
+				ex.printStackTrace(System.err);
+			}
+		}
+		final String fhostname = hostname;
+
+		Runnable report = () -> {
+			var buf = new StringBuilder();
+			if (fhostname != null) {
+				buf.append(fhostname);
+				buf.append(": ");
+			}
+			buf.append(oneLineReport());
+			buf.append('\n');
+			System.out.print(buf);
+		};
+
+		// start the monitor thread
+		var thread = new Thread(() -> {
+			while (true) {
+
+				report.run();
+
+				try {
+					// silly IDE, it's not a busy wait
+					//noinspection BusyWait
+					Thread.sleep(interval.toMillis());
+				} catch (InterruptedException ex) {
+					return;
+				}
+			}
+		});
+		thread.setName("Memory Monitor");
+		thread.setDaemon(true);
+		thread.start();
 	}
 }

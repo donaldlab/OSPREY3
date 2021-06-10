@@ -14,12 +14,12 @@ import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Parallelism;
-import edu.duke.cs.osprey.tools.Duration;
 import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.Log;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import org.junit.Test;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -85,13 +85,13 @@ public class TestKStar {
 			.setEpsilon(epsilon)
 			.setStabilityThreshold(null)
 			.setMaxSimultaneousMutations(1)
-			.setPfuncTimeout(new Duration(10, TimeUnit.SECONDS));
+			.setPfuncTimeout(Duration.ofSeconds(10));
 
 		if (generate) {
 
 			// override the settings to generate the expected vaules
 			settings.setEpsilon(this.epsilon);
-			settings.setPfuncTimeout(new Duration(5, TimeUnit.MINUTES));
+			settings.setPfuncTimeout(Duration.ofMinutes(5));
 
 			settings.addScoreConsoleWriter(info -> {
 
