@@ -42,6 +42,7 @@ API void assign_f64(const osprey::ConfSpace<float64_t> & conf_space, const int32
 }
 
 
+
 namespace osprey {
 
 	template<typename T>

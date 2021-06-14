@@ -166,6 +166,7 @@ namespace osprey {
 				return reinterpret_cast<const void *>(p + 1);
 			}
 
+			// memory layout of conf_space
 			int32_t num_pos;
 			int32_t max_num_conf_atoms;
 			int32_t max_num_dofs;
@@ -178,6 +179,81 @@ namespace osprey {
 			int64_t molecule_motions_offset;
 			T static_energy;
 			// 4 byte pad, if T = float32_t
+			//
+			// (THIS IS WHERE POSITIONS OFFSET POINTS TO)
+			// Int 64 array of position offsets of size confSpace.positions.length
+			// For each position:
+			//	The position
+			//	Int 64 array of conf offsets of size pos.confs.length
+			//	For each conf:
+			//		The conf 
+			//		Int 64 array of atom coords offsets of size conf.coords.size
+			//		A struct containing the number of atom coords and a null ptr
+			//		For each coordinate:
+			//			(X, Y, Z, pad) floats
+			//		A struct containing the number of atom molecule indices and a null ptr
+			//		For each atom:
+			//			an int of atom mol info index
+			//		(pad to alignment of 8 bytes)
+			//		Int 64 array of conformation motion offsets of size conf.motion.length
+			//		For each motion:
+			//			an int64 dihedral ID
+			//			a dihedral struct
+			//			an array of rotated indices of length desc.rotated.length
+			//			(pad alignment to 8 bytes)
+			//	(THIS IS WHERE STATIC ATOM COORDS OFFSET POINTS TO)
+			//	A struct containing the number of static coords and a null ptr
+			//	For each static coordinate:
+			//		(X, Y, Z, pad) floats
+			//	(THIS IS WHERE STATIC ATOM MOLIS OFFSET POINTS TO)
+			//	A struct containing the number of static coords atom offsets and a null ptr
+			//	For each static coordinate:
+			//		An int of the index of the static atom molecule
+			//	(pad to alignment of 8 bytes)
+			//	(THIS IS WHERE THE PARAMS OFFSET POINTS TO)
+			//	A forcefield params struct with the distance_dependent_dielectric (1 byte) and 7 bytes padding
+			//	(THIS IS WHERE THE POSITION PAIRS OFFSET POINTS TO)
+			//	Int 64 array of position pair offsets of size numPosPairs
+			//	The first value in the array is the address after the end of the array
+			//	An atom pairs struct
+			//	For each amber atom pair:
+			//		an amberStruct
+			//	For each eff1 atom pair:
+			//		an eef1Struct
+			//	For each design position:
+			//		Int 64 array of fragment pair offsets of size confSpace.numFrag()
+			//		For each fragment:
+			//			An atom pairs struct
+			//			For each amber atom pair:
+			//				an amberStruct
+			//			For each eff1 atom pair:
+			//				an eef1Struct
+			//	For each design position:
+			//		Int 64 array of fragment pair offsets of size confSpace.numFrag()
+			//		For each fragment:
+			//			An atom pairs struct
+			//			For each amber atom pair:
+			//				an amberStruct
+			//			For each eff1 atom pair:
+			//				an eef1Struct
+			//	For each design position pair:
+			//		Int 64 array of fragment pair offsets of size confSpace.numFrag(pos1) * confSpace.numFrag(pos2)
+			//		For each fragment pair:
+			//			An atom pairs struct
+			//			For each amber atom pair:
+			//				an amberStruct
+			//			For each eff1 atom pair:
+			//				an eef1Struct
+			//	(THIS IS WHERE THE MOLECULE MOTIONS OFFSET POINT TO)
+			//	Int 64 array of molecule motions offsets of size numMolMotions
+			//	For each molecule:
+			//		For each motion:
+			//			If translation-rotation:
+			//				transRotStruct
+			//			If Dihedral motion:
+			//				a dihedral struct
+			//				an array of rotated indices of length desc.rotated.length
+			//				(pad alignment to 8 bytes)
 
 			inline const uint8_t * offset(int64_t offset) const {
 				return reinterpret_cast<const uint8_t *>(this) + offset;
