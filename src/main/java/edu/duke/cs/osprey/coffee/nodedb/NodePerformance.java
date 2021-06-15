@@ -21,10 +21,17 @@ public class NodePerformance {
 	private static class TypePerf {
 
 		Deque<Long> nsHistory = new ArrayDeque<>(HistorySize);
-		long nsSum = 0L;
-		long avgNs = InitialNs;
+		long nsSum;
+		long avgNs;
 
 		TypePerf() {
+			clear();
+		}
+
+		void clear() {
+
+			nsSum = 0L;
+			avgNs = InitialNs;
 
 			// init the history with something neutral, so we can ease-in changes over time
 			for (int i=0; i<HistorySize; i++) {
@@ -57,6 +64,12 @@ public class NodePerformance {
 			types = new TypePerf[state.confSpace.numPos() + 1];
 			for (int i=0; i<types.length; i++) {
 				types[i] = new TypePerf();
+			}
+		}
+
+		void clear() {
+			for (var type : types) {
+				type.clear();
 			}
 		}
 
@@ -134,6 +147,12 @@ public class NodePerformance {
 		states = confSpace.states.stream()
 			.map(state -> new StatePerf(state))
 			.toArray(StatePerf[]::new);
+	}
+
+	public synchronized void clear() {
+		for (var state : states) {
+			state.clear();
+		}
 	}
 
 	public void setLog(File file) {
