@@ -27,6 +27,7 @@ import edu.duke.cs.osprey.tools.Stopwatch;
 import java.io.File;
 import java.math.MathContext;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -64,6 +65,7 @@ public class Coffee {
 		private BoltzmannCalculator.Conditions conditions = BoltzmannCalculator.Conditions.Classic; // don't rock the boat
 		// TODO: experiment if other conditions better correlate with experimental results?
 		private File nodeScoringLog = null;
+		private Duration nodeStatsReportingInterval = null;
 
 		public Builder(MultiStateConfSpace confSpace) {
 			this.confSpace = confSpace;
@@ -153,6 +155,11 @@ public class Coffee {
 			return this;
 		}
 
+		public Builder setNodeStatsReportingInterval(Duration val) {
+			nodeStatsReportingInterval = val;
+			return this;
+		}
+
 		public Coffee build() {
 
 			// check the state configs
@@ -181,7 +188,7 @@ public class Coffee {
 				confSpace, stateConfigs, cluster, parallelism, precision,
 				nodedbFile, nodedbFileBytes, nodedbMemBytes,
 				seqdbFile, seqdbMathContext, includeStaticStatic, tripleCorrectionThreshold,
-				conditions, nodeScoringLog
+				conditions, nodeScoringLog, nodeStatsReportingInterval
 			);
 		}
 	}
@@ -259,6 +266,7 @@ public class Coffee {
 	public final Double tripleCorrectionThreshold;
 	public final BoltzmannCalculator.Conditions conditions;
 	public final File nodeScoringLog;
+	public final Duration nodeStatsReportingInterval;
 
 	public final MathContext mathContext = BigExp.mathContext;
 	public final BoltzmannCalculator bcalc;
@@ -268,7 +276,7 @@ public class Coffee {
 		MultiStateConfSpace confSpace, StateConfig[] stateConfigs, Cluster cluster, Parallelism parallelism, Structs.Precision precision,
 		File dbFile, long dbFileBytes, long dbMemBytes,
 		File seqdbFile, MathContext seqdbMathContext, boolean includeStaticStatic, Double tripleCorrectionThreshold,
-		BoltzmannCalculator.Conditions conditions, File nodeScoringLog
+		BoltzmannCalculator.Conditions conditions, File nodeScoringLog, Duration nodeStatsReportingInterval
 	) {
 
 		this.confSpace = confSpace;
@@ -285,6 +293,7 @@ public class Coffee {
 		this.tripleCorrectionThreshold = tripleCorrectionThreshold;
 		this.conditions = conditions;
 		this.nodeScoringLog = nodeScoringLog;
+		this.nodeStatsReportingInterval = nodeStatsReportingInterval;
 
 		bcalc = new BoltzmannCalculator(mathContext, conditions);
 		infos = Arrays.stream(stateConfigs)
@@ -321,7 +330,7 @@ public class Coffee {
 					) {
 
 						// init the node processor, and report dropped nodes to the sequence database
-						try (var nodeProcessor = new NodeProcessor(cpuTasks, seqdb, nodedb, infos, includeStaticStatic, parallelism, precision)) {
+						try (var nodeProcessor = new NodeProcessor(cpuTasks, seqdb, nodedb, infos, includeStaticStatic, parallelism, precision, nodeStatsReportingInterval)) {
 							nodedb.setDropHandler(nodeProcessor::handleDrops);
 
 							// wait for everyone to be ready
@@ -430,7 +439,7 @@ public class Coffee {
 				) {
 
 					// init the node processor, and report dropped nodes to the sequence database
-					try (var nodeProcessor = new NodeProcessor(cpuTasks, null, nodedb, infos, includeStaticStatic, parallelism, precision)) {
+					try (var nodeProcessor = new NodeProcessor(cpuTasks, null, nodedb, infos, includeStaticStatic, parallelism, precision, nodeStatsReportingInterval)) {
 
 						// init the state with the zmat
 						var stateInfo = infos[statei];

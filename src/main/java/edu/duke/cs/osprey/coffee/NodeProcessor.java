@@ -21,6 +21,7 @@ import edu.duke.cs.osprey.parallelism.ThreadTools;
 import edu.duke.cs.osprey.tools.BigExp;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
@@ -59,6 +60,7 @@ public class NodeProcessor implements AutoCloseable {
 
 		final int id;
 		final Directions directions;
+		final NodeStats.ForThread nodeStats;
 
 		Batch seqBatch = null;
 		final List<NodeIndex.Node> nodesIncoming = new ArrayList<>();
@@ -67,10 +69,11 @@ public class NodeProcessor implements AutoCloseable {
 
 		final int nodeBatchSize = 100;
 
-		NodeThread(int id, Directions directions) {
+		NodeThread(int id, Directions directions, NodeStats.ForThread nodeStats) {
 
 			this.id = id;
 			this.directions = directions;
+			this.nodeStats = nodeStats;
 
 			setName("Node-" + id);
 			setDaemon(true);
@@ -134,7 +137,7 @@ public class NodeProcessor implements AutoCloseable {
 						}
 					}
 
-					process(directions, new NodeInfo(node, tree, nodeNs/nodesIncoming.size()), seqBatch, nodesOutgoing);
+					process(directions, new NodeInfo(node, tree, nodeNs/nodesIncoming.size()), seqBatch, nodesOutgoing, nodeStats);
 
 					if (flushTracker.shouldFlush()) {
 						flush();
@@ -480,16 +483,20 @@ public class NodeProcessor implements AutoCloseable {
 	public final StateInfo[] stateInfos;
 	public final boolean includeStaticStatic;
 	public final Parallelism parallelism;
+	public final Duration statsReporterInterval;
 
 	public final ConfEnergyCalculator[] cpuEcalcs;
 	public final CudaConfEnergyCalculator[] gpuEcalcs;
+	public final NodeStats nodeStats = new NodeStats();
 
 	private final List<NodeThread> nodeThreads = new ArrayList<>();
 	private final List<GpuThread> gpuThreads = new ArrayList<>();
 	private final List<MinimizationQueue> minimizationQueues = new ArrayList<>();
-	private DropThread dropThread = null;
 
-	public NodeProcessor(TaskExecutor cpuTasks, SeqDB seqdb, NodeDB nodedb, StateInfo[] stateInfos, boolean includeStaticStatic, Parallelism parallelism, Structs.Precision precision) {
+	private DropThread dropThread = null;
+	private NodeStats.Reporter nodeStatsReporter = null;
+
+	public NodeProcessor(TaskExecutor cpuTasks, SeqDB seqdb, NodeDB nodedb, StateInfo[] stateInfos, boolean includeStaticStatic, Parallelism parallelism, Structs.Precision precision, Duration statsReporterInterval) {
 
 		this.cpuTasks = cpuTasks;
 		this.seqdb = seqdb;
@@ -497,6 +504,7 @@ public class NodeProcessor implements AutoCloseable {
 		this.stateInfos = stateInfos;
 		this.includeStaticStatic = includeStaticStatic;
 		this.parallelism = parallelism;
+		this.statsReporterInterval = statsReporterInterval;
 
 		// make the energy calculators
 		cpuEcalcs = Arrays.stream(stateInfos)
@@ -532,6 +540,11 @@ public class NodeProcessor implements AutoCloseable {
 				ecalc.close();
 			}
 		}
+
+		// cleanup the stats reporter if needed
+		if (nodeStatsReporter != null) {
+			nodeStatsReporter.close();
+		}
 	}
 
 	public void start(int numThreads, Directions directions) {
@@ -542,7 +555,7 @@ public class NodeProcessor implements AutoCloseable {
 
 		// start the node threads
 		for (int i=0; i<numThreads; i++) {
-			nodeThreads.add(new NodeThread(i, directions));
+			nodeThreads.add(new NodeThread(i, directions, nodeStats.new ForThread()));
 		}
 
 		// start the GPU threads too, if needed
@@ -567,6 +580,20 @@ public class NodeProcessor implements AutoCloseable {
 
 		// start the drop thread
 		dropThread = new DropThread(directions);
+
+		// start the stats
+		if (statsReporterInterval != null) {
+			// set the sync interval to half the report interval,
+			// so the reports have something to report about
+			nodeStats.start(statsReporterInterval.dividedBy(2));
+			nodeStatsReporter = nodeStats.new Reporter(statsReporterInterval, report -> {
+				// just write it to the log
+				log("%s", report);
+			});
+		} else {
+			nodeStats.start();
+			nodeStatsReporter = null;
+		}
 	}
 
 	public void initRootNode(int statei, NodeTree tree) {
@@ -594,13 +621,6 @@ public class NodeProcessor implements AutoCloseable {
 		}
 	}
 
-	public int getMinimizationQueueSize(int statei) {
-		if (minimizationQueues.isEmpty()) {
-			return -1;
-		}
-		return minimizationQueues.get(statei).size();
-	}
-
 	private void log(String msg, Object ... args) {
 		nodedb.member.log(msg, args);
 	}
@@ -617,20 +637,6 @@ public class NodeProcessor implements AutoCloseable {
 		return seqdb.confSpace.seqSpace.makeSequence(stateInfos[statei].config.confSpace, conf);
 	}
 
-	private enum Result {
-
-		GotNode(true),
-		NoState(false),
-		NoTree(false),
-		NoNode(false);
-
-		public final boolean gotNode;
-
-		Result(boolean gotNode) {
-			this.gotNode = gotNode;
-		}
-	}
-
 	private static class NodeInfo {
 
 		final NodeIndex.Node node;
@@ -644,7 +650,7 @@ public class NodeProcessor implements AutoCloseable {
 		}
 	}
 
-	private void process(Directions directions, NodeInfo nodeInfo, Batch seqBatch, List<NodeIndex.Node> nodeBatch) {
+	private void process(Directions directions, NodeInfo nodeInfo, Batch seqBatch, List<NodeIndex.Node> nodeBatch, NodeStats.ForThread nodeStats) {
 
 		if (nodeInfo.node.isLeaf()) {
 
@@ -656,15 +662,21 @@ public class NodeProcessor implements AutoCloseable {
 				// re-score it and put it back into nodedb
 				nodeBatch.add(new NodeIndex.Node(nodeInfo.node, currentScore));
 
+				nodeStats.rescored();
+
 			} else {
 
 				// the score looks good, minimize it
 				minimize(nodeInfo, seqBatch);
+
+				nodeStats.minimized();
 			}
 		} else {
 
 			// interior node, expand it
 			expand(directions, nodeInfo, seqBatch, nodeBatch);
+
+			nodeStats.expanded();
 		}
 	}
 
