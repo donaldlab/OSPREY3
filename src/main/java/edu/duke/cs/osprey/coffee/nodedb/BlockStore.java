@@ -52,7 +52,7 @@ public class BlockStore implements AutoCloseable {
 				if (!file.exists()) {
 					file.createNewFile();
 				}
-				mem = MemorySegment.mapFromPath(file.toPath(), bytes, FileChannel.MapMode.READ_WRITE);
+				mem = MemorySegment.mapFile(file.toPath(), 0, bytes, FileChannel.MapMode.READ_WRITE);
 			} catch (IOException ex) {
 				throw new RuntimeException("can't map path: " + file, ex);
 			}

@@ -14,7 +14,6 @@ import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator.MinimizationJob;
 import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.CudaConfEnergyCalculator;
-import edu.duke.cs.osprey.energy.compiled.IntelConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.NativeConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.gpu.Structs;
@@ -160,19 +159,6 @@ public class BenchmarkEnergies {
 		{ // compiled native f64
 			NativeConfEnergyCalculator ecalc = new NativeConfEnergyCalculator(compiled.complex, Structs.Precision.Float64);
 			benchmarkThreads("compiled reference f64", bmCompiledf64, bmClassic[0], threadSizes, numWarmups, numRuns, () -> {
-				ecalc.minimizeEnergy(compiledConf, compiledInters);
-			});
-		}
-
-		{ // compiled Intel f32
-			IntelConfEnergyCalculator ecalc = new IntelConfEnergyCalculator(compiled.complex, Structs.Precision.Float32);
-			benchmarkThreads("compiled Intel f32", bmCompiledIntelf32, bmClassic[0], threadSizes, numWarmups, numRuns, () -> {
-				ecalc.minimizeEnergy(compiledConf, compiledInters);
-			});
-		}
-		{ // compiled Intel f64
-			IntelConfEnergyCalculator ecalc = new IntelConfEnergyCalculator(compiled.complex, Structs.Precision.Float64);
-			benchmarkThreads("compiled Intel f64", bmCompiledIntelf64, bmClassic[0], threadSizes, numWarmups, numRuns, () -> {
 				ecalc.minimizeEnergy(compiledConf, compiledInters);
 			});
 		}
