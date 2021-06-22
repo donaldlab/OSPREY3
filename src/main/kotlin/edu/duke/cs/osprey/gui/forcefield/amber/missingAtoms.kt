@@ -102,7 +102,12 @@ private suspend fun runLeap(mol: Molecule, ffname: ForcefieldName): List<Pair<At
 
 	// run LEaP to infer all the missing atoms
 	val response = OspreyService.missingAtoms(MissingAtomsRequest(mol.toPDB(), ffname.name))
-	val src = Molecule.fromMol2(response.mol2)
+	val src = Molecule.fromMol2(
+		response.mol2,
+		// HACKHACK: AmberTools19 LEaP won't return protein formatted mol2 files for single residue chains,
+		// so force the Mol2 code to build a polymer if we're expecting one
+		isPolymer = mol is Polymer
+	)
 
 	val dst = mol
 	val mapper = src.mapTo(dst)

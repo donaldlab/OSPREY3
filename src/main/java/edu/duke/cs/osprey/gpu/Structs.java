@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.gpu;
 
-import jdk.incubator.foreign.MemoryAddress;
 import jdk.incubator.foreign.MemoryHandles;
 import kotlin.text.Charsets;
 
@@ -105,6 +104,10 @@ public class Structs {
 		public long offset() {
 			return offset;
 		}
+
+		public void assertAlignment(long baseOffset, int alignment) {
+			assert (baseOffset % alignment == 0);
+		}
 	}
 
 	public static abstract class Array {
@@ -133,18 +136,17 @@ public class Structs {
 	public static class Int32 extends Field {
 
 		public static final long bytes = 4;
-		private static final VarHandle handle = MemoryHandles.varHandle(int.class, ByteOrder.nativeOrder());
 
 		public Int32() {
 			super(bytes);
 		}
 
-		public int get(MemoryAddress addr) {
-			return (int)handle.get(addr.addOffset(offset));
+		public int get(MemoryBuffer buf) {
+			return buf.getInt(this);
 		}
 
-		public void set(MemoryAddress addr, int value) {
-			handle.set(addr.addOffset(offset), value);
+		public void set(MemoryBuffer buf, int value) {
+			buf.putInt(this, value);
 		}
 
 		public static class Array extends Structs.Array {
@@ -153,12 +155,12 @@ public class Structs {
 				super(bytes);
 			}
 
-			public int get(MemoryAddress addr, long i) {
-				return (int)handle.get(addr.addOffset(i*bytes));
+			public int get(MemoryBuffer buf, long i) {
+				return buf.getInt(this, i);
 			}
 
-			public void set(MemoryAddress addr, long i, int value) {
-				handle.set(addr.addOffset(i*bytes), value);
+			public void set(MemoryBuffer buf, long i, int value) {
+				buf.putInt(this, i, value);
 			}
 		}
 	}
@@ -172,18 +174,17 @@ public class Structs {
 	public static class Int64 extends Field {
 
 		public static final long bytes = 8;
-		private static final VarHandle handle = MemoryHandles.varHandle(long.class, ByteOrder.nativeOrder());
 
 		public Int64() {
 			super(bytes);
 		}
 
-		public long get(MemoryAddress addr) {
-			return (long)handle.get(addr.addOffset(offset));
+		public long get(MemoryBuffer buf) {
+			return buf.getLong(this);
 		}
 
-		public void set(MemoryAddress addr, long value) {
-			handle.set(addr.addOffset(offset), value);
+		public void set(MemoryBuffer buf, long value) {
+			buf.putLong(this, value);
 		}
 
 		public static class Array extends Structs.Array {
@@ -192,12 +193,12 @@ public class Structs {
 				super(bytes);
 			}
 
-			public long get(MemoryAddress addr, long i) {
-				return (long)handle.get(addr.addOffset(i*bytes));
+			public long get(MemoryBuffer buf, long i) {
+				return buf.getLong(this, i);
 			}
 
-			public void set(MemoryAddress addr, long i, long value) {
-				handle.set(addr.addOffset(i*bytes), value);
+			public void set(MemoryBuffer buf, long i, long value) {
+				buf.putLong(this, i, value);
 			}
 		}
 	}
@@ -212,18 +213,17 @@ public class Structs {
 	public static class Float32 extends Field {
 
 		public static final long bytes = 4;
-		private static final VarHandle handle = MemoryHandles.varHandle(float.class, ByteOrder.nativeOrder());
 
 		public Float32() {
 			super(bytes);
 		}
 
-		public float get(MemoryAddress addr) {
-			return (float)handle.get(addr.addOffset(offset));
+		public float get(MemoryBuffer buf) {
+			return buf.getFloat(this);
 		}
 
-		public void set(MemoryAddress addr, float value) {
-			handle.set(addr.addOffset(offset), value);
+		public void set(MemoryBuffer buf, float value) {
+			buf.putFloat(this, value);
 		}
 
 		public static class Array extends Structs.Array {
@@ -232,12 +232,12 @@ public class Structs {
 				super(bytes);
 			}
 
-			public float get(MemoryAddress addr, long i) {
-				return (float)handle.get(addr.addOffset(i*bytes));
+			public float get(MemoryBuffer buf, long i) {
+				return buf.getFloat(this, i);
 			}
 
-			public void set(MemoryAddress addr, long i, float value) {
-				handle.set(addr.addOffset(i*bytes), value);
+			public void set(MemoryBuffer buf, long i, float value) {
+				buf.putFloat(this, i, value);
 			}
 		}
 	}
@@ -251,18 +251,17 @@ public class Structs {
 	public static class Float64 extends Field {
 
 		public static final long bytes = 8;
-		private static final VarHandle handle = MemoryHandles.varHandle(double.class, ByteOrder.nativeOrder());
 
 		public Float64() {
 			super(bytes);
 		}
 
-		public double get(MemoryAddress addr) {
-			return (double)handle.get(addr.addOffset(offset));
+		public double get(MemoryBuffer buf) {
+			return buf.getDouble(this);
 		}
 
-		public void set(MemoryAddress addr, double value) {
-			handle.set(addr.addOffset(offset), value);
+		public void set(MemoryBuffer buf, double value) {
+			buf.putDouble(this, value);
 		}
 
 		public static class Array extends Structs.Array {
@@ -271,12 +270,12 @@ public class Structs {
 				super(bytes);
 			}
 
-			public double get(MemoryAddress addr, long i) {
-				return (double)handle.get(addr.addOffset(i*bytes));
+			public double get(MemoryBuffer buf, long i) {
+				return buf.getDouble(this, i);
 			}
 
-			public void set(MemoryAddress addr, long i, double value) {
-				handle.set(addr.addOffset(i*bytes), value);
+			public void set(MemoryBuffer buf, long i, double value) {
+				buf.putDouble(this, i, value);
 			}
 		}
 	}
@@ -290,18 +289,17 @@ public class Structs {
 	public static class Bool extends Field {
 
 		public static final long bytes = 1;
-		private static final VarHandle handle = MemoryHandles.varHandle(byte.class, ByteOrder.nativeOrder());
 
 		public Bool() {
 			super(bytes);
 		}
 
-		public boolean get(MemoryAddress addr) {
-			return (byte)handle.get(addr.addOffset(offset)) != 0;
+		public boolean get(MemoryBuffer buf) {
+			return buf.getBoolean(this);
 		}
 
-		public void set(MemoryAddress addr, boolean value) {
-			handle.set(addr.addOffset(offset), value ? (byte)1 : (byte)0);
+		public void set(MemoryBuffer buf, boolean value) {
+			buf.putBoolean(this, value);
 		}
 
 		// TODO: need bool array?
@@ -316,8 +314,8 @@ public class Structs {
 			super(struct.bytes());
 		}
 
-		public MemoryAddress addressOf(MemoryAddress addr) {
-			return addr.addOffset(offset);
+		public MemoryBuffer offsetOf(MemoryBuffer buf) {
+			return buf.sliceFrom(offset);
 		}
 	}
 	public static <T extends Struct> StructField<T> struct(T struct) {
@@ -326,7 +324,7 @@ public class Structs {
 
 	public enum Precision {
 
-		Float32(4, MemoryHandles.varHandle(float.class, ByteOrder.nativeOrder())) {
+		Float32(4) {
 
 			@Override
 			public Object fromDouble(double val) {
@@ -339,7 +337,7 @@ public class Structs {
 			}
 		},
 
-		Float64(8, MemoryHandles.varHandle(double.class, ByteOrder.nativeOrder())) {
+		Float64(8) {
 
 			@Override
 			public Object fromDouble(double val) {
@@ -353,11 +351,9 @@ public class Structs {
 		};
 
 		public final int bytes;
-		public final VarHandle handle;
 
-		Precision(int bytes, VarHandle handle) {
+		Precision(int bytes) {
 			this.bytes = bytes;
-			this.handle = handle;
 		}
 
 		public abstract Object fromDouble(double val);
@@ -384,12 +380,18 @@ public class Structs {
 			this.precision = precision;
 		}
 
-		public double get(MemoryAddress addr) {
-			return (double)precision.handle.get(addr.addOffset(offset));
+		public double get(MemoryBuffer buf) {
+			return switch(precision) {
+				case Float32 -> buf.getFloat(this);
+				case Float64 -> buf.getDouble(this);
+			};
 		}
 
-		public void set(MemoryAddress addr, double value) {
-			precision.handle.set(addr.addOffset(offset), precision.fromDouble(value));
+		public void set(MemoryBuffer buf, double value) {
+			switch(precision) {
+				case Float32 -> buf.putFloat(this, (float)value);
+				case Float64 -> buf.putDouble(this, value);
+			};
 		}
 
 		public static class Array extends Structs.Array {
@@ -401,12 +403,18 @@ public class Structs {
 				this.precision = precision;
 			}
 
-			public double get(MemoryAddress addr, long i) {
-				return (double)precision.handle.get(addr.addOffset(i*precision.bytes));
+			public double get(MemoryBuffer buf, long i) {
+				return switch (precision) {
+					case Float32 -> buf.getFloat(this, i);
+					case Float64 -> buf.getDouble(this, i);
+				};
 			}
 
-			public void set(MemoryAddress addr, long i, double value) {
-				precision.handle.set(addr.addOffset(i*precision.bytes), value);
+			public void set(MemoryBuffer buf, long i, double value) {
+				switch (precision) {
+					case Float32 -> buf.putFloat(this, i, (float) value);
+					case Float64 -> buf.putDouble(this, i, value);
+				}
 			}
 		}
 	}
@@ -421,18 +429,17 @@ public class Structs {
 	public static class Char8 extends Field {
 
 		public static final long bytes = 1;
-		private static final VarHandle handle = MemoryHandles.varHandle(byte.class, ByteOrder.nativeOrder());
 
 		public Char8() {
 			super(bytes);
 		}
 
-		public char get(MemoryAddress addr) {
-			return (char)handle.get(addr.addOffset(offset));
+		public char get(MemoryBuffer buf) {
+			return buf.getChar(this);
 		}
 
-		public void set(MemoryAddress addr, char value) {
-			handle.set(addr.addOffset(offset), value);
+		public void set(MemoryBuffer buf, char value) {
+			buf.putChar(this, value);
 		}
 
 		public static class Array extends Structs.Array {
@@ -441,18 +448,18 @@ public class Structs {
 				super(bytes);
 			}
 
-			public char get(MemoryAddress addr, long i) {
-				return (char)handle.get(addr.addOffset(i*bytes));
+			public char get(MemoryBuffer buf, long i) {
+				return buf.getChar(this, i);
 			}
 
-			public void set(MemoryAddress addr, long i, double value) {
-				handle.set(addr.addOffset(i*bytes), value);
+			public void set(MemoryBuffer buf, long i, char value) {
+				buf.putChar(this, i, value);
 			}
 
-			public String getNullTerminated(MemoryAddress addr, int maxLen) {
+			public String getNullTerminated(MemoryBuffer buf, int maxLen) {
 				byte[] strbuf = new byte[maxLen];
 				for (int i=0; i<maxLen; i++) {
-					strbuf[i] = (byte)handle.get(addr.addOffset(i*bytes));
+					strbuf[i] = buf.getByte(this, i);
 					if (strbuf[i] == 0) {
 						return new String(strbuf, 0, i, Charsets.US_ASCII);
 					}

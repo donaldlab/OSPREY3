@@ -8,6 +8,8 @@ import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.cp.ICountDownLatch;
 import com.hazelcast.instance.impl.HazelcastInstanceProxy;
 import com.hazelcast.internal.serialization.impl.AbstractSerializationService;
+import com.hazelcast.nio.ObjectDataInput;
+import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.StreamSerializer;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationexecutor.OperationRunner;
@@ -21,6 +23,7 @@ import edu.duke.cs.osprey.tools.IntRange;
 import edu.duke.cs.osprey.tools.Log;
 import edu.duke.cs.osprey.tools.MathTools;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -165,6 +168,104 @@ public class ClusterMember implements AutoCloseable {
 			cluster.nodeId*blockSize,
 			Math.min(size, (cluster.nodeId + 1)*blockSize)
 		);
+	}
+
+	public class DynamicPartition<T> implements AutoCloseable {
+
+		public static final String ServiceName = "DynamicPartition";
+
+		final Iterator<T> workload;
+
+		private DynamicPartition(Iterator<T> workload) {
+
+			this.workload = workload;
+
+			// register with hazelcast, so operations can find this instance
+			registerService(ServiceName, this);
+		}
+
+		@Override
+		public void close() throws Exception {
+			unregisterService(ServiceName);
+		}
+
+		private List<T> nextWorksLocal(int size) {
+			var works = new ArrayList<T>(size);
+			// this can be hit from different threads, so don't race on the workload
+			synchronized (workload) {
+				for (int i=0; i<size; i++) {
+					if (workload.hasNext()) {
+						works.add(workload.next());
+					}
+				}
+			}
+			return works;
+		}
+
+		public List<T> nextWorks(int size) {
+			if (isDirector()) {
+				return nextWorksLocal(size);
+			} else {
+				// ask the director for more works
+				return requestFrom(new DynamicPartitionRequestOp<>(size), directorAddress(), 30, TimeUnit.SECONDS);
+			}
+		}
+	}
+
+	private static class DynamicPartitionRequestOp<T> extends Operation {
+
+		private int size;
+
+		private List<T> works = null;
+
+		// used by hazelcast
+		@SuppressWarnings("unused")
+		public DynamicPartitionRequestOp() {
+			this.size = -1;
+		}
+
+		public DynamicPartitionRequestOp(int size) {
+			this.size = size;
+		}
+
+		@Override
+		public final boolean returnsResponse() {
+			return true;
+		}
+
+		@Override
+		protected void writeInternal(ObjectDataOutput out)
+			throws IOException {
+			super.writeInternal(out);
+			out.writeInt(size);
+		}
+
+		@Override
+		protected void readInternal(ObjectDataInput in)
+			throws IOException {
+			super.readInternal(in);
+			size = in.readInt();
+		}
+
+		@Override
+		public String getServiceName() {
+			return DynamicPartition.ServiceName;
+		}
+
+		@Override
+		public final void run() {
+			DynamicPartition<T> service = getService();
+			works = service.nextWorksLocal(size);
+		}
+
+		@Override
+		public Object getResponse() {
+			return works;
+		}
+	}
+
+	public <T> DynamicPartition<T> dynamicPartition(Iterator<T> workload) {
+		return new DynamicPartition<>(workload);
 	}
 
 	public void barrier(long timeout, TimeUnit timeUnit) {

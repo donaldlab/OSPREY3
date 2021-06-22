@@ -74,6 +74,26 @@ public interface EnergyCalculator {
 			coords.coords.get(coords.getStaticIndex(atomi2), pos2);
 			double r2 = pos1.distanceSquared(pos2);
 			double r = Math.sqrt(r2);
+
+			/* DEBUG
+			var res1 = coords.confSpace.resInfos[coords.confSpace.staticResInfoIndices[atomi1]];
+			var res2 = coords.confSpace.resInfos[coords.confSpace.staticResInfoIndices[atomi1]];
+			var atomPair = new ForcefieldDebugger.AtomPair(
+				res1.chainId + res1.resId + ":" + coords.confSpace.staticNames[atomi1],
+				res2.chainId + res2.resId + ":" + coords.confSpace.staticNames[atomi2]
+			);
+			ForcefieldDebugger.instance.addInteractionCoords(
+				atomPair,
+				"compiled " + type().id,
+				new ForcefieldDebugger.Coords(pos1, pos2, r)
+			);
+			ForcefieldDebugger.instance.addInteractionEnergy(
+				atomPair,
+				"compiled " + type().id,
+				calcEnergy(r, r2, coords.getParams(ffi, paramsi))
+			);
+			*/
+
 			energy += calcEnergy(r, r2, coords.getParams(ffi, paramsi));
 		}
 
@@ -102,6 +122,27 @@ public interface EnergyCalculator {
 			coords.coords.get(coords.getConfIndex(posi, confAtom2i), pos2);
 			double r2 = pos1.distanceSquared(pos2);
 			double r = Math.sqrt(r2);
+
+			/* DEBUG
+			var conf = coords.confSpace.positions[posi].confs[coords.assignments[posi]];
+			var res1 = coords.confSpace.resInfos[conf.atomResInfoIndices[confAtom1i]];
+			var res2 = coords.confSpace.resInfos[conf.atomResInfoIndices[confAtom2i]];
+			var atomPair = new ForcefieldDebugger.AtomPair(
+				res1.chainId + res1.resId + ":" + conf.atomNames[confAtom1i],
+				res2.chainId + res2.resId + ":" + conf.atomNames[confAtom2i]
+			);
+			ForcefieldDebugger.instance.addInteractionCoords(
+				atomPair,
+				"compiled " + type().id,
+				new ForcefieldDebugger.Coords(pos1, pos2, r)
+			);
+			ForcefieldDebugger.instance.addInteractionEnergy(
+				atomPair,
+				"compiled " + type().id,
+				calcEnergy(r, r2, coords.getParams(ffi, paramsi))
+			);
+			*/
+
 			energy += calcEnergy(r, r2, coords.getParams(ffi, paramsi));
 		}
 
@@ -127,6 +168,27 @@ public interface EnergyCalculator {
 			coords.coords.get(coords.getStaticIndex(staticAtomi), pos2);
 			double r2 = pos1.distanceSquared(pos2);
 			double r = Math.sqrt(r2);
+
+			/* DEBUG
+			var conf = coords.confSpace.positions[posi].confs[coords.assignments[posi]];
+			var res1 = coords.confSpace.resInfos[conf.atomResInfoIndices[confAtomi]];
+			var res2 = coords.confSpace.resInfos[coords.confSpace.staticResInfoIndices[staticAtomi]];
+			var atomPair = new ForcefieldDebugger.AtomPair(
+				res1.chainId + res1.resId + ":" + conf.atomNames[confAtomi],
+				res2.chainId + res2.resId + ":" + coords.confSpace.staticNames[staticAtomi]
+			);
+			ForcefieldDebugger.instance.addInteractionCoords(
+				atomPair,
+				"compiled " + type().id,
+				new ForcefieldDebugger.Coords(pos1, pos2, r)
+			);
+			ForcefieldDebugger.instance.addInteractionEnergy(
+				atomPair,
+				"compiled " + type().id,
+				calcEnergy(r, r2, coords.getParams(ffi, paramsi))
+			);
+			*/
+
 			energy += calcEnergy(r, r2, coords.getParams(ffi, paramsi));
 		}
 
@@ -152,6 +214,28 @@ public interface EnergyCalculator {
 			coords.coords.get(coords.getConfIndex(posi2, confAtomi2), pos2);
 			double r2 = pos1.distanceSquared(pos2);
 			double r = Math.sqrt(r2);
+
+			/* DEBUG
+			var conf1 = coords.confSpace.positions[posi1].confs[coords.assignments[posi1]];
+			var conf2 = coords.confSpace.positions[posi2].confs[coords.assignments[posi2]];
+			var res1 = coords.confSpace.resInfos[conf1.atomResInfoIndices[confAtomi1]];
+			var res2 = coords.confSpace.resInfos[conf2.atomResInfoIndices[confAtomi2]];
+			var atomPair = new ForcefieldDebugger.AtomPair(
+				res1.chainId + res1.resId + ":" + conf1.atomNames[confAtomi1],
+				res2.chainId + res2.resId + ":" + conf2.atomNames[confAtomi2]
+			);
+			ForcefieldDebugger.instance.addInteractionCoords(
+				atomPair,
+				"compiled " + type().id,
+				new ForcefieldDebugger.Coords(pos1, pos2, r)
+			);
+			ForcefieldDebugger.instance.addInteractionEnergy(
+				atomPair,
+				"compiled " + type().id,
+				calcEnergy(r, r2, coords.getParams(ffi, paramsi))
+			);
+			*/
+
 			energy += calcEnergy(r, r2, coords.getParams(ffi, paramsi));
 		}
 

@@ -43,6 +43,7 @@ import edu.duke.cs.osprey.tools.AutoCloseableNoEx;
 
 import java.io.File;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.*;
 
 
@@ -125,6 +126,11 @@ public class KStar {
 			 */
 			private int maxNumberConfs = -1;
 
+			/**
+			 * The maximum amount of time to spend on any one partition function calculation.
+			 */
+			private Duration pfuncTimeout = null;
+
 			public Builder setEpsilon(double val) {
 				epsilon = val;
 				return this;
@@ -189,8 +195,13 @@ public class KStar {
 				return this;
 			}
 
+			public Builder setPfuncTimeout(Duration val) {
+				pfuncTimeout = val;
+				return this;
+			}
+
 			public Settings build() {
-				return new Settings(epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters, showPfuncProgress, useExternalMemory, confDBPattern, resume, maxNumberConfs);
+				return new Settings(epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters, showPfuncProgress, useExternalMemory, confDBPattern, resume, maxNumberConfs, pfuncTimeout);
 			}
 		}
 
@@ -202,8 +213,9 @@ public class KStar {
 		public final boolean useExternalMemory;
 		public final String confDBPattern;
 		public final boolean resume;
+		public final Duration pfuncTimeout;
 
-		public Settings(double epsilon, Double stabilityThreshold, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, boolean useExternalMemory, String confDBPattern, boolean resume, int maxNumberConfs) {
+		public Settings(double epsilon, Double stabilityThreshold, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, boolean useExternalMemory, String confDBPattern, boolean resume, int maxNumberConfs, Duration pfuncTimeout) {
 			this.epsilon = epsilon;
 			this.stabilityThreshold = stabilityThreshold;
 			this.maxSimultaneousMutations = maxSimultaneousMutations;
@@ -213,6 +225,7 @@ public class KStar {
 			this.confDBPattern = confDBPattern;
 			this.resume = resume;
 			this.maxNumConfs = maxNumberConfs;
+			this.pfuncTimeout = pfuncTimeout;
 		}
 	}
 
@@ -340,7 +353,11 @@ public class KStar {
 			// compute the partition function
 			PartitionFunction pfunc = makePfunc(ctxGroup, sequence);
 			pfunc.setStabilityThreshold(stabilityThreshold);
-			pfunc.compute(settings.maxNumConfs);
+			if (settings.pfuncTimeout != null) {
+				pfunc.compute(settings.pfuncTimeout);
+			} else {
+				pfunc.compute(settings.maxNumConfs);
+			}
 
 			// save the result
 			result = pfunc.makeResult();
@@ -384,7 +401,7 @@ public class KStar {
 	/** Optional and overridable settings for K* */
 	public final Settings settings;
 
-	private List<Sequence> sequences;
+	private final List<Sequence> sequences;
 
 	public KStar(ConfSpaceIteration protein, ConfSpaceIteration ligand, ConfSpaceIteration complex, Settings settings) {
 		this.settings = settings;

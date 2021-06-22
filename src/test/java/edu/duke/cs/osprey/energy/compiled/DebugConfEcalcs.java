@@ -5,8 +5,15 @@ import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
 import edu.duke.cs.osprey.gpu.Structs;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.tools.FileTools;
+import jdk.incubator.foreign.MemoryHandles;
+import jdk.incubator.foreign.MemorySegment;
+import org.junit.Assert;
+import org.junit.Test;
 
 import java.io.File;
+import java.lang.invoke.VarHandle;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.function.Supplier;

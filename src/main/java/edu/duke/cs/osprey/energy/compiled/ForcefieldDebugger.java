@@ -16,12 +16,12 @@ public class ForcefieldDebugger {
 
 	public static final ForcefieldDebugger instance = new ForcefieldDebugger();
 
-	private static class PairKey implements Comparable<PairKey> {
+	public static class AtomPair implements Comparable<AtomPair> {
 
 		final String a;
 		final String b;
 
-		PairKey(String a, String b) {
+		public AtomPair(String a, String b) {
 			this.a = a;
 			this.b = b;
 		}
@@ -44,10 +44,10 @@ public class ForcefieldDebugger {
 
 		@Override
 		public boolean equals(Object other) {
-			return other instanceof PairKey && equals((PairKey)other);
+			return other instanceof AtomPair && equals((AtomPair)other);
 		}
 
-		public boolean equals(PairKey other) {
+		public boolean equals(AtomPair other) {
 			return (this.a.equals(other.a) && this.b.equals(other.b))
 				|| (this.a.equals(other.b) && this.b.equals(other.a));
 		}
@@ -58,17 +58,41 @@ public class ForcefieldDebugger {
 		}
 
 		@Override
-		public int compareTo(PairKey other) {
+		public int compareTo(AtomPair other) {
 			return toString().compareTo(other.toString());
 		}
 	}
 
+	public static class Coords {
+
+		public final Vector3d a;
+		public final Vector3d b;
+		public final double r;
+
+		public Coords(Vector3d a, Vector3d b, double r) {
+			this.a = new Vector3d(a);
+			this.b = new Vector3d(b);
+			this.r = r;
+		}
+
+		public Coords(
+			double x1, double y1, double z1,
+			double x2, double y2, double z2,
+			double r
+		) {
+			this.a = new Vector3d(x1, y1, z1);
+			this.b = new Vector3d(x2, y2, z2);
+			this.r = r;
+		}
+	}
+
+
 	private static class Internal {
 
-		final PairKey key;
+		final AtomPair key;
 		final Map<String,Double> energies = new HashMap<>();
 
-		Internal(PairKey key) {
+		Internal(AtomPair key) {
 			this.key = key;
 		}
 
@@ -82,64 +106,57 @@ public class ForcefieldDebugger {
 		}
 	}
 
-	private Map<PairKey,Internal> internals = new HashMap<>();
+	private Map<AtomPair,Internal> internals = new HashMap<>();
 
 	public void addInternal(String idA, String idB, String type, double energy) {
 		internals
-			.computeIfAbsent(new PairKey(idA, idB), (key) -> new Internal(key))
+			.computeIfAbsent(new AtomPair(idA, idB), (key) -> new Internal(key))
 			.add(type, energy);
 	}
-
+	
 	private static class Interaction {
 
 		final AtomPair atomPair;
+		final Map<String,Coords> coords = new HashMap<>();
 		final Map<String,Double> energies = new HashMap<>();
 
 		Interaction(AtomPair atomPair) {
 			this.atomPair = atomPair;
 		}
 
-		void add(String type, double energy) {
+		void addCoords(String type, Coords coords) {
+			if (this.coords.containsKey(type)) {
+				throw new IllegalArgumentException(String.format(
+					"already have interaction coords for %s, %s, can't add more",
+					atomPair, type
+				));
+			}
+			this.coords.put(type, coords);
+		}
+
+		void addEnergy(String type, double energy) {
 			if (energies.containsKey(type)) {
 				throw new IllegalArgumentException(String.format(
 					"already have interaction energy for %s, %s = %f, can't add %f",
-					atomPair.key, type, energies.get(type), energy
+					atomPair, type, energies.get(type), energy
 				));
 			}
 			energies.put(type, energy);
 		}
 	}
 
-	private Map<PairKey,Interaction> interactions = new HashMap<>();
+	private Map<AtomPair,Interaction> interactions = new HashMap<>();
 
-	public static class AtomPair {
-
-		public final PairKey key;
-		public final Vector3d a;
-		public final Vector3d b;
-		public final double r;
-
-		public AtomPair(
-			String idA, String idB,
-			double x1, double y1, double z1,
-			double x2, double y2, double z2,
-			double r
-		) {
-			this(idA, idB, new Vector3d(x1, y1, z1), new Vector3d(x2, y2, z2), r);
-		}
-
-		public AtomPair(String idA, String idB, Vector3d a, Vector3d b, double r) {
-			this.key = new PairKey(idA, idB);
-			this.a = a;
-			this.b = b;
-			this.r = r;
-		}
+	public void addInteractionCoords(AtomPair atomPair, String type, Coords coords) {
+		interactions
+			.computeIfAbsent(atomPair, (key) -> new Interaction(atomPair))
+			.addCoords(type, coords);
 	}
 
-	public void addInteraction(AtomPair atomPair, String type, double energy) {
+	public void addInteractionEnergy(AtomPair atomPair, String type, double energy) {
 		interactions
-			.computeIfAbsent(atomPair.key, (key) -> new Interaction(atomPair))
-			.add(type, energy);
+			.computeIfAbsent(atomPair, (key) -> new Interaction(atomPair))
+			.addEnergy(type, energy);
 	}
 
 	public void clear() {
@@ -174,9 +191,16 @@ public class ForcefieldDebugger {
 			forEachOrdered(interactions, (key, inter) -> {
 				if (inter.energies.values().stream().anyMatch(v -> v != 0.0)) {
 					write.accept(String.format("%8s - %-8s", key.min(), key.max()));
-					write.accept(String.format(" r=%10.6f", inter.atomPair.r));
+					forEachOrdered(inter.coords, (type, coords) -> {
+						write.accept(String.format(" %8s (%.3f,%.3f,%.3f) (%.3f,%.3f,%.3f) r=%10.6f",
+							type,
+							coords.a.x, coords.a.y, coords.a.z,
+							coords.b.x, coords.b.y, coords.b.z,
+							coords.r
+						));
+					});
 					forEachOrdered(inter.energies, (type, energy) -> {
-						write.accept(String.format(" %8s %7.4f", type, energy));
+						write.accept(String.format(" %8s e=%7.4f", type, energy));
 					});
 					write.accept("\n");
 				}

@@ -63,6 +63,9 @@ class ConfSpace(val mols: List<Pair<MoleculeType,Molecule>>) {
 
 		private val conflibs = HashMap<String,ConfLib>()
 
+		fun isEmpty() =
+			conflibs.isEmpty()
+
 		override fun iterator() = conflibs.values
 			.sortedBy { it.name }
 			.iterator()
@@ -97,14 +100,18 @@ class ConfSpace(val mols: List<Pair<MoleculeType,Molecule>>) {
 				conflib.fragments.values.any { it.type == mutation }
 			}
 
-		fun findMatchingFragments(pos: DesignPosition, type: String = pos.type): List<ConfLib.Fragment> =
+		fun findMatchingFragments(type: String): List<ConfLib.Fragment> =
 			conflibs.values.flatMap { conflib ->
 				conflib.fragments.values
-					// match the fragment type to the mutations
 					.filter { frag -> frag.type == type }
-					// math the fragment to the design position
-					.filter { frag -> pos.isFragmentCompatible(frag) }
 			}
+
+		fun findMatchingFragments(pos: DesignPosition, frags: List<ConfLib.Fragment>): List<ConfLib.Fragment> =
+			// math the fragment to the design position
+			frags.filter { frag -> pos.isFragmentCompatible(frag) }
+
+		fun findMatchingFragments(pos: DesignPosition, type: String = pos.type): List<ConfLib.Fragment> =
+			findMatchingFragments(pos, findMatchingFragments(type))
 	}
 	val conflibs = ConfLibs()
 
@@ -262,14 +269,25 @@ class ConfSpace(val mols: List<Pair<MoleculeType,Molecule>>) {
 			?: BigInteger.ZERO
 
 	fun addConformationsFromLibraries(pos: DesignPosition, type: String) {
-		val posConfSpace = positionConfSpaces.getOrMake(pos)
-		for (frag in conflibs.findMatchingFragments(pos, type)) {
-			posConfSpace.confs.addAll(frag)
+		if (conflibs.isEmpty()) {
+			throw IllegalArgumentException("no conformation libaries have been attached to this conformation space")
+		}
+		val typeFrags = conflibs.findMatchingFragments(type)
+		if (typeFrags.isEmpty()) {
+			throw IllegalArgumentException("no fragments match the given type: $type")
+		}
+		val compatibleFrags = conflibs.findMatchingFragments(pos, typeFrags)
+		if (compatibleFrags.isEmpty()) {
+			throw IllegalArgumentException("none of the $type fragments ${typeFrags.map { it.id }} are compatible with design position ${pos.name}")
+		}
+		positionConfSpaces.getOrMake(pos).apply {
+			for (frag in compatibleFrags) {
+				confs.addAll(frag)
+			}
 		}
 	}
 
 	fun addWildTypeConformation(pos: DesignPosition) {
-		val posConfSpace = positionConfSpaces.getOrMake(pos)
 		val wtFrag = pos.makeFragment(
 			"wt-${pos.name.toTomlKey()}", "WildType @ ${pos.name}",
 			"conf1", "conf1",
@@ -280,8 +298,10 @@ class ConfSpace(val mols: List<Pair<MoleculeType,Molecule>>) {
 				?.motions
 				?: emptyList()
 		)
-		posConfSpace.wildTypeFragment = wtFrag
-		posConfSpace.confs.addAll(wtFrag)
+		positionConfSpaces.getOrMake(pos).apply {
+			wildTypeFragment = wtFrag
+			confs.addAll(wtFrag)
+		}
 	}
 
 	fun getFragments(pos: DesignPosition): List<ConfLib.Fragment> =

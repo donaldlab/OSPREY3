@@ -1,18 +1,25 @@
 package edu.duke.cs.osprey.tools;
 
-import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
-
 import org.junit.Test;
 
 
+/**
+ * Tests that some memory reporting fuctions run without crashing.
+ */
 public class TestJvmMem {
 
 	@Test
-	public void test() {
+	public void pools() {
+		JvmMem.getEdenPool();
+		JvmMem.getSurvivorPool();
+		JvmMem.getYoungPool();
+		JvmMem.getOldPool();
+		JvmMem.getOverheadPool();
+		JvmMem.getProcess();
+	}
 
-		assertThat(JvmMem.getEdenPool().name, endsWith("Eden Space"));
-		assertThat(JvmMem.getSurvivorPool().name, endsWith("Survivor Space"));
-		assertThat(JvmMem.getOldPool().name, endsWith("Old Gen"));
+	@Test
+	public void oneLineReport() {
+		JvmMem.oneLineReport();
 	}
 }

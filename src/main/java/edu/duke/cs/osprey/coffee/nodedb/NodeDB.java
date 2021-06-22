@@ -187,6 +187,7 @@ public class NodeDB implements AutoCloseable {
 
 	public void clearLocal(int statei) {
 		thread.exec(() -> {
+			perf.clear();
 			indices.clear(statei);
 			broadcaster.request();
 		});

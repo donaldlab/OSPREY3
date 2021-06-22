@@ -124,6 +124,26 @@ class TestMolIO : SharedSpec({
 		bonds.add(c, n2)
 	}
 
+	val unprotonatedGly = Polymer("Unprotonated Glycine").apply {
+
+		val n = atoms.add(Atom(Element.Nitrogen, "N",  4.400, -0.515, 7.533))
+		val ca = atoms.add(Atom(Element.Carbon, "CA", 5.791, -0.751, 7.871))
+		val c = atoms.add(Atom(Element.Carbon, "C", 6.672, 0.451, 7.612))
+		val o = atoms.add(Atom(Element.Oxygen, "O", 7.716, 0.674, 8.236))
+
+		bonds.add(n, ca)
+		bonds.add(ca, c)
+		bonds.add(c, o)
+
+		chains.add(Polymer.Chain("A").apply {
+			residues.add(Polymer.Residue(
+				"1",
+				"GLY",
+				listOf(n, ca, c, o)
+			))
+		})
+	}
+
 	data class AtomData(
 		val name: String,
 		val elem: Element,
@@ -140,6 +160,10 @@ class TestMolIO : SharedSpec({
 	infix fun Molecule.shouldBe(expected: Molecule) {
 
 		val observed = this
+
+		// check the class type
+		// eg, polymer status should be preserved
+		observed::class shouldBe expected::class
 
 		// make sure the two molecules are the same
 		observed.name shouldBe expected.name
@@ -195,6 +219,9 @@ class TestMolIO : SharedSpec({
 		test("dipeptide and benzamidine") {
 			roundtrip(listOf(dipeptide, benzamidine))
 		}
+		test("unprotonated gly") {
+			roundtrip(listOf(unprotonatedGly))
+		}
 	}
 
 	group("OSPREY roundtrip") {
@@ -209,6 +236,8 @@ class TestMolIO : SharedSpec({
 		test("benzamidine") {
 			roundtrip(benzamidine)
 		}
+		// don't test unprotonated glycine here
+		// PDB formats can't tell the difference between small molecules and single-residue polymers
 	}
 
 	group("OSPREY OMOL roundtrip") {
@@ -223,6 +252,8 @@ class TestMolIO : SharedSpec({
 		test("benzamidine") {
 			roundtrip(benzamidine)
 		}
+		// don't test unprotonated glycine here
+		// PDB formats can't tell the difference between small molecules and single-residue polymers
 	}
 
 	group("Mol2 roundtrip") {
@@ -238,6 +269,9 @@ class TestMolIO : SharedSpec({
 		}
 		test("benzamidine") {
 			roundtrip(benzamidine)
+		}
+		test("unprotonated gly") {
+			roundtrip(unprotonatedGly)
 		}
 	}
 

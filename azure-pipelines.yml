@@ -3,7 +3,7 @@ trigger:
 
 jobs:
 - job: Assemble
-  timeoutInMinutes: 10
+  timeoutInMinutes: 0
   variables:
     pythonDependencies: "sphinx==1.8 guzzle_sphinx_theme javalang"
   strategy:

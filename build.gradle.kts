@@ -75,10 +75,15 @@ val docMainDir = docDir.resolve("content/documentation/main")
 
 group = "edu.duke.cs"
 version = "3.2"
-
 val versionService = "0.3"
-
 val packagePath = "edu/duke/cs/osprey"
+
+// add the module dependencies directly to the javac args
+// I don't think gradle has a good way to handle this yet?
+val moduleArgs = listOf(
+		"--add-modules=jdk.incubator.foreign"
+)
+// TODO: add the module args for distributions too?
 
 
 repositories {
@@ -133,7 +138,7 @@ dependencies {
 	implementation("com.github.haifengl:smile-core:1.5.1")
 	implementation("com.github.haifengl:smile-netlib:1.5.1")
 	implementation("de.lmu.ifi.dbs.elki:elki:0.7.1")
-	implementation("ch.obermuhlner:big-math:2.0.1")
+	implementation("ch.obermuhlner:big-math:2.3.0")
 	implementation("org.joml:joml:1.9.19")
 	implementation("org.tukaani:xz:1.8")
 	implementation("com.hazelcast:hazelcast:4.0")
@@ -163,7 +168,7 @@ dependencies {
 	val ktorVersion = "1.5.4"
 
 	// used by the gui
-	implementation("com.cuchazinteractive:kludge:0.1")
+	implementation("com.cuchazinteractive:kludge:0.2")
 	implementation("io.ktor:ktor-client-cio:$ktorVersion")
 	implementation("io.ktor:ktor-client-serialization-jvm:$ktorVersion")
 
@@ -176,6 +181,7 @@ dependencies {
 	implementation("org.jcuda:jcuda:0.8.0") {
 		isTransitive = false
 	}
+	implementation("one.util:streamex:0.7.3")
 
 	// build systems never seem to like downloading from arbitrary URLs for some reason...
 	// so make a helper func to do it for us
@@ -216,12 +222,6 @@ dependencies {
 	}
 }
 
-// add the module dependencies directly to the javac args
-// I don't think gradle has a good way to handle this yet?
-val moduleArgs = listOf(
-	"--add-modules=jdk.incubator.foreign"
-)
-// TODO: add the module args for distributions too?
 
 /* NOTE: the IDE thinks `jvmArgs` and `args` are not nullable and shows warnings
 	(and the Kotlin language rules agree with that, as far as I can tell),
@@ -278,7 +278,21 @@ tasks.withType<KotlinCompile> {
 tasks.withType<Test> {
 	// the default 512m is too little memory to run test designs
 	maxHeapSize = "2g"
-	useJUnitPlatform()
+	useJUnit()
+    failFast = true
+
+	// add the module args, if not already there
+	for (arg in moduleArgs) {
+		if (arg !in jvmArgs!!) {
+			jvmArgs = jvmArgs!! + listOf(arg)
+			// NOTE: for some reason, .add() and += don't work here
+		}
+	}
+
+	testLogging {
+		setExceptionFormat("full")
+        events("passed", "skipped", "failed")
+	}
 }
 
 
@@ -312,7 +326,8 @@ runtime {
 		"java.naming",
 		"java.management",
 		"jdk.httpserver",
-		"jdk.zipfs" // needed to provide jar:// file system
+		"jdk.zipfs", // needed to provide jar:// file system
+		"jdk.incubator.foreign"
 	)
 
 	fun checkJpackage(path: Path) {
