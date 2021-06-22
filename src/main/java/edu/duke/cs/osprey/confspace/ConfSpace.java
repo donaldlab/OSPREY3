@@ -268,7 +268,7 @@ public class ConfSpace implements Serializable {
         for(int pos=0; pos<numPos; pos++){
             Residue res = m.getResByPDBResNumber( flexibleRes.get(pos) );
             
-            if(res.template.name.equalsIgnoreCase("PRO"))//the reisdue is a proline
+            if(res.template.name.equalsIgnoreCase("PRO"))//the residue is a proline
                 res.pucker = new ProlinePucker(EnvironmentVars.resTemplates, res);
             else {//see if it can mutate to a proline
                 for(String AAType : allowedAAs.get(pos)){
@@ -327,9 +327,9 @@ public class ConfSpace implements Serializable {
     
     
     private void standardizeMutatableRes(ArrayList<ArrayList<String>> allowedAAs, ArrayList<String> flexibleRes){
-        //"mutate" all mutatable residues to the template version of their residue type
-        //this ensures that the non-adjustable DOFs (bond angles, etc.) will be as in the template
-        //(for consistency purposes)
+        // "mutate" all mutable residues to the template version of their residue type
+        // this ensures that the non-adjustable DOFs (bond angles, etc.) will be as in the template
+        // (for consistency purposes)
         for(int pos=0; pos<numPos; pos++){
             Residue res = m.getResByPDBResNumber( flexibleRes.get(pos) );
             String resName = res.template.name;

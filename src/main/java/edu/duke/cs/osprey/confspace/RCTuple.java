@@ -39,8 +39,12 @@ import java.io.Serializable;
 import java.util.ArrayList;
 
 /**
+ * An n-sized tuple for holding pairs of design positions with their corresponding discrete adopted conformation.
  *
- * @author mhall44
+ * Positions refers to the indices in the molecule which are being designed
+ *
+ * Conformation refers to the index into a set of discrete conformations adoptable by a design position.
+ * A residue can usually adopt multiple conformations, discretely known as rotamers.
  */
 public class RCTuple implements Serializable {
     

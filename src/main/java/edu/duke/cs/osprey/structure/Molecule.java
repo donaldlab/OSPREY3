@@ -47,6 +47,7 @@ import java.util.stream.Collectors;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 
 /**
+ * A molecule is a list of {@link Residue} and their alternates
  *
  * @author mhall44
  */
@@ -55,6 +56,7 @@ public class Molecule implements Serializable {
     private static final long serialVersionUID = -2709516483892891323L;
 
     public String name = null;
+    
     public Residues residues;
     private Map<Integer,ArrayList<Residue>> alternates;
     

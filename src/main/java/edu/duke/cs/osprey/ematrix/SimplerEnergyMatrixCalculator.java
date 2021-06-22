@@ -74,7 +74,7 @@ public class SimplerEnergyMatrixCalculator {
 		 * 
 		 * @warning If design settings are changed between runs, Osprey will make
 		 * some effort to detect that the energy matrix cache is out-of-date and compute a
-		 * new energy matrix instead of usng the cached, incorrect one. Osprey might not detect
+		 * new energy matrix instead of using the cached, incorrect one. Osprey might not detect
 		 * all design changes though, and incorrectly reuse a cached energy matrix, so it
 		 * is best to manually delete the entry matrix cache file after changing design settings.
 		 */
@@ -93,7 +93,13 @@ public class SimplerEnergyMatrixCalculator {
 		private Double quadCorrectionThreshold = null;
 
 		private boolean calcConstantTerm = false;
-		
+
+		/**
+		 * This builder is probably not what you want, because it doesn't copy over the reference energies or other properties of an ecalc.
+		 * @param confSpace
+		 * @param ecalc
+		 */
+		@Deprecated
 		public Builder(SimpleConfSpace confSpace, EnergyCalculator ecalc) {
 			this(new ConfEnergyCalculator.Builder(confSpace, ecalc).build());
 		}
@@ -121,7 +127,7 @@ public class SimplerEnergyMatrixCalculator {
 			calcConstantTerm = val;
 			return this;
 		}
-		
+
 		public SimplerEnergyMatrixCalculator build() {
 			return new SimplerEnergyMatrixCalculator(confEcalc, cacheFile, tripleCorrectionThreshold, quadCorrectionThreshold, calcConstantTerm);
 		}
@@ -207,7 +213,7 @@ public class SimplerEnergyMatrixCalculator {
 				fragments.add(new RCTuple());
 				cost += constCost;
 			}
-			
+
 			void addSingle(int pos, int rc) {
 				fragments.add(new RCTuple(pos, rc));
 				cost += singleCost;

@@ -40,7 +40,7 @@ import edu.duke.cs.osprey.tools.HashCalculator;
 
 /**
  * Represents interactions between residues (or within single residues) based on residue
- * numbers.
+ * numbers. The interaction is represented in a {@link ResidueInteractions.Pair}.
  * 
  * Does not rely on specific molecules, so residue interactions are portable
  * between different molecules, or molecule copies.
@@ -154,7 +154,7 @@ public class ResidueInteractions implements Iterable<ResidueInteractions.Pair> {
 	public void addAll(ResidueInteractions other) {
 		pairs.putAll(other.pairs);
 	}
-	
+
 	public void addSingle(String resNum) {
 		addSingle(resNum, Pair.IdentityWeight, Pair.IdentityOffset);
 	}

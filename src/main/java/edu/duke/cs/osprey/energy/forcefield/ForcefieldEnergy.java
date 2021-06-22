@@ -260,7 +260,7 @@ public class ForcefieldEnergy implements Serializable {
 			isHydrogen2 = res2.atoms.get(atom4).elementType.equalsIgnoreCase("H");
 			
 			double epsilonProduct = 0, ri = 0, rj = 0;
-			if (!(params.getNonBondedParameters(atomType1, nbparams)))
+			if (!(params.getNonBondedParameters(res1.atoms.get(atom1), nbparams)))
 				System.out.println("WARNING: Could not find nb parameters for " + atom1 + " type: " + res1.atoms.get(atom1).forceFieldType);
 			else {
 				if((params.forcefld == ForcefieldParams.Forcefield.CHARMM19 
@@ -274,7 +274,7 @@ public class ForcefieldEnergy implements Serializable {
 					epsilonProduct = nbparams.epsilon;
 					ri = nbparams.r;
 				}
-				if (!(params.getNonBondedParameters(atomType4, nbparams)))
+				if (!(params.getNonBondedParameters(res2.atoms.get(atom4), nbparams)))
 					System.out.println("WARNING: Could not find nb parameters for " + atom4 + " type: " + res2.atoms.get(atom1).forceFieldType);
 				else {
 					if((params.forcefld == ForcefieldParams.Forcefield.CHARMM19 
@@ -351,12 +351,12 @@ public class ForcefieldEnergy implements Serializable {
 			isHydrogen1 = res1.atoms.get(atom1).elementType.equalsIgnoreCase("H");
 			isHydrogen2 = res2.atoms.get(atom2).elementType.equalsIgnoreCase("H");
 			
-			if (!(params.getNonBondedParameters(atomType1, nbparams)))
+			if (!(params.getNonBondedParameters(res1.atoms.get(atom1), nbparams)))
 				System.out.println("WARNING: Could not find nb parameters for (at1) " + atom1 + " type: " + res1.atoms.get(atom1).forceFieldType);
 			else {
 				double epsilonProduct = nbparams.epsilon;
 				double ri = nbparams.r;
-				if (!(params.getNonBondedParameters(atomType2, nbparams)))
+				if (!(params.getNonBondedParameters(res2.atoms.get(atom2), nbparams)))
 					System.out.println("WARNING: Could not find nb parameters for (at2) " + atom2 + " type: " + res2.atoms.get(atom2).forceFieldType);
 				else {						
 					epsilonProduct *= nbparams.epsilon;

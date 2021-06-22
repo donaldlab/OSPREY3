@@ -144,6 +144,22 @@ dependencies {
 	implementation("org.tomlj:tomlj:1.0.0")
 	implementation(files("lib/kdtree.jar")) // no authoritative source on the internet
 
+	val autoValueVersion = 1.7
+	implementation("ch.obermuhlner:big-math:2.3.0")
+	implementation("com.fasterxml.jackson.core:jackson-databind:2.9.9")
+	implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.9")
+	implementation("com.beust:jcommander:1.72")
+	implementation("one.util:streamex:0.7.3")
+	implementation(platform("software.amazon.awssdk:bom:2.15.48"))
+	implementation("software.amazon.awssdk:s3")
+	implementation("org.postgresql:postgresql:42.2.16")
+	implementation("org.sql2o:sql2o:1.6.0")
+	implementation("com.google.auto.value:auto-value-annotations:$autoValueVersion")
+	annotationProcessor("com.google.auto.value:auto-value:$autoValueVersion")
+	testImplementation("org.junit.jupiter:junit-jupiter:5.4.2")
+	testImplementation("org.assertj:assertj-core:3.18.1")
+
+
 	val ktorVersion = "1.5.4"
 
 	// used by the gui

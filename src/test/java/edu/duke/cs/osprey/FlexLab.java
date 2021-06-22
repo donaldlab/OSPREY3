@@ -1152,8 +1152,7 @@ public class FlexLab {
 
 		// get vdw params for this atom pair
 		AtomNeighbors.Type type = new AtomNeighbors(a1).classifyAtom(a2);
-		ForcefieldParams.VdwParams vdw = new ForcefieldParams.VdwParams();
-		ffparams.getVdwParams(a1, a2, type, vdw);
+		var vdw = ffparams.getVdwParams(a1, a2, type);
 
 		// compute vdw
 		double r6 = r2*r2*r2;

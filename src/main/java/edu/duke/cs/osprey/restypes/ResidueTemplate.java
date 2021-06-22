@@ -60,7 +60,10 @@ public class ResidueTemplate implements Serializable {
 
     private static final long serialVersionUID = 4568917747972477569L;
 
-    public String name;//e.g. ARG
+    /**
+     * The three letter code, e.g. ARG
+     */
+    public String name;
 
     //"standard" residue
     //info from here will mostly be copied into any residue in the structure to which this template is assigned

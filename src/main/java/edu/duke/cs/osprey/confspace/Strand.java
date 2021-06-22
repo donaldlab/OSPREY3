@@ -35,15 +35,17 @@ package edu.duke.cs.osprey.confspace;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import edu.duke.cs.osprey.multistatekstar.ResidueTermini;
 import edu.duke.cs.osprey.restypes.DAminoAcidHandler;
-import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.structure.Residues;
 
 import java.io.Serializable;
+import java.util.stream.Stream;
 
 /**
  * A molecule with associated residue flexibility information.
@@ -58,6 +60,32 @@ public class Strand implements Serializable {
 		private Molecule mol;
 		private String firstResNum;
 		private String lastResNum;
+		private List<MutabilityParam> mutabilityParams = new ArrayList<>();
+
+		private static class MutabilityParam {
+			List<String> targetResidues;
+			protected String residue;
+			boolean useWildtypeRotamer;
+			boolean useContinuousFlexibility;
+
+			MutabilityParam(String residue, boolean useWildTypeRotamer, boolean useContinuousFlexiblity, List<String> targetResidues) {
+				this.residue = residue;
+				this.useWildtypeRotamer = useWildTypeRotamer;
+				this.useContinuousFlexibility = useContinuousFlexiblity;
+				this.targetResidues = targetResidues;
+			}
+
+			void modifyResidue(ResidueFlex residueFlex) {
+				residueFlex.addWildTypeRotamers = useWildtypeRotamer;
+
+				if (useContinuousFlexibility) {
+					residueFlex.setContinuous();
+				} else {
+					residueFlex.setDiscrete();
+				}
+				residueFlex.setLibraryRotamers(targetResidues);
+			}
+		}
 
 		/**
 		 * The template library to use for this strand.
@@ -103,7 +131,17 @@ public class Strand implements Serializable {
 			this.templateLib = val;
 			return this;
 		}
-		
+
+		public Builder setResidueMutability(String residue,  List<String> targetResidues, boolean useWildTypeRotamer, boolean continuous) {
+
+			if (targetResidues.isEmpty()) {
+				targetResidues = List.of(Strand.WildType);
+			}
+			mutabilityParams.add(new MutabilityParam(residue, useWildTypeRotamer, continuous, targetResidues));
+
+			return this;
+		}
+
 		public Builder setErrorOnNonTemplateResidues(boolean val) {
 			this.errorOnNonTemplateResidues = val;
 			return this;
@@ -115,15 +153,23 @@ public class Strand implements Serializable {
 		}
 		
 		public Strand build() {
-
 			if (templateLib == null) {
 				templateLib = new ResidueTemplateLibrary.Builder().build();
 			}
 
-			return new Strand(mol, firstResNum, lastResNum, templateLib, errorOnNonTemplateResidues, templateMatchingMethod);
+			var strand = new Strand(mol, firstResNum, lastResNum, templateLib, errorOnNonTemplateResidues, templateMatchingMethod);
+			for (var param : mutabilityParams) {
+				var residue = strand.flexibility.get(param.residue);
+				if (residue == null) {
+					throw new Error(String.format("Trying to modify a residue that I can't find: %s", param.residue));
+				}
+				param.modifyResidue(residue);
+			}
+
+			return strand;
 		}
 	}
-	
+
 	/**
 	 * configured flexibility for one residue
 	 */
@@ -185,6 +231,10 @@ public class Strand implements Serializable {
 		 * If no residue types are passed, the wild type will be used. 
 		 */
 		public ResidueFlex setLibraryRotamers(String ... resTypes) {
+			if (resTypes.length == 0) {
+				return setLibraryRotamers(Collections.singletonList(this.wildType));
+			}
+
 			return setLibraryRotamers(Arrays.asList(resTypes));
 		}
 		

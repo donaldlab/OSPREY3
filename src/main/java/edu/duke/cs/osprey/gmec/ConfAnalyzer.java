@@ -118,6 +118,13 @@ public class ConfAnalyzer {
 			PDBIO.writeFile(epmols, path, comment);
 		}
 
+		public String writePdbString(String comment) {
+			List<EnergyCalculator.EnergiedParametricMolecule> epmols = analyses.stream()
+					.map((analysis) -> analysis.epmol)
+					.collect(Collectors.toList());
+			return PDBIO.write(epmols, comment);
+		}
+
 		@Override
 		public String toString() {
 

@@ -1,0 +1,87 @@
+Remark line goes here
+MASS
+SO 32.060        0.000               ATTN, no polarizability parameter
+
+BOND
+CQ-N2  481.00   1.340       same as CA-N2, penalty score=  2.5
+C*-CA  388.00   1.459       same as C*-CB, penalty score=  3.1
+C*-S     0.00   0.000       ATTN, need revision
+C*-CC  388.00   1.459       same as C*-CB, penalty score=  0.6
+CA-S     0.00   0.000       ATTN, need revision
+CA-NB  410.00   1.394       same as CC-NB, penalty score=  0.4
+CA-CC  427.00   1.433       same as CA-CM, penalty score=  0.2
+CA-F     0.00   0.000       ATTN, need revision
+N2-SO    0.00   0.000       ATTN, need revision
+O -SO    0.00   0.000       ATTN, need revision
+CA-SO    0.00   0.000       ATTN, need revision
+
+ANGLE
+N2-CQ-NC    0.000       0.000   ATTN, need revision
+CA-CA-NC   70.000     121.500   same as CM-CA-NC, penalty score=  1.1
+C*-CA-NC   70.000     117.300   same as CB-CA-NC, penalty score=  9.5
+CQ-N2-H    35.000     120.000   same as CA-N2-H , penalty score=  0.3
+H4-CA-NC   35.000     119.100   same as H4-CM-N*, penalty score= 19.5
+C*-CA-CA   63.000     120.000   same as CA-CA-CA, penalty score=  9.5
+CA-C*-S     0.000       0.000   ATTN, need revision
+CA-C*-CC   66.546     120.000   Calculated using CA-CA-CA, penalty score=150.4
+C*-S -CA    0.000       0.000   ATTN, need revision
+C*-CC-NB   70.000     120.000   same as CW-CC-NB, penalty score=  9.5
+C*-CC-CA   66.546     120.000   Calculated using CA-CA-CA, penalty score=159.5
+CC-C*-S     0.000       0.000   ATTN, need revision
+CT-CA-S     0.000       0.000   ATTN, need revision
+NB-CA-S     0.000       0.000   ATTN, need revision
+CA-NB-CC   70.000     117.000   same as CC-NB-CR, penalty score=  0.5
+CT-CA-NB    0.000       0.000   ATTN, need revision
+CA-CC-NB    0.000       0.000   ATTN, need revision
+CA-CA-CC   63.000     120.000   same as CA-CA-CB, penalty score=  0.1
+CA-CA-F     0.000       0.000   ATTN, need revision
+CA-CA-N2   70.000     120.100   same as CM-CA-N2, penalty score=  1.1
+CA-N2-SO    0.000       0.000   ATTN, need revision
+N2-SO-O     0.000       0.000   ATTN, need revision
+CA-SO-N2    0.000       0.000   ATTN, need revision
+CA-CA-SO    0.000       0.000   ATTN, need revision
+O -SO-O     0.000       0.000   ATTN, need revision
+CA-SO-O     0.000       0.000   ATTN, need revision
+
+DIHE
+NC-CQ-N2-H    4    9.600       180.000           2.000      same as X -CA-N2-X , penalty score=290.5
+S -C*-CA-NC   4    6.700       180.000           2.000      same as X -C*-CB-X , penalty score=198.5
+CC-C*-CA-NC   4    6.700       180.000           2.000      same as X -C*-CB-X , penalty score=198.5
+S -C*-CA-CA   4    6.700       180.000           2.000      same as X -C*-CB-X , penalty score=198.5
+CC-C*-CA-CA   4    6.700       180.000           2.000      same as X -C*-CB-X , penalty score=198.5
+CA-C*-S -CA   1    0.000         0.000           2.000      ATTN, need revision
+CA-C*-CC-NB   4    6.700       180.000           2.000      same as X -C*-CB-X , penalty score=121.5
+CA-C*-CC-CA   4    6.700       180.000           2.000      same as X -C*-CB-X , penalty score=121.5
+CT-CA-S -C*   1    0.000         0.000           2.000      ATTN, need revision
+NB-CA-S -C*   1    0.000         0.000           2.000      ATTN, need revision
+CA-CA-CC-C*   4   14.500       180.000           2.000      same as X -CA-CA-X , penalty score=106.0
+S -C*-CC-NB   4    6.700       180.000           2.000      same as X -C*-CB-X , penalty score=121.5
+S -C*-CC-CA   4    6.700       180.000           2.000      same as X -C*-CB-X , penalty score=121.5
+S -CA-NB-CC   2    4.800       180.000           2.000      same as X -CC-NB-X , penalty score=106.0
+CT-CA-NB-CC   2    4.800       180.000           2.000      same as X -CC-NB-X , penalty score=106.0
+CA-CA-CC-NB   4   14.500       180.000           2.000      same as X -CA-CA-X , penalty score=106.0
+CC-C*-S -CA   1    0.000         0.000           2.000      ATTN, need revision
+CA-N2-SO-O    1    0.000         0.000           2.000      ATTN, need revision
+CA-N2-SO-CA   1    0.000         0.000           2.000      ATTN, need revision
+CA-CA-SO-N2   1    0.000         0.000           2.000      ATTN, need revision
+CA-CA-SO-O    1    0.000         0.000           2.000      ATTN, need revision
+
+IMPROPER
+N2-NC-CQ-NC         1.1          180.0         2.0          Using the default value
+CQ-H -N2-H          1.0          180.0         2.0          Using general improper torsional angle  X- X-N2- H, penalty score=  6.0)
+CA-HA-CA-NC         1.1          180.0         2.0          Using the default value
+CA-CA-CA-HA         1.1          180.0         2.0          Using general improper torsional angle  X- X-CA-HA, penalty score=  6.0)
+C*-CA-CA-NC         1.1          180.0         2.0          Using the default value
+CA-CC-C*-S          1.1          180.0         2.0          Using the default value
+CT-NB-CA-S          1.1          180.0         2.0          Using the default value
+C*-CA-CC-NB         1.1          180.0         2.0          Using the default value
+CA-CA-CA-CC         1.1          180.0         2.0          Using the default value
+CA-CA-CA-F          1.1          180.0         2.0          Using the default value
+CA-CA-CA-N2         1.1          180.0         2.0          Using the default value
+CA-CA-CA-SO         1.1          180.0         2.0          Using the default value
+
+NONBON
+  SO          0.0000  0.0000             ATTN, need revision
+
+
+
