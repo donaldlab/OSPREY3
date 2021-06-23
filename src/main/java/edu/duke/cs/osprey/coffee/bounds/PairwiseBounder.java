@@ -4,7 +4,6 @@ import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.coffee.nodedb.NodeTree;
 import edu.duke.cs.osprey.coffee.zmat.ClusterZMatrix;
 import edu.duke.cs.osprey.tools.BigExp;
-import edu.duke.cs.osprey.tools.MathTools.Optimizer;
 
 
 public class PairwiseBounder implements Bounder {
@@ -12,12 +11,10 @@ public class PairwiseBounder implements Bounder {
 	public final ClusterZMatrix zmat;
 
 	protected final BigExp[][] optimizationCache;
-	protected final Optimizer opt;
 
-	public PairwiseBounder(ClusterZMatrix zmat, Optimizer opt) {
+	public PairwiseBounder(ClusterZMatrix zmat) {
 
 		this.zmat = zmat;
-		this.opt = opt;
 
 		// pre-populate the optimization cache
 		optimizationCache = new BigExp[zmat.numPairs()][];
@@ -29,21 +26,17 @@ public class PairwiseBounder implements Bounder {
 
 				for (int confi1=0; confi1<zmat.confSpace.numConf(posi1); confi1++) {
 
-					BigExp best = zmat.pair(posi1, confi1, posi2, 0);
+					BigExp max = zmat.pair(posi1, confi1, posi2, 0);
 					for (int confi2=1; confi2<zmat.confSpace.numConf(posi2); confi2++) {
 						BigExp z = zmat.pair(posi1, confi1, posi2, confi2);
-						if (opt.isBetter(z, best)) {
-							best = z;
+						if (z.greaterThan(max)) {
+							max = z;
 						}
 					}
-					optimizationCache[pairi][confi1] = best;
+					optimizationCache[pairi][confi1] = max;
 				}
 			}
 		}
-	}
-
-	public PairwiseBounder(ClusterZMatrix zmat){
-		this(zmat, Optimizer.Maximize);
 	}
 
 	@Override
@@ -89,7 +82,7 @@ public class PairwiseBounder implements Bounder {
 			int posi1 = index.undefinedPos[i1];
 
 			// optimize over possible assignments to pos1
-			BigExp zpos1 = new BigExp(opt.initDouble());
+			BigExp zpos1 = new BigExp(Double.NEGATIVE_INFINITY);
 			for (int confi1 : tree.rcs.get(posi1)) {
 
 				BigExp zrc1 = new BigExp(zmat.single(posi1, confi1));
@@ -111,8 +104,7 @@ public class PairwiseBounder implements Bounder {
 					zrc1.mult(optimizationCache[pairi][confi1]);
 				}
 
-				if(opt.isBetter(zrc1, zpos1))
-					zpos1.set(zrc1);
+				zpos1.max(zrc1);
 			}
 
 			assert (zpos1.isFinite());
