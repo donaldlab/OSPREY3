@@ -23,6 +23,7 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.tools.BigExp;
 import edu.duke.cs.osprey.tools.Stopwatch;
+import javafx.util.Pair;
 
 import java.io.File;
 import java.math.MathContext;
@@ -430,57 +431,223 @@ public class Coffee {
 			try (var cpuTasks = new ThreadPoolTaskExecutor()) {
 				cpuTasks.start(parallelism.numThreads);
 
-				// open the node database
-				try (var nodedb = new NodeDB.Builder(confSpace, member)
-					.setFile(dbFile, dbFileBytes)
-					.setMem(dbMemBytes)
-					.setScoringLog(nodeScoringLog)
-					.build()
+				// open the sequence database
+				try (SeqDB seqdb = new SeqDB.Builder(confSpace, member)
+						.setMathContext(seqdbMathContext)
+						.setFile(seqdbFile)
+						.build()
 				) {
+					// open the node database
+					try (var nodedb = new NodeDB.Builder(confSpace, member)
+							.setFile(dbFile, dbFileBytes)
+							.setMem(dbMemBytes)
+							.setScoringLog(nodeScoringLog)
+							.build()
+					) {
 
-					// init the node processor, and report dropped nodes to the sequence database
-					try (var nodeProcessor = new NodeProcessor(cpuTasks, null, nodedb, infos, includeStaticStatic, parallelism, precision, nodeStatsReportingInterval)) {
+						// init the node processor, and report dropped nodes to the sequence database
+						try (var nodeProcessor = new NodeProcessor(cpuTasks, seqdb, nodedb, infos, includeStaticStatic, parallelism, precision, nodeStatsReportingInterval)) {
 
-						// init the state with the zmat
-						var stateInfo = infos[statei];
-						stateInfo.zmat = zmat;
-						stateInfo.initBounder();
+							// init the state with the zmat
+							var stateInfo = infos[statei];
+							stateInfo.zmat = zmat;
+							stateInfo.initBounder();
 
-						// init the root node
-						ConfIndex index = stateInfo.makeConfIndex();
-						BigExp zSumUpper = stateInfo.zSumUpper(index, tree).normalize(true);
-						nodeProcessor.nodedb.addLocal(new NodeIndex.Node(statei, Conf.make(index), zSumUpper, zSumUpper));
+							// init the root node
+							ConfIndex index = stateInfo.makeConfIndex();
+							BigExp zSumUpper = stateInfo.zSumUpper(index, tree).normalize(true);
+							nodeProcessor.nodedb.addLocal(new NodeIndex.Node(statei, Conf.make(index), zSumUpper, zSumUpper));
 
-						while (true) {
+							while (true) {
 
-							// get the next nodes
-							nodedb.removeHighestLocal(statei, batchSize, nodeBatch);
-							if (nodeBatch.isEmpty()) {
-								throw new RuntimeException("couldn't find " + count + " nodes");
-							}
-							for (var node : nodeBatch) {
-
-								// if it's a leaf node, add it to the list
-								if (node.isLeaf()) {
-									leafNodes.add(node);
-									if (leafNodes.size() >= count) {
-										return leafNodes;
-									}
-									continue;
+								// get the next nodes
+								nodedb.removeHighestLocal(statei, batchSize, nodeBatch);
+								if (nodeBatch.isEmpty()) {
+									throw new RuntimeException("couldn't find " + count + " nodes");
 								}
+								for (var node : nodeBatch) {
 
-								// otherwise, expand the node
-								nodeProcessor.expand(node, tree, expandedNodes);
+									// if it's a leaf node, add it to the list
+									if (node.isLeaf()) {
+										leafNodes.add(node);
+										if (leafNodes.size() >= count) {
+											return leafNodes;
+										}
+										continue;
+									}
+
+									// otherwise, expand the node
+									nodeProcessor.expand(node, tree, expandedNodes);
+								}
+								nodeBatch.clear();
+
+								// add the nodes to the db
+								nodedb.addLocal(statei, expandedNodes);
+								expandedNodes.clear();
 							}
-							nodeBatch.clear();
 
-							// add the nodes to the db
-							nodedb.addLocal(statei, expandedNodes);
-							expandedNodes.clear();
-						}
+						} // node processor
+					} // nodedb
+				} //seqdb
+			} // cpu tasks
+		} // cluster member
+	}
+	/**
+	 * Quickly get a few internal nodes, chooses the first nodes explored
+	 * Mostly only useful for debugging.
+	 */
+	public List<NodeIndex.Node> findFirstNNodes(int statei, ClusterZMatrix zmat, NodeTree tree, int count) {
+		var internalNodes = new ArrayList<NodeIndex.Node>(count);
 
-					} // node processor
-				} // nodedb
+		int batchSize = 10;
+		var nodeBatch = new ArrayList<NodeIndex.Node>(batchSize);
+		var expandedNodes = new ArrayList<NodeIndex.Node>();
+
+		try (var member = new ClusterMember(cluster)) {
+
+			try (var cpuTasks = new ThreadPoolTaskExecutor()) {
+				cpuTasks.start(parallelism.numThreads);
+
+				// open the sequence database
+				try (SeqDB seqdb = new SeqDB.Builder(confSpace, member)
+						.setMathContext(seqdbMathContext)
+						.setFile(seqdbFile)
+						.build()
+				) {
+					// open the node database
+					try (var nodedb = new NodeDB.Builder(confSpace, member)
+							.setFile(dbFile, dbFileBytes)
+							.setMem(dbMemBytes)
+							.setScoringLog(nodeScoringLog)
+							.build()
+					) {
+
+						// init the node processor, and report dropped nodes to the sequence database
+						try (var nodeProcessor = new NodeProcessor(cpuTasks, seqdb, nodedb, infos, includeStaticStatic, parallelism, precision, nodeStatsReportingInterval)) {
+
+							// init the state with the zmat
+							var stateInfo = infos[statei];
+							stateInfo.zmat = zmat;
+							stateInfo.initBounder();
+
+							// init the root node
+							ConfIndex index = stateInfo.makeConfIndex();
+							BigExp zSumUpper = stateInfo.zSumUpper(index, tree).normalize(true);
+							nodeProcessor.nodedb.addLocal(new NodeIndex.Node(statei, Conf.make(index), zSumUpper, zSumUpper));
+
+							while (true) {
+								// get the next nodes
+								nodedb.removeHighestLocal(statei, batchSize, nodeBatch);
+								if (nodeBatch.isEmpty()) {
+									throw new RuntimeException("couldn't find " + count + " nodes");
+								}
+								for (var node : nodeBatch) {
+
+									// if it's a leaf node, just drop it
+									//if (node.isLeaf()) {
+									//continue;
+									//}
+
+									//Add the nodes
+									internalNodes.add(node);
+									if (internalNodes.size() >= count) {
+										return internalNodes;
+									}
+
+									// expand the node
+									if (!node.isLeaf())
+										nodeProcessor.expand(node, tree, expandedNodes);
+								}
+								nodeBatch.clear();
+
+								// add the nodes to the db
+								nodedb.addLocal(statei, expandedNodes);
+								expandedNodes.clear();
+							}
+
+						} // node processor
+					} // nodedb
+				} // seqdb
+			} // cpu tasks
+		} // cluster member
+	}
+	/**
+	 * Quickly get a few stem nodes (one from leaf) with associated children
+	 * Mostly only useful for debugging.
+	 */
+	public List<Pair<NodeIndex.Node, List<NodeIndex.Node>>> findStemNodesAndChildren(int statei, ClusterZMatrix zmat, NodeTree tree, int count) {
+		var stemNodes = new ArrayList<Pair<NodeIndex.Node, List<NodeIndex.Node>>>(count);
+
+		int batchSize = 10;
+		var nodeBatch = new ArrayList<NodeIndex.Node>(batchSize);
+		var expandedNodes = new ArrayList<NodeIndex.Node>();
+
+		try (var member = new ClusterMember(cluster)) {
+
+			try (var cpuTasks = new ThreadPoolTaskExecutor()) {
+				cpuTasks.start(parallelism.numThreads);
+
+				// open the sequence database
+				try (SeqDB seqdb = new SeqDB.Builder(confSpace, member)
+						.setMathContext(seqdbMathContext)
+						.setFile(seqdbFile)
+						.build()
+				) {
+					// open the node database
+					try (var nodedb = new NodeDB.Builder(confSpace, member)
+							.setFile(dbFile, dbFileBytes)
+							.setMem(dbMemBytes)
+							.setScoringLog(nodeScoringLog)
+							.build()
+					) {
+
+						// init the node processor, and report dropped nodes to the sequence database
+						try (var nodeProcessor = new NodeProcessor(cpuTasks, seqdb, nodedb, infos, includeStaticStatic, parallelism, precision, nodeStatsReportingInterval)) {
+
+							// init the state with the zmat
+							var stateInfo = infos[statei];
+							stateInfo.zmat = zmat;
+							stateInfo.initBounder();
+
+							// init the root node
+							ConfIndex index = stateInfo.makeConfIndex();
+							BigExp zSumUpper = stateInfo.zSumUpper(index, tree).normalize(true);
+							nodeProcessor.nodedb.addLocal(new NodeIndex.Node(statei, Conf.make(index), zSumUpper, zSumUpper));
+
+							while (true) {
+								// get the next nodes
+								nodedb.removeHighestLocal(statei, batchSize, nodeBatch);
+								if (nodeBatch.isEmpty()) {
+								    // Don't throw an exception, just return what we have
+									return stemNodes;
+								}
+								for (var node : nodeBatch) {
+
+									// if the node is one from a leaf, get interested
+									if (node.conf.length - Conf.countAssignments(node.conf) == 1){
+										ArrayList<NodeIndex.Node> children = new ArrayList<>();
+										nodeProcessor.expand(node, tree, children);
+										stemNodes.add(new Pair(node,children));
+										expandedNodes.addAll(children);
+										if(stemNodes.size() >= count){
+											return stemNodes;
+										}
+									}
+
+									// expand the node
+									if (!node.isLeaf())
+										nodeProcessor.expand(node, tree, expandedNodes);
+								}
+								nodeBatch.clear();
+
+								// add the nodes to the db
+								nodedb.addLocal(statei, expandedNodes);
+								expandedNodes.clear();
+							}
+
+						} // node processor
+					} // nodedb
+				} // seqdb
 			} // cpu tasks
 		} // cluster member
 	}

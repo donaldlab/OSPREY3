@@ -1,9 +1,7 @@
 package edu.duke.cs.osprey.coffee;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
-import edu.duke.cs.osprey.coffee.bounds.Bounder;
-import edu.duke.cs.osprey.coffee.bounds.PairwiseBounder;
-import edu.duke.cs.osprey.coffee.bounds.TriplewiseBounder;
+import edu.duke.cs.osprey.coffee.bounds.*;
 import edu.duke.cs.osprey.coffee.nodedb.NodeTree;
 import edu.duke.cs.osprey.coffee.zmat.ClusterZMatrix;
 import edu.duke.cs.osprey.confspace.SeqSpace;
@@ -26,6 +24,7 @@ public class StateInfo {
 	private final int[] numTypesByPos;
 
 	private Bounder bounder = null;
+	private boolean factorBounder = false;
 
 	public StateInfo(Coffee.StateConfig config) {
 
@@ -87,14 +86,26 @@ public class StateInfo {
 		return 0.0;
 	}
 
+	public void setFactorBounder(boolean val){
+		this.factorBounder = val;
+	}
+
 	public void initBounder() {
 
 		// choose the best bounder for this state
 		// TODO: find better bounders
-		if (zmat.hasTriples()) {
-			bounder = new TriplewiseBounder(zmat);
-		} else {
-			bounder = new PairwiseBounder(zmat);
+        if (this.factorBounder) {
+			if (zmat.hasTriples()) {
+				bounder = new TriplewiseFactorBounder(zmat);
+			} else {
+				bounder = new PairwiseFactorBounder(zmat);
+			}
+		}else{
+			if (zmat.hasTriples()) {
+				bounder = new TriplewiseBounder(zmat);
+			} else {
+				bounder = new PairwiseBounder(zmat);
+			}
 		}
 	}
 
@@ -138,7 +149,9 @@ public class StateInfo {
 	public BigExp zSumUpper(ConfIndex index, NodeTree tree) {
 		BigExp out = zPathHead(index);
 		out.mult(zPathTailUpper(index, tree));
-		out.mult(leavesBySequenceUpper(index, tree));
+		// Only multiply by the number of leaves if we are *not* using the factor bounder
+		if(!factorBounder)
+			out.mult(leavesBySequenceUpper(index, tree));
 		return out;
 	}
 

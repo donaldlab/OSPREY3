@@ -529,7 +529,9 @@ public class NodeProcessor implements AutoCloseable {
 		for (var t : gpuThreads) {
 			t.waitForFinish();
 		}
-		dropThread.waitForFinish();
+
+		if (dropThread != null)
+			dropThread.waitForFinish();
 
 		// cleanup the ecalcs
 		for (var ecalc : cpuEcalcs) {
