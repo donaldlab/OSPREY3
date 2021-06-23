@@ -102,16 +102,23 @@ public class PfuncsDirector implements Coffee.Director {
 						return null;
 					}
 
-					var pfunc = new PfuncDirector.Builder(confSpace, state, seq)
+					var pfunc = new PfuncDirector.Builder(confSpace, state)
+						.setSequence(seq)
 						.setGWidthMax(gWidthMax)
 						.setTiming(timing)
 						.setReportProgress(reportProgress)
 						.build();
-					return pfunc.calc(directions, processor);
+					var g = pfunc.calc(directions, processor);
 
+					directions.finishSequence(state.sequencedIndex, seq);
+
+					return g;
 				})
 				.toArray(DoubleBounds[]::new)
 			));
 		}
+
+		// cleanup the nodedb when finised
+		processor.nodedb.clear(state.index);
 	}
 }

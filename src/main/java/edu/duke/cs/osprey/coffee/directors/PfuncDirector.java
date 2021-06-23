@@ -31,8 +31,8 @@ public class PfuncDirector implements Coffee.Director {
 
 		public final MultiStateConfSpace confSpace;
 		public final MultiStateConfSpace.State state;
-		public final Sequence seq;
 
+		private Sequence seq;
 		private double gWidthMax = 1.0;
 		private Double gMax = null;
 		private Timing timing = Timing.Efficient;
@@ -42,20 +42,20 @@ public class PfuncDirector implements Coffee.Director {
 		private long ensembleUpdate = 30;
 		private TimeUnit ensembleUpdateUnit = TimeUnit.SECONDS;
 
-		public Builder(MultiStateConfSpace confSpace, MultiStateConfSpace.State state, Sequence seq) {
+		public Builder(MultiStateConfSpace confSpace, MultiStateConfSpace.State state) {
+			this.confSpace = confSpace;
+			this.state = state;
+		}
+
+		public Builder setSequence(Sequence val) {
 
 			if (!state.isSequenced && seq != null) {
 				log("WARNING: Ignoring sequence given for unsequenced state %s", state.name);
 				seq = null;
 			}
 
-			this.confSpace = confSpace;
-			this.state = state;
-			this.seq = seq;
-		}
-
-		public Builder(MultiStateConfSpace confSpace, MultiStateConfSpace.State state) {
-			this(confSpace, state, null);
+			seq = val;
+			return this;
 		}
 
 		/**
@@ -172,6 +172,9 @@ public class PfuncDirector implements Coffee.Director {
 			rcs = new RCs(state.confSpace);
 		}
 		var tree = new NodeTree(rcs);
+
+		// delete anything left over from old pfuncs in the nodedb before starting a new pfunc
+		processor.nodedb.clear(state.index);
 
 		// tell the cluster to focus on this state, and just this sequence
 		directions.focus(state.index);

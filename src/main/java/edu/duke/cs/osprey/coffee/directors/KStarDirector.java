@@ -320,7 +320,8 @@ public class KStarDirector implements Coffee.Director {
 
 		processor.nodedb.clear(state.index);
 
-		var pfunc = new PfuncDirector.Builder(confSpace, state, seq)
+		var pfunc = new PfuncDirector.Builder(confSpace, state)
+			.setSequence(seq)
 			.setGWidthMax(gWidthMax)
 			.setTiming(timing)
 			.setReportProgress(reportStateProgress)

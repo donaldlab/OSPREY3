@@ -21,23 +21,27 @@ public class NodeStats {
 		public long rescored = 0;
 		public long minimized = 0;
 		public long expanded = 0;
+		public long finished = 0;
 
 		public void copyTo(Values other) {
 			other.rescored = rescored;
 			other.minimized = minimized;
 			other.expanded = expanded;
+			other.finished = finished;
 		}
 
 		public void addTo(Values other) {
 			other.rescored += rescored;
 			other.minimized += minimized;
 			other.expanded += expanded;
+			other.finished += finished;
 		}
 
 		public void clear() {
 			rescored = 0;
 			minimized = 0;
 			expanded = 0;
+			finished = 0;
 		}
 	}
 
@@ -63,6 +67,11 @@ public class NodeStats {
 
 		public void expanded() {
 			localValues.expanded += 1;
+			maybeSync();
+		}
+
+		public void finished() {
+			localValues.finished += 1;
 			maybeSync();
 		}
 
@@ -101,10 +110,11 @@ public class NodeStats {
 
 		@Override
 		public String toString() {
-			return String.format("NodeStats[res=%d, min=%d, exp=%d, in %s]",
+			return String.format("NodeStats[res=%d, min=%d, exp=%d, fin=%d, in %s]",
 				values.rescored,
 				values.minimized,
 				values.expanded,
+				values.finished,
 				TimeFormatter.format(stopNs - startNs)
 			);
 		}

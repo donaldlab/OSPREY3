@@ -247,6 +247,8 @@ public class PriorityDequeFixedIndex<S extends Comparable<S>, T extends FixedInd
 			store.freeBlock(block.id);
 		}
 		packedBlocks.clear();
+		unpackedItems.clear();
+		dropped.clear();
 		size = 0;
 	}
 }

@@ -34,6 +34,7 @@ public class NodePerformance {
 			avgNs = InitialNs;
 
 			// init the history with something neutral, so we can ease-in changes over time
+			nsHistory.clear();
 			for (int i=0; i<HistorySize; i++) {
 				nsHistory.add(InitialNs);
 				nsSum += InitialNs;
@@ -41,10 +42,16 @@ public class NodePerformance {
 		}
 
 		void update(long ns) {
+
 			nsSum -= nsHistory.removeFirst();
 			nsHistory.add(ns);
 			nsSum += ns;
 			avgNs = nsSum/HistorySize;
+
+			// just in case
+			if (nsSum < 0) {
+				throw new Error("node performance should not predict negative node processing times, we don't know how to time travel yet");
+			}
 		}
 
 		public BigExp score(BigExp zSumUpper) {
@@ -78,7 +85,7 @@ public class NodePerformance {
 		}
 	}
 
-	private static class PerfLog {
+	private class PerfLog {
 
 		final File file;
 		final List<String> buf = new ArrayList<>();
@@ -87,7 +94,28 @@ public class NodePerformance {
 		boolean failed = false;
 
 		PerfLog(File file) {
+
 			this.file = file;
+
+			// init the log file with a header
+			try (var out = new FileWriter(file, false)) {
+				out.write(String.join("\t", List.of(
+					"state",
+					"num assignments",
+					"avg Ns",
+					"actual Ns",
+					"zSumUpper",
+					"score",
+					"reduction",
+					"reduction/Ns"
+				)));
+				out.write("\n");
+			} catch (IOException ex) {
+				if (!failed) {
+					ex.printStackTrace(System.err);
+					failed = true;
+				}
+			}
 		}
 
 		void add(int statei, int[] conf, long ns, BigExp zSumUpper, BigExp reduction, BigExp score) {
@@ -97,13 +125,18 @@ public class NodePerformance {
 			actual.div(ns);
 			actual.normalize(true);
 
+			// get the current estimation of the average time
+			long avgNs = states[statei].get(conf).avgNs;
+
 			// buffer the log entry for efficient file IO
-			buf.add(String.format("%d\t%d\t%d\t%f\t%f\t%f\n",
+			buf.add(String.format("%d\t%d\t%d\t%d\t%f\t%f\t%f\t%f\n",
 				statei,
 				Conf.countAssignments(conf),
+				avgNs,
 				ns,
 				zSumUpper.log(),
 				score.log(),
+				reduction.log(),
 				actual.log()
 			));
 
@@ -163,7 +196,7 @@ public class NodePerformance {
 		}
 	}
 
-	public synchronized void update(int statei, int[] conf, long ns, BigExp zSumUpper, BigExp reduction, BigExp score) {
+	public synchronized void updateAndLog(int statei, int[] conf, long ns, BigExp zSumUpper, BigExp reduction, BigExp score) {
 
 		states[statei].get(conf).update(ns);
 
@@ -172,12 +205,12 @@ public class NodePerformance {
 		}
 	}
 
-	public void update(int statei, int[] conf, long ns, BigExp zSumUpper, BigExp reduction) {
-		update(statei, conf, ns, zSumUpper, reduction, null);
+	public synchronized void update(int statei, int[] conf, long ns) {
+		states[statei].get(conf).update(ns);
 	}
 
-	public void update(NodeIndex.Node node, long ns, BigExp reduction) {
-		update(node.statei, node.conf, ns, node.zSumUpper, reduction, node.score);
+	public void updateAndLog(NodeIndex.Node node, long ns, BigExp reduction) {
+		updateAndLog(node.statei, node.conf, ns, node.zSumUpper, reduction, node.score);
 	}
 
 	public synchronized BigExp score(int statei, int[] conf, BigExp zSumUpper) {

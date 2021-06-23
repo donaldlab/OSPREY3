@@ -190,7 +190,6 @@ public class AffinityDirector implements Coffee.Director {
 		long lastEnsembleNs = stopwatch.getTimeNs();
 
 		// first, find the sequences with the best complex free energies
-		directions.focus(complex.index);
 		// TODO: add fail-safe to exit early if we somehow ran out of nodes to process?
 		while (true) {
 
@@ -348,24 +347,27 @@ public class AffinityDirector implements Coffee.Director {
 		// next, compute the design state free energies for the best sequences
 		directions.member.log("Computing design state free energies for %d sequences ...", bestSeqs.size());
 		for (var seqg : bestSeqs) {
-			processor.nodedb.clear(design.index);
-			var pfunc = new PfuncDirector.Builder(confSpace, design, seqg.seq)
+			var pfunc = new PfuncDirector.Builder(confSpace, design)
+				.setSequence(seqg.seq)
 				.setGWidthMax(gWidthMax)
 				.setTiming(timing)
 				.setReportProgress(true) // TODO: expose setting
 				.build();
 			seqg.freeEnergies[design.index] = pfunc.calc(directions, processor);
+			directions.finishSequence(design.sequencedIndex, seqg.seq);
 		}
 
 		// finally, compute the target state free energy
 		directions.member.log("Computing target state free energies ...");
-		processor.nodedb.clear(target.index);
 		var pfunc = new PfuncDirector.Builder(confSpace, target)
 			.setGWidthMax(gWidthMax)
 			.setTiming(timing)
 			.setReportProgress(true) // TODO: expose setting
 			.build();
 		targetFreeEnergy = pfunc.calc(directions, processor);
+
+		// leave a nice clean nodedb at the end
+		processor.nodedb.clear(target.index);
 
 		// all done
 		directions.member.log("All three states complete in %s", stopwatch.getTime(2));
