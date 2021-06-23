@@ -10,7 +10,7 @@ public class PairwiseBounder implements Bounder {
 
 	public final ClusterZMatrix zmat;
 
-	private final BigExp[][] optimizationCache;
+	protected final BigExp[][] optimizationCache;
 
 	public PairwiseBounder(ClusterZMatrix zmat) {
 
