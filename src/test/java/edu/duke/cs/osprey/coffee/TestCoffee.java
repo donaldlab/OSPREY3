@@ -741,7 +741,8 @@ public class TestCoffee {
 
 			for (var seq : stateSeqs) {
 
-				var director = new PfuncDirector.Builder(confSpace, state, seq)
+				var director = new PfuncDirector.Builder(confSpace, state)
+					.setSequence(seq)
 					.setTiming(Timing.Precise)
 					.setGWidthMax(1e-3)
 					.build();
@@ -886,5 +887,37 @@ public class TestCoffee {
 
 		// but not the others
 		assertFreeEnergies_2m4f_complex(List.of(director.sequenceGs.get(0), director.sequenceGs.get(2)), complexi);
+	}
+
+	/**
+	 * not a regular test, this design is waaaaay too big to test all the time
+	 * but it's useful for doing in-depth debugging when you need bigger designs
+	 */
+	//@Test
+	public void pfuncs_6ov7_2mut4flex_1x4() {
+
+		var stateConfSpace = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/6ov7.2m4f.complex.ccsx"));
+		var confSpace = new MultiStateConfSpace.Builder("state", stateConfSpace)
+			.build();
+		var state = confSpace.states.get(0);
+
+		Coffee coffee = new Coffee.Builder(confSpace)
+			.setParallelism(Parallelism.makeCpu(4))
+			.configEachState(config -> {
+				config.posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null);
+				//config.posInterGen = new PosInterGen(PosInterDist.TighterBounds, null);
+			})
+			.setNodeStatsReportingInterval(Duration.ofMillis(1_000))
+			.build();
+
+		var director = new PfuncsDirector.Builder(confSpace, state)
+			//.setTiming(Timing.Precise)
+			.setTiming(Timing.Efficient)
+			.setReportProgress(true)
+			//.addSequences(confSpace.seqSpace.getSequences(1))
+			.addSequence(state.confSpace.seqSpace().makeSequence("THR", "TRP"))
+			.build();
+
+		coffee.run(director);
 	}
 }

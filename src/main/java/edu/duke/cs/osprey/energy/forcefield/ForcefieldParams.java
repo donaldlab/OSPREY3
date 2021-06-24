@@ -32,24 +32,25 @@
 
 package edu.duke.cs.osprey.energy.forcefield;
 
-import java.io.Serializable;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.StringTokenizer;
-
 import edu.duke.cs.osprey.confspace.SimpleConfSpace.Builder;
+import edu.duke.cs.osprey.energy.forcefield.amber.*;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.AtomNeighbors;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.structure.Residues;
-import edu.duke.cs.osprey.tools.FileTools;
-import edu.duke.cs.osprey.tools.StringParsing;
+import one.util.streamex.EntryStream;
+import one.util.streamex.IntStreamEx;
+import one.util.streamex.StreamEx;
+
+import java.io.IOException;
+import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
 
 import static edu.duke.cs.osprey.tools.Log.log;
 
 /**
- * Options for configuring forcefields for energy calculation.
- * @author mhall44
+ * Contains forcefield parameters for a variety of different published forcefields.  By default, {@link ForcefieldParams.Forcefield#AMBER} is used.
  */
 public class ForcefieldParams implements Serializable {
     
@@ -63,8 +64,9 @@ public class ForcefieldParams implements Serializable {
 
     final int atomTypeX = -2; //the atom type number for the X wildcard atom type
     private final int noMatchInt = 9999;
+	private final ForcefieldFileParser parameters;
 
-    String[] atomTypeNames = null;
+	String[] atomTypeNames = null;
     double[] atomAtomicMasses = null;
     int[]   bondAtomType1 = null;
     int[]   bondAtomType2 = null;
@@ -82,7 +84,7 @@ public class ForcefieldParams implements Serializable {
     int[]		dihedAtomType4 = null;
     // Dihedral: (PK/IDIVF) * (1 + cos(PN*phi - PHASE))
     double[] dihedTerm1 = null; // (PK/IDIVF)
-    int[] dihedPN = null; // Periodicity
+    double[] dihedPN = null; // Periodicity
     double[] dihedPhase = null; // Phase
     int[]		impDihedAtomType1 = null;
     int[]		impDihedAtomType2 = null;
@@ -90,7 +92,7 @@ public class ForcefieldParams implements Serializable {
     int[]		impDihedAtomType4 = null;
     // Imprper Dihedral: PK * (1 + cos(PN*phi - PHASE))
     double[] impDihedTerm1 = null; // PK
-    int[] impDihedPN = null; // Periodicity
+    double[] impDihedPN = null; // Periodicity
     double[] impDihedPhase = null; // Phase
     int[]		vdwAtomType1 = null;
     double[] vdwR = null;
@@ -116,15 +118,17 @@ public class ForcefieldParams implements Serializable {
     public boolean distDepDielect = true;
     public boolean hElect = true;
     public boolean hVDW = true;
-    /** for new code, use {@link Builder#shellDist} instead **/
+    /** for new code, use {@link Builder#setShellDistance} instead **/
     @Deprecated
     public double shellDistCutoff = Double.POSITIVE_INFINITY; //distance cutoff for interactions (angstroms)
     public SolvationForcefield solvationForcefield = SolvationForcefield.EEF1;
-    
-    public enum Forcefield {
-        
+	private Map<String, VanDerWaalsRadius> vanDerWaalsMap;
+	private Map<String, BondLengthParameter> bondLengthByName;
+	private Map<String, AtomSymbolAndMass> atomNamesMap;
+
+	public enum Forcefield {
         AMBER(
-            "/config/parm96a.dat",
+            "/config/parm96.dat",
             "/config/all_amino94.in",
             "/config/all_aminont94.in",
             "/config/all_aminoct94.in",
@@ -241,34 +245,22 @@ public class ForcefieldParams implements Serializable {
         this(Forcefield.valueOf(frcefld.toUpperCase()));
     }
 
-	public ForcefieldParams(Forcefield frcefld) {
-		this(frcefld, null);
+    public ForcefieldParams(Forcefield frcefld) {
+		this(frcefld, new ForcefieldFileParser(ForcefieldParams.class.getResourceAsStream(frcefld.paramsPath)));
 	}
 
-	/** creates the specified forcefield, but with overridden parameters */
-    public ForcefieldParams(Forcefield frcefld, String params) {
+	public ForcefieldParams(Forcefield ffChoice, ForcefieldFileParser parameterFile) {
+    	this.forcefld = ffChoice;
+    	this.parameters = parameterFile;
+		try {
+			parameterFile.read();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		assignFromForcefieldParamFile();
+        readEEF();
+	}
 
-        this.forcefld = frcefld;
-
-        // Read in AMBER forcefield parameters
-        // parm96a.dat
-        try {
-            readParm96(forcefld, params);
-        }
-        catch (Exception ex) {
-            throw new Error("can't read forcefield params", ex);
-        }
-                
-        // Read in the EEF1 solvation parameters
-        // TODO: lazy loading of EEF1 params?
-        try {
-            eef1parms = new EEF1();
-            eef1parms.readEEF1parm();
-        } catch (Exception ex) {
-            throw new Error("can't read solvation params", ex);
-        }
-    }
-    
     public ForcefieldParams(ForcefieldParams other) {
         this(other.forcefld);
         
@@ -281,10 +273,27 @@ public class ForcefieldParams implements Serializable {
         shellDistCutoff = other.shellDistCutoff;
         solvationForcefield = other.solvationForcefield;
     }
-    
-    
-    
-    //************************************
+
+	private void readEEF() {
+		// Read in the EEF1 solvation parameters
+		// TODO: lazy loading of EEF1 params?
+		try {
+			eef1parms = new EEF1();
+			eef1parms.readEEF1parm();
+		} catch (Exception ex) {
+			throw new Error("can't read solvation params", ex);
+		}
+	}
+
+	private static String bondLengthKey(AtomSymbolAndMass atom1, AtomSymbolAndMass atom2) {
+    	return String.format("%s-%s", atom1.KNDSYM(), atom2.KNDSYM());
+	}
+
+	private static String bondLengthKey(Atom first, Atom second) {
+    	return String.format("%s-%s", first.forceFieldType, second.forceFieldType);
+	}
+
+	//************************************
 	// This function reads the AMBER forcefield parameter file
 	//  parm96a.dat
 	// Although this function is meant to be relatively generic
@@ -292,267 +301,153 @@ public class ForcefieldParams implements Serializable {
 	//  will most likely be required to read other parameter
 	//  files. Reading of other files should be done in other
 	//  functions
-	private void readParm96(Forcefield ff, String params) throws Exception {
+	private void assignFromForcefieldParamFile() {
 
-    	if (params == null) {
-    		params = FileTools.readResource(ff.paramsPath);
-		} else {
-    		log("Using customized forcefield parameters.");
-		}
-		Iterator<String> lines = FileTools.parseLines(params).iterator();
-			
-		String curLine = null;
-		int tmpInt = 0;
-		
-		final int initSize = 10; //the initial size of the arrays to store the data that is read
+		atomTypeNames = StreamEx.of(parameters.atomSymbolsAndMasses())
+				.map(AtomSymbolAndMass::KNDSYM)
+                .toArray(String[]::new);
 
-		// Skip over the first line of header info
-		curLine = lines.next();
-		
-		// 1. Read atom names and atomic masses
-		atomTypeNames = new String[initSize];
-		atomAtomicMasses = new double[initSize];
-		curLine = lines.next();
-		tmpInt = 0; // temporary integer
-		// Until we're at a blank line (or until we've read numAtomTypes)
-		while (!(StringParsing.getToken(curLine,1).equals(""))) {
-			
-			if (tmpInt>=atomTypeNames.length){ //double the array sizes
-				atomTypeNames = doubleArraySize(atomTypeNames);
-				atomAtomicMasses = doubleArraySize(atomAtomicMasses);
-			}
-			
-			atomTypeNames[tmpInt] = StringParsing.getToken(curLine,1);  // snag atom name
-			atomAtomicMasses[tmpInt] = (new Double(StringParsing.getToken(curLine,2))).doubleValue();
-			tmpInt++;
-			curLine = lines.next();
-		}
-		atomTypeNames = reduceArraySize(atomTypeNames,tmpInt);
-		atomAtomicMasses = reduceArraySize(atomAtomicMasses,tmpInt);
-		
+		atomNamesMap = StreamEx.of(parameters.atomSymbolsAndMasses())
+                .toMap(AtomSymbolAndMass::KNDSYM, a -> a);
 
-		// Skip unknown line
-		curLine = lines.next();
+		atomAtomicMasses = StreamEx.of(parameters.atomSymbolsAndMasses())
+                .mapToDouble(AtomSymbolAndMass::AMASS)
+				.toArray();
 
-		// 2. Read Bonds
-		bondAtomType1 = new int[initSize];
-		bondAtomType2 = new int[initSize];
-		bondHFC = new double[initSize];
-		bondEBL = new double[initSize];
-		curLine = lines.next();
-		tmpInt = 0;
-		while (!(StringParsing.getToken(curLine,1).equals(""))) {
-			
-			if (tmpInt>=bondAtomType1.length){
-				bondAtomType1 = doubleArraySize(bondAtomType1);
-				bondAtomType2 = doubleArraySize(bondAtomType2);
-				bondHFC = doubleArraySize(bondHFC);
-				bondEBL = doubleArraySize(bondEBL);
-			}
-			
-			//tmpStr = curLine.substring(0,5);
-			bondAtomType1[tmpInt] = atomTypeToInt(getDashedToken(curLine, 1));
-			bondAtomType2[tmpInt] = atomTypeToInt(getDashedToken(curLine, 2));
-			bondHFC[tmpInt] = (new Double(getDashedToken(curLine,3))).doubleValue();
-			bondEBL[tmpInt] = (new Double(getDashedToken(curLine,4))).doubleValue();
-			tmpInt++;
-			curLine = lines.next();
-		}
-		bondAtomType1 = reduceArraySize(bondAtomType1,tmpInt);
-		bondAtomType2 = reduceArraySize(bondAtomType2,tmpInt);
-		bondHFC = reduceArraySize(bondHFC,tmpInt);
-		bondEBL = reduceArraySize(bondEBL,tmpInt);
-		
+		bondAtomType1 = StreamEx.of(parameters.bondLengthParameters())
+				.mapToInt(x -> atomTypeToInt(x.IBT().KNDSYM()))
+				.toArray();
 
-		// 3. Read Angles
-		angleAtomType1 = new int[initSize];
-		angleAtomType2 = new int[initSize];
-		angleAtomType3 = new int[initSize];
-		angleHFC = new double[initSize];
-		angleEBA = new double[initSize];
-		curLine = lines.next();
-		tmpInt = 0;
-		while (!(StringParsing.getToken(curLine,1).equals(""))) {
-			
-			if (tmpInt>=angleAtomType1.length){
-				angleAtomType1 = doubleArraySize(angleAtomType1);
-				angleAtomType2 = doubleArraySize(angleAtomType2);
-				angleAtomType3 = doubleArraySize(angleAtomType3);
-				angleHFC = doubleArraySize(angleHFC);
-				angleEBA = doubleArraySize(angleEBA);
-			}
-			
-			//tmpStr = curLine.substring(0,8);
-			angleAtomType1[tmpInt] = atomTypeToInt(getDashedToken(curLine,1));
-			angleAtomType2[tmpInt] = atomTypeToInt(getDashedToken(curLine,2));
-			angleAtomType3[tmpInt] = atomTypeToInt(getDashedToken(curLine,3));
-			angleHFC[tmpInt] = (new Double(getDashedToken(curLine,4))).doubleValue();
-			angleEBA[tmpInt] = (new Double(getDashedToken(curLine,5))).doubleValue();
-			tmpInt++;
-			curLine = lines.next();
-		}
-		angleAtomType1 = reduceArraySize(angleAtomType1,tmpInt);
-		angleAtomType2 = reduceArraySize(angleAtomType2,tmpInt);
-		angleAtomType3 = reduceArraySize(angleAtomType3,tmpInt);
-		angleHFC = reduceArraySize(angleHFC,tmpInt);
-		angleEBA = reduceArraySize(angleEBA,tmpInt);
-		
-		
-		// 4. Read Dihedrals
-		numGeneralDihedParams = 0;
-		dihedAtomType1 = new int[initSize];
-		dihedAtomType2 = new int[initSize];
-		dihedAtomType3 = new int[initSize];
-		dihedAtomType4 = new int[initSize];
-		dihedTerm1 = new double[initSize];
-		dihedPhase = new double[initSize];
-		dihedPN = new int[initSize];
-		curLine = lines.next();
-		tmpInt = 0;
-		double tmpFlt = 0.0f;
-		while (!(StringParsing.getToken(curLine,1).equals(""))) {
-			
-			if (tmpInt>=dihedAtomType1.length){
-				dihedAtomType1 = doubleArraySize(dihedAtomType1);
-				dihedAtomType2 = doubleArraySize(dihedAtomType2);
-				dihedAtomType3 = doubleArraySize(dihedAtomType3);
-				dihedAtomType4 = doubleArraySize(dihedAtomType4);
-				dihedTerm1 = doubleArraySize(dihedTerm1);
-				dihedPhase = doubleArraySize(dihedPhase);
-				dihedPN = doubleArraySize(dihedPN);
-			}
-			
-			//tmpStr = curLine.substring(0,11);
-			dihedAtomType1[tmpInt] = atomTypeToInt(getDashedToken(curLine,1));
-			dihedAtomType2[tmpInt] = atomTypeToInt(getDashedToken(curLine,2));
-			dihedAtomType3[tmpInt] = atomTypeToInt(getDashedToken(curLine,3));
-			dihedAtomType4[tmpInt] = atomTypeToInt(getDashedToken(curLine,4));
-			
-			if ( dihedAtomType1[tmpInt]==atomTypeX || dihedAtomType2[tmpInt]==atomTypeX || dihedAtomType3[tmpInt]==atomTypeX || dihedAtomType4[tmpInt]==atomTypeX ) //at least one of the atoms is a wildcard
-				numGeneralDihedParams++;
-			
-			tmpFlt = (new Double(getDashedToken(curLine,5))).doubleValue();
-			dihedTerm1[tmpInt] = (new Double(getDashedToken(curLine,6))).doubleValue() / tmpFlt;
-			dihedPhase[tmpInt] = (new Double(getDashedToken(curLine,7))).doubleValue();
-			dihedPN[tmpInt] = (new Double(getDashedToken(curLine,8))).intValue();
-			// If dihedPN is negative then there are one or more additional terms
-			//  nothing fancy needs to be done because they will all be read in anyway
-			//  but we do need to correct the sign
-			if (dihedPN[tmpInt] < 0)
-				dihedPN[tmpInt] = -dihedPN[tmpInt];
-			tmpInt++;
-			curLine = lines.next();
-		}
-		dihedAtomType1 = reduceArraySize(dihedAtomType1,tmpInt);
-		dihedAtomType2 = reduceArraySize(dihedAtomType2,tmpInt);
-		dihedAtomType3 = reduceArraySize(dihedAtomType3,tmpInt);
-		dihedAtomType4 = reduceArraySize(dihedAtomType4,tmpInt);
-		dihedTerm1 = reduceArraySize(dihedTerm1,tmpInt);
-		dihedPhase = reduceArraySize(dihedPhase,tmpInt);
-		dihedPN = reduceArraySize(dihedPN,tmpInt);
-		
+		bondAtomType2 = StreamEx.of(parameters.bondLengthParameters())
+				.mapToInt(x -> atomTypeToInt(x.JBT().KNDSYM()))
+				.toArray();
 
-		// 5. Read Improper Dihedrals
-		impDihedAtomType1 = new int[initSize];
-		impDihedAtomType2 = new int[initSize];
-		impDihedAtomType3 = new int[initSize];
-		impDihedAtomType4 = new int[initSize];
-		impDihedTerm1 = new double[initSize];
-		impDihedPhase = new double[initSize];
-		impDihedPN = new int[initSize];
-		curLine = lines.next();
-		tmpInt = 0;
-		while (!(StringParsing.getToken(curLine,1).equals(""))) {
-			
-			if (tmpInt>=impDihedAtomType1.length){
-				impDihedAtomType1 = doubleArraySize(impDihedAtomType1);
-				impDihedAtomType2 = doubleArraySize(impDihedAtomType2);
-				impDihedAtomType3 = doubleArraySize(impDihedAtomType3);
-				impDihedAtomType4 = doubleArraySize(impDihedAtomType4);
-				impDihedTerm1 = doubleArraySize(impDihedTerm1);
-				impDihedPhase = doubleArraySize(impDihedPhase);
-				impDihedPN = doubleArraySize(impDihedPN);
-			}
-			
-			//tmpStr = curLine.substring(0,11);
-			impDihedAtomType1[tmpInt] = atomTypeToInt(getDashedToken(curLine,1));
-			impDihedAtomType2[tmpInt] = atomTypeToInt(getDashedToken(curLine,2));
-			impDihedAtomType3[tmpInt] = atomTypeToInt(getDashedToken(curLine,3));
-			impDihedAtomType4[tmpInt] = atomTypeToInt(getDashedToken(curLine,4));
-			impDihedTerm1[tmpInt] = (new Double(getDashedToken(curLine,5))).doubleValue();
-			impDihedPhase[tmpInt] = (new Double(getDashedToken(curLine,6))).doubleValue();
-			impDihedPN[tmpInt] = (new Double(getDashedToken(curLine,7))).intValue();
-			tmpInt++;
-			curLine = lines.next();
-		}
-		impDihedAtomType1 = reduceArraySize(impDihedAtomType1,tmpInt);
-		impDihedAtomType2 = reduceArraySize(impDihedAtomType2,tmpInt);
-		impDihedAtomType3 = reduceArraySize(impDihedAtomType3,tmpInt);
-		impDihedAtomType4 = reduceArraySize(impDihedAtomType4,tmpInt);
-		impDihedTerm1 = reduceArraySize(impDihedTerm1,tmpInt);
-		impDihedPhase = reduceArraySize(impDihedPhase,tmpInt);
-		impDihedPN = reduceArraySize(impDihedPN,tmpInt);
-		
+		bondHFC = StreamEx.of(parameters.bondLengthParameters())
+				.mapToDouble(BondLengthParameter::RK)
+				.toArray();
 
-		// Skip 2 lines (we might also be able to go until the keyword MOD4
-		curLine = lines.next();
-		curLine = lines.next();
+		bondEBL = StreamEx.of(parameters.bondLengthParameters())
+				.mapToDouble(BondLengthParameter::REQ)
+				.toArray();
 
-		// Read the equivalence lines
-		// The first atomnum in equivAtoms is the main atom and numbers with index 1..n are
-		//  equivalent to the atom in index 0.
-		equivAtoms = new int[initSize][];
-		curLine = lines.next();
-		tmpInt = 0;
-		while (!(StringParsing.getToken(curLine,1).equals(""))) {
-			
-			if (tmpInt>=equivAtoms.length){
-				equivAtoms = doubleArraySize(equivAtoms);
-			}
-			
-			int numEquivAtoms = (new StringTokenizer(curLine," ,;\t\n\r\f")).countTokens();
-			equivAtoms[tmpInt] = new int[numEquivAtoms];
-			
-			for(int q=0;q<equivAtoms[tmpInt].length;q++)
-				equivAtoms[tmpInt][q] = -noMatchInt;
-			int tmpInt2=1;
-			while (!StringParsing.getToken(curLine,tmpInt2).equalsIgnoreCase("")) { 
-				equivAtoms[tmpInt][tmpInt2-1] = atomTypeToInt( StringParsing.getToken(curLine,tmpInt2) );
-				tmpInt2++;
-			}
-			tmpInt++;
-			curLine = lines.next();
-		}
-		equivAtoms = reduceArraySize(equivAtoms,tmpInt);
-		
-				
-		// Skip a line (we might also be able to go until the keyword MOD4
-		curLine = lines.next();
+		bondLengthByName = StreamEx.of(parameters.bondLengthParameters())
+				.toMap(a -> bondLengthKey(a.IBT(), a.JBT()), a -> a);
 
-		// 6. Read vdw
-		vdwAtomType1 = new int[initSize];
-		vdwR = new double[initSize];
-		vdwE = new double[initSize];
-		curLine = lines.next();
-		tmpInt = 0;
-		while (!(StringParsing.getToken(curLine,1).equals(""))) {
-			
-			if (tmpInt>=vdwAtomType1.length){
-				vdwAtomType1 = doubleArraySize(vdwAtomType1);
-				vdwR = doubleArraySize(vdwR);
-				vdwE = doubleArraySize(vdwE);
-			}
-			
-			vdwAtomType1[tmpInt] = atomTypeToInt(StringParsing.getToken(curLine,1));
-			vdwR[tmpInt] = (new Double(StringParsing.getToken(curLine,2))).doubleValue();
-			vdwE[tmpInt] = (new Double(StringParsing.getToken(curLine,3))).doubleValue();
-			tmpInt++;
-			curLine = lines.next();
-		}
-		vdwAtomType1 = reduceArraySize(vdwAtomType1,tmpInt);
-		vdwR = reduceArraySize(vdwR,tmpInt);
-		vdwE = reduceArraySize(vdwE,tmpInt);		
-			
+		angleAtomType1 = StreamEx.of(parameters.bondAngleParameters())
+				.mapToInt(x -> atomTypeToInt(x.ITT().KNDSYM()))
+				.toArray();
+
+		angleAtomType2 = StreamEx.of(parameters.bondAngleParameters())
+				.mapToInt(x -> atomTypeToInt(x.JTT().KNDSYM()))
+				.toArray();
+
+		angleAtomType3 = StreamEx.of(parameters.bondAngleParameters())
+				.mapToInt(x -> atomTypeToInt(x.KTT().KNDSYM()))
+				.toArray();
+
+		angleHFC = StreamEx.of(parameters.bondAngleParameters())
+				.mapToDouble(BondAngleParameter::TK)
+				.toArray();
+
+		angleEBA = StreamEx.of(parameters.bondAngleParameters())
+				.mapToDouble(BondAngleParameter::TEQ)
+				.toArray();
+
+		dihedAtomType1 = StreamEx.of(parameters.dihederalParameters())
+				.mapToInt(x -> atomTypeToInt(x.IPT().KNDSYM()))
+				.toArray();
+
+		dihedAtomType2 = StreamEx.of(parameters.dihederalParameters())
+				.mapToInt(x -> atomTypeToInt(x.JPT().KNDSYM()))
+				.toArray();
+
+		dihedAtomType3 = StreamEx.of(parameters.dihederalParameters())
+				.mapToInt(x -> atomTypeToInt(x.KPT().KNDSYM()))
+				.toArray();
+
+		dihedAtomType4 = StreamEx.of(parameters.dihederalParameters())
+				.mapToInt(x -> atomTypeToInt(x.LPT().KNDSYM()))
+				.toArray();
+
+		dihedTerm1 = StreamEx.of(parameters.dihederalParameters())
+				.mapToDouble(x -> x.PK() / x.IDIVF())
+				.toArray();
+
+		dihedPhase = StreamEx.of(parameters.dihederalParameters())
+				.mapToDouble(DihederalParameter::PHASE)
+				.toArray();
+
+		// If dihedPN is negative then there are one or more additional terms
+		//  nothing fancy needs to be done because they will all be read in anyway
+		//  but we do need to correct the sign
+		dihedPN = StreamEx.of(parameters.dihederalParameters())
+				.mapToDouble(x -> Math.abs(x.PN()))
+                .toArray();
+
+		numGeneralDihedParams = StreamEx.of(parameters.dihederalParameters())
+				.mapToInt(dihedral -> List.of(dihedral.IPT(), dihedral.JPT(), dihedral.KPT(), dihedral.LPT()).contains(ForcefieldFileParser.WildcardAtom) ? 1 : 0)
+                .sum();
+
+		impDihedAtomType1 = StreamEx.of(parameters.improperDihederalParameters())
+				.mapToInt(x -> atomTypeToInt(x.IPT().KNDSYM()))
+				.toArray();
+
+		impDihedAtomType2 = StreamEx.of(parameters.improperDihederalParameters())
+				.mapToInt(x -> atomTypeToInt(x.JPT().KNDSYM()))
+				.toArray();
+
+		impDihedAtomType3 = StreamEx.of(parameters.improperDihederalParameters())
+				.mapToInt(x -> atomTypeToInt(x.KPT().KNDSYM()))
+				.toArray();
+
+		impDihedAtomType4 = StreamEx.of(parameters.improperDihederalParameters())
+				.mapToInt(x -> atomTypeToInt(x.LPT().KNDSYM()))
+				.toArray();
+
+		impDihedTerm1 = StreamEx.of(parameters.improperDihederalParameters())
+				.mapToDouble(ImproperDihederalParameter::PK)
+				.toArray();
+
+		impDihedPhase = StreamEx.of(parameters.improperDihederalParameters())
+				.mapToDouble(ImproperDihederalParameter::PHASE)
+				.toArray();
+
+		impDihedPN = StreamEx.of(parameters.improperDihederalParameters())
+				.mapToDouble(ImproperDihederalParameter::PN)
+				.toArray();
+
+		var map =
+				StreamEx.of(parameters.equivalencingAtomsForNonBonded6_12PotentialParameters())
+						.groupingBy(EquivalencingAtom::IORG);
+		equivAtoms = StreamEx
+				.of(EntryStream.of(map)
+						.map(entry ->
+								IntStreamEx.of(atomTypeToInt(entry.getKey().KNDSYM()))
+										.append(entry.getValue().stream().mapToInt(x -> atomTypeToInt(x.IEQV().KNDSYM())))
+										.toArray()
+						)).toArray(int[][]::new);
+
+		// TODO: handle when these aren't vdW parameters.
+		vdwAtomType1 = StreamEx.of(parameters.vanDerWaalsRadii())
+				.mapToInt(x -> atomTypeToInt(x.LTYNB().KNDSYM()))
+				.toArray();
+
+		vdwR = StreamEx.of(parameters.vanDerWaalsRadii())
+				.mapToDouble(VanDerWaalsRadius::R)
+				.toArray();
+
+		vdwE = StreamEx.of(parameters.vanDerWaalsRadii())
+				.mapToDouble(VanDerWaalsRadius::EDEP)
+				.toArray();
+
+		var vdwRadii = StreamEx.of(parameters.vanDerWaalsRadii())
+				.toMap(a -> a.LTYNB().KNDSYM(), a -> a);
+		vanDerWaalsMap = StreamEx.of(parameters.equivalencingAtomsForNonBonded6_12PotentialParameters())
+				.mapToEntry(a -> a.IEQV().KNDSYM(), a -> vdwRadii.get(a.IORG().KNDSYM()))
+				.filterKeys(a -> !vdwRadii.containsKey(a)) // there are equivalencing atoms that are also listed explicitly
+                .append(vdwRadii)
+				.toMap();
+
 	// DEBUG START * Good to keep for when the parameter file changes to
 	//  make sure you're reading it correctly
 /*	System.out.println("ATOM TYPES");
@@ -589,27 +484,6 @@ public class ForcefieldParams implements Serializable {
 	}
 
 
-	private String getDashedToken(String s, int x) {
-	
-		int curNum = 1;	
-		StringTokenizer st = new StringTokenizer(s," ,;\t\n\r\f-");
-		
-		while (curNum < x) {
-			curNum++;
-			if (st.hasMoreTokens())
-			  st.nextToken();
-			else {
-				return(new String(""));
-			}
-		}
-
-		if (st.hasMoreTokens())		
-			return(st.nextToken());
-		return(new String(""));
-
-	} // end StringParsing.getToken
-	
-
 	// This function returns the numeric atom type based on the string atom type
 	// If atom type is 'x' then return atomTypeX which means it's a wildcard
 	public int atomTypeToInt(String s) {
@@ -623,205 +497,7 @@ public class ForcefieldParams implements Serializable {
 		return -1;
 	}
 
-	public String atomType(int index) {
-    	if (index >= 0 && index < atomTypeNames.length) {
-    		return atomTypeNames[index];
-		}
-    	return null;
-	}
-	
-	
-	// This function searches the bond constants for the atoms specified
-	//  and returns the approprate constants 
-	public boolean getStretchParameters(int atomType1, int atomType2,
-		double forceConstant[],	double equilibriumDistance[]){
 
-		int numGeneric = 5, tmpInt = 0;
-		double tmpFC = 0.0f, tmpED = 0.0f;
-		boolean matched = false;
-		for(int q=0;q<bondAtomType1.length;q++) {
-			if (match2Atoms(atomType1, atomType2, bondAtomType1[q], bondAtomType2[q])) {
-				tmpInt = 0;
-				matched = true;
-				if (bondAtomType1[q] == atomTypeX)
-					tmpInt++;
-				if (bondAtomType2[q] == atomTypeX)
-					tmpInt++;
-				if (tmpInt < numGeneric) {
-					numGeneric = tmpInt;
-					tmpFC = bondHFC[q];
-					tmpED = bondEBL[q];
-				}
-			}
-		}
-		
-		if (matched) {
-			forceConstant[0] = tmpFC;
-			equilibriumDistance[0] = tmpED;
-			return(true);
-		}
-		else {
-			forceConstant[0] = 317;
-      equilibriumDistance[0] = 1.522;
-			System.out.println("Ambstretch DEFAULTING TO C-CT");
-			return(false);
-		}
-	}
-	
-	// This function searches the angle constants for the atoms specified
-	//  and returns the approprate constants
-	public boolean getBendParameters(int atomType1, int atomType2, int atomType3, 
-		double forceConstant[], double equilibriumAngle[]){
-
-		if (atomType3 < atomType1){
-			int temp = atomType3;
-			atomType3 = atomType1;
-			atomType1 = temp;
-		}
-
-		int numGeneric = 5, tmpInt = 0;
-		double tmpFC = 0.0f, tmpEA = 0.0f;
-		boolean matched = false;
-		for(int q=0;q<angleAtomType1.length;q++) {
-			if (match3Atoms(atomType1, atomType2, atomType3, angleAtomType1[q], 
-				angleAtomType2[q], angleAtomType3[q])) {
-				tmpInt = 0;
-				matched = true;
-				if (angleAtomType1[q] == atomTypeX)
-					tmpInt++;
-				if (angleAtomType2[q] == atomTypeX)
-					tmpInt++;
-				if (angleAtomType3[q] == atomTypeX)
-					tmpInt++;
-				if (tmpInt < numGeneric) {
-					numGeneric = tmpInt;
-					tmpFC = angleHFC[q];
-					tmpEA = angleEBA[q];
-				}
-			}
-		}
-		
-		if (matched) {
-			forceConstant[0] = tmpFC;
-			equilibriumAngle[0] = tmpEA;
-			return(true);
-		}
-		else {
-			forceConstant[0] = 63.000000;
-			equilibriumAngle[0] = 113.100000;
-			System.out.println( "AmberBend: Could not find correct angle, defaulting to CC-CT-CT");
-			return( false );
-		}
-	}
-
-	// This function searches the dihedral constants for the atoms specified
-	//  and returns the approprate constants
-	public boolean getTorsionParameters(int atomType1, int atomType2, int atomType3, 
-		int atomType4, double forceConstant[], double equilibriumAngle[], int terms[], 
-		int multiplicity[]){
-
-		if (atomType3 < atomType2){
-			int temp = atomType3;
-			atomType3 = atomType2;
-			atomType2 = temp;
-			temp = atomType4;
-			atomType4 = atomType1;
-			atomType1 = temp;
-		}
-
-		// First search through generic torsions (those terms containing wildcards)
-		boolean matched = false;
-		for(int q=0;q<numGeneralDihedParams;q++) {
-			if (match2Atoms(atomType2, atomType3, dihedAtomType2[q], dihedAtomType3[q])) {
-				matched = true;
-				forceConstant[0] = dihedTerm1[q];
-				equilibriumAngle[0] = dihedPhase[q];
-				terms[0] = dihedPN[q];
-				multiplicity[0] = 0;
-			}
-		}
-		
-		// According to the original paper "any specific parameter, such as OS-CH-CH-OS,
-		//  overrides any general parameter."
-		int forceCounter = 0, eqCounter = 0, multCounter = 0, termCounter = 0;
-		for(int q=numGeneralDihedParams;q<dihedAtomType1.length;q++) {
-			if (match4Atoms(atomType1, atomType2, atomType3, atomType4, dihedAtomType1[q],
-						dihedAtomType2[q], dihedAtomType3[q], dihedAtomType4[q])) {
-				matched = true;
-				forceConstant[forceCounter++] = dihedTerm1[q];
-				equilibriumAngle[eqCounter++] = dihedPhase[q];
-				terms[termCounter++] = dihedPN[q];
-				multiplicity[0] = multCounter++;
-			}
-		}
-		
-		if (matched) {
-			return(true);
-		}
-		else {
-			System.out.println("AmberDihed: Could not find correct torsion");
-			return( false );
-		}
-	}
-	
-	// This function attempts to match two atoms for a bond. An atom type
-	//  of atomTypeX is a generic term and can match anything
-	private boolean match2Atoms(int atType1, int atType2, int known1, int known2) {
-	
-		if ((atType1 == known1) && (atType2 == known2))
-			return(true);
-		if ((atType1 == known2) && (atType2 == known1))
-			return(true);
-		if ((atType1 == known1) && (known2 == atomTypeX))
-			return(true);
-		if ((atType1 == known2) && (known1 == atomTypeX))
-			return(true);
-		if ((atType2 == known1) && (known2 == atomTypeX))
-			return(true);
-		if ((atType2 == known2) && (known1 == atomTypeX))
-			return(true);
-		return(false);
-	}
-	
-	// This function attempts to match three atoms for an angle. An atom
-	//  type of atomTypeX is a generic term and can match anything
-	private boolean match3Atoms(int atType1, int atType2, int atType3,
-		int known1, int known2, int known3) {
-		
-		if ((atType1 == known1) && (atType2 == known2) && (atType3 == known3))
-			return(true);
-		if ((atType1 == known3) && (atType2 == known2) && (atType3 == known1))
-			return(true);
-		if ((known1 == atomTypeX) && (atType2 == known2) && (atType3 == known3))
-			return(true);
-		if ((known1 == atomTypeX) && (atType2 == known2) && (atType1 == known3))
-			return(true);
-		if ((atType1 == known1) && (atType2 == known2) && (known3 == atomTypeX))
-			return(true);
-		if ((atType3 == known1) && (atType2 == known2) && (known3 == atomTypeX))
-			return(true);
-		if ((atType1 == known1) && (known2 == atomTypeX) && (atType3 == known3))
-			return(true);
-		if ((atType3 == known1) && (known2 == atomTypeX) && (atType1 == known3))
-			return(true);
-		return(false);
-	}
-
-	// This function attempts to match four atoms for a dihedral (no generic atoms)
-	private boolean match4Atoms(int atType1, int atType2, int atType3, int atType4,
-		int known1, int known2, int known3, int known4) {
-	
-		if ((atType1 == known1) && (atType2 == known2) &&
-			(atType3 == known3) && (atType4 == known4))
-			return(true);
-		else if ((atType1 == known4) && (atType2 == known3) &&
-			(atType3 == known2) && (atType4 == known1))
-					return(true);
-
-		return(false);
-	}
-
-	
 	// This function returns the equivalent class for the given atomtype
 	private int getEquivalentType(int atomType) {
 
@@ -834,38 +510,26 @@ public class ForcefieldParams implements Serializable {
 		return(-1);
 	}
 
-
 	public static class NBParams {
 		public double r;
 		public double epsilon;
 	}
-	
-	// This function returns the r and epsilon paramters for a given atom type
-	public boolean getNonBondedParameters(int atomType, NBParams out) {
-		
-		for(int q=0;q<vdwAtomType1.length;q++) {
-			if (vdwAtomType1[q]==atomType) {
-				out.r=vdwR[q];
-				out.epsilon=vdwE[q];
-				return (true);
-			}
+
+	// This function returns the r and epsilon parameters for a given atom type
+	public boolean getNonBondedParameters(Atom atom, NBParams out) {
+
+        if (vanDerWaalsMap.containsKey(atom.forceFieldType)) {
+			var vdwRadii = vanDerWaalsMap.get(atom.forceFieldType);
+			out.epsilon = vdwRadii.EDEP();
+			out.r = vdwRadii.R();
+			return true;
 		}
 
-		// Check for equivalent atoms
-		int equivType = getEquivalentType(atomType);
-		for(int q=0;q<vdwAtomType1.length;q++) {
-			if (vdwAtomType1[q]==equivType) {
-				out.r=vdwR[q];
-				out.epsilon=vdwE[q];
-				return (true);
-			}
-		}
-		
-		return(false);
+        return false;
 	}
 	
 	public boolean getNonBondedParameters(Atom atom, AtomNeighbors.Type neighborType, NBParams out) {
-		boolean success = getNonBondedParameters(atom.type, out);
+		boolean success = getNonBondedParameters(atom, out);
 		if (!success) {
 			return false;
 		}
@@ -882,11 +546,16 @@ public class ForcefieldParams implements Serializable {
 	
 	
 	public static class VdwParams {
-		public double Aij = 0.0;
-		public double Bij = 0.0;
+		public final double Aij;
+		public final double Bij;
+
+		VdwParams(double aij, double bij) {
+		    Aij = aij;
+		    Bij = bij;
+		}
 	}
 	
-	public void getVdwParams(Atom atom1, Atom atom2, AtomNeighbors.Type neighborType, VdwParams out) {
+	public VdwParams getVdwParams(Atom atom1, Atom atom2, AtomNeighbors.Type neighborType) {
 		
 		// calc vdW params
 		// Aij = (ri+rj)^12 * sqrt(ei*ej)
@@ -911,126 +580,64 @@ public class ForcefieldParams implements Serializable {
 			case BONDED14:
 				Aij *= forcefld.Aij14Factor;
 				Bij *= forcefld.Bij14Factor;
-			break;
+				break;
 			case NONBONDED:
 				Bij *= 2;
-			break;
+				break;
 			default:
 				throw new IllegalArgumentException("no van der Waals params for closely bonded atoms");
 		}
-		
-		out.Aij = Aij;
-		out.Bij = Bij;
+
+		return new VdwParams(Aij, Bij);
 	}
-        
-        
-        public double getBondEBL(int atomType1, int atomType2){
-            //get the equilibrium bond length for the specified atom types
-            for(int bondTypeNum=0; bondTypeNum<bondEBL.length; bondTypeNum++){
-                if( (bondAtomType1[bondTypeNum]==atomType1) && (bondAtomType2[bondTypeNum]==atomType2) ){
-                    return bondEBL[bondTypeNum];
-                }
-                if( (bondAtomType2[bondTypeNum]==atomType1) && (bondAtomType1[bondTypeNum]==atomType2) ){
-                    return bondEBL[bondTypeNum];//could be listed in either order...
-                }
-            }
-            
-            if(printWarnings) {
-            System.out.println("Warning: No equilibrium bond length listed for atom types "
-                    +atomType1+" and "+atomType2);
-            }
-            //this is used to get an estimated bond distance matrix, in which case
-            //we can estimate using other atom types for the same elements
-            
-            return Double.NaN;
-        }
-        
-        
-        public double estBondEBL(int atomType1, int atomType2){
-            //if we don't know the true equilibrium bond length, we can try to estimate it
-            //based on another pair of atom types from the same element types
-            
-            double mass1 = atomAtomicMasses[atomType1];
-            double mass2 = atomAtomicMasses[atomType2];
-            
-            for(int altAtomType1=0; altAtomType1<atomTypeNames.length; altAtomType1++){
-                if(atomAtomicMasses[altAtomType1] == mass1){//same element
-                    
-                    for(int altAtomType2=0; altAtomType2<atomTypeNames.length; altAtomType2++){
-                        if(atomAtomicMasses[altAtomType2] == mass2){
-                            //Let's try using the alt types as a substitute
-                            double bondEBL = getBondEBL(altAtomType1, altAtomType2);
-                            if(!Double.isNaN(bondEBL))
-                                return bondEBL;
-                        }
-                    }
-                }
-            }
-            
-            throw new RuntimeException("ERROR: Couldn't find any equilibrium bond length"
-                    + " for atoms with masses " + mass1 + " and " + mass2);
-        }
-        
-        
-        
-        //Doubles the size of the a[] String array
-	private String [] doubleArraySize(String a[]){
-		String tmp[] = new String[a.length*2];
-		System.arraycopy(a, 0, tmp, 0, a.length);
-		return tmp;
-	}
-	
-	//Doubles the size of the a[] double array
-	private double [] doubleArraySize(double a[]){
-		double tmp[] = new double[a.length*2];
-		System.arraycopy(a, 0, tmp, 0, a.length);
-		return tmp;
-	}
-	
-	//Doubles the size of the a[] int array
-	private int [] doubleArraySize(int a[]){
-		int tmp[] = new int[a.length*2];
-		System.arraycopy(a, 0, tmp, 0, a.length);
-		return tmp;
-	}
-	
-	//Doubles the size (first dimension only) of the a[] int array
-	private int [][] doubleArraySize(int a[][]){
-		int tmp[][] = new int[a.length*2][];
-		for (int i=0; i<a.length; i++){
-			tmp[i] = new int[a[i].length];
-			System.arraycopy(a[i], 0, tmp[i], 0, a[i].length);
+
+	private double getBondEquilibriumLength(AtomSymbolAndMass atom1, AtomSymbolAndMass atom2) {
+		var forwardKey = bondLengthKey(atom1, atom2);
+		var reverseKey = bondLengthKey(atom2, atom1);
+
+		if (bondLengthByName.containsKey(forwardKey)) {
+			return bondLengthByName.get(forwardKey).REQ();
+		} else if (bondLengthByName.containsKey(reverseKey)) {
+			return bondLengthByName.get(reverseKey).REQ();
 		}
-		return tmp;
-	}
-	
-	//Reduce the a[] String array to keep only the first newSize elements
-	private String [] reduceArraySize(String a[], int newSize){
-		String tmp[] = new String[newSize];
-		System.arraycopy(a, 0, tmp, 0, tmp.length);
-		return tmp;
-	}
-	
-	//Reduce the a[] double array to keep only the first newSize elements
-	private double [] reduceArraySize(double a[], int newSize){
-		double tmp[] = new double[newSize];
-		System.arraycopy(a, 0, tmp, 0, tmp.length);
-		return tmp;
-	}
-	
-	//Reduce the a[] int array to keep only the first newSize elements
-	private int [] reduceArraySize(int a[], int newSize){
-		int tmp[] = new int[newSize];
-		System.arraycopy(a, 0, tmp, 0, tmp.length);
-		return tmp;
-	}
-	
-	private int [][] reduceArraySize(int a[][], int newSize){
-		int tmp[][] = new int[newSize][];
-		for (int i=0; i<newSize; i++){
-			tmp[i] = new int[a[i].length];
-			System.arraycopy(a[i], 0, tmp[i], 0, a[i].length);
+
+		if (printWarnings) {
+			System.out.println("Warning: No equilibrium bond length listed for atom types " + atom1 + " and " + atom2);
 		}
-		return tmp;
+
+		//this is used to get an estimated bond distance matrix, in which case
+		//we can estimate using other atom types for the same elements
+		return Double.NaN;
+	}
+
+	//get the equilibrium bond length for the specified atom types
+	public double getBondEquilibriumLength(Atom atom1, Atom atom2) {
+		var atomSymbolAndMass1 = atomNamesMap.get(atom1.forceFieldType);
+		var atomSymbolAndMass2 = atomNamesMap.get(atom2.forceFieldType);
+		return getBondEquilibriumLength(atomSymbolAndMass1, atomSymbolAndMass2);
+	}
+
+
+	public double estBondEBL(Atom atom1, Atom atom2) {
+		//if we don't know the true equilibrium bond length, we can try to estimate it
+		//based on another pair of atom types from the same element types
+
+		var mass1 = atomNamesMap.get(atom1.forceFieldType).AMASS();
+		var mass2 = atomNamesMap.get(atom2.forceFieldType).AMASS();
+
+		for (var firstAtom : parameters.atomSymbolsAndMasses()) {
+			if (firstAtom.AMASS() == mass1) {
+				for (var secondAtom : parameters.atomSymbolsAndMasses()) {
+					if (secondAtom.AMASS() == mass2) {
+						double bondEBL = getBondEquilibriumLength(firstAtom, secondAtom);
+						if (!Double.isNaN(bondEBL))
+							return bondEBL;
+					}
+				}
+			}
+		}
+
+		throw new RuntimeException("ERROR: Couldn't find any equilibrium bond length"
+				+ " for atoms with masses " + mass1 + " and " + mass2);
 	}
 }

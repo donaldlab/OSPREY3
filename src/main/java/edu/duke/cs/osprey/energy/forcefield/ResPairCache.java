@@ -77,6 +77,11 @@ public class ResPairCache {
 			this.weight = weight;
 			this.offset = offset;
 		}
+
+		@Override
+		public String toString() {
+			return String.format("%s:%s", res1.fullName, res2.fullName);
+		}
 	}
 	
 	public static class AtomPairInfo {
@@ -92,8 +97,6 @@ public class ResPairCache {
 		public final int numPrecomputedPerAtomPair;
 		
 		public AtomPairInfo(Residue res1, Residue res2, ForcefieldParams ffparams, AtomPairs atomPairs, SolvationForcefield.ResiduesInfo solvInfo) {
-			
-			VdwParams vdwparams = new VdwParams();
 			
 			// how many precomputed values per atom pair?
 			int numPrecomputedPerAtomPair = 1 + 2;
@@ -136,7 +139,7 @@ public class ResPairCache {
 					precomputed[precomputedIndex++] = atom1.charge*atom2.charge;
 					
 					// calc vdw params
-					ffparams.getVdwParams(atom1, atom2, type, vdwparams);
+					var vdwparams = ffparams.getVdwParams(atom1, atom2, type);
 					precomputed[precomputedIndex++] = vdwparams.Aij;
 					precomputed[precomputedIndex++] = vdwparams.Bij;
 					

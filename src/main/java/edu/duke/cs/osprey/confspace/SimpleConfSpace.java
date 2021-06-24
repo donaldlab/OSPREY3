@@ -1028,4 +1028,14 @@ public class SimpleConfSpace implements Serializable, ConfSpaceIteration {
 		}
 		return numSequences;
 	}
+
+
+
+	public BigInteger getNumConformations() {
+		return positions.stream()
+			.map(pos -> pos.resConfs.size())
+			.map(BigInteger::valueOf)
+			.reduce(BigInteger::multiply)
+			.orElseThrow();
+	}
 }

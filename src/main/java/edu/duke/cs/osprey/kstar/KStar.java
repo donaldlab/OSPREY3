@@ -61,6 +61,8 @@ public class KStar {
 	// Kotlin would make this so much easier
 	public static class Settings {
 
+		private final int maxNumConfs;
+
 		public static class Builder {
 
 			/**
@@ -117,6 +119,12 @@ public class KStar {
 			 * False to delete any existing conformation databases and start the design from scratch.
 			 */
 			private boolean resume = false;
+
+			/**
+			 * The maximum number of conformations for each pfunc to explore. Breaks provability, but
+			 * can be used as a faster heuristic. -1 means use epsilon.
+			 */
+			private int maxNumberConfs = -1;
 
 			/**
 			 * The maximum amount of time to spend on any one partition function calculation.
@@ -177,6 +185,11 @@ public class KStar {
 				return this;
 			}
 
+			public Builder setMaxNumConf(int val) {
+				this.maxNumberConfs = val;
+				return this;
+			}
+
 			public Builder resume(boolean val) {
 				resume = val;
 				return this;
@@ -188,10 +201,7 @@ public class KStar {
 			}
 
 			public Settings build() {
-				return new Settings(
-					epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters, showPfuncProgress,
-					useExternalMemory, confDBPattern, resume, pfuncTimeout
-				);
+				return new Settings(epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters, showPfuncProgress, useExternalMemory, confDBPattern, resume, maxNumberConfs, pfuncTimeout);
 			}
 		}
 
@@ -205,7 +215,7 @@ public class KStar {
 		public final boolean resume;
 		public final Duration pfuncTimeout;
 
-		public Settings(double epsilon, Double stabilityThreshold, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, boolean useExternalMemory, String confDBPattern, boolean resume, Duration pfuncTimeout) {
+		public Settings(double epsilon, Double stabilityThreshold, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, boolean useExternalMemory, String confDBPattern, boolean resume, int maxNumberConfs, Duration pfuncTimeout) {
 			this.epsilon = epsilon;
 			this.stabilityThreshold = stabilityThreshold;
 			this.maxSimultaneousMutations = maxSimultaneousMutations;
@@ -214,6 +224,7 @@ public class KStar {
 			this.useExternalMemory = useExternalMemory;
 			this.confDBPattern = confDBPattern;
 			this.resume = resume;
+			this.maxNumConfs = maxNumberConfs;
 			this.pfuncTimeout = pfuncTimeout;
 		}
 	}
@@ -345,7 +356,7 @@ public class KStar {
 			if (settings.pfuncTimeout != null) {
 				pfunc.compute(settings.pfuncTimeout);
 			} else {
-				pfunc.compute();
+				pfunc.compute(settings.maxNumConfs);
 			}
 
 			// save the result
@@ -463,10 +474,11 @@ public class KStar {
 		// make a context group for the task executor
 		try (TaskExecutor.ContextGroup ctxGroup = tasks.contextGroup()) {
 
-			// open the conf databases if needed
-			try (AutoCloseableNoEx proteinCloser = protein.openConfDB()) {
-			try (AutoCloseableNoEx ligandCloser = ligand.openConfDB()) {
-			try (AutoCloseableNoEx complexCloser = complex.openConfDB()) {
+				// skip the calculation on member nodes
+				if (tasks instanceof Cluster.Member) {
+					// TODO: try to get the scored sequences from the client?
+					return null;
+				}
 
 				// check the conf space infos to make sure we have all the inputs
 				protein.check();
@@ -479,11 +491,6 @@ public class KStar {
 				ligand.clear();
 				complex.clear();
 
-				// skip the calculation on member nodes
-				if (tasks instanceof Cluster.Member) {
-					// TODO: try to get the scored sequences from the client?
-					return null;
-				}
 
 				List<ScoredSequence> scores = new ArrayList<>();
 
@@ -511,7 +518,8 @@ public class KStar {
 						sequenceNumber,
 						n,
 						sequence,
-						kstarScore
+						kstarScore,
+						this
 					));
 
 					return kstarScore;
@@ -521,15 +529,29 @@ public class KStar {
 				settings.scoreWriters.writeHeader();
 				// TODO: progress bar?
 
-				// compute wild type partition functions first (always at pos 0)
-				KStarScore wildTypeScore = scorer.score(
-					0,
-					protein.calcPfunc(ctxGroup, sequences.get(0), BigDecimal.ZERO),
-					ligand.calcPfunc(ctxGroup, sequences.get(0), BigDecimal.ZERO),
-					complex.calcPfunc(ctxGroup, sequences.get(0), BigDecimal.ZERO)
-				);
+				// open the conf databases if needed
 				BigDecimal proteinStabilityThreshold = null;
 				BigDecimal ligandStabilityThreshold = null;
+				PartitionFunction.Result proteinResult;
+				PartitionFunction.Result complexResult;
+				PartitionFunction.Result ligandResult;
+
+				try (AutoCloseableNoEx proteinCloser = protein.openConfDB()) {
+				try (AutoCloseableNoEx ligandCloser = ligand.openConfDB()) {
+				try (AutoCloseableNoEx complexCloser = complex.openConfDB()) {
+					// compute wild type partition functions first (always at pos 0)
+					proteinResult = protein.calcPfunc(ctxGroup, sequences.get(0), BigDecimal.ZERO);
+					ligandResult = ligand.calcPfunc(ctxGroup, sequences.get(0), BigDecimal.ZERO);
+					complexResult = complex.calcPfunc(ctxGroup, sequences.get(0), BigDecimal.ZERO);
+				}}}
+
+				KStarScore wildTypeScore = scorer.score(
+						0,
+						proteinResult,
+						ligandResult,
+						complexResult
+				);
+
 				if (settings.stabilityThreshold != null) {
 					BigDecimal stabilityThresholdFactor = new BoltzmannCalculator(PartitionFunction.decimalPrecision).calc(settings.stabilityThreshold);
 					proteinStabilityThreshold = wildTypeScore.protein.values.calcLowerBound().multiply(stabilityThresholdFactor);
@@ -538,29 +560,31 @@ public class KStar {
 
 				// compute all the partition functions and K* scores for the rest of the sequences
 				for (int i=1; i<n; i++) {
-					Sequence seq = sequences.get(i);
 
-					// get the pfuncs, with short circuits as needed
-					final PartitionFunction.Result proteinResult = protein.calcPfunc(ctxGroup, seq, proteinStabilityThreshold);
-					final PartitionFunction.Result ligandResult;
-					final PartitionFunction.Result complexResult;
-					if (!KStarScore.isLigandComplexUseful(proteinResult)) {
-						ligandResult = PartitionFunction.Result.makeAborted();
-						complexResult = PartitionFunction.Result.makeAborted();
-					} else {
-						ligandResult = ligand.calcPfunc(ctxGroup, seq, ligandStabilityThreshold);
-						if (!KStarScore.isComplexUseful(proteinResult, ligandResult)) {
+					try (AutoCloseableNoEx proteinCloser = protein.openConfDB()) {
+					try (AutoCloseableNoEx ligandCloser = ligand.openConfDB()) {
+					try (AutoCloseableNoEx complexCloser = complex.openConfDB()) {
+						Sequence seq = sequences.get(i);
+
+						// get the pfuncs, with short circuits as needed
+						proteinResult = protein.calcPfunc(ctxGroup, seq, proteinStabilityThreshold);
+						if (!KStarScore.isLigandComplexUseful(proteinResult)) {
+							ligandResult = PartitionFunction.Result.makeAborted();
 							complexResult = PartitionFunction.Result.makeAborted();
 						} else {
-							complexResult = complex.calcPfunc(ctxGroup, seq, BigDecimal.ZERO);
+							ligandResult = ligand.calcPfunc(ctxGroup, seq, ligandStabilityThreshold);
+							if (!KStarScore.isComplexUseful(proteinResult, ligandResult)) {
+								complexResult = PartitionFunction.Result.makeAborted();
+							} else {
+								complexResult = complex.calcPfunc(ctxGroup, seq, BigDecimal.ZERO);
+							}
 						}
-					}
+					}}}
 
 					scorer.score(i, proteinResult, ligandResult, complexResult);
 				}
 
-				return scores;
-			}}}
+			return scores;
 		}
 	}
 }

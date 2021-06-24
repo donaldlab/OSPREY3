@@ -104,7 +104,6 @@ public class NodeProcessor implements AutoCloseable {
 					waitABit.run();
 					continue;
 				}
-				int sequencedStatei = nodedb.confSpace.states.get(statei).sequencedIndex;
 
 				// if the state changed, flush
 				if (flushTracker.stateChanged(statei)) {
@@ -130,14 +129,13 @@ public class NodeProcessor implements AutoCloseable {
 				long nodeNs = System.nanoTime() - startNs;
 				for (var node : nodesIncoming) {
 
-					// drop nodes from finished sequences
-					if (sequencedStatei >= 0) {
-						if (directions.isFinished(sequencedStatei, makeSeqOrThrow(statei, node.conf))) {
-							continue;
-						}
+					// just in case
+					if (node.statei != statei) {
+						throw new IllegalStateException(String.format("expected state %d, but got state %d", statei, node.statei));
 					}
 
-					process(directions, new NodeInfo(node, tree, nodeNs/nodesIncoming.size()), seqBatch, nodesOutgoing, nodeStats);
+					var nodeInfo = new NodeInfo(node, tree, nodeNs/nodesIncoming.size());
+					process(directions, nodeInfo, seqBatch, nodesOutgoing, nodeStats);
 
 					if (flushTracker.shouldFlush()) {
 						flush();
@@ -654,6 +652,16 @@ public class NodeProcessor implements AutoCloseable {
 
 	private void process(Directions directions, NodeInfo nodeInfo, Batch seqBatch, List<NodeIndex.Node> nodeBatch, NodeStats.ForThread nodeStats) {
 
+		// drop nodes from finished sequences
+		int sequencedStatei = nodedb.confSpace.states.get(nodeInfo.node.statei).sequencedIndex;
+		if (sequencedStatei >= 0) {
+			if (directions.isFinished(sequencedStatei, makeSeqOrThrow(nodeInfo.node.statei, nodeInfo.node.conf))) {
+
+				nodeStats.finished();
+				return;
+			}
+		}
+
 		if (nodeInfo.node.isLeaf()) {
 
 			// see if this node's score is roughly as good as current predictions
@@ -750,7 +758,7 @@ public class NodeProcessor implements AutoCloseable {
 		for (var nodeInfo : nodeInfos) {
 			var reduction = nodeInfo.node.zSumUpper;
 			long ns = stopwatch.getTimeNs()/nodeInfos.size() + nodeInfo.aquisitionNs;
-			nodedb.perf.update(nodeInfo.node, ns, reduction);
+			nodedb.perf.updateAndLog(nodeInfo.node, ns, reduction);
 		}
 	}
 
@@ -866,7 +874,7 @@ public class NodeProcessor implements AutoCloseable {
 
 		// update the node performance
 		stopwatch.stop();
-		nodedb.perf.update(nodeInfo.node, stopwatch.getTimeNs() + nodeInfo.aquisitionNs, reduction);
+		nodedb.perf.updateAndLog(nodeInfo.node, stopwatch.getTimeNs() + nodeInfo.aquisitionNs, reduction);
 	}
 
 	public void handleDrops(Stream<NodeIndex.Node> nodes) {

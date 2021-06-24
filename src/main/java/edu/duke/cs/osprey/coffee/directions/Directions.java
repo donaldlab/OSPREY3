@@ -130,6 +130,13 @@ public class Directions {
 		}
 	}
 
+	public void finishSequence(int sequencedStatei, Sequence seq) {
+		var finished = this.finishedSeqs.get(sequencedStatei);
+		synchronized (finished) {
+			finished.add(seq);
+		}
+	}
+
 	void receiveFinishedSequences(int sequencedStatei, int[][] seqs) {
 		var finished = finishedSeqs.get(sequencedStatei);
 		synchronized (finished) {

@@ -103,7 +103,7 @@ public class Parallelism {
 	public static Parallelism make(int numCpus, int numGpus) {
 		return new Parallelism(numCpus, numGpus, 1);
 	}
-	
+
 	// TODO: this should eventually go into a CFP-only area
 	// it can be moved when we start refactoring config stuff to prepare for Python-land
 	public static Parallelism makeFromConfig(ConfigFileParser cfp) {
@@ -123,6 +123,8 @@ public class Parallelism {
 	public final int numStreamsPerGpu;
 
 	public final Type type;
+
+	public static final Parallelism SingleThreaded = new Parallelism(1, 0, 0);
 
 	public Parallelism(int numThreads, int numGpus, int numStreamsPerGpu) {
 		this.numThreads = numThreads;

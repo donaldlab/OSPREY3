@@ -462,7 +462,8 @@ public class BenchmarkCoffee {
 			})
 			.build();
 
-		var director = new PfuncDirector.Builder(msConfSpace, state, seq)
+		var director = new PfuncDirector.Builder(msConfSpace, state)
+			.setSequence(seq)
 			.setGWidthMax(gWidthMax)
 			.setTiming(Timing.Precise)
 			.setReportProgress(true)

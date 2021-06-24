@@ -39,7 +39,7 @@ import edu.duke.cs.osprey.energy.ResidueInteractions.Pair;
 import java.util.ArrayList;
 
 /**
- * Helper class to create residue interactions.
+ * Helper class to create {@link ResidueInteractions}
  * 
  * First call ResInterGen.of(yourConfSpace), then .addXXX() for each interactions you wish to add.
  */

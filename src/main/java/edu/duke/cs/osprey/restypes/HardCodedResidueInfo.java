@@ -282,8 +282,9 @@ public class HardCodedResidueInfo {
         //we identify those here
         //we cover HIS and CYS; we assume templates follow the HID/HIE/HIP and CYS/CYX conventions as in
         //all_amino94.in
-        
-        String resName = res.fullName.substring(0,3);
+
+        // Some residue names can be shorter than three characters, e.g. DT of the nucleotides.
+        String resName = res.fullName.substring(0,3).trim();
         
         if( resName.equalsIgnoreCase("HIS") ){
 

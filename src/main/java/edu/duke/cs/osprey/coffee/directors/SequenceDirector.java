@@ -34,7 +34,8 @@ public class SequenceDirector implements Coffee.Director {
 		for (var state : confSpace.states) {
 
 			// calc the pfunc
-			var pfunc = new PfuncDirector.Builder(confSpace, state, seq)
+			var pfunc = new PfuncDirector.Builder(confSpace, state)
+				.setSequence(seq)
 				.setGWidthMax(gWidthMax)
 				.setReportProgress(reportProgress)
 				.build();

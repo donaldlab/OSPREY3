@@ -50,66 +50,67 @@ import java.util.stream.Collectors;
 import static edu.duke.cs.osprey.tools.Log.log;
 
 /**
- *
- * @author mhall44
+ * A Residue is a piece of a molecular system that can mutate, take on RCs, etc.
+ * and is the basic unit for energy calculations: energy is broken down to intra-residue energies,
+ * pairwise interactions between residues, and maybe a few triples etc.
  */
 public class Residue implements Serializable {
-    //This is a residue
-    //in the general sense: it's a piece of a molecular system that can mutate, take on RCs, etc.
-    //and is the basic unit for energy calculations: energy is broken down to intra-residue energies,
-    //pairwise interactions between residues, and maybe a few triples etc.
-    
+
     private static final long serialVersionUID = -6188262155881479376L;
     
     //residue information
     public String fullName;//short name is the first three characters of this
 	                       // eg "ASN A  23"
-    
-    public int indexInMolecule = -1;//index of this residue in the molecule it's in
-    public Molecule molec;//the molecule it's in
+
+    /**
+     * Index of this residue in the molecule it's in
+     */
+    public int indexInMolecule = -1;
+
+    /**
+     * The molecule the residue's in
+     */
+    public Molecule molec;
+    /**
+     * Gives the name of the residue like "GLU" or "H2O" or whatever
+     * and any information about bonds, force-field, rotatable dihedrals, and rotamers
+     * Only assignment using {@link #assignTemplate(ResidueTemplateLibrary)}, which will reorder atoms to match template.
+     */
     public ResidueTemplate template = null;
-    //this gives the name of the residue like "GLU" or "H2O" or whatever
-    //and any information about bonds, force-field, rotatable dihedrals, and rotamers
-    //ONLY ASSIGN USING ASSIGNTEMPLATE (will reorder atoms to match template)
-    
-    
-    //Residue[] neighbors;//The ResidueTemplate specifies a certain number of residues that should be bonded to this one
-    //usually two, through backbone bonds, but there could be exceptions (disulfides, unbonded ligands without neighbors,
-    //weird non-protein stuff)
-    //if neighbors[i] is null that means the i'th neighbor is missing from the structure
-    
+
     //atom information
-    public ArrayList<Atom> atoms;//information on individual atoms
-    //(when assigning the template we will copy this from the template)
-    
-    
-    public double coords[];//coordinates of all the atoms: x1, y1, z1, x2, ...
-    //we want the coordinates to be all in one place and fairly cache-friendy
-    //(e.g. when doing pairwise minimizations, polynomial fits, etc. we can easily cache these coordinates
-    //for our residues of interest and access them quickly)
-    
-    
-    //flags indicating that we've marked the bonds between the atoms
-    //intra- and inter- may be marked at different times
-    //forcefield energies can only be meaningfully evaluated if all the bonds are marked
+    /**
+     * Information about the individual atoms.  When assigning the template we will copy this from the template.
+     */
+    public ArrayList<Atom> atoms;
+
+    /**
+     * coordinates of all the atoms: x1, y1, z1, x2, ...
+     */
+    // we want the coordinates to be all in one place and fairly cache-friendy
+    // (e.g. when doing pairwise minimizations, polynomial fits, etc. we can easily cache these coordinates
+    // for our residues of interest and access them quickly)
+    public double coords[];
+
+    // flags indicating that we've marked the bonds between the atoms
+    // intra- and inter- may be marked at different times
+    // forcefield energies can only be meaningfully evaluated if all the bonds are marked
     public boolean intraResBondsMarked = false;
     public boolean interResBondsMarked = false;//for bonds between a pair of residues,
     //if interResBondsMarked is true for both, then we expect bonds between the two to be in place
-    
-    
+
     public ArrayList<ConfProblem> confProblems = new ArrayList<>();
     //If the residue has a ring that might need idealization, we need to store its pucker DOF
     public ProlinePucker pucker = null;
-    
     
     public static enum SecondaryStructure {
         HELIX,
         SHEET,
         LOOP;
     }
+
     public SecondaryStructure secondaryStruct = SecondaryStructure.LOOP;
-    
-    
+
     public Residue(Residue other) {
         this(copyAtoms(other.atoms), Arrays.copyOf(other.coords, other.coords.length), other.fullName, other.molec);
         
@@ -405,10 +406,10 @@ public class Residue implements Serializable {
 		return true;
 	}
 
+    /**
+     * Assign all the bonds between atoms in this residue, based on the template
+     */
 	public void markIntraResBondsByTemplate(){
-        //assign all the bonds between atoms in this residue, based on the template
-
-        
         int numAtoms = atoms.size();
         ArrayList<Atom> templateAtoms = template.templateRes.atoms;
         
@@ -633,11 +634,11 @@ public class Residue implements Serializable {
 					throw new NoSuchElementException("unknown atom type for atom: " + atom2.name + ":" + atom2.forceFieldType);
 				}
 
-                ans[atNum1][atNum2] = ffParams.getBondEBL(atomType1, atomType2);
+                ans[atNum1][atNum2] = ffParams.getBondEquilibriumLength(atom1, atom2);
                 
                 if(Double.isNaN(ans[atNum1][atNum2])){//No EBL for these atom types
                     //so estimate based on element types
-                    ans[atNum1][atNum2] = ffParams.estBondEBL(atomType1, atomType2);
+                    ans[atNum1][atNum2] = ffParams.estBondEBL(atom1, atom2);
                 }
             }
         }
