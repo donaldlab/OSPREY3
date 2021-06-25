@@ -821,6 +821,14 @@ public class MathTools {
 			return other.upper >= this.lower && other.lower <= this.upper;
 		}
 
+		public DoubleBounds add(DoubleBounds other){
+			return new DoubleBounds(this.lower + other.lower, this.upper + other.upper);
+		}
+
+		public DoubleBounds sub(DoubleBounds other){
+			return new DoubleBounds(this.lower - other.upper, this.upper - other.lower);
+		}
+
 		@Override
 		public int hashCode() {
 			return HashCalculator.combineHashes(
