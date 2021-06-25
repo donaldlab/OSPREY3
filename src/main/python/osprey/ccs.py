@@ -103,7 +103,8 @@ def freeEnergyCalc(
     tripleCorrectionThreshold=_useJavaDefault,
     conditions=_useJavaDefault,
     nodeScoringLog=_useJavaDefault,
-    nodeStatsReportingSeconds=_useJavaDefault
+    nodeStatsReportingSeconds=_useJavaDefault,
+    useFactorBounder=_useJavaDefault,
 ):
 
     builder = osprey.c.coffee.Coffee.Builder(confSpace)
@@ -140,6 +141,8 @@ def freeEnergyCalc(
         builder.setNodeScoringLog(jvm.toFile(nodeScoringLog))
     if nodeStatsReportingSeconds is not _useJavaDefault:
         builder.setNodeStatsReportingInterval(jvm.c.java.time.Duration.ofSeconds(nodeStatsReportingSeconds))
+    if useFactorBounder is not _useJavaDefault:
+        builder.setUseFactorBounder(useFactorBounder)
 
     return builder.build()
 

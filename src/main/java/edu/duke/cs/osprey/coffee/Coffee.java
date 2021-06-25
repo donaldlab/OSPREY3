@@ -66,6 +66,7 @@ public class Coffee {
 		// TODO: experiment if other conditions better correlate with experimental results?
 		private File nodeScoringLog = null;
 		private Duration nodeStatsReportingInterval = null;
+		private boolean useFactorBounder = false;
 
 		public Builder(MultiStateConfSpace confSpace) {
 			this.confSpace = confSpace;
@@ -160,6 +161,11 @@ public class Coffee {
 			return this;
 		}
 
+		public Builder setUseFactorBounder(boolean val){
+			useFactorBounder = val;
+			return this;
+		}
+
 		public Coffee build() {
 
 			// check the state configs
@@ -188,7 +194,7 @@ public class Coffee {
 				confSpace, stateConfigs, cluster, parallelism, precision,
 				nodedbFile, nodedbFileBytes, nodedbMemBytes,
 				seqdbFile, seqdbMathContext, includeStaticStatic, tripleCorrectionThreshold,
-				conditions, nodeScoringLog, nodeStatsReportingInterval
+				conditions, nodeScoringLog, nodeStatsReportingInterval, useFactorBounder
 			);
 		}
 	}
@@ -267,6 +273,7 @@ public class Coffee {
 	public final BoltzmannCalculator.Conditions conditions;
 	public final File nodeScoringLog;
 	public final Duration nodeStatsReportingInterval;
+	public final boolean useFactorBounder;
 
 	public final MathContext mathContext = BigExp.mathContext;
 	public final BoltzmannCalculator bcalc;
@@ -276,7 +283,7 @@ public class Coffee {
 		MultiStateConfSpace confSpace, StateConfig[] stateConfigs, Cluster cluster, Parallelism parallelism, Structs.Precision precision,
 		File dbFile, long dbFileBytes, long dbMemBytes,
 		File seqdbFile, MathContext seqdbMathContext, boolean includeStaticStatic, Double tripleCorrectionThreshold,
-		BoltzmannCalculator.Conditions conditions, File nodeScoringLog, Duration nodeStatsReportingInterval
+		BoltzmannCalculator.Conditions conditions, File nodeScoringLog, Duration nodeStatsReportingInterval, boolean useFactorBounder
 	) {
 
 		this.confSpace = confSpace;
@@ -294,6 +301,7 @@ public class Coffee {
 		this.conditions = conditions;
 		this.nodeScoringLog = nodeScoringLog;
 		this.nodeStatsReportingInterval = nodeStatsReportingInterval;
+		this.useFactorBounder = useFactorBounder;
 
 		bcalc = new BoltzmannCalculator(mathContext, conditions);
 		infos = Arrays.stream(stateConfigs)
@@ -345,6 +353,8 @@ public class Coffee {
 								}
 								info.zmat = new ClusterZMatrix(info.config.confSpace, info.config.posInterGen, bcalc);
 								info.zmat.compute(member, cpuTasks, includeStaticStatic, tripleCorrectionThreshold, ecalc);
+								// Decide whether to use factor bounder or old bounder
+                                info.setFactorBounder(useFactorBounder);
 								info.initBounder();
 							}
 
