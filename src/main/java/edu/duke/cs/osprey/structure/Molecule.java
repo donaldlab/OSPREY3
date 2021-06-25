@@ -259,4 +259,15 @@ public class Molecule implements Serializable {
         for(Residue res : residues)
             res.interResBondsMarked = true;
     }
+
+    public int getCharge(){
+        // get the molecules total charge
+        double charge = 0;
+        for (Residue res : this.residues) {
+            for (Atom atom : res.atoms) {
+                charge += atom.charge;
+            }
+        }
+        return (int)charge;
+    }
 }
