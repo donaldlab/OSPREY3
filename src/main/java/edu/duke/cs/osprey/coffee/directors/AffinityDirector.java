@@ -420,16 +420,20 @@ public class AffinityDirector implements Coffee.Director {
 	public String report() {
 		var buf = new StringBuilder();
 		buf.append(String.format("Affinity: %d of %d sequences:\n", bestSeqsByLower.size(), K));
+		var targetG = targetFreeEnergy;
 		for (var seqg : bestSeqs) {
 			var complexG = seqg.freeEnergies[complex.index];
 			var designG = seqg.freeEnergies[design.index];
-			buf.append(String.format("\t[%s]   complex G %s (w %.6f)   design G %s (w %.6f)\n",
+			var bindingG = complexG.sub(designG.add(targetG));
+			buf.append(String.format("\t[%s]   binding G %s (w %.6f)\n\t\tcomplex G %s (w %.6f)   design G %s (w %.6f)\n",
 				seqg.seq,
+				bindingG, bindingG.size(),
 				complexG, complexG.size(),
 				designG, designG.size()
 			));
 		}
 		// TODO: target?
+		buf.append(String.format("\t target G %s (w %.6f)", targetG, targetG.size()));
 		return buf.toString();
 	}
 
