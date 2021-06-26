@@ -21,6 +21,3 @@ nbbuild.xml
 
 # Gradle things
 .gradle
-
-# automatically-downloaded libraries
-lib/edu.duke.cs.tpie-*.jar
