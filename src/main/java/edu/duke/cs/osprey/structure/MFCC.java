@@ -75,7 +75,7 @@ public class MFCC  {
             {
                 // replace right terminal C=O  with H
 
-                // 1) find CB and O in fragment
+                // 1) find CB and O in left cap
                 int Oid = -1, CBid = -1;
                 for(int j=0; j < frag.residues.get(2).atoms.size(); j++)
                 {
