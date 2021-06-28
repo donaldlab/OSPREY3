@@ -7,6 +7,7 @@ import edu.duke.cs.osprey.coffee.zmat.ClusterZMatrix;
 import edu.duke.cs.osprey.confspace.SeqSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.tools.BigExp;
+import edu.duke.cs.osprey.tools.MathTools.Optimizer;
 
 import java.util.Arrays;
 import java.util.stream.IntStream;
@@ -17,6 +18,7 @@ public class StateInfo {
 	public final Coffee.StateConfig config;
 
 	public ClusterZMatrix zmat;
+	public ClusterZMatrix zmatLower;
 	public final EnergyBoundStats energyBoundStats;
 	public final int[] posPermutation;
 
@@ -24,6 +26,7 @@ public class StateInfo {
 	private final int[] numTypesByPos;
 
 	private Bounder bounder = null;
+	private Bounder lowerBounder = null;
 	private boolean factorBounder = false;
 
 	public StateInfo(Coffee.StateConfig config) {
@@ -97,14 +100,22 @@ public class StateInfo {
         if (this.factorBounder) {
 			if (zmat.hasTriples()) {
 				bounder = new TriplewiseFactorBounder(zmat);
+				if (zmatLower != null)
+					lowerBounder = new TriplewiseFactorBounder(zmatLower, Optimizer.Minimize);
 			} else {
-				bounder = new PairwiseFactorBounder(zmat);
+				bounder = new PairwiseFactorBounder(zmat, Optimizer.Maximize);
+				if (zmatLower != null)
+					lowerBounder = new PairwiseFactorBounder(zmatLower, Optimizer.Minimize);
 			}
 		}else{
 			if (zmat.hasTriples()) {
 				bounder = new TriplewiseBounder(zmat);
+				if (zmatLower != null)
+					lowerBounder = new TriplewiseBounder(zmatLower, Optimizer.Minimize);
 			} else {
-				bounder = new PairwiseBounder(zmat);
+				bounder = new PairwiseBounder(zmat, Optimizer.Maximize);
+				if (zmatLower != null)
+					lowerBounder = new PairwiseBounder(zmatLower, Optimizer.Minimize);
 			}
 		}
 	}
@@ -149,6 +160,15 @@ public class StateInfo {
 	public BigExp zSumUpper(ConfIndex index, NodeTree tree) {
 		BigExp out = zPathHead(index);
 		out.mult(zPathTailUpper(index, tree));
+		// Only multiply by the number of leaves if we are *not* using the factor bounder
+		if(!factorBounder)
+			out.mult(leavesBySequenceUpper(index, tree));
+		return out;
+	}
+
+	public BigExp zSumLower(ConfIndex index, NodeTree tree){
+		BigExp out = lowerBounder.g(index);
+		out.mult(lowerBounder.h(index, tree));
 		// Only multiply by the number of leaves if we are *not* using the factor bounder
 		if(!factorBounder)
 			out.mult(leavesBySequenceUpper(index, tree));

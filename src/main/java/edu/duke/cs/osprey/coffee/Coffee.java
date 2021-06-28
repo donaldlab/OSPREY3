@@ -406,7 +406,7 @@ public class Coffee {
 	 * Compute a Z matrix.
 	 * Mostly only useful for debugging.
 	 */
-	public ClusterZMatrix calcZMat(int statei) {
+	public ClusterZMatrix calcZMat(int statei, boolean lowerBounder) {
 
 		var stateInfo = infos[statei];
 
@@ -416,12 +416,16 @@ public class Coffee {
 
 				try (var ecalc = new NativeConfEnergyCalculator(stateInfo.config.confSpace, precision)) {
 
-					var zmat = new ClusterZMatrix(stateInfo.config.confSpace, stateInfo.config.posInterGen, bcalc);
+					var zmat = new ClusterZMatrix(stateInfo.config.confSpace, stateInfo.config.posInterGen, bcalc, lowerBounder);
 					zmat.compute(member, cpuTasks, includeStaticStatic, tripleCorrectionThreshold, ecalc);
 					return zmat;
 				}
 			}
 		}
+	}
+
+	public ClusterZMatrix calcZMat(int statei){
+		return calcZMat(statei, false);
 	}
 
 	/**
