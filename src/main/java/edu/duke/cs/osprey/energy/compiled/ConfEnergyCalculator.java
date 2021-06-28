@@ -97,6 +97,12 @@ public interface ConfEnergyCalculator extends AutoCloseable {
 		}
 	}
 
+	default void calcEnergies(List<MinimizationJob> jobs) {
+		for (var job : jobs) {
+			job.energy = calcEnergy(job.conf, job.inters);
+		}
+	}
+
 	default int maxBatchSize() {
 		return 1;
 	}

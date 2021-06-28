@@ -679,6 +679,11 @@ public class MathTools {
 			}
 
 			@Override
+			public boolean isBetter(BigExp newval, BigExp oldval){
+				return newval.lessThan(oldval);
+			}
+
+			@Override
 			public Optimizer reverse() {
 				return Maximize;
 			}
@@ -737,6 +742,11 @@ public class MathTools {
 			}
 
 			@Override
+			public boolean isBetter(BigExp newval, BigExp oldval){
+				return newval.greaterThan(oldval);
+			}
+
+			@Override
 			public Optimizer reverse() {
 				return Minimize;
 			}
@@ -773,6 +783,7 @@ public class MathTools {
 		public abstract boolean isBetter(int newval, int oldval);
 		public abstract boolean isBetter(long newval, long oldval);
 		public abstract boolean isBetter(BigDecimal newval, BigDecimal oldval);
+		public abstract boolean isBetter(BigExp newval, BigExp oldval);
 
 		public abstract Optimizer reverse();
 	}

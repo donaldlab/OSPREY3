@@ -40,6 +40,9 @@ public class ClusterZMatrix {
 	private Progress progress = null;
 	private AtomicLong droppedTuples = null;
 
+	// Allow this class to compute a "rigid zmatrix" used for computing pfunc lower bounds
+	boolean lowerBounder;
+
 	public ClusterZMatrix(ConfSpace confSpace, PosInterGen posInterGen, BoltzmannCalculator bcalc) {
 
 		this.confSpace = confSpace;
@@ -49,6 +52,19 @@ public class ClusterZMatrix {
 		staticStatic = new BigExp(1.0, 0);
 		singlesPairs = new TupleMatrixGeneric<>(confSpace);
 		triples = null;
+		lowerBounder = false;
+	}
+
+	public ClusterZMatrix(ConfSpace confSpace, PosInterGen posInterGen, BoltzmannCalculator bcalc, boolean lowerBounder) {
+
+		this.confSpace = confSpace;
+		this.posInterGen = posInterGen;
+		this.bcalc = bcalc;
+
+		staticStatic = new BigExp(1.0, 0);
+		singlesPairs = new TupleMatrixGeneric<>(confSpace);
+		triples = null;
+		this.lowerBounder = lowerBounder;
 	}
 
 	private BigExp z(double energy) {
@@ -85,10 +101,17 @@ public class ClusterZMatrix {
 		member.barrier(1, TimeUnit.MINUTES);
 
 		// just compute the static-static energy on every node...
-		staticStatic = z(ecalc.minimizeEnergy(
-			confSpace.assign(),
-			posInterGen.staticStatic()
-		));
+        if(lowerBounder){
+			staticStatic = z(ecalc.calcEnergy(
+					confSpace.assign(),
+					posInterGen.staticStatic()
+			));
+		}else {
+			staticStatic = z(ecalc.minimizeEnergy(
+					confSpace.assign(),
+					posInterGen.staticStatic()
+			));
+		}
 
 		member.barrier(1, TimeUnit.MINUTES);
 		member.log0("static-static finished");
@@ -453,7 +476,10 @@ public class ClusterZMatrix {
 					var jobs = tuples.stream()
 						.map(tuple -> tuple.makeJob(confSpace, posInterGen))
 						.collect(Collectors.toList());
-					ecalc.minimizeEnergies(jobs);
+					if(lowerBounder)
+						ecalc.calcEnergies(jobs);
+					else
+						ecalc.minimizeEnergies(jobs);
 					for (int i=0; i<tuples.size(); i++) {
 						tuples.get(i).setZ(z(jobs.get(i).energy));
 					}

@@ -4,7 +4,9 @@ import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.coffee.nodedb.NodeTree;
 import edu.duke.cs.osprey.coffee.zmat.ClusterZMatrix;
+import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.tools.BigExp;
+import edu.duke.cs.osprey.tools.MathTools.Optimizer;
 
 
 public class TriplewiseBounder implements Bounder {
@@ -12,12 +14,17 @@ public class TriplewiseBounder implements Bounder {
 	public final ClusterZMatrix zmat;
 
 	private final PairwiseBounder pairwiseBounder;
+	private final Optimizer opt;
 
-	public TriplewiseBounder(ClusterZMatrix zmat) {
+	public TriplewiseBounder(ClusterZMatrix zmat, Optimizer opt) {
 
 		this.zmat = zmat;
+		this.opt = opt;
 
-		pairwiseBounder = new PairwiseBounder(zmat);
+		pairwiseBounder = new PairwiseBounder(zmat, opt);
+	}
+	public TriplewiseBounder(ClusterZMatrix zmat){
+		this(zmat, Optimizer.Maximize);
 	}
 
 	@Override

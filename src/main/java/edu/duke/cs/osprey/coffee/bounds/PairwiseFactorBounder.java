@@ -4,10 +4,14 @@ import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.coffee.nodedb.NodeTree;
 import edu.duke.cs.osprey.coffee.zmat.ClusterZMatrix;
 import edu.duke.cs.osprey.tools.BigExp;
+import edu.duke.cs.osprey.tools.MathTools.Optimizer;
 
 public class PairwiseFactorBounder extends PairwiseBounder{
     public PairwiseFactorBounder(ClusterZMatrix zmat) {
         super(zmat);
+    }
+    public PairwiseFactorBounder(ClusterZMatrix zmat, Optimizer opt){
+        super(zmat, opt);
     }
 
     @Override
