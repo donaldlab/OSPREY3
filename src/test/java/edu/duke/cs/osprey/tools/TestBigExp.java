@@ -462,6 +462,13 @@ public class TestBigExp {
 		// errors seen in the wild
 		assertThat(new BigExp(1.673007, -78675272).compareTo(new BigExp(0.0, 0)), is(+1));
 		assertThat(new BigExp(1.851726, 47).compareTo(new BigExp(7.582769, 48)), is(-1));
+
+		// infinity errors
+		assertThat(new BigExp(10,1000000).compareTo(new BigExp(0.0, 0)), is(+1));
+		assertThat(new BigExp(Double.POSITIVE_INFINITY).compareTo(new BigExp(0.0, 0)), is(+1));
+		assertThat(new BigExp(5.852204485365044,7).compareTo(new BigExp(Double.POSITIVE_INFINITY)), is(-1));
+		assertThat(new BigExp(0.0,0).compareTo(new BigExp(10,1000000)), is(-1));
+
 	}
 
 	@Test
@@ -522,6 +529,74 @@ public class TestBigExp {
 		assertThat(new BigExp(6.66, +1).greaterThan(new BigExp(6.66, -1), epsilon), is(true));
 		assertThat(new BigExp(6.66, +1).greaterThan(new BigExp(6.66,  0), epsilon), is(true));
 		assertThat(new BigExp(6.66, +1).greaterThan(new BigExp(6.66, +1), epsilon), is(false));
+
+		// issues caused by setting the exponent of infinity to zero when normalizing
+		assertThat(new BigExp(6.66, +1).greaterThan(new BigExp(Double.NEGATIVE_INFINITY)), is(true));
+		assertThat(new BigExp(-6.66, +1).greaterThan(new BigExp(Double.NEGATIVE_INFINITY)), is(true));
+	}
+
+	@Test
+	public void lessThan() {
+
+		final double epsilon = 1e-1;
+
+		assertThat(new BigExp(0.0, 0).lessThan(new BigExp(0.0, 0), epsilon), is(false));
+
+		assertThat(new BigExp(6.66, -100).lessThan(new BigExp(0.0, 0), epsilon), is(false));
+		assertThat(new BigExp(6.66, -10).lessThan(new BigExp(0.0, 0), epsilon), is(false));
+		assertThat(new BigExp(6.66, -1).lessThan(new BigExp(0.0, 0), epsilon), is(false));
+		assertThat(new BigExp(6.66,  0).lessThan(new BigExp(0.0, 0), epsilon), is(false));
+		assertThat(new BigExp(6.66, +1).lessThan(new BigExp(0.0, 0), epsilon), is(false));
+		assertThat(new BigExp(6.66, +10).lessThan(new BigExp(0.0, 0), epsilon), is(false));
+		assertThat(new BigExp(6.66, +100).lessThan(new BigExp(0.0, 0), epsilon), is(false));
+
+		assertThat(new BigExp(-6.66, -100).lessThan(new BigExp(0.0, 0), epsilon), is(true));
+		assertThat(new BigExp(-6.66, -10).lessThan(new BigExp(0.0, 0), epsilon), is(true));
+		assertThat(new BigExp(-6.66, -1).lessThan(new BigExp(0.0, 0), epsilon), is(true));
+		assertThat(new BigExp(-6.66,  0).lessThan(new BigExp(0.0, 0), epsilon), is(true));
+		assertThat(new BigExp(-6.66, +1).lessThan(new BigExp(0.0, 0), epsilon), is(true));
+		assertThat(new BigExp(-6.66, +10).lessThan(new BigExp(0.0, 0), epsilon), is(true));
+		assertThat(new BigExp(-6.66, +100).lessThan(new BigExp(0.0, 0), epsilon), is(true));
+
+		assertThat(new BigExp(4.93, 0).lessThan(new BigExp(2.64, 0), epsilon), is(false));
+		assertThat(new BigExp(2.64, 0).lessThan(new BigExp(4.93, 0), epsilon), is(true));
+
+		assertThat(new BigExp(4.93e10, 0).lessThan(new BigExp(2.64e10, 0), epsilon), is(false));
+		assertThat(new BigExp(2.64e10, 0).lessThan(new BigExp(4.93e10, 0), epsilon), is(true));
+
+		assertThat(new BigExp(4.93e10, 10).lessThan(new BigExp(2.64e10, 5), epsilon), is(false));
+		assertThat(new BigExp(2.64e10, 5).lessThan(new BigExp(4.93e10, 10), epsilon), is(true));
+
+		assertThat(new BigExp(4.93e10, 5).lessThan(new BigExp(2.64e10, 10), epsilon), is(true));
+		assertThat(new BigExp(2.64e10, 10).lessThan(new BigExp(4.93e10, 5), epsilon), is(false));
+
+		assertThat(new BigExp(4.93e20, 5).lessThan(new BigExp(2.64e10, 10), epsilon), is(false));
+		assertThat(new BigExp(2.64e10, 10).lessThan(new BigExp(4.93e20, 5), epsilon), is(true));
+
+		assertThat(new BigExp(4.93e5, 5).lessThan(new BigExp(2.64e5, 6), epsilon), is(true));
+		assertThat(new BigExp(2.64e5, 6).lessThan(new BigExp(4.93e5, 5), epsilon), is(false));
+
+		assertThat(new BigExp(4.93, 0).lessThan(new BigExp(2.64, 1), epsilon), is(true));
+		assertThat(new BigExp(4.93, 1).lessThan(new BigExp(2.64, 0), epsilon), is(false));
+		assertThat(new BigExp(4.93, 1).lessThan(new BigExp(2.64, 1), epsilon), is(false));
+
+		assertThat(new BigExp(4.93,  0).lessThan(new BigExp(2.64, -1), epsilon), is(false));
+		assertThat(new BigExp(4.93, -1).lessThan(new BigExp(2.64,  0), epsilon), is(true));
+		assertThat(new BigExp(4.93, -1).lessThan(new BigExp(2.64, -1), epsilon), is(false));
+
+		assertThat(new BigExp(6.66, -1).lessThan(new BigExp(6.66, -1), epsilon), is(false));
+		assertThat(new BigExp(6.66, -1).lessThan(new BigExp(6.66,  0), epsilon), is(true));
+		assertThat(new BigExp(6.66, -1).lessThan(new BigExp(6.66, +1), epsilon), is(true));
+		assertThat(new BigExp(6.66,  0).lessThan(new BigExp(6.66, -1), epsilon), is(false));
+		assertThat(new BigExp(6.66,  0).lessThan(new BigExp(6.66,  0), epsilon), is(false));
+		assertThat(new BigExp(6.66,  0).lessThan(new BigExp(6.66, +1), epsilon), is(true));
+		assertThat(new BigExp(6.66, +1).lessThan(new BigExp(6.66, -1), epsilon), is(false));
+		assertThat(new BigExp(6.66, +1).lessThan(new BigExp(6.66,  0), epsilon), is(false));
+		assertThat(new BigExp(6.66, +1).lessThan(new BigExp(6.66, +1), epsilon), is(false));
+
+		// seen in the wild, caused by setting exponent of infinity to zero when normalizing
+		assertThat(new BigExp(6.66, +1).lessThan(new BigExp(Double.POSITIVE_INFINITY)), is (true));
+		assertThat(new BigExp(5.852204485365044,7).lessThan(new BigExp(Double.POSITIVE_INFINITY)), is(true));
 	}
 
 	@Test
