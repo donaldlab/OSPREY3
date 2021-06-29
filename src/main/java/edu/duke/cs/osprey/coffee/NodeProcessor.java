@@ -479,6 +479,7 @@ public class NodeProcessor implements AutoCloseable {
 	public final SeqDB seqdb;
 	public final NodeDB nodedb;
 	public final StateInfo[] stateInfos;
+	public final StateInfo[] factorInfos;
 	public final boolean includeStaticStatic;
 	public final Parallelism parallelism;
 	public final Duration statsReporterInterval;
@@ -494,12 +495,13 @@ public class NodeProcessor implements AutoCloseable {
 	private DropThread dropThread = null;
 	private NodeStats.Reporter nodeStatsReporter = null;
 
-	public NodeProcessor(TaskExecutor cpuTasks, SeqDB seqdb, NodeDB nodedb, StateInfo[] stateInfos, boolean includeStaticStatic, Parallelism parallelism, Structs.Precision precision, Duration statsReporterInterval) {
+	public NodeProcessor(TaskExecutor cpuTasks, SeqDB seqdb, NodeDB nodedb, StateInfo[] stateInfos, boolean includeStaticStatic, Parallelism parallelism, Structs.Precision precision, Duration statsReporterInterval, StateInfo[] factorInfos) {
 
 		this.cpuTasks = cpuTasks;
 		this.seqdb = seqdb;
 		this.nodedb = nodedb;
 		this.stateInfos = stateInfos;
+		this.factorInfos = factorInfos;
 		this.includeStaticStatic = includeStaticStatic;
 		this.parallelism = parallelism;
 		this.statsReporterInterval = statsReporterInterval;
@@ -516,6 +518,9 @@ public class NodeProcessor implements AutoCloseable {
 			gpuEcalcs = null;
 		}
 	}
+	public NodeProcessor(TaskExecutor cpuTasks, SeqDB seqdb, NodeDB nodedb, StateInfo[] stateInfos, boolean includeStaticStatic, Parallelism parallelism, Structs.Precision precision, Duration statsReporterInterval) {
+		this(cpuTasks, seqdb, nodedb, stateInfos, includeStaticStatic, parallelism, precision, statsReporterInterval, null);
+    }
 
 	@Override
 	public void close() {
@@ -599,13 +604,25 @@ public class NodeProcessor implements AutoCloseable {
 	public void initRootNode(int statei, NodeTree tree) {
 
 		var stateInfo = stateInfos[statei];
+		StateInfo factorInfo = null;
+		if(factorInfos != null) {
+			factorInfo = factorInfos[statei];
+		}
 
 		// get a (possibly) multi-sequence Z bound on the root node
 		ConfIndex index = stateInfo.makeConfIndex();
 		BigExp zSumUpper = stateInfo.zSumUpper(index, tree).normalize(true);
+		var zSumLower = stateInfo.zSumLower(index, tree).normalize(true);
+
+		var zSumUpperFactor = new BigExp(0.0);
+		var zSumLowerFactor = new BigExp(0.0);
+		if(factorInfos != null) {
+			zSumUpperFactor = factorInfo.zSumUpper(index, tree).normalize(true);
+			zSumLowerFactor = factorInfo.zSumLower(index, tree).normalize(true);
+		}
 
 		// init the node database
-		var node = new NodeIndex.Node(statei, Conf.make(index), zSumUpper, zSumUpper);
+		var node = new NodeIndex.Node(statei, Conf.make(index), zSumUpper, zSumUpper, zSumLower, zSumUpperFactor, zSumLowerFactor);
 		nodedb.addLocal(node);
 		nodedb.broadcast();
 
@@ -815,6 +832,10 @@ public class NodeProcessor implements AutoCloseable {
 
 		int statei = nodeInfo.node.statei;
 		var stateInfo = stateInfos[statei];
+		StateInfo factorInfo = null;
+		if(factorInfos != null) {
+			factorInfo = factorInfos[statei];
+		}
 		var confIndex = stateInfo.makeConfIndex();
 		Conf.index(nodeInfo.node.conf, confIndex);
 
@@ -854,12 +875,22 @@ public class NodeProcessor implements AutoCloseable {
 
 			// compute an upper bound for the assignment
 			var zSumUpper = stateInfo.zSumUpper(confIndex, nodeInfo.tree).normalize(true);
+			var zSumLower = stateInfo.zSumLower(confIndex, nodeInfo.tree).normalize(true);
+			var zSumUpperFactor = new BigExp(0.0);
+			var zSumLowerFactor = new BigExp(0.0);
+			if(factorInfos != null) {
+				zSumUpperFactor = factorInfo.zSumUpper(confIndex, nodeInfo.tree).normalize(true);
+				zSumLowerFactor = factorInfo.zSumLower(confIndex, nodeInfo.tree).normalize(true);
+            }
+			var score = nodedb.perf.score(statei, conf, zSumUpper);
 
 			// update nodedb
 			nodeBatch.add(new NodeIndex.Node(
-				statei, conf, zSumUpper,
-				nodedb.perf.score(statei, conf, zSumUpper)
+				statei, conf, zSumUpper, score, zSumLower, zSumUpperFactor, zSumLowerFactor
 			));
+
+			// update node performance
+			nodedb.perf.updateAndLog(statei, conf, stopwatch.getTimeNs(), zSumUpper, reduction, score, zSumLower, zSumUpperFactor, zSumLowerFactor);
 
 			// add the new bound if needed
 			if (seqBatch != null) {

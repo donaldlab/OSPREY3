@@ -21,12 +21,21 @@ public class NodeIndex {
 		public final int[] conf;
 		public final BigExp zSumUpper;
 		public final BigExp score;
+		public final BigExp zSumLower;
+		public final BigExp zSumUpperFactor;
+		public final BigExp zSumLowerFactor;
 
-		public Node(int statei, int[] conf, BigExp zSumUpper, BigExp score) {
+		public Node(int statei, int[] conf, BigExp zSumUpper, BigExp score, BigExp zSumLower, BigExp zSumUpperFactor, BigExp zSumLowerFactor) {
 			this.statei = statei;
 			this.conf = conf;
 			this.zSumUpper = zSumUpper;
 			this.score = score;
+			this.zSumLower = zSumLower;
+			this.zSumUpperFactor = zSumUpperFactor;
+			this.zSumLowerFactor = zSumLowerFactor;
+        }
+		public Node(int statei, int[] conf, BigExp zSumUpper, BigExp score) {
+		    this(statei, conf, zSumUpper, score, new BigExp(0.0), new BigExp(0.0), new BigExp(0.0));
 		}
 
 		/** re-score a node */

@@ -278,6 +278,8 @@ public class Coffee {
 	public final MathContext mathContext = BigExp.mathContext;
 	public final BoltzmannCalculator bcalc;
 	public final StateInfo[] infos;
+	// infos to have factorBounds side-by-side
+	public final StateInfo[] factorInfos;
 
 	private Coffee(
 		MultiStateConfSpace confSpace, StateConfig[] stateConfigs, Cluster cluster, Parallelism parallelism, Structs.Precision precision,
@@ -307,6 +309,9 @@ public class Coffee {
 		infos = Arrays.stream(stateConfigs)
 			.map(config -> new StateInfo(config))
 			.toArray(StateInfo[]::new);
+		factorInfos = Arrays.stream(stateConfigs)
+				.map(config -> new StateInfo(config))
+				.toArray(StateInfo[]::new);
 	}
 
 	public void run(Director director) {
@@ -338,24 +343,33 @@ public class Coffee {
 					) {
 
 						// init the node processor, and report dropped nodes to the sequence database
-						try (var nodeProcessor = new NodeProcessor(cpuTasks, seqdb, nodedb, infos, includeStaticStatic, parallelism, precision, nodeStatsReportingInterval)) {
+						try (var nodeProcessor = new NodeProcessor(cpuTasks, seqdb, nodedb, infos, includeStaticStatic, parallelism, precision, nodeStatsReportingInterval, factorInfos)) {
 							nodedb.setDropHandler(nodeProcessor::handleDrops);
 
 							// wait for everyone to be ready
 							member.barrier(5, TimeUnit.MINUTES);
 
 							// pre-compute the Z matrices
-							for (var info : infos) {
-								member.log0("computing Z matrix for state: %s", info.config.state.name);
+							for (int i = 0; i < infos.length; i++){
+							    StateInfo info = infos[i];
+							    StateInfo factorInfo = factorInfos[i];
+								member.log0("computing upper Z matrix for state: %s", info.config.state.name);
 								ConfEnergyCalculator ecalc = nodeProcessor.cpuEcalcs[info.config.state.index];
 								if (nodeProcessor.gpuEcalcs != null) {
 									ecalc = nodeProcessor.gpuEcalcs[info.config.state.index];
 								}
 								info.zmat = new ClusterZMatrix(info.config.confSpace, info.config.posInterGen, bcalc);
 								info.zmat.compute(member, cpuTasks, includeStaticStatic, tripleCorrectionThreshold, ecalc);
+								member.log0("computing lower Z matrix for state: %s", info.config.state.name);
+								info.zmatLower = new ClusterZMatrix(info.config.confSpace, info.config.posInterGen, bcalc);
+								info.zmatLower.compute(member, cpuTasks, includeStaticStatic, tripleCorrectionThreshold, ecalc);
+								factorInfo.zmat = info.zmat;
+								factorInfo.zmatLower = info.zmatLower;
 								// Decide whether to use factor bounder or old bounder
-                                info.setFactorBounder(useFactorBounder);
+                                info.setFactorBounder(false);
+                                factorInfo.setFactorBounder(true);
 								info.initBounder();
+								factorInfo.initBounder();
 							}
 
 							// initialize the directions and wait

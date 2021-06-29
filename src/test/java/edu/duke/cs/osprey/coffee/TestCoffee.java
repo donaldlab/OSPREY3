@@ -33,6 +33,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.io.File;
 
 
 public class TestCoffee {
@@ -860,6 +861,8 @@ public class TestCoffee {
 			.configEachState(config -> {
 				config.posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null);
 			})
+			.setNodeStatsReportingInterval(Duration.ofMillis(1_000))
+			.setNodeScoringLog(new File("coffee_node_scoring.log"))
 			.build();
 
 		var director = new KStarDirector.Builder(confSpace, "complex", "design", "target")

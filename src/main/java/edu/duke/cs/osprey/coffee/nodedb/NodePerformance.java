@@ -107,7 +107,10 @@ public class NodePerformance {
 					"zSumUpper",
 					"score",
 					"reduction",
-					"reduction/Ns"
+					"reduction/Ns",
+					"zSumLower",
+					"zSumUpperFactor",
+					"zSumLowerFactor"
 				)));
 				out.write("\n");
 			} catch (IOException ex) {
@@ -118,7 +121,7 @@ public class NodePerformance {
 			}
 		}
 
-		void add(int statei, int[] conf, long ns, BigExp zSumUpper, BigExp reduction, BigExp score) {
+		void add(int statei, int[] conf, long ns, BigExp zSumUpper, BigExp reduction, BigExp score, BigExp zSumLower, BigExp zSumUpperFactor, BigExp zSumLowerFactor) {
 
 			// compute the actual reduction per unit time
 			BigExp actual = new BigExp(reduction);
@@ -129,7 +132,7 @@ public class NodePerformance {
 			long avgNs = states[statei].get(conf).avgNs;
 
 			// buffer the log entry for efficient file IO
-			buf.add(String.format("%d\t%d\t%d\t%d\t%f\t%f\t%f\t%f\n",
+			buf.add(String.format("%d\t%d\t%d\t%d\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n",
 				statei,
 				Conf.countAssignments(conf),
 				avgNs,
@@ -137,7 +140,10 @@ public class NodePerformance {
 				zSumUpper.log(),
 				score.log(),
 				reduction.log(),
-				actual.log()
+				actual.log(),
+				zSumLower.log(),
+				zSumUpperFactor.log(),
+				zSumLowerFactor.log()
 			));
 
 			// flush to disk at most every second
@@ -197,11 +203,15 @@ public class NodePerformance {
 	}
 
 	public synchronized void updateAndLog(int statei, int[] conf, long ns, BigExp zSumUpper, BigExp reduction, BigExp score) {
+	    updateAndLog(statei, conf, ns, zSumUpper, reduction, score, new BigExp(0.0), new BigExp(0.0), new BigExp(0.0));
+    }
+
+	public synchronized void updateAndLog(int statei, int[] conf, long ns, BigExp zSumUpper, BigExp reduction, BigExp score, BigExp zSumLower, BigExp zSumUpperFactor, BigExp zSumLowerFactor) {
 
 		states[statei].get(conf).update(ns);
 
 		if (perfLog != null) {
-			perfLog.add(statei, conf, ns, zSumUpper, reduction, score);
+			perfLog.add(statei, conf, ns, zSumUpper, reduction, score, zSumLower, zSumUpperFactor, zSumLowerFactor);
 		}
 	}
 
@@ -210,7 +220,7 @@ public class NodePerformance {
 	}
 
 	public void updateAndLog(NodeIndex.Node node, long ns, BigExp reduction) {
-		updateAndLog(node.statei, node.conf, ns, node.zSumUpper, reduction, node.score);
+		updateAndLog(node.statei, node.conf, ns, node.zSumUpper, reduction, node.score, node.zSumLower, node.zSumUpperFactor, node.zSumLowerFactor);
 	}
 
 	public synchronized BigExp score(int statei, int[] conf, BigExp zSumUpper) {
