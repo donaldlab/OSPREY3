@@ -115,7 +115,7 @@ public class PairwiseBounder implements Bounder {
 					zpos1.set(zrc1);
 			}
 
-			//assert (zpos1.isFinite());
+			assert (zpos1.isFinite());
 			z.mult(zpos1);
 		}
 
