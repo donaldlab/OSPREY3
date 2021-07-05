@@ -623,6 +623,7 @@ public class TestBounders {
         Lower {
             @Override
             public void check(String msg, BigExp bound, BigExp z, double epsilon) {
+                System.out.println(msg);
                 assertThat(msg, bound.lessThanOrEqual(z), is(true));
             }
         };
