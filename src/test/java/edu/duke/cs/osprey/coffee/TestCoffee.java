@@ -6,16 +6,18 @@ import static edu.duke.cs.osprey.TestBase.*;
 import static edu.duke.cs.osprey.tools.Log.log;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.ConfIndex;
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.coffee.directors.*;
+import edu.duke.cs.osprey.coffee.nodedb.NodeTree;
 import edu.duke.cs.osprey.coffee.seqdb.SeqFreeEnergies;
-import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
-import edu.duke.cs.osprey.confspace.SeqSpace;
-import edu.duke.cs.osprey.confspace.Sequence;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
 import edu.duke.cs.osprey.confspace.compiled.TestConfSpace;
 import edu.duke.cs.osprey.ematrix.compiled.EmatCalculator;
 import edu.duke.cs.osprey.energy.compiled.*;
+import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.Parallelism;
@@ -24,10 +26,12 @@ import edu.duke.cs.osprey.tools.*;
 import edu.duke.cs.osprey.tools.MathTools.*;
 import org.junit.Test;
 
+import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -919,5 +923,104 @@ public class TestCoffee {
 			.build();
 
 		coffee.run(director);
+	}
+
+	@Test
+	public void bruteForceBounds_6ov7_1mut2flex(){
+		assertZSumBounds(affinity_6ov7_1mut2flex());
+	}
+
+
+	public static void assertZSumBounds(MultiStateConfSpace confSpace) {
+		AtomicInteger numTrespasses = new AtomicInteger();
+		withPseudoCluster(1, cluster -> {
+			Coffee coffee = makeCoffee(confSpace, PosInterDist.DesmetEtAl1992, null, cluster, oneCpu, 1024 * 1024);
+
+			for (MultiStateConfSpace.State state : confSpace.states) {
+				var stateConfig = coffee.stateConfigs[state.index];
+				StateInfo stateInfo = new StateInfo(stateConfig);
+
+				// compute a zmat
+				var zmat = coffee.calcZMat(state.index);
+				//var zmatLower = coffee.calcZMat(state.index, true);
+
+				stateInfo.zmat = zmat;
+				stateInfo.setFactorBounder(true);
+				stateInfo.initBounder();
+
+				// do things only on the wild-type sequence for now
+				var tree = new NodeTree(confSpace.seqSpace.makeWildTypeSequence().makeRCs(state.confSpace));
+
+
+				try (var ecalc = new CPUConfEnergyCalculator(stateConfig.confSpace)) {
+					// Brute force all confs
+					forEachNode(stateInfo, tree, index -> {
+						BigExp.Bounds bounds = new BigExp.Bounds(
+								new BigExp(0.0),
+								stateInfo.zSumUpper(index, tree)
+						);
+						BigExp exact = new BigExp(calcZSum(index, tree.rcs, ecalc, coffee.bcalc, stateInfo.posPermutation, stateConfig));
+						try {
+							assertThat(bounds, isRelativeBound(exact, 1e-4));
+						}catch (AssertionError error){
+							numTrespasses.getAndIncrement();
+							System.err.println(String.format("For conf %s:\n", Arrays.toString(Conf.make(index))));
+							System.err.println(error.getMessage());
+						}
+					});
+				}
+			}
+		});
+		System.out.println(String.format("There were %d confs that did not bound correctly",numTrespasses.get()));
+	}
+
+	/** brute forces every node in the tree and calls the supplied block with a ConfIndex instance describing the node */
+	public static void forEachNode(StateInfo stateInfo, NodeTree tree, Consumer<ConfIndex> block) {
+
+		ConfIndex index = stateInfo.makeConfIndex();
+
+		// NOTE: java has a hard time with recursive lambdas,
+		// so use an array to work around the compiler's limitations
+		Runnable[] f = { null };
+		f[0] = () -> {
+
+			// call the supplied block
+			block.accept(index);
+
+			// stop recursion if this is a leaf node
+			if (index.isFullyDefined()) {
+				return;
+			}
+
+			// otherwise, recurse
+			int pos = stateInfo.posPermutation[index.numDefined];
+			for (int rc : tree.rcs.get(pos)) {
+				index.assignInPlace(pos, rc);
+				f[0].run();
+				index.unassignInPlace(pos);
+			}
+		};
+		f[0].run();
+	}
+
+	/** WARNING: naive brute force method, for testing small trees only */
+	public static BigDecimal calcZSum(ConfIndex index, RCs rcs, ConfEnergyCalculator confEcalc, BoltzmannCalculator bcalc, int[] posPermutation, Coffee.StateConfig stateConfig) {
+
+		// base case, compute the conf energy
+		if (index.isFullyDefined()) {
+		    int[] conf = Conf.make(index);
+			var ecoords = confEcalc.minimize(conf, stateConfig.makeInters(conf, true));
+			return bcalc.calcPrecise(ecoords.energy);
+		}
+
+		// otherwise, recurse
+		BigMath m = new BigMath(MathContext.DECIMAL128).set(0.0);
+		int pos = posPermutation[index.numDefined];
+		for (int rc : rcs.get(pos)) {
+			index.assignInPlace(pos, rc);
+			m.add(calcZSum(index, rcs, confEcalc, bcalc, posPermutation, stateConfig));
+			index.unassignInPlace(pos);
+		}
+		return m.get();
 	}
 }
