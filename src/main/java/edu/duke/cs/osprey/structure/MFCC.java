@@ -70,37 +70,35 @@ public class MFCC  {
             frag.appendResidue(this.mol.residues.get(i+1));
 
             // take care of dangling bonds
+            int Oid = 3;
+            int Cid = 2;
             // Case 1: Left cap is amino terminus
             if(i == 1)
             {
                 // replace right terminal C=O  with H
 
-                // 1) find CB and O in left cap
-                int Oid = -1, CBid = -1;
-                for(int j=0; j < frag.residues.get(2).atoms.size(); j++)
-                {
-                    if(frag.residues.get(2).atoms.get(j).name.equals("O"))
-                    {
-                        Oid = j;
-                    };
-                    if(frag.residues.get(2).atoms.get(j).name.equals("CB"))
-                    {
-                        CBid = j;
-                    };
-                }
-
                 // 2) replace CB with H
-                frag.residues.get(2).atoms.get(CBid).name = "HleftCap";
-                PeriodicTable.setElementProperties(frag.residues.get(0).atoms.get(CBid),"H");
+                frag.residues.get(2).atoms.get(Cid).name = "HleftCap";
+                PeriodicTable.setElementProperties(frag.residues.get(0).atoms.get(Cid),"H");
 
                 // 2) cut O
                 frag.residues.get(2).atoms.remove((Oid));
 
             }
+            // Case 2: both caps need termiantion
             else if(i > 1 && i < Nresidues-1)
             {
                 // replace left terminal NH with H
+
                 // replace right terminal C=O with H
+
+                // 2) replace CB with H
+                System.out.println(i);
+                frag.residues.get(2).atoms.get(Cid).name = "HleftCap";
+                PeriodicTable.setElementProperties(frag.residues.get(0).atoms.get(Cid),"H");
+
+                // 2) cut O
+                frag.residues.get(2).atoms.remove((Oid));
             }
             else{
                 //replace left terminal NH with H
