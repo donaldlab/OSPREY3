@@ -105,7 +105,7 @@ object Sander {
 								?: throw IllegalArgumentException("$this doesn't appear to be a number\nin line\n$line")
 
 							val parts = line
-								.split(" ", "(?=-)")
+								.split(Regex("(\\s|(?=-))"))
 								.filter { it.isNotBlank() }
 
 							if (parts.size >= 3) {
