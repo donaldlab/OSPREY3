@@ -517,6 +517,9 @@ class AtomPair(val a: Atom, val b: Atom) {
 	operator fun component2() = b
 
 	fun toContent() = ContentAtomPair(a, b)
+
+	fun dist() =
+			this.a.pos.sub(this.b.pos, Vector3d()).length()
 }
 
 
