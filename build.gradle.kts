@@ -147,7 +147,7 @@ dependencies {
 	implementation("org.apache.commons:commons-lang3:3.4")
 	implementation("commons-io:commons-io:2.5")
 	implementation("org.tomlj:tomlj:1.0.0")
-	implementation(files("lib/kdtree.jar")) // no authoritative source on the internet
+	implementation(fileTree("lib"))
 
 	val autoValueVersion = 1.7
 	implementation("ch.obermuhlner:big-math:2.3.0")
@@ -182,35 +182,6 @@ dependencies {
 		isTransitive = false
 	}
 	implementation("one.util:streamex:0.7.3")
-
-	// build systems never seem to like downloading from arbitrary URLs for some reason...
-	// so make a helper func to do it for us
-	fun url(urlString: String): ConfigurableFileCollection {
-
-		// parse the URL
-		val url = URL(urlString)
-		val filename = urlString.split("/").last()
-		val libDir = projectDir.resolve("lib")
-		val filePath = libDir.resolve(filename)
-
-		// create a gradle task to download the file
-		val downloadTask by tasks.creating {
-			if (!Files.exists(filePath)) {
-				Files.createDirectories(libDir)
-				url.openStream().use {
-					Files.copy(it, filePath, StandardCopyOption.REPLACE_EXISTING)
-				}
-			}
-		}
-
-		// return a files collection that depends on the task
-		return files(filePath) {
-			builtBy(downloadTask)
-		}
-	}
-
-	// TPIE-Java isn't in the maven/jcenter repos yet, download directly from Github
-	implementation(url("https://github.com/donaldlab/TPIE-Java/releases/download/v1.1/edu.duke.cs.tpie-1.1.jar"))
 
 	// native libs for GPU stuff
 	listOf("natives-linux-amd64", "natives-macosx-universal", "natives-windows-amd64").forEach {

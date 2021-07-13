@@ -120,8 +120,11 @@ public class BigExp implements Comparable<BigExp>, IOable, Serializable {
 
 	public BigExp normalize(boolean fully) {
 
-		if (!Double.isFinite(fp) || fp == 0.0) {
+		if (fp == 0.0) {
 			exp = 0;
+			return this;
+		}else if (!Double.isFinite(fp)){
+			exp = Integer.MAX_VALUE;
 			return this;
 		}
 
