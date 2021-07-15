@@ -206,3 +206,33 @@ def affinityDirector(
         builder.setEnsembleMinUpdate(ensembleMinUpdate[0], ensembleMinUpdate[1])
 
     return builder.build()
+
+def pfuncDirector(
+        confspace,
+        sequence=_useJavaDefault,
+        gWidthMax=_useJavaDefault,
+        gMax=_useJavaDefault,
+        timing=_useJavaDefault,
+        reportProgress=_useJavaDefault,
+        ensembleTracking=_useJavaDefault,
+        ensembleMinUpdate=_useJavaDefault
+):
+
+    builder = osprey.c.coffee.directors.PfuncDirector.Builder(confspace)
+
+    if sequence is not _useJavaDefault:
+        builder.setSequence(sequence)
+    if gWidthMax is not _useJavaDefault:
+        builder.setGWidthMax(gWidthMax)
+    if gMax is not _useJavaDefault:
+        builder.setGMax(gMax)
+    if timing is not _useJavaDefault:
+        builder.setTiming(timing)
+    if reportProgress is not _useJavaDefault:
+        builder.setReportProgress(reportProgress)
+    if ensembleTracking is not _useJavaDefault:
+        builder.setEnsembleTracking(ensembleTracking[0], jvm.toFile(ensembleTracking[1]))
+    if ensembleMinUpdate is not _useJavaDefault:
+        builder.setEnsembleMinUpdate(ensembleMinUpdate[0], ensembleMinUpdate[1])
+
+    return builder.build()

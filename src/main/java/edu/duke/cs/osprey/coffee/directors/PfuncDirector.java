@@ -9,6 +9,7 @@ import edu.duke.cs.osprey.coffee.nodedb.NodeTree;
 import edu.duke.cs.osprey.coffee.seqdb.StateZ;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
+import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.parallelism.ThreadTools;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.BigMath;
@@ -45,6 +46,16 @@ public class PfuncDirector implements Coffee.Director {
 		public Builder(MultiStateConfSpace confSpace, MultiStateConfSpace.State state) {
 			this.confSpace = confSpace;
 			this.state = state;
+		}
+
+		public Builder(MultiStateConfSpace confSpace, String stateName) {
+			this(confSpace, confSpace.getState(stateName));
+        }
+
+		public Builder(ConfSpace confSpace){
+			this(new MultiStateConfSpace.Builder("design", confSpace).build(),
+					"design"
+					);
 		}
 
 		public Builder setSequence(Sequence val) {
