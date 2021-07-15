@@ -96,13 +96,16 @@ object Sander {
 							// lines look like e.g.:
 							//  14.7619439  27.0623578  24.0946254  13.9092238  25.8758637  24.2319541
 							//   3.7678268  22.1883445   9.1170323
+							// It turns out lines can also look like this:
+							// 207.4266747-244.7747434 207.2027093 -49.6475693  79.7673583-122.2447495
+							// So we also want to split using a lookahead for the symbol '-'
 
 							fun String.toDoubleOrThrow() =
 								toDoubleOrNull()
 								?: throw IllegalArgumentException("$this doesn't appear to be a number\nin line\n$line")
 
 							val parts = line
-								.split(" ")
+								.split(Regex("(\\s|(?=-))"))
 								.filter { it.isNotBlank() }
 
 							if (parts.size >= 3) {

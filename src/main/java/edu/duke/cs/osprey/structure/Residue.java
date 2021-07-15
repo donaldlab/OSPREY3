@@ -399,8 +399,12 @@ public class Residue implements Serializable {
 
 		// copy coords back to res array
 		for (Atom atom : atoms) {
-			double[] p = coords.get(atom.name);
-			atom.setCoords(p[0], p[1], p[2]);
+			double[] atomCoords = coords.get(atom.name);
+			if (atomCoords == null) {
+			    throw new NoSuchElementException(String.format("Could not find the coordinates for %s. " +
+                        "Perhaps check whether the same atom name is used in all places.", atom));
+            }
+			atom.setCoords(atomCoords[0], atomCoords[1], atomCoords[2]);
 		}
 
 		return true;
