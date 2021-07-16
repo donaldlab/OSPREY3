@@ -87,7 +87,7 @@ public class Serializers {
 				.flatMap(pos -> pos.resTypes.stream())
 				.mapToInt(resType -> resType.index)
 				.max()
-				.orElseThrow(),
+				.orElse(-1),
 			seqSpace.positions.size()
 		);
 	}

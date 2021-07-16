@@ -923,4 +923,28 @@ public class TestCoffee {
 
 		coffee.run(director);
 	}
+	@Test
+	public void noseqstest() {
+
+		var stateConfSpace = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/design_00008.complex.ccsx"));
+		var confSpace = new MultiStateConfSpace.Builder("state", stateConfSpace)
+			.build();
+		var state = confSpace.getState("state");
+		Coffee coffee = new Coffee.Builder(confSpace)
+				.setParallelism(Parallelism.makeCpu(4))
+				.configEachState(config -> {
+					config.posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null);
+					//config.posInterGen = new PosInterGen(PosInterDist.TighterBounds, null);
+				})
+				.build();
+
+		var director = new PfuncDirector.Builder(confSpace, state)
+				//.setTiming(Timing.Precise)
+				.setTiming(Timing.Efficient)
+				.setReportProgress(true)
+                .setSequence(confSpace.seqSpace.makeWildTypeSequence())
+				.build();
+
+		coffee.run(director);
+	}
 }
