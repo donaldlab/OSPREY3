@@ -37,7 +37,7 @@ public class PostgresScoreWriter implements KStarScoreWriter {
 
     @Override
     public void writeHeader() {
-        var insertSql = "INSERT INTO \"Design\" (name, type) VALUES (:name, 'affinity')";
+        var insertSql = "INSERT INTO designs (name, type) VALUES (:name, 'affinity')";
 
         try (var con = sql2o.open()) {
             designId = con.createQuery(insertSql, true)
@@ -46,7 +46,7 @@ public class PostgresScoreWriter implements KStarScoreWriter {
                     .getKey(Integer.class);
         }
 
-        var inputSql = "INSERT INTO \"Input\" (design, value) VALUES (:design, :value)";
+        var inputSql = "INSERT INTO args (design, value) VALUES (:design, :value)";
 
         try (var con = sql2o.open()) {
             for (var input : inputs) {
@@ -61,7 +61,7 @@ public class PostgresScoreWriter implements KStarScoreWriter {
     @Override
     public void writeScore(ScoreInfo info) {
         var insertSql =
-                "INSERT INTO \"Affinity\" " +
+                "INSERT INTO affinities " +
                         "(design, is_wt, kstar_lower, kstar_upper, " +
                         "protein_lower, protein_upper, protein_confs_enumerated, protein_epsilon, " +
                         "ligand_lower, ligand_upper, ligand_confs_enumerated, ligand_epsilon, " +
@@ -125,7 +125,7 @@ public class PostgresScoreWriter implements KStarScoreWriter {
             var analysis = new SequenceAnalyzer(info.kstar).analyze(info.sequence, numConfsToSave);
             var pdb = analysis.ensemble.writePdbString(String.format("Top %d confs for sequence", numConfsToSave));
 
-            var pdbSql = "INSERT INTO \"AffinityStructure\"(affinity, structure) VALUES (:affinity, :structure)";
+            var pdbSql = "INSERT INTO affinity_structures (affinity, structure) VALUES (:affinity, :structure)";
 
             int structId;
             try (var con = sql2o.open()) {
@@ -145,7 +145,7 @@ public class PostgresScoreWriter implements KStarScoreWriter {
 
             var response = s3Client.putObject(request, RequestBody.fromString(pdb));
 
-            var structureUpdateSql = "UPDATE \"AffinityStructure\" set structure = :s3Key where id = :structId";
+            var structureUpdateSql = "UPDATE affinity_structures set structure = :s3Key where id = :structId";
             try (var con = sql2o.open()) {
                 con.createQuery(structureUpdateSql, false)
                         .addParameter("s3Key", /*s3://{bucket}/{key}*/String.format("s3://%s/%s", s3BucketName, s3Key))
