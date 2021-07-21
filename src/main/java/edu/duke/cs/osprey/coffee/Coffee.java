@@ -361,7 +361,7 @@ public class Coffee {
 								info.zmat = new ClusterZMatrix(info.config.confSpace, info.config.posInterGen, bcalc);
 								info.zmat.compute(member, cpuTasks, includeStaticStatic, tripleCorrectionThreshold, ecalc);
 								member.log0("computing lower Z matrix for state: %s", info.config.state.name);
-								info.zmatLower = new ClusterZMatrix(info.config.confSpace, info.config.posInterGen, bcalc);
+								info.zmatLower = new ClusterZMatrix(info.config.confSpace, info.config.posInterGen, bcalc, true);
 								info.zmatLower.compute(member, cpuTasks, includeStaticStatic, tripleCorrectionThreshold, ecalc);
 								factorInfo.zmat = info.zmat;
 								factorInfo.zmatLower = info.zmatLower;
