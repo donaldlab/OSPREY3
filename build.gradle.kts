@@ -559,16 +559,12 @@ tasks {
 		// append the CI build ID, if available
 		version += if (rootProject.hasProperty("AZURE_BUILD_ID")) {
 			val versionId = rootProject.property("AZURE_BUILD_ID")
-			".$versionId\n"
+			".$versionId"
 		} else {
-			"-dev\n"
+			"-dev"
 		}
 
-		// write the version to a build file so other tools (eg python scripts) can find it
-		versionFile.parent.toFile().mkdirs()
-		versionFile.toFile().writeText(version)
-
-		// write the build properties to the app can find them
+		// write the build properties so the app can find them
 		from(sourceSets["main"].resources.srcDirs) {
 			include("$packagePath/build.properties")
 			expand(
@@ -578,7 +574,16 @@ tasks {
 			)
 		}
 
-		duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+		// I have no idea why Gradle thinks the build properties are duplicated
+		// (there's only one instance of build.properties anywhere in the project),
+		// but make sure we include the expanded version of the file rather than ignoring it
+		duplicatesStrategy = DuplicatesStrategy.INCLUDE
+
+		doLast {
+			// write the version to a build file so other tools (eg python scripts) can find it
+			versionFile.parent.toFile().mkdirs()
+			versionFile.toFile().writeText(version)
+		}
 	}
 
 	val jar = "jar" {}.get()
