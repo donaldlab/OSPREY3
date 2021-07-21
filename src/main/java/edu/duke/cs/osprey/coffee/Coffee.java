@@ -445,7 +445,7 @@ public class Coffee {
 	 * Quickly get a few nodes with high Z values.
 	 * Mostly only useful for debugging.
 	 */
-	public List<NodeIndex.Node> findHighZNodes(int statei, ClusterZMatrix zmat, NodeTree tree, int count) {
+	public List<NodeIndex.Node> findHighZNodes(int statei, ClusterZMatrix zmat, ClusterZMatrix zmatLower, NodeTree tree, int count) {
 
 		var leafNodes = new ArrayList<NodeIndex.Node>(count);
 
@@ -478,6 +478,7 @@ public class Coffee {
 							// init the state with the zmat
 							var stateInfo = infos[statei];
 							stateInfo.zmat = zmat;
+							stateInfo.zmatLower = zmatLower;
 							stateInfo.initBounder();
 
 							// init the root node
@@ -523,7 +524,7 @@ public class Coffee {
 	 * Quickly get a few internal nodes, chooses the first nodes explored
 	 * Mostly only useful for debugging.
 	 */
-	public List<NodeIndex.Node> findFirstNNodes(int statei, ClusterZMatrix zmat, NodeTree tree, int count) {
+	public List<NodeIndex.Node> findFirstNNodes(int statei, ClusterZMatrix zmat, ClusterZMatrix zmatLower, NodeTree tree, int count) {
 		var internalNodes = new ArrayList<NodeIndex.Node>(count);
 
 		int batchSize = 10;
@@ -550,12 +551,18 @@ public class Coffee {
 					) {
 
 						// init the node processor, and report dropped nodes to the sequence database
-						try (var nodeProcessor = new NodeProcessor(cpuTasks, seqdb, nodedb, infos, includeStaticStatic, parallelism, precision, nodeStatsReportingInterval)) {
+						try (var nodeProcessor = new NodeProcessor(cpuTasks, seqdb, nodedb, infos, includeStaticStatic, parallelism, precision, nodeStatsReportingInterval, factorInfos)) {
 
 							// init the state with the zmat
 							var stateInfo = infos[statei];
+							var factorStateInfo = factorInfos[statei];
 							stateInfo.zmat = zmat;
+							stateInfo.zmatLower = zmatLower;
 							stateInfo.initBounder();
+							factorStateInfo.zmat = zmat;
+							factorStateInfo.zmatLower = zmatLower;
+							factorStateInfo.setFactorBounder(true);
+							factorStateInfo.initBounder();
 
 							// init the root node
 							ConfIndex index = stateInfo.makeConfIndex();
@@ -602,7 +609,7 @@ public class Coffee {
 	 * Quickly get a few stem nodes (one from leaf) with associated children
 	 * Mostly only useful for debugging.
 	 */
-	public List<Pair<NodeIndex.Node, List<NodeIndex.Node>>> findStemNodesAndChildren(int statei, ClusterZMatrix zmat, NodeTree tree, int count) {
+	public List<Pair<NodeIndex.Node, List<NodeIndex.Node>>> findStemNodesAndChildren(int statei, ClusterZMatrix zmat, ClusterZMatrix zmatLower, NodeTree tree, int count) {
 		var stemNodes = new ArrayList<Pair<NodeIndex.Node, List<NodeIndex.Node>>>(count);
 
 		int batchSize = 10;
@@ -634,6 +641,7 @@ public class Coffee {
 							// init the state with the zmat
 							var stateInfo = infos[statei];
 							stateInfo.zmat = zmat;
+							stateInfo.zmatLower = zmatLower;
 							stateInfo.initBounder();
 
 							// init the root node

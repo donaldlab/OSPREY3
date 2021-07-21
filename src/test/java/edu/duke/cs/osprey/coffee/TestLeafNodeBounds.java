@@ -253,13 +253,14 @@ public class TestLeafNodeBounds {
 
 		// compute a zmat
 		var zmat = coffee.calcZMat(state.index);
+		var zmatLower = coffee.calcZMat(state.index);
 
 		final double epsilon = 1e-1; // TODO: can get tighter epsilon here?
 		final int numNodes = 50;
 
 		// get some confs
 		var tree = new NodeTree(confSpace.seqSpace.makeWildTypeSequence().makeRCs(state.confSpace));
-		var nodes = coffee.findHighZNodes(state.index, zmat, tree, numNodes);
+		var nodes = coffee.findHighZNodes(state.index, zmat, zmatLower, tree, numNodes);
 
 		try (var ecalc = new CPUConfEnergyCalculator(stateConfig.confSpace)) {
 
@@ -349,7 +350,7 @@ public class TestLeafNodeBounds {
 
 		// get some confs
 		var tree = new NodeTree(confSpace.seqSpace.makeWildTypeSequence().makeRCs(state.confSpace));
-		var nodes = coffee.findHighZNodes(state.index, zmat, tree, numNodes);
+		var nodes = coffee.findHighZNodes(state.index, zmat, zmatLower, tree, numNodes);
 
 		try (var ecalc = new CPUConfEnergyCalculator(stateConfig.confSpace)) {
 
