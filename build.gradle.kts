@@ -313,6 +313,7 @@ runtime {
 	jpackage {
 
 		imageName = "Osprey"
+		imageOutputDir = buildDir.resolve("jpackage").toFile()
 		installerName = imageName
 		mainClass = "$group.osprey.gui.MainKt"
 		jpackageHome = jPackageHomeOrDefault
