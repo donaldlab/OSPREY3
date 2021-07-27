@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.parallelism.ThreadTools;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.BigMath;
+import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
@@ -275,6 +276,18 @@ public class PfuncDirector implements Coffee.Director {
 
 			// are we always above the maximum useful value?
 			if (gMax != null && g.lower > gMax) {
+				break;
+			}
+
+			// check for precision errors
+			// they typically manifest as negative pfunc values (which are strictly non-negative by definition)
+			if (MathTools.isNegative(statez.zSumBounds.lower) || MathTools.isNegative(statez.zSumBounds.upper)) {
+				directions.member.log("ERROR: A partition function value is negative: %s"
+					+ "\n\tThis partiton function computation can never be completed, so it was aborted."
+					+ "\n\tNegative partition function values usually means a lack of precision in the sequence database."
+					+ "\n\tTry increasing the precision of the sequence database and try the computation again.",
+					statez.zSumBounds.toString()
+				);
 				break;
 			}
 		}
