@@ -64,7 +64,7 @@ public class NodePerformance {
 
 	private static class StatePerf {
 
-		/** indexed by number assigned positions */
+		/** indexed by number of assigned positions */
 		final TypePerf[] types;
 
 		StatePerf(MultiStateConfSpace.State state) {

@@ -58,7 +58,9 @@ public class Coffee {
 		// NOTE: SeqDB needs a LOT of precision to keep the bounds acccurate,
 		// since we're adding/subtracting numbers with very different exponents
 		// empirical testing shows anything higher than 512 starts to show noticeable performance penalties
-		private MathContext seqdbMathContext = new MathContext(512, RoundingMode.HALF_UP);
+		// unfortunately, testing also shows that values of 1024 of less can cause some pfunc computations to get stuck
+		// so we'll need something really huge by default to be safe for most computations
+		private MathContext seqdbMathContext = new MathContext(2048, RoundingMode.HALF_UP);
 		private boolean includeStaticStatic = true;
 		private Double tripleCorrectionThreshold = null;
 		private BoltzmannCalculator.Conditions conditions = BoltzmannCalculator.Conditions.Classic; // don't rock the boat
