@@ -37,6 +37,22 @@ fun ConfSpace.toToml(): String {
 
 	val fragConflibIds = IdentityHashMap<ConfLib.Fragment,String>()
 
+	// make sure all the wild-type fragments have unique ids
+	wildTypeFragments().apply {
+		val groups = groupBy(
+				keySelector = { it.id },
+				valueTransform = { it.id }
+			)
+			.map { (id, ids) -> id to ids.size }
+			.filter { (_, count) -> count > 1 }
+		if (groups.isNotEmpty()) {
+			val ids = groups.joinToString("\n\t") { (id, count) ->
+				"wild-type fragment id $id used $count times"
+			}
+			throw IllegalStateException("conformation space wild-type fragment ids are not unique:\n\t$ids")
+		}
+	}
+
 	// make a conflib for the wild-type conformations
 	val wtConflib = ConfLib(
 		id = wtConflibId,

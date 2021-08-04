@@ -289,7 +289,8 @@ class ConfSpace(val mols: List<Pair<MoleculeType,Molecule>>) {
 
 	fun addWildTypeConformation(pos: DesignPosition) {
 		val wtFrag = pos.makeFragment(
-			"wt-${pos.name.toTomlKey()}", "WildType @ ${pos.name}",
+			// NOTE: make sure wild-type fragment ids are unique for this entire conf space
+			"wt-${pos.mol.name.toTomlKey()}-${pos.name.toTomlKey()}", "WildType @ ${pos.mol.name} ${pos.name}",
 			"conf1", "conf1",
 			// find motions for the wildtype fragment, by finding a similar fragment from the library
 			motions = conflibs.findMatchingFragments(pos)
