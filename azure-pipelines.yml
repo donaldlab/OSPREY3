@@ -124,7 +124,7 @@ jobs:
   condition: ne(variables['Build.Reason'], 'PullRequest')
   steps:
   - bash: |
-      version=$(<src/main/resources/config/version)
+      version=$(<build/osprey-version)
       echo "##vso[task.setvariable variable=version]${version}"
     displayName: Set version variable from version file
   - task: DownloadBuildArtifacts@0
