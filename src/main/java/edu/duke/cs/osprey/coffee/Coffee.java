@@ -2,10 +2,12 @@ package edu.duke.cs.osprey.coffee;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.coffee.directions.Directions;
+import edu.duke.cs.osprey.coffee.directors.AffinityDirector;
 import edu.duke.cs.osprey.coffee.nodedb.NodeDB;
 import edu.duke.cs.osprey.coffee.nodedb.NodeIndex;
 import edu.duke.cs.osprey.coffee.nodedb.NodeTree;
 import edu.duke.cs.osprey.coffee.seqdb.SeqDB;
+import edu.duke.cs.osprey.coffee.seqdb.SeqFreeEnergies;
 import edu.duke.cs.osprey.coffee.zmat.ClusterZMatrix;
 import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
@@ -310,7 +312,11 @@ public class Coffee {
 			.toArray(StateInfo[]::new);
 	}
 
-	public void run(Director director) {
+	public Result run(Director director) {
+		// declare and initialize deliverables
+        Result result;
+		List<SeqFreeEnergies> finalBestSeqs = new ArrayList<>();
+		NodeStats.Report finalReport = new NodeStats.Report(0,0,new NodeStats.Values());
 		try (var member = new ClusterMember(cluster)) {
 
 			var stopwatch = new Stopwatch().start();
@@ -392,14 +398,28 @@ public class Coffee {
 							// wait for the computation to finish before cleaning up databases
 							member.barrier(5, TimeUnit.MINUTES);
 
+							// get the final statistics
+							nodeProcessor.syncStats();
+							finalReport = nodeProcessor.nodeStats.get();
+
 						} // node processor
 					} // nodedb
 				} // seqdb
 			} // tasks
 
+			// report result
+			try {
+				finalBestSeqs = ((AffinityDirector) director).bestSeqs;
+			}catch(ClassCastException e){
+				System.err.println("Not bothering to get best seqs if not affinityDirector");
+			}
+			result = new Result(stopwatch.getTimeS(), finalReport, finalBestSeqs);
+
 			member.log0("COFFEE Finished in %s", stopwatch.getTime(2));
 
 		} // cluster member
+        System.out.println(result);
+        return result;
 	}
 
 	/**

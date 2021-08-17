@@ -896,4 +896,14 @@ public class NodeProcessor implements AutoCloseable {
 			dropThread.addNodes(nodes);
 		}
 	}
+
+	/**
+	 * Force statistics collection to sync.
+	 * This is intended to be called just before collecting final node statistics
+	 */
+	public void syncStats(){
+		for (var t : nodeThreads) {
+			t.nodeStats.sync();
+		}
+	}
 }
