@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.coffee;
 
 import edu.duke.cs.osprey.coffee.seqdb.SeqFreeEnergies;
+import edu.duke.cs.osprey.tools.MathTools;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 
 import java.util.List;
@@ -17,8 +18,9 @@ public class Result {
     public long rescored; // number of nodes rescored
     public long finished; // number of nodes finished
     public List<SeqFreeEnergies> seqs; // list of finished sequences
+    public MathTools.DoubleBounds targetFreeEnergy; // target free energy
 
-    public Result(double runtimeS, NodeStats.Report stats, List<SeqFreeEnergies> seqs){
+    public Result(double runtimeS, NodeStats.Report stats, List<SeqFreeEnergies> seqs, MathTools.DoubleBounds targetFreeEnergy){
         this.runtimeS=runtimeS;
         this.startNs=stats.startNs;
         this.stopNs=stats.stopNs;
@@ -27,6 +29,7 @@ public class Result {
         this.rescored=stats.values.rescored;
         this.finished=stats.values.finished;
         this.seqs=seqs;
+        this.targetFreeEnergy=targetFreeEnergy;
     }
 
     public String toString(){

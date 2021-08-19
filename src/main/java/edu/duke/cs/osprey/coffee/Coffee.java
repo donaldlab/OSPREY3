@@ -24,6 +24,7 @@ import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.tools.BigExp;
+import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import javafx.util.Pair;
 
@@ -316,6 +317,7 @@ public class Coffee {
 		// declare and initialize deliverables
         Result result;
 		List<SeqFreeEnergies> finalBestSeqs = new ArrayList<>();
+		MathTools.DoubleBounds targetFreeEnergy = new MathTools.DoubleBounds();
 		NodeStats.Report finalReport = new NodeStats.Report(0,0,new NodeStats.Values());
 		try (var member = new ClusterMember(cluster)) {
 
@@ -410,10 +412,11 @@ public class Coffee {
 			// report result
 			try {
 				finalBestSeqs = ((AffinityDirector) director).bestSeqs;
+				targetFreeEnergy = ((AffinityDirector) director).targetFreeEnergy;
 			}catch(ClassCastException e){
 				System.err.println("Not bothering to get best seqs if not affinityDirector");
 			}
-			result = new Result(stopwatch.getTimeS(), finalReport, finalBestSeqs);
+			result = new Result(stopwatch.getTimeS(), finalReport, finalBestSeqs, targetFreeEnergy);
 
 			member.log0("COFFEE Finished in %s", stopwatch.getTime(2));
 
