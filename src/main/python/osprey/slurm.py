@@ -54,4 +54,4 @@ def launch(num_nodes, parallelism, mem_mib, python=sys.executable, srun_args=[])
 
     # call that command with srun to start the cluster job
     srun_cmd = ['srun'] + args + srun_args + script_cmd
-    subprocess.run(srun_cmd, check=True)
+    subprocess.Popen(srun_cmd)
