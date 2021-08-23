@@ -190,6 +190,11 @@ public interface PartitionFunction {
 				calcFreeEnergyUpperBoundPrecise()
 			);
 		}
+
+		@Override
+		public String toString() {
+			return String.format("Z = %s", calcBounds());
+		}
 	}
 
 	public static class Result {
