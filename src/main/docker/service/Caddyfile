@@ -1,0 +1,36 @@
+
+# Caddyfile documentation:
+# https://caddyserver.com/docs/caddyfile
+
+{
+	# turn off the admin interface, we won't be using it inside the container
+	admin off
+
+	# use a non-standard port so caddy doesn't need root, since we control all the clients
+	https_port {$HTTPS_PORT}
+
+	# enable HTTPs, but not HTTP
+	auto_https disable_redirects
+
+	# don't try to install our self-signed cert anywhere
+	skip_install_trust
+
+	# log to stdout, will get picked up by s6
+	log {
+		output stdout
+		format console
+	}
+}
+
+# listen to our non-standard port, on all network interfaces
+:{$HTTPS_PORT} {
+
+	# use the self-signed cert for SSL, that we generated before starting caddy
+	tls {$HOME}/osprey-service.crt {$HOME}/osprey-service.key
+
+	# proxy requests to each application server depending on version
+	{$CADDY_PROXIES}
+
+	# ignore everything else
+	respond 404
+}

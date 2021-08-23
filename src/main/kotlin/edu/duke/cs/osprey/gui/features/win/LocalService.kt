@@ -49,8 +49,8 @@ object LocalServiceRunner : AutoCloseable {
 
 	fun start() {
 		if (service == null) {
-			service = Server.Instance(serviceDir, wait = false)
-			UserSettings.serviceProvider = UserSettings.ServiceProvider("localhost")
+			service = Server.Instance(serviceDir, wait = false, useVersionPrefix=true)
+			UserSettings.serviceProvider = UserSettings.ServiceProvider("localhost", https=false)
 		}
 	}
 

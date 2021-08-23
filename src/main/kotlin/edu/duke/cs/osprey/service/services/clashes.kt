@@ -18,8 +18,8 @@ object ClashesService : OspreyService.Provider {
 		errors.subclass(ClashesError::class)
 	}
 
-	override fun registerService(instance: OspreyService.Instance, routing: Routing) {
-		routing.service(instance, "/clashes", ::run)
+	override fun registerService(instance: OspreyService.Instance, routing: Routing, prefix: String) {
+		routing.service(instance, "$prefix/clashes", ::run)
 	}
 
 	fun run(instance: OspreyService.Instance, request: ClashesRequest): ServiceResponse<ClashesResponse> {

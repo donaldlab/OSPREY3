@@ -21,8 +21,8 @@ object TypesService : OspreyService.Provider {
 		errors.subclass(TypesAntechamberError::class)
 	}
 
-	override fun registerService(instance: OspreyService.Instance, routing: Routing) {
-		routing.service(instance, "/types", ::run)
+	override fun registerService(instance: OspreyService.Instance, routing: Routing, prefix: String) {
+		routing.service(instance, "$prefix/types", ::run)
 	}
 
 	fun run(instance: OspreyService.Instance, request: TypesRequest): ServiceResponse<TypesResponse> {

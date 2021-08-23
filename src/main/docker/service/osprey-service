@@ -1,0 +1,33 @@
+#!/bin/sh
+
+# default options
+httpsport=44342
+
+# handle arguments
+while test $# -gt 0; do
+	case "$1" in
+
+		-p|--port)
+			shift
+			if [ $# -gt 0 ]; then
+				httpsport=$1
+			fi
+			shift
+			;;
+
+		*)
+			break
+			;;
+	esac
+done
+
+name="osprey-service"
+
+s6="-e S6_READ_ONLY_ROOT=1 --read-only --tmpfs /var:rw,exec"
+
+binds="--mount type=bind,src=/tmp,dst=/tmp"
+binds="$binds --volume osprey-service:/home/osprey"
+
+ports="-p $httpsport:$httpsport/tcp -e HTTPS_PORT=$httpsport"
+
+docker run --name $name --rm $s6 $binds $ports osprey/service

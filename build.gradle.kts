@@ -33,16 +33,13 @@
 import java.io.BufferedWriter
 import java.io.OutputStreamWriter
 import java.io.ByteArrayOutputStream
-import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.nio.file.attribute.PosixFilePermission
-import java.nio.file.StandardCopyOption
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import org.gradle.internal.os.OperatingSystem
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-
 
 
 plugins {
@@ -72,6 +69,7 @@ val docBuildDir = pythonBuildDir.resolve("doc")
 val versionFile = buildDir.resolve("osprey-version")
 val docDir = projectDir.resolve("doc")
 val docMainDir = docDir.resolve("content/documentation/main")
+val releasesDir = projectDir.resolve("releases")
 
 group = "edu.duke.cs"
 version = "3.2"
@@ -169,7 +167,7 @@ dependencies {
 
 	// used by the gui
 	implementation("com.cuchazinteractive:kludge:0.2")
-	implementation("io.ktor:ktor-client-cio:$ktorVersion")
+	implementation("io.ktor:ktor-client-apache:$ktorVersion")
 	implementation("io.ktor:ktor-client-serialization-jvm:$ktorVersion")
 
 	// used by the service
@@ -527,8 +525,6 @@ distributions {
 			}
 		}
 	}
-
-	// TODO: add distribution for the service
 }
 
 
@@ -844,6 +840,79 @@ tasks {
 	"testDistZip" {
 		dependsOn(testClasses, testRunScript)
 	}
+
+	val serviceTar by creating(Tar::class) {
+		group = "distribution"
+		description = "build the app server release for this version of the osprey service"
+		dependsOn(jar)
+
+		archiveBaseName.set("osprey-service")
+		archiveVersion.set(versionService)
+		destinationDirectory.set(releasesDir.toFile())
+		compression = Compression.BZIP2
+
+		val dirBin = buildDir.resolve("service-bin")
+		doFirst {
+			dirBin.recreateFolder()
+
+			// write the run script
+			val libs = ArrayList<String>().apply {
+				jar.outputs.files
+					.forEach { add(it.name) }
+				sourceSets["main"].runtimeClasspath
+					.filter { it.extension == "jar" }
+					.forEach { add(it.name) }
+			}
+			val classpath = libs.joinToString(":") { "lib/$it" }
+			writeScript(
+				dirBin, "osprey-service",
+				"""
+					|cd `dirname "$0"`/..
+					|java -Xmx1g -cp "$classpath" edu.duke.cs.osprey.service.MainKt $@
+				""".trimMargin()
+			)
+		}
+
+		into("") { // root folder
+			from("README.rst")
+			from("LICENSE.txt")
+			from("CONTRIBUTING.rst")
+		}
+		into("bin") {
+			from(dirBin)
+		}
+		into("lib") {
+			from(jar.outputs.files)
+			from(sourceSets["main"].runtimeClasspath.filter { it.extension == "jar" })
+		}
+		into("progs") {
+			from(projectDir.resolve("progs"))
+		}
+
+		// cleanup
+		doLast {
+			dirBin.deleteFolder()
+		}
+	}
+
+	/**
+	 * NOTE: You may be tempted to put a task in here to build docker images for Osprey.
+	 *
+	 * Don't do it!
+	 *
+	 * Due to the way docker works, the build steps must be run with sudo or you will get a "Permission denied" error.
+	 * Don't put your user in the `docker` group to try to avoid the sudo requirement, it's a huge security risk, see:
+	 * https://fosterelli.co/privilege-escalation-via-docker.html
+	 *
+	 * The only other option is then to run Gradle with root access.
+	 * This is a Very Bad Idea, since Gradle routinely downloads code from the internet and immediately executes it.
+	 * Especially when you're running it for the first time as the root user and Gradle has to entirely repopulate
+	 * its caches for a new user. You wouldn't give the internet root access to your machine. Don't run Gradle
+	 * as root unless you're in a VM or container.
+	 *
+	 * Don't subject your development machine to huge security risks for a tiny bit of convenience.
+	 * Just run your docker build steps directly in a short shell script under sudo.
+	 */
 
 	val compileShaders by creating {
 		group = "build"
@@ -1263,3 +1332,25 @@ fun updateLicenseHeaders() {
 	// NOTE: don't apply the header to the python example scripts.
 	// there's no need to scare osprey users with legalese in the tutorials
 }
+
+
+// some conveniences for files and paths
+
+fun Path.deleteFolder() =
+	toFile().deleteRecursively()
+
+fun Path.createFolder(): Path {
+	Files.createDirectories(this)
+	return this
+}
+
+fun Path.recreateFolder() {
+	deleteFolder()
+	createFolder()
+}
+
+fun Path.copyTo(to: Path) =
+	Files.copy(this, to)
+
+fun Path.copyFolderTo(to: Path) =
+	toFile().copyRecursively(to.toFile(), overwrite = true)

@@ -18,8 +18,8 @@ object ProtonateService : OspreyService.Provider {
 		errors.subclass(ProtonateError::class)
 	}
 
-	override fun registerService(instance: OspreyService.Instance, routing: Routing) {
-		routing.service(instance, "/protonate", ::run)
+	override fun registerService(instance: OspreyService.Instance, routing: Routing, prefix: String) {
+		routing.service(instance, "$prefix/protonate", ::run)
 	}
 
 	fun run(instance: OspreyService.Instance, request: ProtonateRequest): ServiceResponse<ProtonateResponse> {

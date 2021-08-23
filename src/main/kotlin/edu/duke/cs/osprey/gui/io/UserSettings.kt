@@ -15,13 +15,14 @@ object UserSettings {
 
 	data class ServiceProvider(
 		val hostname: String,
-		val port: Int = OspreyService.defaultPort
+		val port: Int = OspreyService.defaultPort,
+		val https: Boolean = true
 	)
 
 	// init settings with defaults
 
 	val serviceProviders = mutableListOf(
-		ServiceProvider("darius.istmein.de")
+		ServiceProvider("olympias.cs.duke.edu", https=true)
 	)
 	var serviceProvider: ServiceProvider = serviceProviders.first()
 		set(value) {
@@ -65,7 +66,8 @@ object UserSettings {
 
 						serviceProviders.add(ServiceProvider(
 							hostname = providerTable.getString("host") ?: continue,
-							port = providerTable.getInt("port") ?: continue
+							port = providerTable.getInt("port") ?: continue,
+							https = providerTable.getBoolean("https") ?: continue
 						))
 					}
 				}
@@ -99,9 +101,10 @@ object UserSettings {
 		if (serviceProviders.isNotEmpty()) {
 			write("serviceProviders = [\n")
 			for ((index, endpoint) in serviceProviders.withIndex()) {
-				write("\t{ host = %s, port = %d }, # %d\n",
+				write("\t{ host = %s, port = %d, https = %b }, # %d\n",
 					endpoint.hostname.quote(),
 					endpoint.port,
+					endpoint.https,
 					index
 				)
 			}

@@ -49,11 +49,12 @@ class LocalService:
         service_path = jvm.c.java.nio.file.Paths.get(os.path.dirname(progs_dir))
         wait = False
         port = osprey.c.service.OspreyService.defaultPort
-        cls._service = osprey.c.service.OspreyService.Instance(service_path, wait, port)
+        useVersionPrefix = True
+        cls._service = osprey.c.service.OspreyService.Instance(service_path, wait, port, useVersionPrefix)
 
         # switch the provider to the server instance
         cls._old_provider = osprey.c.gui.io.UserSettings.INSTANCE.getServiceProvider()
-        new_provider = osprey.c.gui.io.UserSettings.ServiceProvider('localhost', port)
+        new_provider = osprey.c.gui.io.UserSettings.ServiceProvider('localhost', port, False)
         osprey.c.gui.io.UserSettings.INSTANCE.setServiceProvider(new_provider)
 
         print('Osprey prep local service started')

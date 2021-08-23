@@ -20,8 +20,8 @@ object ProtonationService : OspreyService.Provider {
 		errors.subclass(ProtonationAntechamberError::class)
 	}
 
-	override fun registerService(instance: OspreyService.Instance, routing: Routing) {
-		routing.service(instance, "/protonation", ::run)
+	override fun registerService(instance: OspreyService.Instance, routing: Routing, prefix: String) {
+		routing.service(instance, "$prefix/protonation", ::run)
 	}
 
 	fun run(instance: OspreyService.Instance, request: ProtonationRequest): ServiceResponse<ProtonationResponse> {

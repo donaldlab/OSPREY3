@@ -20,8 +20,8 @@ object ForcefieldParamsService : OspreyService.Provider {
 		errors.subclass(ForcefieldParamsError::class)
 	}
 
-	override fun registerService(instance: OspreyService.Instance, routing: Routing) {
-		routing.service(instance, "/forcefieldParams", ::run)
+	override fun registerService(instance: OspreyService.Instance, routing: Routing, prefix: String) {
+		routing.service(instance, "$prefix/forcefieldParams", ::run)
 	}
 
 	fun run(instance: OspreyService.Instance, request: ForcefieldParamsRequest): ServiceResponse<ForcefieldParamsResponse> {
