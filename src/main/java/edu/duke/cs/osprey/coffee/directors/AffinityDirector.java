@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.coffee.seqdb.StateZ;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.ThreadTools;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.MathTools;
@@ -40,6 +41,7 @@ public class AffinityDirector implements Coffee.Director {
 
 		private int K = 5;
 		private double gWidthMax = 1.0;
+		private double epsilon = 0.683;
 		private Integer maxSimultaneousMutations = 1;
 		private Timing timing = Timing.Efficient;
 		private int ensembleSize = 0;
@@ -99,6 +101,16 @@ public class AffinityDirector implements Coffee.Director {
 			return this;
 		}
 
+		/**
+		 * Sets the largest precision desired for free energy calculations, uses epsilon.
+		 * Resulting free energy values may be more precise than this maximum value.
+		 * If the computation is stopped early, the free energy values may be less precise than this value.
+		 */
+		public Builder setEpsilon(double val) {
+			epsilon = val;
+			return this;
+		}
+
 		public Builder setMaxSimultaneousMutations(Integer val) {
 			maxSimultaneousMutations = val;
 			return this;
@@ -131,7 +143,7 @@ public class AffinityDirector implements Coffee.Director {
 		public AffinityDirector build() {
 			return new AffinityDirector(
 				confSpace, complex, design, target,
-				K, gWidthMax, maxSimultaneousMutations, timing,
+				K, gWidthMax, epsilon, maxSimultaneousMutations, timing,
 				ensembleSize, ensembleDir, ensembleUpdate, ensembleUpdateUnit
 			);
 		}
@@ -143,6 +155,7 @@ public class AffinityDirector implements Coffee.Director {
 	public final MultiStateConfSpace.State target;
 	public final int K;
 	public final double gWidthMax;
+	public final double epsilon;
 	public final Integer maxSimultaneousMutations;
 	public final Timing timing;
 	public final int ensembleSize;
@@ -156,7 +169,7 @@ public class AffinityDirector implements Coffee.Director {
 	private final BestSet<SeqFreeEnergies> bestSeqsByLower;
 	private final BestSet<SeqFreeEnergies> bestSeqsByUpper;
 
-	private AffinityDirector(MultiStateConfSpace confSpace, MultiStateConfSpace.State complex, MultiStateConfSpace.State design, MultiStateConfSpace.State target, int K, double gWidthMax, Integer maxSimultaneousMutations, Timing timing, int ensembleSize, File ensembleDir, long ensembleUpdate, TimeUnit ensembleUpdateUnit) {
+	private AffinityDirector(MultiStateConfSpace confSpace, MultiStateConfSpace.State complex, MultiStateConfSpace.State design, MultiStateConfSpace.State target, int K, double gWidthMax, double epsilon, Integer maxSimultaneousMutations, Timing timing, int ensembleSize, File ensembleDir, long ensembleUpdate, TimeUnit ensembleUpdateUnit) {
 
 		this.confSpace = confSpace;
 		this.complex = complex;
@@ -164,6 +177,7 @@ public class AffinityDirector implements Coffee.Director {
 		this.target = target;
 		this.K = K;
 		this.gWidthMax = gWidthMax;
+		this.epsilon = epsilon;
 		this.maxSimultaneousMutations = maxSimultaneousMutations;
 		this.timing = timing;
 		this.ensembleSize = ensembleSize;
@@ -249,7 +263,7 @@ public class AffinityDirector implements Coffee.Director {
 				}
 
 				// finish the sequnce if the precision is on target
-				if (complexG.size() <= gWidthMax) {
+				if (complexG.size() <= gWidthMax || complexZ.calcEpsilon(PartitionFunction.decimalPrecision) <= epsilon) {
 					finishedSequences.add(seqg.seq);
 				}
 			}
@@ -330,7 +344,8 @@ public class AffinityDirector implements Coffee.Director {
 
 			// if all the overlaps are at least the desired precision, we're done
 			if (overlapSeqgs.stream()
-				.allMatch(seqg -> seqg.freeEnergies[complex.index].size() <= gWidthMax)
+				.allMatch(seqg -> (seqg.freeEnergies[complex.index].size() <= gWidthMax)
+						|| seqs.get(seqg.seq)[complex.index].zSumBounds.calcEpsilon(PartitionFunction.decimalPrecision) <= epsilon)
 			) {
 				directions.member.log("Can't strictly find best %d sequences, but all borderline candidates are at the desired precision, so no further progress is possible.", K);
 
