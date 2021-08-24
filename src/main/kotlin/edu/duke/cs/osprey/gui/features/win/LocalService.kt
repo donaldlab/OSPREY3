@@ -43,7 +43,19 @@ object LocalServiceRunner : AutoCloseable {
 	init {
 		// if we're a linux developer, start a local service by default
 		if (Osprey.dev && OperatingSystem.get() == OperatingSystem.Linux) {
-			start()
+			try {
+				start()
+			} catch (t: Throwable) {
+
+				System.err.println("Failed to start local development service")
+				t.printStackTrace(System.err)
+
+				// weirdly enough, if these exeptions come from Netty, sometimes they have no stack traces!
+				// super helpful, eh? So at least print something we can see in the logs
+				if (t.stackTrace.isEmpty()) {
+					Thread.dumpStack()
+				}
+			}
 		}
 	}
 

@@ -113,7 +113,16 @@ object OspreyService {
 		}
 
 		init {
-			service.start(wait)
+			try {
+				service.start(wait)
+			} catch (t: Throwable) {
+				// if Netty failed to start, try to explicitly close it down
+				// sometimes it leaves threads around that will prevent the JVM from exiting
+				close()
+
+				// but pass the exception along to the caller
+				throw t
+			}
 		}
 
 		override fun close() {
