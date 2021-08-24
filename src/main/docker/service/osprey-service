@@ -1,6 +1,7 @@
 #!/bin/sh
 
 # default options
+version=latest
 httpsport=44342
 
 # handle arguments
@@ -14,6 +15,16 @@ while test $# -gt 0; do
 			fi
 			shift
 			;;
+
+	  -v|--version)
+	    shift
+	    if [ $# -gt 0 ]; then
+	      if [ ! -z "$1" ]; then
+	        version=$1
+	      fi
+	    fi
+	    shift
+	    ;;
 
 		*)
 			break
@@ -30,4 +41,4 @@ binds="$binds --volume osprey-service:/home/osprey"
 
 ports="-p $httpsport:$httpsport/tcp -e HTTPS_PORT=$httpsport"
 
-docker run --name $name --rm $s6 $binds $ports osprey/service
+docker run --name $name --rm $s6 $binds $ports osprey/service:$version

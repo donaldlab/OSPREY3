@@ -36,6 +36,7 @@ EOF
 fi
 
 # find all of the installed osprey versions
+vnames=
 proxies=
 ospreydir=/opt/osprey
 versions=`find $ospreydir/versions/* -type d -name "v*"`
@@ -52,6 +53,11 @@ for version in $versions; do
   echo "proxying osprey $vname on port $port"
 
   # build caddy directives to set up a reverse proxy
+  if [ ! -z "$vnames" ]; then
+    vnames="$vnames, $vname"
+  else
+    vnames="$vname"
+  fi
   proxies="$proxies
   handle_path /$vname/* {
     reverse_proxy localhost:$port
@@ -60,11 +66,12 @@ for version in $versions; do
 done
 
 # package the caddy directives into an environment variable
+export CADDY_OSPREY_VERSIONS="$vnames"
 export CADDY_PROXIES="$proxies"
 
 # NOTE: HTTPS_PORT should be set (via docker, then s6) in the osprey-service launcher
 if [ $HTTPS_PORT -gt 0 ]; then
-  echo "Starting Osprey service proxy on HTTPs port $HTTPS_PORT"
+  echo "Starting Osprey service proxy on HTTPs port $HTTPS_PORT for Osprey versions: $vnames"
 else
   echo "ERROR: No HTTPs port configured! $HTTPS_PORT"
   exit 1

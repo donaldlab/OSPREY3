@@ -16,7 +16,9 @@ ARG servicedir=src/main/docker/service
 WORKDIR /opt/osprey
 
 # add each supported version of the API
+# (add a line here for each service version, and add that version to the label too)
 ADD releases/osprey-service-0.3.tbz2 versions/v0.3
+LABEL "osprey.service.versions"="[0.3]"
 
 # install libraries needed by AmberTools
 RUN apt-get update \

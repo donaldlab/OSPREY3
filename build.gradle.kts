@@ -73,7 +73,7 @@ val releasesDir = projectDir.resolve("releases")
 
 group = "edu.duke.cs"
 version = "3.2"
-val versionService = "0.3"
+val versionService = "0.3" // NOTE: this line parsed by src/main/docker/service/build.sh to read the current version
 val packagePath = "edu/duke/cs/osprey"
 
 // add the module dependencies directly to the javac args
@@ -843,7 +843,7 @@ tasks {
 
 	val serviceTar by creating(Tar::class) {
 		group = "distribution"
-		description = "build the app server release for this version of the osprey service"
+		description = "build the app server runtime for this version of the osprey service"
 		dependsOn(jar)
 
 		archiveBaseName.set("osprey-service")
@@ -851,9 +851,9 @@ tasks {
 		destinationDirectory.set(releasesDir.toFile())
 		compression = Compression.BZIP2
 
-		val dirBin = buildDir.resolve("service-bin")
+		val dir = buildDir.resolve("service-$versionService")
 		doFirst {
-			dirBin.recreateFolder()
+			dir.recreateFolder()
 
 			// write the run script
 			val libs = ArrayList<String>().apply {
@@ -865,7 +865,7 @@ tasks {
 			}
 			val classpath = libs.joinToString(":") { "lib/$it" }
 			writeScript(
-				dirBin, "osprey-service",
+				dir, "osprey-service",
 				"""
 					|cd `dirname "$0"`/..
 					|java -Xmx1g -cp "$classpath" edu.duke.cs.osprey.service.MainKt $@
@@ -879,7 +879,7 @@ tasks {
 			from("CONTRIBUTING.rst")
 		}
 		into("bin") {
-			from(dirBin)
+			from(dir)
 		}
 		into("lib") {
 			from(jar.outputs.files)
@@ -891,12 +891,61 @@ tasks {
 
 		// cleanup
 		doLast {
-			dirBin.deleteFolder()
+			dir.deleteFolder()
 		}
 	}
 
+	val serviceDockerTar by creating(Tar::class) {
+		group = "distribution"
+		description = "build the distribution package of the docker image for the osprey service"
+
+		archiveBaseName.set("osprey-service-docker")
+		archiveVersion.set(versionService)
+		destinationDirectory.set(releasesDir.toFile())
+
+		// don't bother compressing this tar
+		// the VAST MAJORITY of the space is taken up by the docker image, which is already compressed
+		// we won't gain much more by compressing a few small text files
+		//compression = Compression.BZIP2
+
+		val imagePath = buildDir.resolve("docker/osprey-service-docker-$versionService.tar.bz2")
+		val serviceDir = projectDir.resolve("src/main/docker/service")
+
+		val dir = buildDir.resolve("service-docker")
+		doFirst {
+			dir.recreateFolder()
+
+			// make sure the docker image has been built
+			if (!imagePath.exists()) {
+				throw Error("""
+					|Docker image not built yet. (expected at $imagePath)
+					|Gradle can't build the Docker image because Docker requires special privileges.
+					|Run the build script in $serviceDir with sudo.
+				""".trimMargin())
+			}
+		}
+
+		into("") { // root folder
+			from("README.rst")
+			from("LICENSE.txt")
+			from("CONTRIBUTING.rst")
+			from("$serviceDir/osprey-service")
+			from("$serviceDir/install.sh")
+			from("$serviceDir/uninstall.sh")
+			from(imagePath)
+		}
+
+		// cleanup
+		doLast {
+			dir.deleteFolder()
+		}
+	}
+
+
 	/**
-	 * NOTE: You may be tempted to put a task in here to build docker images for Osprey.
+	 * Dear future me:
+	 *
+	 * You may be tempted to put a task in here to build docker images for Osprey.
 	 *
 	 * Don't do it!
 	 *
@@ -1335,6 +1384,9 @@ fun updateLicenseHeaders() {
 
 
 // some conveniences for files and paths
+
+fun Path.exists(): Boolean =
+	Files.exists(this)
 
 fun Path.deleteFolder() =
 	toFile().deleteRecursively()

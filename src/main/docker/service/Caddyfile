@@ -31,6 +31,10 @@
 	# proxy requests to each application server depending on version
 	{$CADDY_PROXIES}
 
+	handle_path /about {
+		respond "Osprey service running! Supported service versions: {$CADDY_OSPREY_VERSIONS}"
+	}
+
 	# ignore everything else
 	respond 404
 }
