@@ -45,6 +45,8 @@ object OspreyService {
 					// check that the SSL certificate actually says it's for the Osprey service
 					// the distinguished name for the issuer should look something like this:
 					// EMAILADDRESS=osprey@cs.duke.edu, CN=osprey.service, O=Osprey
+					// NOTE: we don't actually verify the hostname here, since we're only using SSL
+					// for in-flight encryption, not host identity management
 					setSSLHostnameVerifier { hostname, session ->
 
 						val distinguishedName = session.peerCertificates
@@ -74,9 +76,15 @@ object OspreyService {
 			}
 		}
 
+	/**
+	 * Used to temporarily override the service provider defined by the user settings.
+	 * Useful for running a local service without permanently changing user settings.
+	 */
+	var provider: UserSettings.ServiceProvider? = null
+
 	private fun HttpRequestBuilder.path(path: String) {
 		url {
-			val provider = UserSettings.serviceProvider
+			val provider = provider ?: UserSettings.serviceProvider
 			host = provider.hostname
 			port = provider.port
 			path("v$version/$path")

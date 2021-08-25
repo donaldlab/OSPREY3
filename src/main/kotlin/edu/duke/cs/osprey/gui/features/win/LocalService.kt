@@ -5,8 +5,8 @@ import edu.duke.cs.osprey.Osprey
 import edu.duke.cs.osprey.molscope.gui.WindowCommands
 import edu.duke.cs.osprey.molscope.gui.WindowFeature
 import edu.duke.cs.osprey.molscope.gui.features.FeatureId
-import edu.duke.cs.osprey.gui.OspreyGui
 import edu.duke.cs.osprey.gui.forcefield.amber.OperatingSystem
+import edu.duke.cs.osprey.gui.io.OspreyService
 import edu.duke.cs.osprey.gui.io.UserSettings
 import edu.duke.cs.osprey.service.OspreyService as Server
 import java.nio.file.Paths
@@ -62,12 +62,13 @@ object LocalServiceRunner : AutoCloseable {
 	fun start() {
 		if (service == null) {
 			service = Server.Instance(serviceDir, wait = false, useVersionPrefix=true)
-			UserSettings.serviceProvider = UserSettings.ServiceProvider("localhost", https=false)
+			OspreyService.provider = UserSettings.ServiceProvider("localhost", https=false)
 		}
 	}
 
 	override fun close() {
 		service?.close()
 		service = null
+		OspreyService.provider = null
 	}
 }

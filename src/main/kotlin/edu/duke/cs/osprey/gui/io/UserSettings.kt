@@ -19,6 +19,8 @@ object UserSettings {
 		val https: Boolean = true
 	)
 
+	private var isLoading = true
+
 	// init settings with defaults
 
 	val serviceProviders = mutableListOf(
@@ -30,13 +32,17 @@ object UserSettings {
 				serviceProviders.add(value)
 			}
 			field = value
-			save()
+			if (!isLoading) {
+				save()
+			}
 		}
 
 	var openSaveDir = Paths.get(System.getProperty("user.home"))
 		set(value) {
 			field = value
-			save()
+			if (!isLoading) {
+				save()
+			}
 		}
 
 	init {
@@ -53,6 +59,8 @@ object UserSettings {
 
 		// don't let errors here crash the whole program
 		try {
+
+			isLoading = true
 
 			val doc = Toml.parse(file.read())
 
@@ -89,6 +97,10 @@ object UserSettings {
 			// just report the exception and move on
 			// worst case, we just use default settings for this user
 			t.printStackTrace(System.err)
+
+		} finally {
+
+			isLoading = false
 		}
 	}
 
