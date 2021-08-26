@@ -17,7 +17,11 @@ object UserSettings {
 		val hostname: String,
 		val port: Int = OspreyService.defaultPort,
 		val https: Boolean = true
-	)
+	) {
+
+		override fun toString(): String =
+			"${if (https) "https" else "https"}://$hostname:$port"
+	}
 
 	private var isLoading = true
 
