@@ -910,18 +910,6 @@ public class MathTools {
 				.get();
 		}
 
-		public double calcEpsilon(MathContext mathContext){
-			if (MathTools.isZero(upper) || MathTools.isInf(lower)) {
-				return 1.0;
-			}
-			return new BigMath(mathContext)
-				.set(upper)
-				.sub(lower)
-				.div(upper)
-				.get()
-				.doubleValue();
-		}
-
 		public boolean isValid() {
 			return MathTools.isGreaterThanOrEqual(upper, lower);
 		}

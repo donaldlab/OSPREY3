@@ -185,7 +185,6 @@ def affinityDirector(
         target,
         k,
         gWidthMax=_useJavaDefault,
-        epsilon=_useJavaDefault,
         maxSimultaneousMutations=_useJavaDefault,
         timing=_useJavaDefault,
         ensembleTracking=_useJavaDefault,
@@ -197,8 +196,6 @@ def affinityDirector(
 
     if gWidthMax is not _useJavaDefault:
         builder.setGWidthMax(gWidthMax)
-    if epsilon is not _useJavaDefault:
-        builder.setEpsilon(epsilon)
     if maxSimultaneousMutations is not _useJavaDefault:
         builder.setMaxSimultaneousMutations(jvm.boxInt(maxSimultaneousMutations))
     if timing is not _useJavaDefault:
