@@ -9,14 +9,14 @@ cd `dirname "$0"`
 context=../../../..
 
 # pick a compressor for bzip2
-if [ -x "`which lbzip2`" ]; then
+if command -v lbzip2; then
   zip=lbzip2
   echo "lbzip2 compressor found"
-elif [ -x "`which bzip2`" ]; then
+elif command -v bzip2; then
   zip=bzip2
   echo "bzip2 compressor found"
   echo "It's fine"
-  echo "But if you want to bzip faster, consider installing lbzip2"
+  echo "But if you want to bzip2 faster, consider installing lbzip2"
 else
   echo "No compressor for bzip2 found. Try installing lbzip2 or bzip2"
   exit 1
@@ -33,7 +33,7 @@ echo Building osprey service v$version Docker image ...
 
 tag="osprey/service:$version"
 
-docker build -f Dockerfile $context --tag $tag
+docker build -f Dockerfile $context --tag $tag || exit 1
 
 # make a `usdo` (user do) command so we can do things as the logged in user
 user=`logname`
@@ -47,6 +47,6 @@ $usdo mkdir -p $build
 # but don't save the file with root permissions
 echo Exporting Docker image ...
 target=$build/osprey-service-docker-$version.tar.bz2
-docker save $tag | $zip > $target
+docker save $tag | $zip > $target || exit 1
 chown $user: $target
 echo Done!

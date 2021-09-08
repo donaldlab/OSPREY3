@@ -38,8 +38,13 @@ import java.nio.file.attribute.PosixFilePermission
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import kotlin.streams.asSequence
 import org.gradle.internal.os.OperatingSystem
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import com.jcraft.jsch.JSch
+import com.jcraft.jsch.ChannelSftp
+import com.jcraft.jsch.Logger as JschLogger
+import com.jcraft.jsch.SftpProgressMonitor
 
 
 plugins {
@@ -50,6 +55,16 @@ plugins {
 	idea
 	id("org.openjfx.javafxplugin") version("0.0.7")
 	id("org.beryx.runtime") version "1.12.5"
+}
+
+buildscript {
+	repositories {
+		mavenCentral()
+	}
+	dependencies {
+		// SSH client, BSD license: https://github.com/mwiede/jsch
+		classpath("com.github.mwiede:jsch:0.1.66")
+	}
 }
 
 javafx {
@@ -69,7 +84,17 @@ val docBuildDir = pythonBuildDir.resolve("doc")
 val versionFile = buildDir.resolve("osprey-version")
 val docDir = projectDir.resolve("doc")
 val docMainDir = docDir.resolve("content/documentation/main")
-val releasesDir = projectDir.resolve("releases")
+val releasesDir = buildDir.resolve("releases")
+
+// NOTE: shell scripts depend on these names, so don't change them without also updating the shell scripts
+val releaseNameService = "osprey-service"
+val releaseNameServiceDocker = "osprey-service-docker"
+
+fun String.isServiceRelease(): Boolean =
+	startsWith(releaseNameService) && !startsWith(releaseNameServiceDocker)
+	// have to check both prefixes, since they share a common prefix themselves
+
+val releaseArchiveDir = Paths.get("/usr/project/dlab/www/donaldlab/software/osprey/releases")
 
 group = "edu.duke.cs"
 version = "3.2"
@@ -85,7 +110,7 @@ val moduleArgs = listOf(
 
 
 repositories {
-	jcenter()
+	mavenCentral()
 }
 
 java {
@@ -846,7 +871,7 @@ tasks {
 		description = "build the app server runtime for this version of the osprey service"
 		dependsOn(jar)
 
-		archiveBaseName.set("osprey-service")
+		archiveBaseName.set(releaseNameService)
 		archiveVersion.set(versionService)
 		destinationDirectory.set(releasesDir.toFile())
 		compression = Compression.BZIP2
@@ -899,7 +924,7 @@ tasks {
 		group = "distribution"
 		description = "build the distribution package of the docker image for the osprey service"
 
-		archiveBaseName.set("osprey-service-docker")
+		archiveBaseName.set(releaseNameServiceDocker)
 		archiveVersion.set(versionService)
 		destinationDirectory.set(releasesDir.toFile())
 
@@ -962,6 +987,70 @@ tasks {
 	 * Don't subject your development machine to huge security risks for a tiny bit of convenience.
 	 * Just run your docker build steps directly in a short shell script under sudo.
 	 */
+
+
+	val archiveReleases by creating {
+		group = "release"
+		description = "Upload release builds to the dlab archive, where they are downloadable by the public"
+		doLast {
+			sftp {
+
+				// get the current releases
+				val archivedReleases = ls(releaseArchiveDir.toString())
+					.filter { !it.attrs.isDir }
+					.map { it.filename }
+
+				// diff against the local releases
+				val missingReleases = releasesDir.listFiles()
+					.filter { it.fileName.toString() !in archivedReleases }
+					.toList()
+
+				if (missingReleases.isNotEmpty()) {
+					for (release in missingReleases) {
+						put(
+							release.toString(),
+							releaseArchiveDir.resolve(release.fileName).toString(),
+							SftpProgressLogger()
+						)
+					}
+				} else {
+					println("No new releases to upload")
+				}
+			}
+		}
+	}
+
+	val downloadServiceReleases by creating {
+		group = "release"
+		description = "Download all versions of the service releases, for the docker build script"
+		doLast {
+			sftp {
+
+				// what releases do we have already?
+				val localReleaseNames = releasesDir.listFiles()
+					.map { it.fileName.toString() }
+					.filter { it.isServiceRelease() }
+					.toSet()
+
+				// what releases do we need?
+				val missingReleases = ls(releaseArchiveDir.toString())
+					.filter { !it.attrs.isDir && it.filename.isServiceRelease() && it.filename !in localReleaseNames }
+
+				// download the missing releases
+				if (missingReleases.isNotEmpty()) {
+					for (release in missingReleases) {
+						get(
+							releaseArchiveDir.resolve(release.filename).toString(),
+							releasesDir.resolve(release.filename).toString(),
+							SftpProgressLogger()
+						)
+					}
+				} else {
+					println("No extra service releases to download")
+				}
+			}
+		}
+	}
 
 	val compileShaders by creating {
 		group = "build"
@@ -1383,6 +1472,164 @@ fun updateLicenseHeaders() {
 }
 
 
+fun Project.propertyOrNull(name: String): Any? =
+	try {
+		property(name)
+	} catch (ex: groovy.lang.MissingPropertyException) {
+		null
+	}
+
+
+/** configure and open an SFTP connection over SSH */
+fun <T> sftp(block: ChannelSftp.() -> T): T {
+
+	// get user auth info
+	val sshDir = Paths.get(System.getProperty("user.home")).resolve(".ssh")
+	val user = project.propertyOrNull("dlab.user") as String?
+		?: throw Error("no user configured. set `dlab.user = \"your-user\"` in gradle.properties")
+	val keypriv = (project.propertyOrNull("dlab.key.private") as String?)
+		?.let { Paths.get(it) }
+		?: sshDir.resolve("id_rsa")
+	val keypub = (project.propertyOrNull("dlab.key.public") as String?)
+		?.let { Paths.get(it) }
+		?: Paths.get("$keypriv.pub")
+	val keytype = (project.propertyOrNull("dlab.key.type") as String?)
+	val knownHosts = (project.propertyOrNull("dlab.knownHosts") as String?)
+		?.let { Paths.get(it) }
+		?: sshDir.resolve("known_hosts")
+
+	// configure host info
+	val host = "login.cs.duke.edu"
+	val port = 22
+
+	// API docs: http://www.jcraft.com/jsch/
+	val jsch = JSch()
+	jsch.addIdentity(keypriv.toString(), keypub.toString(), null)
+	jsch.setKnownHosts(knownHosts.toString())
+
+	// if the key type is known, set it explicitly
+	// since older SSH server versions don't support key type negotiation,
+	// and sometimes SSH clients hit the auth failure threshold before finding the right algorithm via brute force, see:
+	// https://github.com/mwiede/jsch/issues/45#issuecomment-839727926
+	if (keytype != null) {
+		JSch.setConfig("PubkeyAcceptedAlgorithms", keytype)
+	}
+
+	// capture the JSch log
+	val log = StringBuilder()
+	JSch.setLogger(object : JschLogger {
+		override fun isEnabled(level: Int) = true
+		override fun log(level: Int, message: String?) {
+			val levelstr = when (level) {
+				JschLogger.DEBUG -> "DEBUG"
+				JschLogger.INFO -> "INFO"
+				JschLogger.WARN -> "WARN"
+				JschLogger.ERROR -> "ERROR"
+				JschLogger.FATAL -> "FATAL"
+				else -> "???"
+			}
+			log.append("\t$levelstr: $message\n")
+		}
+	})
+
+	// open the SSH connection
+	val session = jsch.getSession(user, host, port)
+	session.setConfig("PreferredAuthentications", "publickey")
+	try {
+		session.connect()
+	} catch (t: Throwable) {
+		System.err.println("""
+			|Error connecting to SSH server. Troubleshooting tips:
+			|   Make sure your username is correct: $user  (the username should not be quoted)
+			|   Check that the private key is correct: $keypriv (exists? ${Files.exists(keypriv)})
+			|      If your private key is not at the default location, set `dlab.key.private = /path` in gradle.properties.
+			|   Check that the public key is correct: $keypub (exists? ${Files.exists(keypub)})
+			|      If your public key is not at the default location, set `dlab.key.public = /path` in gradle.properties.
+			|   Make sure the SSH client can find your key type before the auth failure limit (sometimes as low as 2).
+			|      Check the SSH log (below) for details.
+			|      If the correct key type isn't found before the auth failure limit, try setting `dlab.key.type = your-key=type` in gradle.properties.
+			|      For older SSH keys, the correct type is often `ssh-rsa`.
+			|   Check that the known hosts file is correct: $knownHosts (exists? ${Files.exists(knownHosts)})
+			|      If your known_hosts file is not at the default location, set `dlab.knownHosts = /path` in gradle.properties.
+			|   Make sure the SSH host is in your known_hosts file. Try connecting to $host via `ssh` in a terminal first.
+			|   You'll need a Duke CS account to connect to the Duke CS SSH server.
+			|SSH log:
+			|$log
+		""".trimMargin())
+		throw t
+	}
+	try {
+		val channel = session.openChannel("sftp") as ChannelSftp
+		try {
+			channel.connect()
+
+			// at long last, we're connected. Do The Thing!
+			return channel.block()
+
+		} finally {
+			channel.disconnect()
+		}
+	} finally {
+		if (session.isConnected) {
+			session.disconnect()
+		}
+	}
+}
+
+class SftpProgressLogger : SftpProgressMonitor {
+
+	private var bytes: Long? = null
+	private var progress: Long = 0
+	private var startNs: Long? = null
+	private var lastNs: Long? = null
+
+	override fun init(op: Int, src: String?, dest: String?, max: Long) {
+		println("Copying $max bytes from $src to $dest ...")
+		bytes = max
+		startNs = System.nanoTime()
+		lastNs = startNs
+	}
+
+	override fun count(count: Long): Boolean {
+
+		progress += count
+
+		// don't log more than once per second
+		val nowNs = System.nanoTime()
+		val lastNs = lastNs
+		val elapsedNs = if (lastNs != null) {
+			nowNs - lastNs
+		} else {
+			0
+		}
+		if (elapsedNs >= 1_000_000_000) {
+
+			this.lastNs = nowNs
+
+			val bytes = bytes
+			if (bytes != null) {
+				val pct = 100f*progress.toFloat()/bytes.toFloat()
+				println("   copied $progress bytes ${"%.1f".format(pct)} %")
+			} else {
+				println("   copied $progress bytes")
+			}
+		}
+
+		return true // true to continue, false to cancel
+	}
+
+	override fun end() {
+		val nowNs = System.nanoTime()
+		val startNs = startNs
+		if (startNs != null) {
+			println("   done in ${"%.1f".format((nowNs - startNs).toFloat()/1e9f)} s")
+		} else {
+			println("   done")
+		}
+	}
+}
+
+
 // some conveniences for files and paths
 
 fun Path.exists(): Boolean =
@@ -1406,3 +1653,7 @@ fun Path.copyTo(to: Path) =
 
 fun Path.copyFolderTo(to: Path) =
 	toFile().copyRecursively(to.toFile(), overwrite = true)
+
+fun Path.listFiles(): Sequence<Path> =
+	Files.list(this).asSequence()
+		.filter { Files.isRegularFile(it) }
