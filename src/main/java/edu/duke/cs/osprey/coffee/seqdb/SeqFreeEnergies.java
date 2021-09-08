@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.coffee.seqdb;
 
+import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
 

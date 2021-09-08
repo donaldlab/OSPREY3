@@ -788,6 +788,33 @@ public class TestCoffee {
 		});
 	}
 
+	private void design_mspfunc_6ov7_2mut4flex(int numMembers, int numThreads) {
+		withPseudoCluster(numMembers, cluster -> {
+			var confSpace = TestCoffee.affinity_6ov7_2mut4flex();
+
+			Coffee coffee = new Coffee.Builder(confSpace)
+					.setCluster(cluster)
+					.setParallelism(Parallelism.makeCpu(numThreads))
+					.configEachState(config -> {
+						config.posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null);
+					})
+					.build();
+
+			var director = new MSPfuncDirector.Builder(confSpace, "complex")
+					.setK(28) // just the sequences that are quick to get... some of the other sequences have high energies and VERY loose bounds
+					.setMaxSimultaneousMutations(null)
+					.setTiming(Timing.Precise)
+					.build();
+			coffee.run(director);
+
+			if (cluster.nodeId == 0) {
+				assertThat(director.bestSeqs.size(), is(28));
+				assertFreeEnergies_2m4f_complex(director.bestSeqs, confSpace.getState("complex").index);
+			}
+		});
+	}
+	@Test public void design_mspfunc_6ov7_2mut4flex_1x4() { design_mspfunc_6ov7_2mut4flex(1, 4); }
+
 	@Test public void design_affinity_6ov7_2mut4flex_1x4() { design_affinity_6ov7_2mut4flex(1, 4); }
 	@Test public void design_affinity_6ov7_2mut4flex_2x2() { design_affinity_6ov7_2mut4flex(2, 2); }
 	@Test public void design_affinity_6ov7_2mut4flex_4x1() { design_affinity_6ov7_2mut4flex(4, 1); }

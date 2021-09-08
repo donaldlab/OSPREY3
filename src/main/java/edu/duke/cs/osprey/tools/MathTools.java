@@ -33,6 +33,7 @@
 package edu.duke.cs.osprey.tools;
 
 import ch.obermuhlner.math.big.BigDecimalMath;
+import edu.duke.cs.osprey.coffee.seqdb.SeqFreeEnergies;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -856,6 +857,10 @@ public class MathTools {
 		public boolean equals(DoubleBounds other) {
 			return this.lower == other.lower
 				&& this.upper == other.upper;
+		}
+
+		public int compareTo(DoubleBounds other) {
+			return Double.compare(this.lower, other.lower);
 		}
 
 		@Override

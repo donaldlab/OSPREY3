@@ -38,7 +38,7 @@ public class PfuncDirector implements Coffee.Director {
 		private Double gMax = null;
 		private Timing timing = Timing.Efficient;
 		private boolean reportProgress = false;
-		private int ensembleSize = 0;
+		protected int ensembleSize = 0;
 		private File ensembleFile = null;
 		private long ensembleUpdate = 30;
 		private TimeUnit ensembleUpdateUnit = TimeUnit.SECONDS;
@@ -130,7 +130,7 @@ public class PfuncDirector implements Coffee.Director {
 
 	private DoubleBounds freeEnergy;
 
-	private PfuncDirector(MultiStateConfSpace confSpace, MultiStateConfSpace.State state, Sequence seq, double gWidthMax, Double gMax, Timing timing, boolean reportProgress, int ensembleSize, File ensembleFile, long ensembleUpdate, TimeUnit ensembleUpdateUnit) {
+	protected PfuncDirector(MultiStateConfSpace confSpace, MultiStateConfSpace.State state, Sequence seq, double gWidthMax, Double gMax, Timing timing, boolean reportProgress, int ensembleSize, File ensembleFile, long ensembleUpdate, TimeUnit ensembleUpdateUnit) {
 		this.confSpace = confSpace;
 		this.state = state;
 		this.seq = seq;
