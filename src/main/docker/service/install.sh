@@ -27,9 +27,11 @@ if [ -d "$systemddir" ]; then
 
   # make the unit file
   # https://www.freedesktop.org/software/systemd/man/systemd.unit.html
-  cat << EOF > "$systemddir/osprey.service" || exit 1
+  servicefile="$systemddir/osprey.service"
+  cat << EOF > "$servicefile" || exit 1
 [Unit]
 Description=Osprey Service
+After=docker.service
 
 [Service]
 Type=simple
@@ -41,6 +43,7 @@ ExecStart=$here/osprey-service --version $version
 [Install]
 WantedBy = multi-user.target
 EOF
+  chmod go-w "$servicefile"
 
   # poke systemd to recognize the new daemon and start it
   systemctl daemon-reload
@@ -52,11 +55,47 @@ EOF
 
 elif [ -d "$launchddir" ]; then
 
-  echo launchd detected, installing for OSX
+  # this is too much trouble to get working now
+  # maybe try again some other day ...
+  echo launchd detected, OSX platform not supported
+  exit 1
 
+  echo launchd detected, installing for OSX
   # https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html
 
-  # TODO
+  # make the properties file
+  plistfile="$launchddir/osprey.plist"
+  cat << EOF > "$plistfile" || exit 1
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>osprey</string>
+    <key>ProgramArguments</key>
+    <array>
+      <string>$here/osprey-service</string>
+      <string>--version</string>
+      <string>$version</string>
+    </array>
+    <key>KeepAlive</key>
+    <true/>
+    <key>UserName</key>
+    <string>nobody</string>
+  </dict>
+</plist>
+EOF
+  chmod go-w "$plistfile"
+  # tragically, launchd doesn't seem to support dependencies for always-on daemons
+  # there doesn't seem to be any way to guarantee that docker is running first =(
+  # does apple even WANT devs to make services for OSX servers?!?
+
+  # install the daemon
+  launchctl load "$plistfile"
+  launchctl enable osprey
+
+  # start the daemon
+  launchctl start osprey
 
 fi
 
