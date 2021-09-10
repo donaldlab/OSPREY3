@@ -99,6 +99,9 @@ def loadPDB(pdb):
     partition = osprey.c.gui.forcefield.amber.MolPartitioningKt.partition(pdb, True)
     return [pair.getSecond() for pair in partition]
 
+def savePDB(mol):
+    return osprey.c.gui.io.PDBKt.toPDB(mol, False, False, None, None, False, False, False)
+
 
 def loadOMOL(omol):
     return osprey.c.gui.io.OMOLKt.fromOMOL(_kotlin_companion(osprey.c.molscope.molecule.Molecule), omol, True)
@@ -147,8 +150,18 @@ def inferProtonation(mol):
     return osprey.c.gui.forcefield.amber.ProtonateKt.inferProtonationBlocking(mol)
 
 
-def deprotonate(mol, atom):
-    osprey.c.gui.forcefield.amber.ProtonateKt.deprotonate(mol, atom)
+def deprotonate(mol, atoms=None):
+    """Deprotonates a molecule or certain atoms in a molecule.
+
+    Without supplying an argument for atom, the entire molecule is deprotonated.
+    When atom is supplied, it should be supplied as an iterable of atoms.
+    """
+    if atoms is None:
+        osprey.c.gui.forcefield.amber.ProtonateKt.deprotonate(mol)
+        return
+
+    for atom in atoms:
+        osprey.c.gui.forcefield.amber.ProtonateKt.deprotonate(mol, atom)
 
 
 def protonate(mol, atom, numH, hybridization):
