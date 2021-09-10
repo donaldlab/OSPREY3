@@ -26,6 +26,7 @@ import java.util.NoSuchElementException;
 public class ConfSpace implements ConfSpaceIteration {
 
 	public static int NotAssigned = -1;
+	public static int NoResidue = -1;
 
 
 	/** a conformation at a design position */

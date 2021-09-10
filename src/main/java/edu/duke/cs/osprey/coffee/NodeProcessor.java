@@ -21,6 +21,8 @@ import edu.duke.cs.osprey.parallelism.ThreadTools;
 import edu.duke.cs.osprey.tools.BigExp;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -119,7 +121,15 @@ public class NodeProcessor implements AutoCloseable {
 				}
 
 				// get the next nodes from that state
-				nodedb.removeHigh(statei, nodeBatchSize, nodesIncoming);
+				try {
+					nodedb.removeHigh(statei, nodeBatchSize, nodesIncoming);
+				} catch (Throwable t) {
+					StringWriter buf = new StringWriter();
+					t.printStackTrace(new PrintWriter(buf));
+					log("Error getting nodes from NodeDB:\n" + buf);
+					waitABit.run();
+					continue;
+				}
 				if (nodesIncoming.isEmpty()) {
 					waitABit.run();
 					continue;

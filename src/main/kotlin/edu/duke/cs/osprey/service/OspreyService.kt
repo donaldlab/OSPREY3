@@ -32,7 +32,7 @@ import java.util.concurrent.TimeUnit
 object OspreyService {
 
 	const val name = "Osprey Service"
-	const val defaultPort = 8080
+	const val defaultPort = 44342
 
 	val version = Osprey.versionService
 
@@ -54,7 +54,7 @@ object OspreyService {
 	interface Provider {
 		fun registerResponses(responses: PolymorphicModuleBuilder<ResponseInfo>) {}
 		fun registerErrors(errors: PolymorphicModuleBuilder<ErrorInfo>) {}
-		fun registerService(instance: Instance, routing: Routing)
+		fun registerService(instance: Instance, routing: Routing, prefix: String)
 	}
 
 	val services: List<Provider> = listOf(
@@ -71,7 +71,16 @@ object OspreyService {
 	)
 
 
-	class Instance(val dir: Path, wait: Boolean, port: Int = defaultPort) : AutoCloseable {
+	class Instance(
+		val dir: Path,
+		wait: Boolean,
+		port: Int = defaultPort,
+		/**
+		 * If true, prefix all endpoints with "v$version" to match the effect of the Caddy reverse proxy
+		 * that a production deployment of the service would use.
+		 */
+		useVersionPrefix: Boolean = false
+	) : AutoCloseable {
 
 		private val service = embeddedServer(Netty, port) {
 
@@ -89,15 +98,31 @@ object OspreyService {
 					call.respondText(html, ContentType.Text.Html)
 				}
 
+				// determine the endpoint prefix
+				val prefix = if (useVersionPrefix) {
+					"/v$version"
+				} else {
+					""
+				}
+
 				// map each service to a URL
 				for (service in services) {
-					service.registerService(this@Instance, this@routing)
+					service.registerService(this@Instance, this@routing, prefix)
 				}
 			}
 		}
 
 		init {
-			service.start(wait)
+			try {
+				service.start(wait)
+			} catch (t: Throwable) {
+				// if Netty failed to start, try to explicitly close it down
+				// sometimes it leaves threads around that will prevent the JVM from exiting
+				close()
+
+				// but pass the exception along to the caller
+				throw t
+			}
 		}
 
 		override fun close() {

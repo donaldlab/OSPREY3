@@ -18,8 +18,8 @@ object MoleculeFFInfoService : OspreyService.Provider {
 		errors.subclass(MoleculeFFInfoError::class)
 	}
 
-	override fun registerService(instance: OspreyService.Instance, routing: Routing) {
-		routing.service(instance, "/moleculeFFInfo", ::run)
+	override fun registerService(instance: OspreyService.Instance, routing: Routing, prefix: String) {
+		routing.service(instance, "$prefix/moleculeFFInfo", ::run)
 	}
 
 	fun run(instance: OspreyService.Instance, request: MoleculeFFInfoRequest): ServiceResponse<MoleculeFFInfoResponse> {

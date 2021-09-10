@@ -54,6 +54,9 @@ fun main() = autoCloser {
 			addSeparator()
 			add(Exit())
 		}
+		menu("Settings") {
+			add(ServiceProviderPicker())
+		}
 		menu("View") {
 			add(MenuColorsMode())
 		}

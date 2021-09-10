@@ -1,0 +1,58 @@
+
+# NOTE: the build context for this Dockerfile is the project roots
+
+# use JDK 16 as the base image, since that's probably the heaviest dependency here
+# image based on Ubuntu 20.04 LTS (Focal Fossa)
+FROM adoptopenjdk:16-jdk-hotspot-focal
+
+# install s6-overlay as the init system
+# https://github.com/just-containers/s6-overlay
+ADD https://github.com/just-containers/s6-overlay/releases/download/v2.2.0.1/s6-overlay-amd64-installer /tmp/
+RUN chmod +x /tmp/s6-overlay-amd64-installer && /tmp/s6-overlay-amd64-installer /
+ENTRYPOINT ["/init"]
+
+# set up directories
+ARG servicedir=src/main/docker/service
+WORKDIR /opt/osprey
+
+# add each supported version of the API
+# (add a line here for each service version, and add that version to the label too)
+ADD releases/osprey-service-0.3.tbz2 versions/v0.3
+LABEL "osprey.service.versions"="[0.3]"
+
+# install libraries needed by AmberTools
+RUN apt-get update \
+	&& apt-get install -y libgfortran4
+
+# install s6 services for all the API versions
+COPY $servicedir/install-osprey.sh ./
+COPY $servicedir/finish.sh ./
+RUN chmod +x install-osprey.sh \
+	&& chmod +x finish.sh \
+	&& ./install-osprey.sh
+
+# install Caddy 2
+# https://caddyserver.com/v2
+# https://github.com/caddyserver/caddy-docker/blob/master/Dockerfile.tmpl
+ENV CADDY_VERSION 2.4.3
+ADD https://github.com/caddyserver/caddy/releases/download/v$CADDY_VERSION/caddy_${CADDY_VERSION}_linux_amd64.tar.gz /tmp/caddy.tar.gz
+RUN tar x -z -f /tmp/caddy.tar.gz -C /usr/bin caddy \
+	&& rm -f /tmp/caddy.tar.gz \
+	&& chmod +x /usr/bin/caddy \
+	&& caddy version
+
+# configure caddy
+COPY $servicedir/Caddyfile ./
+
+# install s6 service for caddy
+# if caddy ever dies, tell s6 to exit and not to restart it
+# ideally, the whole container should die if any one service dies
+COPY $servicedir/start-caddy.sh /etc/services.d/caddy/run
+RUN chmod +x /etc/services.d/caddy/run \
+	&& cp finish.sh /etc/services.d/caddy/finish
+
+# create a place the service can store data
+RUN mkdir -p /home/osprey \
+	&& chown www-data: /home/osprey \
+	&& ls -al /home/osprey
+VOLUME /home/osprey

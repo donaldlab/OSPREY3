@@ -1,0 +1,8 @@
+
+# use an allow-list approach
+# first ignore everything
+*
+
+# then stop ignoring the paths we want to allow
+!src/main/docker/service
+!releases

@@ -21,7 +21,6 @@ class LocalService:
     # make these class variables instead of instance variables
     # only only one service instance is allowed at once
     _service = None
-    _old_provider = None
 
     def __init__(self):
         # TODO: try to prevent from running on non-linux platforms?
@@ -49,12 +48,12 @@ class LocalService:
         service_path = jvm.c.java.nio.file.Paths.get(os.path.dirname(progs_dir))
         wait = False
         port = osprey.c.service.OspreyService.defaultPort
-        cls._service = osprey.c.service.OspreyService.Instance(service_path, wait, port)
+        useVersionPrefix = True
+        cls._service = osprey.c.service.OspreyService.Instance(service_path, wait, port, useVersionPrefix)
 
         # switch the provider to the server instance
-        cls._old_provider = osprey.c.gui.io.UserSettings.INSTANCE.getServiceProvider()
-        new_provider = osprey.c.gui.io.UserSettings.ServiceProvider('localhost', port)
-        osprey.c.gui.io.UserSettings.INSTANCE.setServiceProvider(new_provider)
+        provider = osprey.c.gui.io.UserSettings.ServiceProvider('localhost', port, False)
+        osprey.c.gui.io.OspreyService.INSTANCE.setProvider(provider)
 
         print('Osprey prep local service started')
 
@@ -69,10 +68,9 @@ class LocalService:
         cls._service.close()
 
         # unregister the provider
-        osprey.c.gui.io.UserSettings.INSTANCE.setServiceProvider(cls._old_provider)
+        osprey.c.gui.io.OspreyService.INSTANCE.setProvider(None)
 
         cls._service = None
-        cls._old_provider = None
 
         print('Osprey prep local service stopped')
 

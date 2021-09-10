@@ -18,8 +18,8 @@ object MissingAtomsService : OspreyService.Provider {
 		errors.subclass(MissingAtomsError::class)
 	}
 
-	override fun registerService(instance: OspreyService.Instance, routing: Routing) {
-		routing.service(instance, "/missingAtoms", ::run)
+	override fun registerService(instance: OspreyService.Instance, routing: Routing, prefix: String) {
+		routing.service(instance, "$prefix/missingAtoms", ::run)
 	}
 
 	fun run(instance: OspreyService.Instance, request: MissingAtomsRequest): ServiceResponse<MissingAtomsResponse> {

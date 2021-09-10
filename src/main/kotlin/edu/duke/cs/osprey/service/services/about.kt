@@ -13,8 +13,8 @@ object AboutService : OspreyService.Provider {
 		responses.subclass(AboutResponse::class)
 	}
 
-	override fun registerService(instance: OspreyService.Instance, routing: Routing) {
-		routing.service(instance, "/about", ::run)
+	override fun registerService(instance: OspreyService.Instance, routing: Routing, prefix: String) {
+		routing.service(instance, "$prefix/about", ::run)
 	}
 
 	fun run(instance: OspreyService.Instance): ServiceResponse<AboutResponse> =

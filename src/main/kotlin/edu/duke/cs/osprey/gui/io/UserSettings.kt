@@ -15,13 +15,20 @@ object UserSettings {
 
 	data class ServiceProvider(
 		val hostname: String,
-		val port: Int = OspreyService.defaultPort
-	)
+		val port: Int = OspreyService.defaultPort,
+		val https: Boolean = true
+	) {
+
+		override fun toString(): String =
+			"${if (https) "https" else "https"}://$hostname:$port"
+	}
+
+	private var isLoading = true
 
 	// init settings with defaults
 
 	val serviceProviders = mutableListOf(
-		ServiceProvider("darius.istmein.de")
+		ServiceProvider("olympias.cs.duke.edu", https=true)
 	)
 	var serviceProvider: ServiceProvider = serviceProviders.first()
 		set(value) {
@@ -29,13 +36,17 @@ object UserSettings {
 				serviceProviders.add(value)
 			}
 			field = value
-			save()
+			if (!isLoading) {
+				save()
+			}
 		}
 
 	var openSaveDir = Paths.get(System.getProperty("user.home"))
 		set(value) {
 			field = value
-			save()
+			if (!isLoading) {
+				save()
+			}
 		}
 
 	init {
@@ -53,6 +64,8 @@ object UserSettings {
 		// don't let errors here crash the whole program
 		try {
 
+			isLoading = true
+
 			val doc = Toml.parse(file.read())
 
 			// load the service providers
@@ -65,7 +78,8 @@ object UserSettings {
 
 						serviceProviders.add(ServiceProvider(
 							hostname = providerTable.getString("host") ?: continue,
-							port = providerTable.getInt("port") ?: continue
+							port = providerTable.getInt("port") ?: continue,
+							https = providerTable.getBoolean("https") ?: continue
 						))
 					}
 				}
@@ -87,6 +101,10 @@ object UserSettings {
 			// just report the exception and move on
 			// worst case, we just use default settings for this user
 			t.printStackTrace(System.err)
+
+		} finally {
+
+			isLoading = false
 		}
 	}
 
@@ -99,9 +117,10 @@ object UserSettings {
 		if (serviceProviders.isNotEmpty()) {
 			write("serviceProviders = [\n")
 			for ((index, endpoint) in serviceProviders.withIndex()) {
-				write("\t{ host = %s, port = %d }, # %d\n",
+				write("\t{ host = %s, port = %d, https = %b }, # %d\n",
 					endpoint.hostname.quote(),
 					endpoint.port,
+					endpoint.https,
 					index
 				)
 			}

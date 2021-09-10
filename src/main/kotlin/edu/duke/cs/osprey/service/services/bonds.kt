@@ -20,8 +20,8 @@ object BondsService : OspreyService.Provider {
 		errors.subclass(BondsAntechamberError::class)
 	}
 
-	override fun registerService(instance: OspreyService.Instance, routing: Routing) {
-		routing.service(instance, "/bonds", ::run)
+	override fun registerService(instance: OspreyService.Instance, routing: Routing, prefix: String) {
+		routing.service(instance, "$prefix/bonds", ::run)
 	}
 
 	fun run(instance: OspreyService.Instance, request: BondsRequest): ServiceResponse<BondsResponse> {

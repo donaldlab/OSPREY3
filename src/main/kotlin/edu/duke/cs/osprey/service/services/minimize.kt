@@ -18,8 +18,8 @@ object MinimizeService : OspreyService.Provider {
 		errors.subclass(MinimizeError::class)
 	}
 
-	override fun registerService(instance: OspreyService.Instance, routing: Routing) {
-		routing.service(instance, "/minimize", ::run)
+	override fun registerService(instance: OspreyService.Instance, routing: Routing, prefix: String) {
+		routing.service(instance, "$prefix/minimize", ::run)
 	}
 
 	fun run(instance: OspreyService.Instance, request: MinimizeRequest): ServiceResponse<MinimizeResponse> {

@@ -165,10 +165,13 @@ public class AssignedCoords {
 
 		// figure out which res infos to use with the current assignments
 		// start with res infos from the static atoms
+		// not all atoms have residue infos (eg atoms in small molecules)
 		Map<String,Integer> staticResInfos = new HashMap<>();
 		for (int i=0; i<confSpace.numStaticAtoms; i++) {
 			var resInfoIndex = confSpace.staticResInfoIndices[i];
-			staticResInfos.put(makeResKey.apply(resInfoIndex), resInfoIndex);
+			if (resInfoIndex != ConfSpace.NoResidue) {
+				staticResInfos.put(makeResKey.apply(resInfoIndex), resInfoIndex);
+			}
 		}
 
 		// then get the res infos from conf atoms
@@ -271,8 +274,10 @@ public class AssignedCoords {
 			atomInfo.molInfoIndex = confSpace.staticMolInfoIndices[i];
 			atomInfo.resInfoIndex = confSpace.staticResInfoIndices[i];
 
-			// apply the residue assignments
-			atomInfo.resInfoIndex = resInfoIndexMap.get(makeResKey.apply(atomInfo.resInfoIndex));
+			// apply the residue assignments, if needed
+			if (atomInfo.resInfoIndex != ConfSpace.NoResidue) {
+				atomInfo.resInfoIndex = resInfoIndexMap.get(makeResKey.apply(atomInfo.resInfoIndex));
+			}
 
 			addInfo.accept(atomInfo);
 		}
