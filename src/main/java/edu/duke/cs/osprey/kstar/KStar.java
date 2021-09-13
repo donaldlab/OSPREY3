@@ -121,10 +121,10 @@ public class KStar {
 			private boolean resume = false;
 
 			/**
-			 * The maximum number of conformations for each pfunc to explore. Breaks provability, but
-			 * can be used as a faster heuristic. -1 means use epsilon.
+			 * The maximum number of conformations for each pfunc to explore. Breaks provability in such that
+			 * you may not compute to a full epsilon, but can be used as a faster heuristic.
 			 */
-			private int maxNumberConfs = -1;
+			private int maxNumberConfs = Integer.MAX_VALUE;
 
 			/**
 			 * The maximum amount of time to spend on any one partition function calculation.
