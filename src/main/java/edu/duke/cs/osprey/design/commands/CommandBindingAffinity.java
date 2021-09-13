@@ -326,7 +326,9 @@ public class CommandBindingAffinity extends RunnableCommand {
         var builder = new KStar.Settings.Builder();
         builder.setEpsilon(epsilon);
         builder.addScoreConsoleWriter();
-        builder.setMaxNumConf(maxNumberConfs > 0 ? maxNumberConfs : Integer.MAX_VALUE);
+        if (maxNumberConfs > 0) {
+            builder.setMaxNumConf(maxNumberConfs);
+        }
         builder.setMaxSimultaneousMutations(delegate.maxSimultaneousMutations);
         builder.setStabilityThreshold(stabilityThreshold < 0 ? null : stabilityThreshold);
 
