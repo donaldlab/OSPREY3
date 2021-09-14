@@ -32,6 +32,7 @@
 
 package edu.duke.cs.osprey.ematrix;
 
+import edu.duke.cs.osprey.confspace.ConfSpaceIteration;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 
@@ -39,7 +40,7 @@ public class ProxyEnergyMatrix extends EnergyMatrix {
 
 	public final EnergyMatrix target;
 
-	public ProxyEnergyMatrix(SimpleConfSpace confSpace, EnergyMatrix target) {
+	public ProxyEnergyMatrix(ConfSpaceIteration confSpace, EnergyMatrix target) {
 		super(confSpace);
 		this.target = target;
 	}

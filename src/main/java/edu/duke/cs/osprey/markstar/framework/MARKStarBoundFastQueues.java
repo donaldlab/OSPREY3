@@ -34,6 +34,7 @@ package edu.duke.cs.osprey.markstar.framework;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.confspace.ConfSpaceIteration;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -56,7 +57,7 @@ public class MARKStarBoundFastQueues extends MARKStarBound {
 
 
 
-    public MARKStarBoundFastQueues(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,
+    public MARKStarBoundFastQueues(ConfSpaceIteration confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,
                                    ConfEnergyCalculator minimizingConfEcalc, RCs rcs, Parallelism parallelism) {
         super(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc, rcs, parallelism);
         this.leafQueue = new PriorityQueue<>();

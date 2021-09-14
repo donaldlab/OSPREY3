@@ -32,11 +32,12 @@
 
 package edu.duke.cs.osprey.ematrix;
 
+import edu.duke.cs.osprey.confspace.ConfSpaceIteration;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 
 public class NegatedEnergyMatrix extends ProxyEnergyMatrix {
 
-	public NegatedEnergyMatrix(SimpleConfSpace confSpace, EnergyMatrix target) {
+	public NegatedEnergyMatrix(ConfSpaceIteration confSpace, EnergyMatrix target) {
 		super(confSpace, target);
 	}
 

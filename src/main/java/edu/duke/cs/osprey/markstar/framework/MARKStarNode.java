@@ -36,6 +36,7 @@ import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
+import edu.duke.cs.osprey.confspace.ConfSpaceIteration;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -385,7 +386,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
 
 
-    public static MARKStarNode makeRoot(SimpleConfSpace confSpace, EnergyMatrix rigidEnergyMatrix,
+    public static MARKStarNode makeRoot(ConfSpaceIteration confSpace, EnergyMatrix rigidEnergyMatrix,
                                         EnergyMatrix minimizingEnergyMatrix, RCs rcs,
                                         AStarScorer gScorer, AStarScorer hScorer,
                                         AStarScorer rigidgScorer, AStarScorer negatedHScorer,
@@ -394,10 +395,10 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
 		// make the A* scorers
 
-		ConfIndex confIndex = new ConfIndex(confSpace.positions.size());
+		ConfIndex confIndex = new ConfIndex(confSpace.numPos());
 
 		// make the root node
-        Node node = new Node(confSpace.positions.size());
+        Node node = new Node(confSpace.numPos());
         Node rootNode = node;
 		rootNode.index(confIndex);
 		rootNode.gscore = gScorer.calc(confIndex, rcs);

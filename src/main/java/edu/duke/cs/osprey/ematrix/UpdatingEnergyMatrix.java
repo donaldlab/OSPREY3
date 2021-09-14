@@ -32,12 +32,15 @@
 
 package edu.duke.cs.osprey.ematrix;
 
+import edu.duke.cs.osprey.confspace.ConfSpaceIteration;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.confspace.TupE;
 
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 
 public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
@@ -45,23 +48,24 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
     private static final boolean debug = false;
     private TupleTrie corrections;
     private int numPos;
-    
+
     //debug variable
     public final ConfEnergyCalculator sourceECalc;
 
-    public UpdatingEnergyMatrix(SimpleConfSpace confSpace, EnergyMatrix target, ConfEnergyCalculator confECalc) {
+    public UpdatingEnergyMatrix(ConfSpaceIteration confSpace, EnergyMatrix target, ConfEnergyCalculator confECalc) {
         super(confSpace, target);
-        corrections = new TupleTrie(confSpace.positions);
-        this.numPos = confSpace.getNumPos();
+
+        corrections = new TupleTrie(IntStream.range(0, confSpace.numPos()).boxed().collect(Collectors.toList()));
+        this.numPos = confSpace.numPos();
         this.sourceECalc = confECalc;
 
     }
 
-    public UpdatingEnergyMatrix(SimpleConfSpace confSpace, EnergyMatrix target) {
+    public UpdatingEnergyMatrix(ConfSpaceIteration confSpace, EnergyMatrix target) {
         super(confSpace, target);
-        this.numPos = confSpace.getNumPos();
+        this.numPos = confSpace.numPos();
         this.sourceECalc = null;
-        corrections = new TupleTrie(confSpace.positions);
+        corrections = new TupleTrie(IntStream.range(0, confSpace.numPos()).boxed().collect(Collectors.toList()));
     }
 
     /*Hack 1: Don't share residues*/
@@ -207,15 +211,15 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
     public static class TupleTrie {
         public final static int WILDCARD_RC = -123;
         TupleTrieNode root;
-        List<SimpleConfSpace.Position> positions;
+        List<Integer> positions;
         private int numCorrections;
-        public TupleTrie(List<SimpleConfSpace.Position> positions)
+        public TupleTrie(List<Integer> positions)
         {
             this.positions = positions;
             root = createTrie(positions);
         }
 
-        private TupleTrieNode createTrie(List<SimpleConfSpace.Position> positions) {
+        private TupleTrieNode createTrie(List<Integer> positions) {
             root = new TupleTrieNode(positions, -1);
             return root;
         }
@@ -259,15 +263,15 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
             int rc = WILDCARD_RC;
             int positionIndex = -1;
             int position = -1;
-            List<SimpleConfSpace.Position> positions;
+            List<Integer> positions;
             List<TupE> corrections = new ArrayList<>();
             Map<Integer, TupleTrieNode> children = new HashMap<>();
 
-            private TupleTrieNode(List<SimpleConfSpace.Position> positions, int positionIndex) {
+            private TupleTrieNode(List<Integer> positions, int positionIndex) {
                 this.positions = positions;
                 this.positionIndex = positionIndex;
                 if(positionIndex >= 0)
-                    this.position = positions.get(positionIndex).index;
+                    this.position = positions.get(positionIndex);
                 if(positionIndex+1 < positions.size())
                     children.put(WILDCARD_RC, new TupleTrieNode(positions, positionIndex+1));
             }

@@ -45,6 +45,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class TestUpdatingEnergyMatrix {
     public static final int NUM_FLEX = 10;
@@ -54,7 +56,7 @@ public class TestUpdatingEnergyMatrix {
     public void testTupleTrieRandom()
     {
         SimpleConfSpace confSpace = make1GUASmall(NUM_FLEX);
-        UpdatingEnergyMatrix.TupleTrie trie = new UpdatingEnergyMatrix.TupleTrie(confSpace.positions);
+        UpdatingEnergyMatrix.TupleTrie trie = new UpdatingEnergyMatrix.TupleTrie(IntStream.range(0, confSpace.numPos()).boxed().collect(Collectors.toList()));
         runManual(trie);
         for(int i = 0; i < NUM_TUPS; i++)
         {
@@ -72,7 +74,7 @@ public class TestUpdatingEnergyMatrix {
     @Test
     public void testTupleTrieManual () {
         SimpleConfSpace confSpace = make1GUASmall(4);
-        UpdatingEnergyMatrix.TupleTrie trie = new UpdatingEnergyMatrix.TupleTrie(confSpace.positions);
+        UpdatingEnergyMatrix.TupleTrie trie = new UpdatingEnergyMatrix.TupleTrie(IntStream.range(0, confSpace.numPos()).boxed().collect(Collectors.toList()));
         runManual(trie);
     }
 

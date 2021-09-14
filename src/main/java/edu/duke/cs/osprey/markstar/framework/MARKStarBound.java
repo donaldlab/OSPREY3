@@ -343,7 +343,7 @@ public class MARKStarBound implements PartitionFunction.WithConfDB {
         */
     }
 
-    public MARKStarBound(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,
+    public MARKStarBound(ConfSpaceIteration confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,
                          ConfEnergyCalculator minimizingConfEcalc, RCs rcs, Parallelism parallelism) {
         this.queue = new PriorityQueue<>();
         this.minimizingEcalc = minimizingConfEcalc;

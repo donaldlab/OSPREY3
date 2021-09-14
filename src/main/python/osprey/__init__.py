@@ -1119,7 +1119,7 @@ def PartitionFunction(confEcalc, confSearchUpper, confSearchLower, rcs):
 	)
 
 
-def MARKStarPfunc(confSpace, ematMinimized, confEcalcMinimized, ematRigid, confEcalcRigid, rcs):
+def MARKStarPfunc(confSpace, ematMinimized, confEcalcMinimized, ematRigid, confEcalcRigid, rcs, parallelism):
 	'''
 	TODO: docme
 	'''
@@ -1130,7 +1130,7 @@ def MARKStarPfunc(confSpace, ematMinimized, confEcalcMinimized, ematRigid, confE
 		ematMinimized,
 		confEcalcMinimized,
 		rcs,
-		confEcalcMinimized.ecalc.parallelism
+		parallelism
 	)
 	pfunc.setCorrections(c.ematrix.UpdatingEnergyMatrix(confSpace, ematMinimized, confEcalcMinimized))
 	return pfunc
