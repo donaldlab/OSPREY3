@@ -152,8 +152,9 @@ public class BBKStar {
 		}
 
 		private PartitionFunction makePfunc(Sequence sequence) {
-
-			RCs rcs = sequence.makeRCs(confSpace);
+			RCs rcs = null;
+			if (sequence != null)
+				rcs = sequence.makeRCs(confSpace);
 
 			PartitionFunction pfunc = pfuncFactory.make(rcs);
 
@@ -175,7 +176,7 @@ public class BBKStar {
 		}
 
 		private AutoCloseableNoEx openConfDB() {
-			if (confDBFile != null) {
+			if (confDBFile != null && confSpace != null) {
 				if (!kstarSettings.resume) {
 					confDBFile.delete();
 				}
@@ -345,6 +346,10 @@ public class BBKStar {
 			// to compute lower bounds on pfuncs, we'll do the usual lower bound calculation,
 			// but use rigid energies instead of minimized energies
 
+			//hack to allow null confspaces, just return 1
+			if(info.confSpace == null)
+				return BigDecimal.ONE;
+
 			RCs rcs = sequence.makeRCs(info.confSpace);
 			ConfSearch astar = info.confSearchFactoryRigid.make(rcs);
 			BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
@@ -403,7 +408,9 @@ public class BBKStar {
 		private PartitionFunction makePfunc(Map<Sequence,PartitionFunction> pfuncCache, ConfSpaceInfo info) {
 
 			// filter the global sequence to this conf space
-			Sequence sequence = this.sequence.filter(info.confSpace.seqSpace());
+            Sequence sequence = null;
+            if (info.confSpace !=null)
+				sequence = this.sequence.filter(info.confSpace.seqSpace());
 
 			// first check the cache
 			PartitionFunction pfunc = pfuncCache.get(sequence);
@@ -594,9 +601,12 @@ public class BBKStar {
 
 				// put the three contexts for the conf spaces to the context group
 				for (BBKStar.ConfSpaceInfo info : Arrays.asList(protein, ligand, complex)) {
-					Sequence seq = info.confSpace.seqSpace()
-						.makeUnassignedSequence()
-						.filter(info.confSpace.seqSpace());
+					Sequence seq = null;
+				    if(info.confSpace != null) {
+						seq = info.confSpace.seqSpace()
+								.makeUnassignedSequence()
+								.filter(info.confSpace.seqSpace());
+					}
 					PartitionFunction pfunc = info.makePfunc(seq);
 					pfunc.putTaskContexts(ctxGroup);
 				}
@@ -607,8 +617,10 @@ public class BBKStar {
 					return null;
 				}
 
-				protein.check();
-				ligand.check();
+				if (protein.confSpace !=null)
+					protein.check();
+				if (ligand.confSpace !=null)
+					ligand.check();
 				complex.check();
 
 				// clear any previous state
