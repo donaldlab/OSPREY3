@@ -2,8 +2,18 @@ cmake_minimum_required(VERSION 3.10)
 
 project(CudaConfEcalc VERSION 0.1 DESCRIPTION "CUDA-based conformation energy calculator for OSPREY")
 
+# NOTE: if CMake complains about not being able to find nvcc, try something like this:
+#set(CMAKE_CUDA_COMPILER /opt/cuda-10.2/bin/nvcc)
+
 # turn on CUDA support
 enable_language(CUDA)
+
+# *** Don't Try To Compile This Code With Cuda Toolkit v11 or Later Unless You Know What You're Doing !! ***
+# There must be some kind of regression in nvcc v11+, because the compiled code can no longer
+# meet the launch bounds on kernels, whereas the v10.2 compiler has no problems.
+# It looks like v11+ uses too many registers and goes waaaaay over the register limits imposed by the launch bounds.
+# The only known working compiler version is 10.2.
+# Use other versions at your own risk.
 
 set(CMAKE_CUDA_STANDARD 14)
 
@@ -50,6 +60,7 @@ target_include_directories(CudaConfEcalc PUBLIC "${PROJECT_BINARY_DIR}")
 set_target_properties(CudaConfEcalc PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON
         POSITION_INDEPENDENT_CODE ON
+        CUDA_ARCHITECTURES false # newer versions of CMake require this, even though we don't use it
         )
 
 # add another target to copy the libraries from the resources path to the build path
@@ -67,4 +78,5 @@ target_include_directories(rundump PUBLIC "${PROJECT_BINARY_DIR}")
 set_target_properties(rundump PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON
         POSITION_INDEPENDENT_CODE ON
+        CUDA_ARCHITECTURES false # newer versions of CMake require this, even though we don't use it
         )
