@@ -1662,7 +1662,11 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 	public void minimizeEnergies(List<MinimizationJob> jobs, CheckedOutStream co) {
 
 		// check the batch size
-		if (jobs.size() > maxBatchSize) {
+		if (jobs.size() <= 0) {
+			// nothing to do
+			// NOTE: don't try to send an empty job list to the GPU minimizer, it will complain
+			return;
+		} else if (jobs.size() > maxBatchSize) {
 			throw new IllegalArgumentException(String.format("too many jobs for batch: %d, max allocated is %d",
 				jobs.size(), maxBatchSize
 			));
