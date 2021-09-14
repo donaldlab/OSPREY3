@@ -18,6 +18,21 @@ namespace osprey {
 
 	void exception_handler() {
 
+		std::cerr << "Unhandled exception in CUDA conformation energy calculator native code!" << std::endl;
+
+		// print the exception message, if any
+		auto ex_ptr = std::current_exception();
+		if (ex_ptr != nullptr) {
+			// we have to use a catch block to get a std::exception reference, so rethrow here
+			try {
+				std::rethrow_exception(ex_ptr);
+			} catch (const std::exception & ex) {
+				std::cerr << ex.what() << std::endl;
+			} catch  (...) {
+				std::cerr << "Exception has unknown type, can't read error message" << std::endl;
+			}
+		}
+
 		// get the stack trace
 		const int SIZE = 32;
 		void * trace_elems[SIZE];
@@ -25,7 +40,6 @@ namespace osprey {
 		char ** symbols = backtrace_symbols(trace_elems, num_frames);
 
 		// print it to the console
-		std::cerr << "Unhandled exception in CUDA conformation energy calculator native code!" << std::endl;
 		for (int i=0 ; i<num_frames; i++) {
 			std::cerr << "\t" << symbols[i] << std::endl;
 		}

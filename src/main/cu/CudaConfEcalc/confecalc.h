@@ -574,6 +574,11 @@ namespace osprey {
 
 		std::set_terminate(exception_handler);
 
+		// make sure we get some jobs, otherwise CUDA will complain with cryptic errors
+		if (jobs->get_size() <= 0) {
+			throw std::runtime_error("no jobs submitted to batch minimizer");
+		}
+
 		CUDACHECK(cudaSetDevice(device));
 
 		// upload the arguments
