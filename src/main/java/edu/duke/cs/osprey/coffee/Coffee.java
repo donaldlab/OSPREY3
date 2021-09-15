@@ -3,6 +3,7 @@ package edu.duke.cs.osprey.coffee;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.coffee.directions.Directions;
 import edu.duke.cs.osprey.coffee.directors.AffinityDirector;
+import edu.duke.cs.osprey.coffee.directors.MSPfuncDirector;
 import edu.duke.cs.osprey.coffee.nodedb.NodeDB;
 import edu.duke.cs.osprey.coffee.nodedb.NodeIndex;
 import edu.duke.cs.osprey.coffee.nodedb.NodeTree;
@@ -410,11 +411,11 @@ public class Coffee {
 			} // tasks
 
 			// report result
-			try {
+			if (director instanceof AffinityDirector) {
 				finalBestSeqs = ((AffinityDirector) director).bestSeqs;
 				targetFreeEnergy = ((AffinityDirector) director).targetFreeEnergy;
-			}catch(ClassCastException e){
-				System.err.println("Not bothering to get best seqs if not affinityDirector");
+			}else if (director instanceof MSPfuncDirector){
+				finalBestSeqs = ((MSPfuncDirector) director).bestSeqs;
 			}
 			result = new Result(stopwatch.getTimeS(), finalReport, finalBestSeqs, targetFreeEnergy);
 
