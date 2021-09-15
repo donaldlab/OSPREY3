@@ -183,11 +183,11 @@ public class MARKStarBoundRigid implements PartitionFunction {
     }
 
     @Override
-    public int getNumConfsEvaluated() {
+    public long getNumConfsEvaluated() {
         return numConfsEnergied;
     }
 
-    public int getNumConfsScored() {
+    public long getNumConfsScored() {
         return numConfsScored;
     }
 

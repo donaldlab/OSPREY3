@@ -120,10 +120,15 @@ public class SimplePartitionFunction implements PartitionFunction {
 	}
 	
 	@Override
-	public int getNumConfsEvaluated() {
+	public long getNumConfsEvaluated() {
 		return lowerBound.numConfsEnergied;
 	}
-	
+
+	@Override
+	public long getNumConfsScored() {
+		return lowerBound.numConfsScored;
+	}
+
 	@Override
 	public int getParallelism() {
 		return ecalc.tasks.getParallelism();

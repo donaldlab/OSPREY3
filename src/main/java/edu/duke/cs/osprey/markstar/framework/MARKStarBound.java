@@ -77,7 +77,7 @@ public class MARKStarBound implements PartitionFunction.WithConfDB {
     private Values values = null;
 
     // the number of full conformations minimized
-    private int numConfsEnergied = 0;
+    private long numConfsEnergied = 0;
     // max confs minimized, -1 means infinite.
     private int maxNumConfs = -1;
 
@@ -85,7 +85,7 @@ public class MARKStarBound implements PartitionFunction.WithConfDB {
 
 
     // the number of full conformations scored OR energied
-    private int numConfsScored = 0;
+    private long numConfsScored = 0;
 
     protected int numInternalNodesProcessed = 0;
 
@@ -196,15 +196,15 @@ public class MARKStarBound implements PartitionFunction.WithConfDB {
     }
 
     @Override
-    public int getNumConfsEvaluated() {
+    public long getNumConfsEvaluated() {
         return numConfsEnergied;
     }
 
-    public int getNumConfsScored() {
+    public long getNumConfsScored() {
         return numConfsScored;
     }
 
-    private int workDone() {
+    private long workDone() {
         return numInternalNodesProcessed + numConfsEnergied + numConfsScored + numPartialMinimizations ;
     }
 
@@ -213,7 +213,7 @@ public class MARKStarBound implements PartitionFunction.WithConfDB {
         debugPrint("Num conformations: "+rootNode.getConfSearchNode().getNumConformations());
         double lastEps = 1;
 
-        int previousConfCount = workDone();
+        long previousConfCount = workDone();
 
         if(!nonZeroLower) {
             runUntilNonZero();
@@ -238,7 +238,7 @@ public class MARKStarBound implements PartitionFunction.WithConfDB {
         loopTasks.waitForFinish();
         minimizingEcalc.tasks.waitForFinish();
         BigDecimal averageReduction = BigDecimal.ZERO;
-        int totalMinimizations = numConfsEnergied + numPartialMinimizations;
+        long totalMinimizations = numConfsEnergied + numPartialMinimizations;
         if(totalMinimizations> 0)
             averageReduction = cumulativeZCorrection
                 .divide(new BigDecimal(totalMinimizations), new MathContext(BigDecimal.ROUND_HALF_UP));

@@ -38,9 +38,14 @@ public class NoopPfunc implements PartitionFunction {
                                        }
 
     @Override
-    public int getNumConfsEvaluated() {
-                                    return 0;
-                                             }
+    public long getNumConfsEvaluated() {
+        return 0;
+    }
+
+    @Override
+    public long getNumConfsScored() {
+        return 0;
+    }
 
     @Override
     public void compute(int maxNumConfs) {

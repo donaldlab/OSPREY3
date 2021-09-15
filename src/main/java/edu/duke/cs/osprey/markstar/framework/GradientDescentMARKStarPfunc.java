@@ -401,13 +401,12 @@ public class GradientDescentMARKStarPfunc implements PartitionFunction.WithConfD
 	}
 
 	@Override
-	public int getNumConfsEvaluated() {
-		// TODO: this might overflow for big pfunc calculations, upgrade the interface type?
+	public long getNumConfsEvaluated() {
 		return (int)state.numEnergiedConfs;
 	}
 
-	public int getNumConfsScored() {
-		return (int) state.numScoredConfs;
+	public long getNumConfsScored() {
+		return state.numScoredConfs;
 	}
 
 	@Override

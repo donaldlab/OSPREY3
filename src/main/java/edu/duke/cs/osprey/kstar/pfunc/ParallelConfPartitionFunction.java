@@ -46,6 +46,7 @@ import edu.duke.cs.osprey.pruning.InvertedPruningMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.JvmMem;
 import edu.duke.cs.osprey.tools.Stopwatch;
+import org.apache.commons.lang3.NotImplementedException;
 
 /**
  * Deprecated, use GradientDescentPfunc instead
@@ -118,8 +119,13 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 	}
 	
 	@Override
-	public int getNumConfsEvaluated() {
+	public long getNumConfsEvaluated() {
 		return numConfsEvaluated;
+	}
+
+	@Override
+	public long getNumConfsScored() {
+	    throw new NotImplementedException("No tracking of scored confs");
 	}
 
 	@Override

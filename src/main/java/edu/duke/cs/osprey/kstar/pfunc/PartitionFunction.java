@@ -209,6 +209,12 @@ public interface PartitionFunction {
 			this.numConfs = numConfs;
 		}
 
+		public Result(Status status, Values values, long numConfs) {
+			this.status = status;
+			this.values = values;
+			this.numConfs = (int)numConfs;
+		}
+
 		@Override
 		public String toString() {
 			Function<String,String> trim = (s) -> {
@@ -261,7 +267,8 @@ public interface PartitionFunction {
 	Status getStatus();
 	Values getValues();
 	int getParallelism();
-	int getNumConfsEvaluated();
+	long getNumConfsEvaluated();
+	long getNumConfsScored();
 
 	void compute(int maxNumConfs);
 

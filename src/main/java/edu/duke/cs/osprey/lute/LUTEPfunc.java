@@ -40,6 +40,7 @@ import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.tools.*;
+import org.apache.commons.lang3.NotImplementedException;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -130,10 +131,14 @@ public class LUTEPfunc implements PartitionFunction.WithConfDB {
 	}
 
 	@Override
-	public int getNumConfsEvaluated() {
+	public long getNumConfsEvaluated() {
 		return numConfsEvaluated;
 	}
 
+	@Override
+	public long getNumConfsScored() {
+		throw new NotImplementedException("No tracking of scored confs");
+	}
 	@Override
 	public void compute(int maxNumConfs) {
 

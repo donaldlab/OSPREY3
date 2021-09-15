@@ -304,9 +304,11 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfDB, Parti
 	}
 
 	@Override
-	public int getNumConfsEvaluated() {
-		// TODO: this might overflow for big pfunc calculations, upgrade the interface type?
-		return (int)state.numEnergiedConfs;
+	public long getNumConfsEvaluated() {
+		return state.numEnergiedConfs;
+	}
+	public long getNumConfsScored(){
+		return state.numScoredConfs;
 	}
 
 	@Override
