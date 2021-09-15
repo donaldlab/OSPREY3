@@ -45,6 +45,8 @@ import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
 import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.*;
 
 
@@ -474,7 +476,7 @@ public class BBKStar {
 			isUnboundUnstable = false;
 
 			// tank sequences that have no useful K* bounds, and are blocked
-			if (getStatus() == PfuncsStatus.Blocked && score == Double.POSITIVE_INFINITY) {
+			if (getStatus() == PfuncsStatus.Blocked && (score == Double.POSITIVE_INFINITY || score == Double.NaN)) {
 				score = Double.NEGATIVE_INFINITY;
 			}
 		}
@@ -570,7 +572,7 @@ public class BBKStar {
 		ligandPfuncs = new HashMap<>();
 		complexPfuncs = new HashMap<>();
 
-		exp = new ExpFunction(ExpFunction.mc); // For now just use the default mathcontext
+		exp = new ExpFunction(new MathContext(512, RoundingMode.HALF_UP));
 
 	}
 

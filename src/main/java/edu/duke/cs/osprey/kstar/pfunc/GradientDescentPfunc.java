@@ -45,6 +45,8 @@ import edu.duke.cs.osprey.tools.*;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -73,7 +75,7 @@ import static edu.duke.cs.osprey.tools.Log.log;
 public class GradientDescentPfunc implements PartitionFunction.WithConfDB, PartitionFunction.WithExternalMemory {
 
 	private static BigMath bigMath() {
-		return new BigMath(PartitionFunction.decimalPrecision);
+		return new BigMath(new MathContext(512, RoundingMode.HALF_UP));
 	}
 
 	private static class State {
