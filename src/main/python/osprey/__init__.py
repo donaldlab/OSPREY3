@@ -581,7 +581,10 @@ def ForcefieldParams(params=None):
 	:param str params: text of forcefield parameters in Amber format, to override defaults if desired
 	:rtype: :java:ref:`.energy.forcefield.ForcefieldParams`
 	'''
-	return c.energy.forcefield.ForcefieldParams(Forcefield.AMBER, params)
+	if params:
+		return c.energy.forcefield.ForcefieldParams(Forcefield.AMBER, params)
+	else:
+		return c.energy.forcefield.ForcefieldParams(Forcefield.AMBER)
 
 
 def EnergyCalculator(confSpace, ffparams, parallelism=None, type=None, isMinimizing=None, infiniteWellEnergy=None):
