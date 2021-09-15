@@ -162,6 +162,7 @@ public class TestBBKStar {
 			// run BBK*
 			Results results = new Results();
 			results.bbkstar = bbkstar;
+			//bbkstar.run_no_prewt(ecalcMinimized.tasks);
 			results.sequences = bbkstar.run(ecalcMinimized.tasks);
 			return results;
 		}

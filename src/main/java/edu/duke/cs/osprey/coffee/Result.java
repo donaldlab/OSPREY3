@@ -20,6 +20,10 @@ public class Result {
     public List<SeqFreeEnergies> seqs; // list of finished sequences
     public MathTools.DoubleBounds targetFreeEnergy; // target free energy
 
+    public Result(double runtimeS){
+        this.runtimeS=runtimeS;
+    }
+
     public Result(double runtimeS, NodeStats.Report stats, List<SeqFreeEnergies> seqs, MathTools.DoubleBounds targetFreeEnergy){
         this.runtimeS=runtimeS;
         this.startNs=stats.startNs;

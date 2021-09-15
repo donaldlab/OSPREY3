@@ -33,21 +33,21 @@
 package edu.duke.cs.osprey.kstar;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.coffee.Result;
+import edu.duke.cs.osprey.coffee.seqdb.SeqFreeEnergies;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.*;
 import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
-import edu.duke.cs.osprey.tools.AutoCloseableNoEx;
-import edu.duke.cs.osprey.tools.BigMath;
-import edu.duke.cs.osprey.tools.ExpFunction;
-import edu.duke.cs.osprey.tools.MathTools;
+import edu.duke.cs.osprey.tools.*;
 
 import java.io.File;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.*;
+import java.util.stream.Stream;
 
 
 /**
@@ -476,7 +476,7 @@ public class BBKStar {
 			isUnboundUnstable = false;
 
 			// tank sequences that have no useful K* bounds, and are blocked
-			if (getStatus() == PfuncsStatus.Blocked && (score == Double.POSITIVE_INFINITY || score == Double.NaN)) {
+			if (getStatus() == PfuncsStatus.Blocked && (score == Double.POSITIVE_INFINITY || Double.isNaN(score))) {
 				score = Double.NEGATIVE_INFINITY;
 			}
 		}
@@ -600,6 +600,7 @@ public class BBKStar {
 
 	public List<KStar.ScoredSequence> run(TaskExecutor tasks) {
 
+
 		// make a context group for the task executor
 		try (TaskExecutor.ContextGroup ctxGroup = complex.confEcalcMinimized.tasks.contextGroup()) {
 
@@ -671,6 +672,9 @@ public class BBKStar {
 					// get the next node
 					Node node = tree.poll();
 					System.out.println("Refining sequence "+node.sequence);
+					if (node instanceof SingleSequenceNode){
+						System.out.println(((SingleSequenceNode) node).makeKStarScore());
+					}
 
 					if (node instanceof SingleSequenceNode) {
 						SingleSequenceNode ssnode = (SingleSequenceNode)node;
@@ -722,7 +726,6 @@ public class BBKStar {
 						throw new Error("BBK* ended, but the tree isn't empty and we didn't return enough sequences. This is a bug.");
 					}
 				}
-
 				return scoredSequences;
 			}}}
 		}
@@ -739,5 +742,135 @@ public class BBKStar {
 			ssnode.sequence,
 			kstarScore
 		));
+	}
+
+	public Result run_no_prewt(TaskExecutor tasks) {
+		// make a context group for the task executor
+		try (TaskExecutor.ContextGroup ctxGroup = complex.confEcalcMinimized.tasks.contextGroup()) {
+
+			// open the conf databases if needed
+			try (AutoCloseableNoEx proteinCloser = protein.openConfDB()) {
+				try (AutoCloseableNoEx ligandCloser = ligand.openConfDB()) {
+					try (AutoCloseableNoEx complexCloser = complex.openConfDB()) {
+
+						var stopwatch = new Stopwatch().start();
+						// put the three contexts for the conf spaces to the context group
+						for (BBKStar.ConfSpaceInfo info : Arrays.asList(protein, ligand, complex)) {
+							Sequence seq = null;
+							if(info.confSpace != null) {
+								seq = info.confSpace.seqSpace()
+										.makeUnassignedSequence()
+										.filter(info.confSpace.seqSpace());
+							}
+							PartitionFunction pfunc = info.makePfunc(seq);
+							pfunc.putTaskContexts(ctxGroup);
+						}
+
+						// skip the calculation on member nodes
+						if (complex.confEcalcMinimized.tasks instanceof Cluster.Member) {
+							// TODO: try to get the sequences from the client?
+							return null;
+						}
+
+						if (protein.confSpace !=null)
+							protein.check();
+						if (ligand.confSpace !=null)
+							ligand.check();
+						complex.check();
+
+						// clear any previous state
+						proteinPfuncs.clear();
+						ligandPfuncs.clear();
+						complexPfuncs.clear();
+
+						List<KStar.ScoredSequence> scoredSequences = new ArrayList<>();
+						List<SingleSequenceNode> scoredNodes = new ArrayList<>();
+						List<SingleSequenceNode> droppedNodes = new ArrayList<>();
+
+						// start the BBK* tree with the root node
+						PriorityQueue<Node> tree = new PriorityQueue<>();
+						tree.add(new MultiSequenceNode(complex.confSpace.seqSpace().makeUnassignedSequence()));
+
+						// start searching the tree
+						System.out.println("computing K* scores for the " + bbkstarSettings.numBestSequences + " best sequences to epsilon = " + kstarSettings.epsilon + " ...");
+						kstarSettings.scoreWriters.writeHeader();
+						while (!tree.isEmpty() && scoredSequences.size() < bbkstarSettings.numBestSequences) {
+
+							// get the next node
+							Node node = tree.poll();
+							System.out.println("Refining sequence "+node.sequence);
+
+							if (node instanceof SingleSequenceNode) {
+								SingleSequenceNode ssnode = (SingleSequenceNode)node;
+
+								// single-sequence node
+								switch (ssnode.getStatus()) {
+									case Estimated:
+
+										// sequence is finished, return it!
+										reportSequence(ssnode, scoredSequences);
+										scoredNodes.add(ssnode);
+
+										break;
+									case Estimating:
+
+										// needs more estimation, catch-and-release
+										ssnode.estimateScore();
+										if (!ssnode.isUnboundUnstable) {
+											tree.add(ssnode);
+										}else{
+											droppedNodes.add(ssnode);
+										}
+
+										break;
+									case Blocked:
+
+										// from here on out, it's all blocked sequences
+										// so it's ok to put them in the sorted order now
+										reportSequence(ssnode, scoredSequences);
+										scoredNodes.add(ssnode);
+								}
+
+							} else if (node instanceof MultiSequenceNode) {
+								MultiSequenceNode msnode = (MultiSequenceNode)node;
+
+								// partial sequence, expand children
+								// TODO: parallelize the multi-sequence node scoring here?
+								for (Node child : msnode.makeChildren()) {
+									child.estimateScore();
+									if (!child.isUnboundUnstable) {
+										tree.add(child);
+									}
+								}
+							}
+						}
+
+						if (scoredSequences.size() < bbkstarSettings.numBestSequences) {
+							if (tree.isEmpty()) {
+								// all is well, we just don't have that many sequences in the design
+								System.out.println("Tried to find " + bbkstarSettings.numBestSequences + " sequences,"
+										+ " but design flexibility and sequence filters only allowed " + scoredSequences.size() + " sequences.");
+							} else {
+								throw new Error("BBK* ended, but the tree isn't empty and we didn't return enough sequences. This is a bug.");
+							}
+						}
+						List<SingleSequenceNode> remainingNodes = tree.stream().filter(n -> n instanceof SingleSequenceNode).map(n -> (SingleSequenceNode) n).toList();
+						List<SingleSequenceNode> allSingleNodes = Stream.of(scoredNodes.stream(), droppedNodes.stream(), remainingNodes.stream()).flatMap(x -> x).toList();
+
+
+						Result result = new Result(stopwatch.getTimeS());
+						result.minimized = allSingleNodes.stream().map(n -> n.complex.getNumConfsEvaluated()).reduce(0L, Long::sum);
+						result.expanded = allSingleNodes.stream().map(n -> n.complex.getNumConfsScored()).reduce(0L, Long::sum);
+						// Convert scoredSequences to seqFreeEnergies
+						result.seqs = scoredSequences.stream().map(s -> {
+							var bounds = new MathTools.DoubleBounds[3];
+							bounds[0]=s.score.complex.values.calcFreeEnergyBoundsPrecise();
+							bounds[1]=s.score.protein.values.calcFreeEnergyBoundsPrecise();
+							bounds[2]=s.score.ligand.values.calcFreeEnergyBoundsPrecise();
+							return new SeqFreeEnergies(s.sequence, bounds);
+						}).toList();
+						return result;
+					}}}
+		}
 	}
 }
