@@ -40,6 +40,7 @@ import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.AutoCloseableNoEx;
 import edu.duke.cs.osprey.tools.BigMath;
+import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
@@ -462,7 +463,7 @@ public class BBKStar {
 			}
 
 			// update the score
-			score = Math.log10(makeKStarScore().upperBound.doubleValue());
+			score = exp.log10(makeKStarScore().upperBound);
 			isUnboundUnstable = false;
 
 			// tank sequences that have no useful K* bounds, and are blocked
@@ -486,7 +487,7 @@ public class BBKStar {
 
 			// update the score
 			KStarScore kstarScore = makeKStarScore();
-			score = Math.log10(kstarScore.upperBound.doubleValue());
+			score = exp.log10(kstarScore.upperBound);
 			return kstarScore;
 		}
 
@@ -540,6 +541,9 @@ public class BBKStar {
 	private final Map<Sequence,PartitionFunction> ligandPfuncs;
 	private final Map<Sequence,PartitionFunction> complexPfuncs;
 
+	/** Enables computing logs of bigDecimal, minimizing precision issues */
+	private final ExpFunction exp;
+
 	public BBKStar(ConfSpaceIteration protein, ConfSpaceIteration ligand, ConfSpaceIteration complex, KStar.Settings kstarSettings, Settings bbkstarSettings) {
 
 		// BBK* doesn't work with external memory (never enough internal memory for all the priority queues)
@@ -558,6 +562,9 @@ public class BBKStar {
 		proteinPfuncs = new HashMap<>();
 		ligandPfuncs = new HashMap<>();
 		complexPfuncs = new HashMap<>();
+
+		exp = new ExpFunction(ExpFunction.mc); // For now just use the default mathcontext
+
 	}
 
 	public Iterable<ConfSpaceInfo> confSpaceInfos() {
