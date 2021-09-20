@@ -91,6 +91,7 @@ public class NodeStats {
 		public void sync() {
 			synchronized (lock) {
 				localValues.addTo(globalValues);
+				localValues.addTo(globalCumulativeValues);
 			}
 			localValues.clear();
 		}
@@ -123,6 +124,7 @@ public class NodeStats {
 	private long syncIntervalNs = Duration.ofSeconds(5).toNanos();
 
 	private final Values globalValues = new Values();
+	private final Values globalCumulativeValues = new Values();
 	private long globalStartNs = 0;
 
 	public void start() {
@@ -146,6 +148,21 @@ public class NodeStats {
 			globalStartNs = stopNs;
 			globalValues.copyTo(values);
 			globalValues.clear();
+		}
+
+		return new Report(startNs, stopNs, values);
+	}
+
+	public Report getCumulative() {
+
+		var values = new Values();
+		long startNs;
+		long stopNs;
+
+		synchronized (lock) {
+			startNs = globalStartNs;
+			stopNs = System.nanoTime();
+			globalCumulativeValues.copyTo(values);
 		}
 
 		return new Report(startNs, stopNs, values);

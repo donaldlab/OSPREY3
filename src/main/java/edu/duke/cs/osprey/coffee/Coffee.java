@@ -403,7 +403,7 @@ public class Coffee {
 
 							// get the final statistics
 							nodeProcessor.syncStats();
-							finalReport = nodeProcessor.nodeStats.get();
+							finalReport = nodeProcessor.nodeStats.getCumulative();
 
 						} // node processor
 					} // nodedb
