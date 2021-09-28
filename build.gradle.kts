@@ -86,7 +86,7 @@ val docDir = projectDir.resolve("doc")
 val docMainDir = docDir.resolve("content/documentation/main")
 val releasesDir = buildDir.resolve("releases")
 
-// NOTE: shell scripts depend on these names, so don't change them without also updating the shell scripts
+// NOTE: osprey-service build scripts depend on these names, so don't change them without also updating the shell scripts
 val releaseNameService = "osprey-service"
 val releaseNameServiceDocker = "osprey-service-docker"
 
@@ -94,11 +94,46 @@ fun String.isServiceRelease(): Boolean =
 	startsWith(releaseNameService) && !startsWith(releaseNameServiceDocker)
 	// have to check both prefixes, since they share a common prefix themselves
 
+/**
+ * Folder (in the dlab file system) where build artifacts are saved forever.
+ *
+ * This folder is served on the public web at:
+ * https://www2.cs.duke.edu/donaldlab/software/osprey/releases/
+ *
+ * So files here can be downloaded by users anywhere in the world.
+ */
 val releaseArchiveDir = Paths.get("/usr/project/dlab/www/donaldlab/software/osprey/releases")
 
 group = "edu.duke.cs"
+
+/**
+ * Version number for Osprey itself
+ *
+ * This version number is largely cosmetic.
+ * But it does help users provide some information to developers when reporting issues.
+ */
 version = "3.2"
-val versionService = "0.3" // NOTE: this line parsed by src/main/docker/service/build.sh to read the current version
+
+/**
+ * Version number of the osprey service network protocol
+ *
+ * THIS IS NOT A COSMETIC VERSION NUMBER!
+ * IT HAS A STRICTLY-ENFORCED TECHNICAL MEANING!
+ *
+ * Increment this version if the protocol changes, so clients can detect if they're compatible or not.
+ *
+ * The docker container for the service supports multiple versions simultaneously.
+ * Clients will request the version of the service they understand.
+ * So older service clients in the wild can still be supported,
+ * as long as the requested service version has been built into the docker container.
+ *
+ * For instructions on building the docker container for the Osprey service, see:
+ * docs/content/contributing/service-building.md
+ *
+ * NOTE: this line parsed by src/main/docker/service/build.sh to read the current version
+ */
+val versionService = "0.3"
+
 val packagePath = "edu/duke/cs/osprey"
 
 // add the module dependencies directly to the javac args
@@ -1486,7 +1521,7 @@ fun <T> sftp(block: ChannelSftp.() -> T): T {
 	// get user auth info
 	val sshDir = Paths.get(System.getProperty("user.home")).resolve(".ssh")
 	val user = project.propertyOrNull("dlab.user") as String?
-		?: throw Error("no user configured. set `dlab.user = \"your-user\"` in gradle.properties")
+		?: throw Error("no user configured. set `dlab.user = your-user` in gradle.properties")
 	val keypriv = (project.propertyOrNull("dlab.key.private") as String?)
 		?.let { Paths.get(it) }
 		?: sshDir.resolve("id_rsa")

@@ -21,3 +21,4 @@ nbbuild.xml
 
 # Gradle things
 .gradle
+/gradle.properties
