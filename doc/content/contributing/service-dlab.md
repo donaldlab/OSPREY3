@@ -146,6 +146,11 @@ To start the service, first run the start script in the `$OSPREY` folder:
 ```
 where `$VERSION` matches the version given by `docker image ls`.
 
+NOTE: Make sure the Docker daemon is running and accessible. If not, see above.
+
+NOTE: On `olympias`, the `$OSPREY` folder is currently:
+`/Users/jmartin/osprey/service-docker`
+
 Use `&` to detatch the process from your shell and use `>` to save
 a log of messages from the service.
 
@@ -167,3 +172,41 @@ To stop the service, run this command:
 docker stop osprey-service
 ```
 Easy peasy.
+
+
+## Troubleshooting
+
+### The Osprey Service in the Docker VM becomes unresponsive a few minutes after starting.
+Executing `docker-machine ls` shows:
+```
+NAME             ACTIVE   DRIVER       STATE     URL                         SWARM   DOCKER    ERRORS
+osprey-service   -        virtualbox   Running   tcp://192.168.99.101:2376           Unknown   Unable to query docker version: Get "https://192.168.99.101:2376/v1.15/version": remote error: tls: bad certificate
+```
+
+#### Possible Solution
+The clock is not synchronized between the guest and host OSes.
+
+Synchronize the clocks with:
+```shell
+docker-machine ssh osprey-service "sudo date -u $(date -u +%m%d%H%M%y)"
+docker-machine regenerate-certs osprey-service
+```
+
+See https://github.com/docker/machine/issues/3845#issuecomment-516792766
+for more info.
+
+
+### docker-machine becomes unresponsive
+Commands like `docker-machine ls` and `docker-machine stop $VM` hang forever.
+
+#### Possible Solution
+The VirtualBox VM that docker-machine manages has become unresponsive.
+Try stopping it directly with VirtualBox tools:
+```shell
+VBoxManage list vms
+VBoxManage list runningvms
+VBoxManage controlvm osprey-service poweroff
+```
+See http://manpages.org/vboxmanage for more info.
+
+Then maybe docker-machine will work again.
