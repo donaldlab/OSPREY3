@@ -210,3 +210,39 @@ VBoxManage controlvm osprey-service poweroff
 See http://manpages.org/vboxmanage for more info.
 
 Then maybe docker-machine will work again.
+
+
+### docker-machine somehow becomes paused a few minutes after starting
+`docker-machine ls` shows:
+```
+NAME             ACTIVE   DRIVER       STATE    URL   SWARM   DOCKER    ERRORS
+osprey-service   -        virtualbox   Paused                 Unknown
+```
+
+Trying to resume the VM manually shows:
+```shell
+$ VBoxManage controlvm osprey-service resume
+VBoxManage: error: VM is paused due to host power management
+VBoxManage: error: Details: code VBOX_E_INVALID_VM_STATE (0x80bb0002), component ConsoleWrap, interface IConsole, callee nsISupports
+VBoxManage: error: Context: "Resume()" at line 410 of file VBoxManageControlVM.cpp
+```
+
+This seems to be a very old bug in Virtualbox:
+https://www.virtualbox.org/ticket/15378
+
+
+#### Possible Solution
+Looks like the VirtualBox VM is not able to recover after a guest OS
+hibernation. The only known workaround is to stop the VM:
+```
+VBoxManage controlvm osprey-service poweroff
+```
+and then restart it.
+
+Maybe the best solution is to auto-restart the VM after waking up
+from hibernation, but I have no idea how to do that.
+
+Perhaps the simpler solution is to just disable hibernation for now:
+```shell
+sudo pmset sleep 0
+```
