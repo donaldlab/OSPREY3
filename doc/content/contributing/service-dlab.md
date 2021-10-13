@@ -1,3 +1,8 @@
++++
+menuTitle = "Dlab Osprey Service Deployment"
+weight = 4
++++
+
 
 # Osprey Service Deployment at DLab
 
@@ -146,10 +151,14 @@ To start the service, first run the start script in the `$OSPREY` folder:
 ```
 where `$VERSION` matches the version given by `docker image ls`.
 
-NOTE: Make sure the Docker daemon is running and accessible. If not, see above.
+{{% notice note %}}
+Make sure the Docker daemon is running and accessible. If not, see above.
+{{% /notice %}}
 
-NOTE: On `olympias`, the `$OSPREY` folder is currently:
+{{% notice info %}}
+On `olympias`, the `$OSPREY` folder is currently:
 `/Users/jmartin/osprey/service-docker`
+{{% /notice %}}
 
 Use `&` to detatch the process from your shell and use `>` to save
 a log of messages from the service.

@@ -1,6 +1,6 @@
 +++
 title = "Optimizing Osprey"
-weight = 1
+weight = 9
 +++
 
 First of all, thanks for taking an interest in improving Osprey!

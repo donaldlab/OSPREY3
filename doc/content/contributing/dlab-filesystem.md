@@ -1,3 +1,8 @@
++++
+menuTitle = "Dlab Filesystem"
+weight = 4
++++
+
 
 # Accessing the Dlab filesystem
 
@@ -15,9 +20,11 @@ with this content:
 dlab.user = your-duke-cs-username
 ```
 
-NOTE: `gradle.properties` files always contain information that's
+{{% notice note %}}
+`gradle.properties` files always contain information that's
 specific to the local computer or specific developer, so these files
 are never committed to the Git repository.
+{{% /notice %}}
 
 The build script uses an SSH client to access the remote filesystem,
 and the only supported authentication mechanism right now is public keys.

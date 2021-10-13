@@ -1,6 +1,6 @@
 +++
 title = "Releases"
-weight = 5
+weight = 2
 +++
 
 TODO: explain how to make a release

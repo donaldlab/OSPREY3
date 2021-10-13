@@ -1,3 +1,8 @@
++++
+menuTitle = "Building Osprey Service"
+weight = 1
++++
+
 
 # Building the Osprey Service
 
@@ -50,11 +55,13 @@ into the Docker container by running the `downloadServiceReleases` Gradle task:
 This will download all built releases of the service into your
 `build/releases` folder.
 
-NOTE: If `versionService` in `build.gradle.kts` matches any of the previously-built
+{{% notice note %}}
+If `versionService` in `build.gradle.kts` matches any of the previously-built
 releases, that previously-built release will overwrite the releases of that
 version you have built locally. If this is not the desired outcome,
 bump your `versionService` to a new version number, or rebuild your
 service after downloading relases.
+{{% /notice %}}
 
 
 ### Build the Docker container
