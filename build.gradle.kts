@@ -249,6 +249,9 @@ dependencies {
 	listOf("linux-x86_64", "apple-x86_64", "windows-x86_64").forEach {
 		runtimeOnly("org.jcuda:jcuda-natives:0.8.0:$it")
 	}
+
+	// used by the build system
+	testImplementation("org.json:json:20210307")
 }
 
 
@@ -1152,13 +1155,53 @@ tasks {
 		}
 	}
 
+	val parseJavadoc by creating {
+		group = "documentation"
+		description = "export javadocs into a queryable format"
+		dependsOn("testClasses")
+		val jsonFile = buildDir.resolve("javadoc.json")
+		doLast {
+
+			jsonFile.write { json ->
+
+				exec {
+					commandLine(
+						listOf("java",
+							"-classpath", sourceSets["test"].runtimeClasspath.joinToString(":") { it.absolutePath },
+						) +
+						moduleArgs +
+						listOf(
+							"build.JavadocTool",
+							sourceSets["main"].java.sourceDirectories.first().absolutePath
+						)
+					)
+					standardOutput = json
+				}
+			}
+		}
+		outputs.file(jsonFile)
+	}
+
 	val generateApiDocs by creating {
 		group = "documentation"
-		description = "Generate the Python API documentation for the main branch"
+		description = "Generate the Python and Java API documentation for the current source tree"
 		doLast {
 
 			val apiDir = docMainDir.resolve("api")
+			apiDir.recreateFolder()
 
+			val templatesDir = docDir.resolve("archetypes/templates")
+
+			// copy the API index
+			copy {
+				from(templatesDir.resolve("api.md"))
+				into(apiDir)
+				rename { "_index.md" }
+			}
+
+			// render python docs
+			val pythonDir = apiDir.resolve("python")
+			pythonDir.createFolder()
 			val modules = listOf(
 				"osprey",
 				"osprey.prep",
@@ -1166,42 +1209,154 @@ tasks {
 				"osprey.slurm",
 				"osprey.jvm"
 			)
-			for (module in modules) {
-				pydocMarkdown(module, apiDir.resolve("$module.md"))
+			for ((modulei, module) in modules.withIndex()) {
+				pydocMarkdown(module, pythonDir.resolve("$module.md"), weight = modulei + 1)
+			}
+
+			// copy the Python index
+			copy {
+				from(templatesDir.resolve("python.md"))
+				into(pythonDir)
+				rename { "_index.md" }
+			}
+
+			// render java docs
+			val javaDir = apiDir.resolve("java")
+			javaDir.createFolder()
+			/* TODO: call javadoc
+			exec {
+				commandLine(
+					"python3",
+					projectDir.resolve("src/build/python/pydoc_markdown_java.py"),
+					"--src", projectDir.resolve("src/main/java"),
+					"--out", javaDir.toString()
+				)
+			}
+			*/
+
+			// copy the Java index
+			copy {
+				from(templatesDir.resolve("java.md"))
+				into(javaDir)
+				rename { "_index.md" }
+			}
+
+			// TODO: render Kotlin docs?
+		}
+	}
+
+	fun checkHugoPrereqs() {
+
+		// make sure the hugo theme submodule is available
+		val themeDir = docDir.resolve("themes/hugo-theme-learn")
+		if (!themeDir.exists()) {
+			throw Error("Hugo theme is not available. Make sure to clone the git submodules")
+		}
+
+		// make sure Hugo itself is installed and available
+		commandExistsOrThrow("hugo")
+	}
+
+	val buildWebsite by creating {
+		group = "documentation"
+		description = "Builds the Osprey documentation and download website"
+		doLast {
+
+			checkHugoPrereqs()
+
+			val webDir = buildDir.resolve("website")
+			webDir.recreateFolder()
+
+			exec {
+				commandLine(
+					"hugo",
+					"--destination", webDir.toString()
+				)
+				workingDir = docDir.toFile()
+			}
+		}
+	}
+
+	val hugoServer by creating {
+		group = "documentation"
+		description = "Start the Hugo development server. Useful for writing documentation"
+		doLast {
+
+			checkHugoPrereqs()
+
+			val webDir = buildDir.resolve("website")
+
+			exec {
+				commandLine(
+					"hugo",
+					"server",
+					"--destination", webDir.toString()
+				)
+				workingDir = docDir.toFile()
 			}
 		}
 	}
 }
 
+
+/**
+ * Hugo front matter, in TOML format, with learn theme extensions
+ * https://gohugo.io/content-management/front-matter/
+ * https://learn.netlify.app/en/cont/pages/#front-matter-configuration
+ */
+fun hugoFrontMatter(
+	title: String? = null,
+	menuTitle: String? = null,
+	weight: Int = 4,
+	disableToc: Boolean = false,
+	hidden: Boolean = false
+): String =
+	"""
+		|+++
+		|${if (title != null) """title = "$title" """ else ""}
+		|${if (menuTitle != null) """menuTitle = "$menuTitle" """ else ""}
+		|weight = $weight
+		|${if (disableToc) "disableToc = true" else ""} 
+		|${if (hidden) "hidden = true" else ""} 
+		|+++
+		|
+		|
+	""".trimMargin()
+
+
 fun pydocMarkdown(module: String, file: Path, title: String = module, weight: Int = 5) {
+
+	// is pydoc-markdown installed
+	commandExistsOrThrow("pydoc-markdown")
 
 	val configPath = docDir.resolve("pydoc-markdown.yml")
 
-	file.toFile().outputStream().use { out ->
+	file.write { out ->
 
 		// write the hugo front matter
-		out.writer().apply {
-			write("""
-				|+++
-				|title = "$title"
-				|weight = $weight
-				|+++
-				|
-				|
-			""".trimMargin())
-			flush()
-		}
+		write(hugoFrontMatter(
+			title,
+			weight = weight,
+			hidden = true
+		))
+
+		// flush buffers before pointing other external programs into this stream
+		flush()
 
 		// generate the markdown from the python module using pydoc-markdown
 		// https://github.com/NiklasRosenstein/pydoc-markdown
 		exec {
 			commandLine(
 				"pydoc-markdown",
-				"-I", projectDir.resolve("src/main/python"),
-				"-m", module,
+				"--search-path", projectDir.resolve("src/main/python"),
+				"--module", module,
 				configPath.toString()
 			)
+			workingDir = projectDir.toFile()
 			standardOutput = out
+			environment["PYTHONPATH"] = System.getenv("PYTHONPATH") +
+				System.getProperty("path.separator") +
+				projectDir.resolve("src/test/python")
 		}
 	}
 }
@@ -1692,3 +1847,50 @@ fun Path.copyFolderTo(to: Path) =
 fun Path.listFiles(): Sequence<Path> =
 	Files.list(this).asSequence()
 		.filter { Files.isRegularFile(it) }
+
+fun Path.write(block: java.io.Writer.(java.io.OutputStream) -> Unit) {
+	toFile().outputStream().use { out ->
+		out.writer().use { writer ->
+			writer.block(out)
+		}
+	}
+}
+
+
+/**
+ * Returns true iff the command exists
+ */
+fun commandExists(name: String): Boolean {
+
+	// check the cache first
+	commandExistence[name]?.let { return it }
+
+	val exists = when (os) {
+
+		OperatingSystem.WINDOWS -> {
+			// don't know how to do this in Windows,
+			// so just assume true and hope for the best
+			true
+		}
+
+		else -> {
+			exec {
+				commandLine("which", name)
+				setIgnoreExitValue(true)
+			}.exitValue == 0
+		}
+	}
+
+	// update the cache
+	commandExistence[name] = exists
+
+	return exists
+}
+
+val commandExistence = HashMap<String,Boolean>()
+
+fun commandExistsOrThrow(name: String) {
+	if (!commandExists(name)) {
+		throw Error("command not available: $name")
+	}
+}

@@ -6,7 +6,8 @@ loaders:
 
 processors:
   - type: filter
-  - type: smart
+  - type: osprey_pydoc.OspreyProcessor
+  - type: pydocmd
   - type: crossref
 
 renderer:

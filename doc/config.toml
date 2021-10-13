@@ -18,6 +18,7 @@ home = [ "HTML", "RSS", "JSON" ]
 # "learn" theme settings
 # https://learn.netlify.app/en/basics/configuration/#global-site-parameters
 disableInlineCopyToClipBoard = true
+disableMermaid = true
 
 # "learn" theme styles
 # https://learn.netlify.app/en/basics/style-customization/
