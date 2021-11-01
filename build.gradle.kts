@@ -1247,14 +1247,36 @@ tasks {
 
 	fun checkHugoPrereqs() {
 
-		// make sure the hugo theme submodule is available
-		val themeDir = docDir.resolve("themes/hugo-theme-learn")
+		// commands we'll need
+		commandExistsOrThrow("hugo")
+		commandExistsOrThrow("git")
+		commandExistsOrThrow("go")
+
+		// download the theme, if needed
+		val themeDir = buildDir.resolve("doc/hugo-theme-learn")
 		if (!themeDir.exists()) {
-			throw Error("Hugo theme is not available. Make sure to clone the git submodules")
+
+			exec {
+				commandLine(
+					"git", "clone",
+					"--depth", "1",
+					"--branch", "2.5.0",
+					"https://github.com/matcornic/hugo-theme-learn",
+					themeDir.toString()
+				)
+			}
+
+			// pretend the theme is a go module
+			exec {
+				commandLine("go", "mod", "init", "local.tld/hugo-theme-learn")
+				workingDir = themeDir.toFile()
+			}
 		}
 
-		// make sure Hugo itself is installed and available
-		commandExistsOrThrow("hugo")
+		// make sure we got it
+		if (!themeDir.exists()) {
+			throw Error("Hugo theme is not available. The download must have failed somehow.")
+		}
 	}
 
 	val buildWebsite by creating {

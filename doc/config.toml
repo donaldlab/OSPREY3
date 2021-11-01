@@ -3,7 +3,6 @@
 #baseURL = "http://example.org/"
 languageCode = "en-us"
 title = "My New Hugo Site"
-theme = "hugo-theme-learn"
 
 
 [outputs]
@@ -28,3 +27,8 @@ themeVariant = "blue"
 # https://gohugo.io/getting-started/configuration-markup#goldmark
 [markup.goldmark.renderer]
 unsafe = true
+
+
+# import the learn theme
+[[module.imports]]
+path = "local.tld/hugo-theme-learn"
