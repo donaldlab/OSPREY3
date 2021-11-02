@@ -32,3 +32,10 @@ unsafe = true
 # import the learn theme
 [[module.imports]]
 path = "local.tld/hugo-theme-learn"
+
+# import the auto-generated API docs
+[[module.imports]]
+path = "local.tld/api-main"
+[[module.imports.mounts]]
+source = "content"
+target = "content/documentation/main/api"
