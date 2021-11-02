@@ -3,8 +3,10 @@ title = "Java"
 weight = 2
 +++
 
-Welcome to Osprey's Java API Reference
+Welcome to Osprey's Java code reference
 
-This API reference was automatically generated from source code comments using the tool `javadoc`.
+This code reference was automatically generated from source code comments using the tool `javadoc`.
 
-[Read the API reference](start.html)
+## Java code reference
+
+[Read the code reference](start.html)
