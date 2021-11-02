@@ -232,7 +232,7 @@ class ProtonationEditor : SlideFeature {
 			private fun pickHydrogen() =
 				mol.bonds.bondedAtoms(atom)
 					.filter { it.element == Element.Hydrogen }
-					.minBy { it.toInt() }
+					.minByOrNull { it.toInt() }
 
 			val pDihedral = Ref.of(measureDihedral())
 

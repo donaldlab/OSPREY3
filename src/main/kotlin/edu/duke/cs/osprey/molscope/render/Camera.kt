@@ -148,8 +148,8 @@ class Camera internal constructor(
 					}
 
 			}
-		val near = cornerDistances.min()!!
-		val far = cornerDistances.max()!!
+		val near = cornerDistances.minOrNull()!!
+		val far = cornerDistances.maxOrNull()!!
 
 		pos.set(this.look)
 			.mul(near - focalLength)
@@ -204,7 +204,7 @@ class Camera internal constructor(
 				.filterIsInstance<MoleculeRenderView>()
 				.flatMap { it.currentMol.atoms }
 				.map { it.pos.toFloat().distanceSquared(target) }
-				.max()
+				.maxOrNull()
 				?.sqrt()
 				?.let { r ->
 

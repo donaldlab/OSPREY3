@@ -506,7 +506,7 @@ class MoleculeNavigator : SlideFeature {
 		fun dist(a: Polymer.Residue, b: Polymer.Residue) =
 			a.atoms.allPairs(b.atoms)
 				.map { (a, b) -> a.pos.distance(b.pos) }
-				.min()
+				.minOrNull()
 				?: Double.POSITIVE_INFINITY
 
 		return mol.chains

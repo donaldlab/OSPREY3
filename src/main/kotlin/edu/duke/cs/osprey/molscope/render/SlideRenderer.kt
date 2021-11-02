@@ -754,8 +754,8 @@ class RenderSettings {
 		}
 
 		// get the min,max distances
-		var minDist = distances.min()!!.sqrt()
-		var maxDist = distances.max()!!.sqrt()
+		var minDist = distances.minOrNull()!!.sqrt()
+		var maxDist = distances.maxOrNull()!!.sqrt()
 
 		// add the margin
 		val pad = (maxDist - minDist)*margin/2

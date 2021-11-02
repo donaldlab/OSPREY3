@@ -695,7 +695,7 @@ fun List<ConfLib.Fragment>.toToml(
 							.toIntOrNull()
 							?: 1
 					}
-					.max()
+					.maxOrNull()
 					?: 1
 				"${frag.id}${num + 1}"
 			}

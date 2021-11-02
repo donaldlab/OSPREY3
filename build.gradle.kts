@@ -49,8 +49,8 @@ import com.jcraft.jsch.SftpProgressMonitor
 
 plugins {
 	`java-library`
-	kotlin("jvm") version "1.4.32"
-	kotlin("plugin.serialization") version "1.4.32"
+	kotlin("jvm") version "1.5.31"
+	kotlin("plugin.serialization") version "1.5.31"
 	application
 	idea
 	id("org.openjfx.javafxplugin") version("0.0.7")
