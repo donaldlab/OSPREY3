@@ -90,8 +90,8 @@ class OspreyProcessor(Processor):
 			return self._args_fields_javadoc(args)
 		elif name == 'returns_java':
 			return self._returns_java(args)
-		elif name == 'returns_method_javadoc':
-			return self._returns_method_javadoc(args)
+		elif name == 'returns_method_java':
+			return self._returns_method_java(args)
 		else:
 			raise Exception('unrecognized macro function: %s' % name)
 
@@ -161,7 +161,7 @@ class OspreyProcessor(Processor):
 		return '\n'.join(out)
 
 
-	def _returns_method_javadoc(self, args):
+	def _returns_method_java(self, args):
 
 		method_path = javadoc.Path(args[0])
 
@@ -170,7 +170,7 @@ class OspreyProcessor(Processor):
 		if method is None:
 			raise Exception('unknown java method: %s' % method_path)
 
-		return '(%s):' % method.returns
+		return _render_type(method.returns)
 
 
 	def _returns_java(self, args):
@@ -182,4 +182,27 @@ class OspreyProcessor(Processor):
 		if c is None:
 			raise Exception('unknown java class: %s' % class_path)
 
-		return '(%s):' % c.name
+		return _render_type(c.type)
+
+
+# use relative URLs here, not absoulte URLs, so the docs folders are copyable
+_URL_PREFIX = '../../java'
+
+def _render_type(type):
+
+	out = []
+
+	# render the type name, and a link if possible
+	if type.url is not None:
+		out.append('[%s](%s/%s)' % (type.name, _URL_PREFIX, type.url))
+	else:
+		out.append('`%s`' % type.name)
+
+	# render the params
+	if type.params is not None:
+		out.append('<')
+		for param in type.params:
+			out.extend(_render_type(param))
+		out.append('>')
+
+	return ''.join(out)

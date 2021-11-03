@@ -49,7 +49,7 @@ class Path:
 class Class:
 
 	def __init__(self, path, json):
-		self.name = json['name']
+		self.type = Type(json['type'])
 		try:
 			self.javadoc = json['javadoc']
 		except KeyError:
@@ -68,7 +68,7 @@ class Field:
 
 	def __init__(self, path, json):
 		self.name = path.member
-		self.type = json['type']
+		self.type = Type(json['type'])
 		try:
 			self.javadoc = json['javadoc']
 		except KeyError:
@@ -93,7 +93,7 @@ class Method:
 		self.name = path.member
 		self.signature = json['signature']
 		try:
-			self.returns = json['returns']
+			self.returns = Type(json['returns'])
 		except KeyError:
 			self.returns = None
 		try:
@@ -108,3 +108,22 @@ def get_method(path: Path):
 	except KeyError:
 		return None
 	return Method(path, method)
+
+
+class Type:
+
+	def __init__(self, json):
+		try:
+			self.name = json['name']
+		except (TypeError, KeyError):
+			# no object here, the json bit must be the string name
+			self.name = json
+			return
+		try:
+			self.url = json['url']
+		except KeyError:
+			self.url = None
+		try:
+			self.params = [Type(param) for param in json['params']]
+		except KeyError:
+			self.params = None

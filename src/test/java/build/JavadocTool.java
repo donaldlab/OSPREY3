@@ -21,6 +21,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.stream.Collectors;
+
+import static edu.duke.cs.osprey.tools.Log.log;
 
 
 /**
@@ -32,13 +35,15 @@ public class JavadocTool {
 	public static void main(String[] args) {
 
 		// parse the args
-		if (args.length != 1) {
-			System.err.println("needs one argument: the source folder or source file");
+		if (args.length != 2) {
+			System.err.println("argument: <root package> <source folder or source file>");
 			System.exit(1);
 			return; // hahaha, stupid javac
 		}
 
-		var path = Paths.get(args[0]);
+		var rootPackage = args[0];
+
+		var path = Paths.get(args[1]);
 		if (!Files.exists(path)) {
 			System.err.println("source path does not exist: " + path);
 			System.exit(1);
@@ -49,9 +54,9 @@ public class JavadocTool {
 
 		int code;
 		if (Files.isDirectory(path)) {
-			code = runFolder(path, out);
+			code = runFolder(rootPackage, path, out);
 		} else {
-			code = runFile(path, out);
+			code = runFile(rootPackage, path, out);
 		}
 
 		// write the JSON to stdout
@@ -59,7 +64,7 @@ public class JavadocTool {
 		System.exit(code);
 	}
 
-	public static int runFolder(Path sourceFolder, JSONObject out) {
+	public static int runFolder(String rootPackage, Path sourceFolder, JSONObject out) {
 
 		int failed = 0;
 
@@ -79,7 +84,7 @@ public class JavadocTool {
 			}
 
 			try {
-				handleFile(path.toString(), out);
+				handleFile(rootPackage, path.toString(), out);
 			} catch (Exception ex) {
 				System.err.println("can't process " + path);
 				ex.printStackTrace(System.err);
@@ -95,10 +100,10 @@ public class JavadocTool {
 		return 0;
 	}
 
-	public static int runFile(Path sourceFile, JSONObject out) {
+	public static int runFile(String rootPackage, Path sourceFile, JSONObject out) {
 
 		try {
-			handleFile(sourceFile.toString(), out);
+			handleFile(rootPackage, sourceFile.toString(), out);
 		} catch (IOException ex) {
 			System.err.println("can't process " + sourceFile);
 			ex.printStackTrace(System.err);
@@ -113,6 +118,7 @@ public class JavadocTool {
 		CompilationUnitTree tree;
 		DocTrees trees;
 		Elements elements;
+		String rootPackage;
 
 		TreePath path(Tree node) {
 			return trees.getPath(tree, node);
@@ -127,32 +133,15 @@ public class JavadocTool {
 		}
 
 		String binaryName(ClassTree c) {
+			return binaryName((TypeElement)element(c));
+		}
 
-			// try getting an element first... sometimes it works, sometimes it doesn't
-			var elem = (TypeElement)element(c);
-			if (elem != null) {
-				return elements.getBinaryName(elem).toString();
-			}
-
-			// fall back to building the name manually from the tree path
-			var name = c.getSimpleName().toString();
-			var path = path(c).getParentPath();
-			loop: while (path != null) {
-				var n = path.getLeaf();
-				switch (n.getKind()) {
-					case CLASS -> name = String.format("%s$%s", ((ClassTree)n).getSimpleName(), name);
-					case COMPILATION_UNIT -> {
-						name = String.format("%s.%s", ((CompilationUnitTree)n).getPackageName(), name);
-						break loop;
-					}
-				}
-				path = path.getParentPath();
-			}
-			return name;
+		String binaryName(TypeElement elem) {
+			return elements.getBinaryName(elem).toString();
 		}
 	}
 
-	private static void handleFile(String sourcePath, JSONObject out)
+	private static void handleFile(String rootPackage, String sourcePath, JSONObject out)
 	throws IOException {
 
 		// wrap the source in an object javac understands
@@ -179,11 +168,15 @@ public class JavadocTool {
 		// parse the source
 		var tree = task.parse().iterator().next();
 
+		// analyze the source to resolve the types
+		task.analyze();
+
 		// build the context
 		var ctx = new Context();
 		ctx.tree = tree;
 		ctx.trees = DocTrees.instance(task);
 		ctx.elements = task.getElements();
+		ctx.rootPackage = rootPackage;
 
 		// look for top-level classes
 		for (var type : tree.getTypeDecls()) {
@@ -198,7 +191,7 @@ public class JavadocTool {
 		var outClass = new JSONObject();
 		out.put(ctx.binaryName(c), outClass);
 
-		outClass.put("name", c.getSimpleName().toString());
+		outClass.put("type", renderTypeTree(ctx, c));
 
 		// get the class javadoc, if any
 		var doc = ctx.doc(c);
@@ -226,7 +219,7 @@ public class JavadocTool {
 		out.put(field.getName().toString(), outField);
 
 		// add the type
-		outField.put("type", field.getType().toString());
+		outField.put("type", renderTypeTree(ctx, field.getType()));
 
 		// add the javadoc, if any
 		var doc = ctx.doc(field);
@@ -258,7 +251,7 @@ public class JavadocTool {
 		buf.append(')');
 		if (method.getReturnType() != null) {
 			buf.append(method.getReturnType().toString());
-			outMethod.put("returns", method.getReturnType().toString());
+			outMethod.put("returns", renderTypeTree(ctx, method.getReturnType()));
 		}
 		outMethod.put("signature", buf.toString());
 
@@ -267,5 +260,54 @@ public class JavadocTool {
 		if (doc != null) {
 			outMethod.put("javadoc", doc.toString());
 		}
+	}
+
+	private static Object renderTypeTree(Context ctx, Tree tree) {
+
+		// get the element node for the tree node, if any
+		var elem = ctx.element(tree);
+		if (elem == null) {
+
+			// no element, must be something simple like a primitive type
+			// just render it directly to a string
+			return tree.toString();
+		}
+
+		if (elem instanceof TypeElement typeElem) {
+
+			var outType = new JSONObject();
+			outType.put("name", typeElem.getSimpleName().toString());
+
+			// get the javadoc url for this type, if any
+			if (typeElem.getQualifiedName().toString().startsWith(ctx.rootPackage + '.')) {
+
+				outType.put("name", typeElem.getSimpleName().toString());
+				outType.put("url", ctx.binaryName(typeElem)
+					.replace('.', '/')
+					.replace('$', '.')
+					+ ".html");
+
+			} else {
+
+				// not one of our classes, no url so use the fully qualified name
+				outType.put("name", typeElem.getQualifiedName().toString());
+			}
+
+			// look for type parameters
+			if (tree instanceof ParameterizedTypeTree typeTree) {
+				var params = typeTree.getTypeArguments();
+				if (params != null && !params.isEmpty()) {
+					outType.put("params", params.stream().map(p -> renderTypeTree(ctx, p)).collect(Collectors.toList()));
+				}
+			}
+
+			return outType;
+
+		} else if (elem instanceof TypeParameterElement) {
+			// a type parameter, like Class<T>, just render to a string
+			return elem.toString();
+		}
+
+		throw new Error("don't know how to render element for " + elem.getClass());
 	}
 }

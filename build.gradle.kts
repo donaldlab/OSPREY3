@@ -1168,16 +1168,15 @@ tasks {
 
 			jsonFile.write { json ->
 
-				exec {
-					commandLine(
-						listOf("java",
-							"-classpath", sourceSets["test"].runtimeClasspath.joinToClasspath { it.absolutePath },
-						) +
-						moduleArgs +
-						listOf(
-							"build.JavadocTool",
-							sourceSets["main"].java.sourceDirectories.first().absolutePath
-						)
+				javaexec {
+					classpath = sourceSets.test.get().runtimeClasspath
+					mainClass.set("build.JavadocTool")
+					jvmArgs(
+						*moduleArgs.toTypedArray()
+					)
+					args(
+						packagePath.replace('/', '.'),
+						sourceSets.main.get().java.sourceDirectories.first().absolutePath
 					)
 					standardOutput = json
 				}
@@ -1186,8 +1185,11 @@ tasks {
 		outputs.file(jsonFile)
 	}
 
+	// TODO: parse kotlin docs?
+
 	val generatePythonDocs by creating {
 		group = "documentation"
+		dependsOn(parseJavadoc)
 		doLast {
 
 			// generate the documentation into a hugo module in the build folder

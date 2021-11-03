@@ -1,5 +1,8 @@
 package build;
 
+import java.util.List;
+import java.util.Map;
+
 /**
  * Javadoc comment for Test
  */
@@ -23,6 +26,12 @@ public class Test {
 		/** javadoc for j */
 		float j = 42f;
 
+		/** javadoc for bars */
+		List<Bar> bars;
+
+		/** javadoc for barIndex */
+		Map<String,Bar> barIndex;
+
 		/** javadoc for Bar */
 		class Bar {
 
@@ -30,4 +39,10 @@ public class Test {
 			String k = "cheese";
 		}
 	}
+
+	/** javadoc for container class */
+	class Container<T> {}
+
+	/** javadoc for container field */
+	Container<String> container;
 }
