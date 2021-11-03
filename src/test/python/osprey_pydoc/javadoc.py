@@ -4,7 +4,7 @@ import json
 
 
 # load the parsed javadoc
-with open('build/javadoc.json', 'r') as f:
+with open('build/doc/javadoc.json', 'r') as f:
 	_javadoc = json.load(f)
 
 
@@ -48,7 +48,7 @@ class Path:
 
 class Class:
 
-	def __init__(self, path, json):
+	def __init__(self, json):
 		self.type = Type(json['type'])
 		try:
 			self.javadoc = json['javadoc']
@@ -61,13 +61,13 @@ def get_class(path: Path):
 		c = _javadoc[path.classname]
 	except KeyError:
 		return None
-	return Class(path, c)
+	return Class(c)
 
 
 class Field:
 
-	def __init__(self, path, json):
-		self.name = path.member
+	def __init__(self, name, json):
+		self.name = name
 		self.type = Type(json['type'])
 		try:
 			self.javadoc = json['javadoc']
@@ -84,46 +84,123 @@ def get_field(path: Path):
 		field = _javadoc[path.classname]['fields'][path.member]
 	except KeyError:
 		return None
-	return Field(path, field)
+	return Field(path.member, field)
 
 
 class Method:
 
-	def __init__(self, path, json):
-		self.name = path.member
+	def __init__(self, id, json):
+		self.id = id
+		self.name = json['name']
 		self.signature = json['signature']
 		try:
 			self.returns = Type(json['returns'])
 		except KeyError:
 			self.returns = None
 		try:
-			self.javadoc = json['javadoc']
+			self.javadoc = MethodJavadoc(json['javadoc'])
 		except KeyError:
 			self.javadoc = None
 
 
-def get_method(path: Path):
+class MethodJavadoc:
+
+	def __init__(self, javadoc):
+
+		pivot = javadoc.find('@param')
+		if pivot >= 0:
+			self.header = javadoc[0:pivot].strip()
+		else:
+			self.header = javadoc.strip()
+
+		lines = javadoc.split('\n')
+		tag = '@param '
+		params = [ParamJavadoc(line[len(tag):]) for line in lines if line.strip().startswith(tag)]
+
+		self.params = {}
+		for param in params:
+			self.params[param.name] = param
+
+
+class ParamJavadoc:
+
+	def __init__(self, javadoc):
+		# eg:
+		# dir Path to directory. This directory will be created if it does not exist.
+		pivot = javadoc.find(' ')
+		if pivot >= 0:
+			self.name = javadoc[0:pivot]
+			self.description = javadoc[pivot:].strip()
+		else:
+			self.name = javadoc
+			self.description = None
+
+
+def get_methods(path: Path):
+
 	try:
-		method = _javadoc[path.classname]['methods'][path.member]
+		c = _javadoc[path.classname]
+	except KeyError:
+		return []
+
+	methods = c['methods']
+
+	try:
+		return [Method(path.member, methods[path.member])]
+	except KeyError:
+
+		# didn't get a direct hit, try to match just the method name without the type signature
+		ids = [id for (id, m) in methods.items() if m['name'] == path.member]
+
+		return [Method(id, methods[id]) for id in ids]
+
+
+def get_method(path: Path):
+
+	methods = get_methods(path)
+
+	if len(methods) <= 0:
+		return None
+	elif len(methods) > 1:
+		ids = [m.id for m in methods]
+		raise Exception('multiple overloads found for method %s in %s\ntry one of:\n\t%s' % (path.member, path.classname, '\n\t'.join(ids)))
+
+	return methods[0]
+
+
+def get_method_or_throw(path: Path):
+	method = get_method(path)
+	if method is None:
+		raise Exception('unknown java method: %s\ntry one of:\n\t%s' % (path, '\n\t'.join(get_method_ids(path))))
+	return method
+
+
+def get_method_ids(path: Path):
+
+	try:
+		c = _javadoc[path.classname]
 	except KeyError:
 		return None
-	return Method(path, method)
+
+	return c['methods'].keys()
 
 
 class Type:
 
 	def __init__(self, json):
+
 		try:
 			self.name = json['name']
 		except (TypeError, KeyError):
 			# no object here, the json bit must be the string name
 			self.name = json
-			return
+
 		try:
 			self.url = json['url']
-		except KeyError:
+		except (KeyError, TypeError):
 			self.url = None
+
 		try:
 			self.params = [Type(param) for param in json['params']]
-		except KeyError:
+		except (KeyError, TypeError):
 			self.params = None

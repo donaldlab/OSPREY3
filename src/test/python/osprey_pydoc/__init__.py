@@ -16,8 +16,19 @@ import osprey_pydoc.javadoc
 @dataclasses.dataclass
 class OspreyProcessor(Processor):
 
-	tag = re.compile(r'\$\{([^\}]*)\}')
-	tag_func = re.compile(r'(\w+)\(([^\)]*)\)')
+	_tag = re.compile(r'\$\{([^\}]*)\}')
+
+	def __init__(self):
+		self._vtable = {
+			'class_javadoc': self._class_javadoc,
+			'type_java': self._type_java,
+			'arg_field_javadoc': self._arg_field_javadoc,
+			'args_fields_javadoc': self._args_fields_javadoc,
+			'returns_method_java': self._returns_method_java,
+			'method_javadoc': self._method_javadoc,
+			'arg_javadoc': self._arg_javadoc,
+			'default': self._default
+		}
 
 
 	def process(self, modules: t.List[docspec.Module], resolver: t.Optional[Resolver]) -> None:
@@ -32,68 +43,76 @@ class OspreyProcessor(Processor):
 		self._current_node = node
 
 		# replace all expressions in the docstring, eg ${expr}
-		node.docstring = self.tag.sub(self._expr, node.docstring)
+		node.docstring = self._tag.sub(self._expr, node.docstring)
 
 		self._current_node = None
 
 
 	def _expr(self, match):
 
-		# try to match a function expression
-		func = self.tag_func.match(match.group(1))
-		if func is not None:
-			func_name = func.group(1)
+		expr = match.group(1).strip()
 
-			# parse the function arguments
-			# allow nested list syntax, eg
-			#   arg1
-			#   arg1, arg2
-			#   [arg1a, arg1b], arg2
-			func_args = func.group(2)
-			args = []
-			args_stack = [args]
-			in_arg = False
-			for c in func_args:
-				if c == ',':
-					in_arg = False
-				elif c == '[':
-					next = []
-					args_stack[-1].append(next)
-					args_stack.append(next)
-				elif c == ']':
-					args_stack.pop()
-					in_arg = False
-				elif c == '\n' or c == '\t':
-					pass # ignore some kinds of whitespace
-				elif c == ' ':
-					if in_arg:
-						args_stack[-1][-1] += c
+		# parse the function name
+		pivot = expr.find('(')
+		if pivot <= 0 or expr[-1] != ')':
+			raise Exception('expression is not a function call: %s' % expr)
+		func_name = expr[0:pivot]
+
+		# look up the function
+		try:
+			func = self._vtable[func_name]
+		except KeyError:
+			raise Exception('unrecognized macro function %s' % func_name)
+
+		# parse the function arguments
+		# allow nested list syntax, eg
+		#   arg1
+		#   arg1, arg2
+		#   [arg1a, arg1b], arg2
+		#   arg1(still_arg1,still_arg1), arg2
+		func_args = expr[pivot + 1:-1]
+		args = []
+		args_stack = [args]
+		in_arg = False
+		in_paren = False
+		for c in func_args:
+			if c == ',':
+				if in_paren:
+					args_stack[-1][-1] += c
 				else:
-					if in_arg:
-						args_stack[-1][-1] += c
-					else:
-						args_stack[-1].append(str(c))
-						in_arg = True
+					in_arg = False
+			elif c == '(':
+				in_paren = True
+				args_stack[-1][-1] += c
+			elif c == ')':
+				in_paren = False
+				args_stack[-1][-1] += c
+			elif c == '[':
+				next = []
+				args_stack[-1].append(next)
+				args_stack.append(next)
+			elif c == ']':
+				args_stack.pop()
+				in_arg = False
+			elif c == '\n' or c == '\t':
+				pass # ignore some kinds of whitespace
+			elif c == ' ':
+				if in_arg:
+					args_stack[-1][-1] += c
+			else:
+				if in_arg:
+					args_stack[-1][-1] += c
+				else:
+					# start a new arg
+					args_stack[-1].append(str(c))
+					in_arg = True
 
-			return self._func(func_name, args)
+
+		# actually call the function with the parsed arguments
+		return func(args)
 
 		# not a recognized expression
 		raise Exception('unrecognized expression: %s' % match.group(0))
-
-
-	def _func(self, name, args):
-		if name == 'class_javadoc':
-			return self._class_javadoc(args)
-		elif name == 'arg_field_javadoc':
-			return self._arg_field_javadoc(args)
-		elif name == 'args_fields_javadoc':
-			return self._args_fields_javadoc(args)
-		elif name == 'returns_java':
-			return self._returns_java(args)
-		elif name == 'returns_method_java':
-			return self._returns_method_java(args)
-		else:
-			raise Exception('unrecognized macro function: %s' % name)
 
 
 	def _class_javadoc(self, args):
@@ -106,6 +125,18 @@ class OspreyProcessor(Processor):
 			raise Exception('unknown java class: %s' % class_path)
 
 		return c.javadoc
+
+	def _type_java(self, args):
+
+		# render the type with links to other docs where possible
+		class_path = javadoc.Path(args[0])
+
+		# lookup the class
+		c = javadoc.get_class(class_path)
+		if c is None:
+			raise Exception('unknown java class: %s' % class_path)
+
+		return _render_type(c.type)
 
 
 	def _arg_field_javadoc(self, args):
@@ -134,7 +165,7 @@ class OspreyProcessor(Processor):
 			if arg.default_value == 'UseJavaDefault':
 				arg.default_value = field.initializer
 
-		return '%s (%s): %s' % (arg_name, field.type, field.javadoc)
+		return '%s %s: %s' % (arg_name, _render_type(field.type), field.javadoc)
 
 
 	def _args_fields_javadoc(self, args):
@@ -163,26 +194,46 @@ class OspreyProcessor(Processor):
 
 	def _returns_method_java(self, args):
 
-		method_path = javadoc.Path(args[0])
-
-		# lookup the method in the javadoc
-		method = javadoc.get_method(method_path)
-		if method is None:
-			raise Exception('unknown java method: %s' % method_path)
+		method = javadoc.get_method_or_throw(javadoc.Path(args[0]))
 
 		return _render_type(method.returns)
 
 
-	def _returns_java(self, args):
+	def _method_javadoc(self, args):
 
-		class_path = javadoc.Path(args[0])
+		method = javadoc.get_method_or_throw(javadoc.Path(args[0]))
 
-		# lookup the class in javadoc
-		c = javadoc.get_class(class_path)
-		if c is None:
-			raise Exception('unknown java class: %s' % class_path)
+		if method.javadoc is None:
+			raise Exception('java method %s has no javadoc' % method_path)
 
-		return _render_type(c.type)
+		return method.javadoc.header
+
+
+	def _arg_javadoc(self, args):
+
+		method = javadoc.get_method_or_throw(javadoc.Path(args[0]))
+		arg_name = args[1]
+
+		# lookup the arg javadoc
+		try:
+			arg = method.javadoc.params[arg_name]
+		except KeyError:
+			raise Exception("can't find arg %s in java method %s\n\tavailable args: %s" % (arg_name, method_path, method.javadoc.params.keys()))
+
+		return arg.description
+
+
+	def _default(self, args):
+
+		arg_name = args[0]
+		value = args[1]
+
+		# find the argument in the current node
+		candidates = [a for a in self._current_node.args if a.name == arg_name]
+		if len(candidates) <= 0:
+			raise Exception("can't find arg %s in python funciton %s" % (arg_name, self._current_node.name))
+
+		candidates[0].default_value = value
 
 
 # use relative URLs here, not absoulte URLs, so the docs folders are copyable

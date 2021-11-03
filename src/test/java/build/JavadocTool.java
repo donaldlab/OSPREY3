@@ -23,8 +23,6 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static edu.duke.cs.osprey.tools.Log.log;
-
 
 /**
  * Calls raw javac to get the full AST for source files,
@@ -237,7 +235,7 @@ public class JavadocTool {
 	private static void handleMethod(Context ctx, MethodTree method, JSONObject out) {
 
 		var outMethod = new JSONObject();
-		out.put(method.getName().toString(), outMethod);
+		outMethod.put("name", method.getName().toString());
 
 		// add the signature
 		var buf = new StringBuilder();
@@ -249,17 +247,24 @@ public class JavadocTool {
 			buf.append(arg.getType().toString());
 		}
 		buf.append(')');
+
+		// add the return type, if any (constructors don't have return types)
 		if (method.getReturnType() != null) {
 			buf.append(method.getReturnType().toString());
 			outMethod.put("returns", renderTypeTree(ctx, method.getReturnType()));
 		}
+
 		outMethod.put("signature", buf.toString());
+
 
 		// add the javadoc, if any
 		var doc = ctx.doc(method);
 		if (doc != null) {
 			outMethod.put("javadoc", doc.toString());
 		}
+
+		// names aren't necessarily unique, so decorate with the signature
+		out.put(method.getName().toString() + buf.toString(), outMethod);
 	}
 
 	private static Object renderTypeTree(Context ctx, Tree tree) {

@@ -1159,14 +1159,19 @@ tasks {
 		}
 	}
 
+	val javadocJsonFile = buildDir.resolve("doc/javadoc.json")
+
 	val parseJavadoc by creating {
 		group = "documentation"
 		description = "export javadocs into a queryable format"
 		dependsOn("testClasses")
-		val jsonFile = buildDir.resolve("javadoc.json")
+		// NOTE: this task apparently won't re-run after a code recompile
+		// my gradle-fu isn't good enough to figure out how to do that
+		// in the meantime, just delete the build/doc/javadoc.json file to get this task to run again
 		doLast {
 
-			jsonFile.write { json ->
+			javadocJsonFile.parent.createFolder()
+			javadocJsonFile.write { json ->
 
 				javaexec {
 					classpath = sourceSets.test.get().runtimeClasspath
@@ -1182,7 +1187,7 @@ tasks {
 				}
 			}
 		}
-		outputs.file(jsonFile)
+		outputs.file(javadocJsonFile)
 	}
 
 	// TODO: parse kotlin docs?
@@ -1190,6 +1195,7 @@ tasks {
 	val generatePythonDocs by creating {
 		group = "documentation"
 		dependsOn(parseJavadoc)
+		inputs.files(javadocJsonFile)
 		doLast {
 
 			// generate the documentation into a hugo module in the build folder
