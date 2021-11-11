@@ -1,0 +1,4 @@
+/Users/hongniu/IdeaProjects/OSPREY3/src/main/cc/ConfEcalc/CMakeFiles/rebuild_cache.dir
+/Users/hongniu/IdeaProjects/OSPREY3/src/main/cc/ConfEcalc/CMakeFiles/edit_cache.dir
+/Users/hongniu/IdeaProjects/OSPREY3/src/main/cc/ConfEcalc/CMakeFiles/ConfEcalc_CopyLibs.dir
+/Users/hongniu/IdeaProjects/OSPREY3/src/main/cc/ConfEcalc/CMakeFiles/ConfEcalc.dir

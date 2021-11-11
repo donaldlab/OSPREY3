@@ -1,0 +1,1 @@
+/Library/Developer/CommandLineTools/usr/bin/c++ -pedantic-errors -arch arm64 -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX12.0.sdk -dynamiclib -Wl,-headerpad_max_install_names -o /Users/hongniu/IdeaProjects/OSPREY3/src/main/resources/darwin-arm64/libConfEcalc.dylib -install_name @rpath/libConfEcalc.dylib CMakeFiles/ConfEcalc.dir/confecalc.cc.o 
