@@ -39,6 +39,10 @@ public class TestJavadocTool {
 		assertThat(stuff.getString("javadoc"), is("javadoc for stuff"));
 		assertThat(stuff.getString("signature"), is("(int,float)void"));
 		assertThat(stuff.getString("returns"), is("void"));
+		assertThat(stuff.getJSONArray("args").getJSONObject(0).getString("name"), is("a"));
+		assertThat(stuff.getJSONArray("args").getJSONObject(0).getString("type"), is("int"));
+		assertThat(stuff.getJSONArray("args").getJSONObject(1).getString("name"), is("b"));
+		assertThat(stuff.getJSONArray("args").getJSONObject(1).getString("type"), is("float"));
 		var container = test.getJSONObject("fields").getJSONObject("container");
 		assertThat(container.getJSONObject("type").getString("name"), is("Container"));
 		assertThat(container.getJSONObject("type").getJSONArray("params").getJSONObject(0).getString("name"), is("java.lang.String"));

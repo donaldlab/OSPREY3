@@ -7,6 +7,7 @@ import com.sun.source.util.DocTrees;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.TreePath;
 import edu.duke.cs.osprey.tools.FileTools;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import javax.lang.model.element.*;
@@ -262,6 +263,18 @@ public class JavadocTool {
 		if (doc != null) {
 			outMethod.put("javadoc", doc.toString());
 		}
+
+		// add method arguments
+		var outArgs = new JSONArray();
+		for (var arg : method.getParameters()) {
+			var outArg = new JSONObject();
+
+			outArg.put("name", arg.getName().toString());
+			outArg.put("type", renderTypeTree(ctx, arg.getType()));
+
+			outArgs.put(outArg);
+		}
+		outMethod.put("args", outArgs);
 
 		// names aren't necessarily unique, so decorate with the signature
 		out.put(method.getName().toString() + buf.toString(), outMethod);

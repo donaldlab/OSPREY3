@@ -26,6 +26,7 @@ class OspreyProcessor(Processor):
 			'args_fields_javadoc': self._args_fields_javadoc,
 			'returns_method_java': self._returns_method_java,
 			'method_javadoc': self._method_javadoc,
+			'arg_java': self._arg_java,
 			'arg_javadoc': self._arg_javadoc,
 			'default': self._default
 		}
@@ -144,8 +145,15 @@ class OspreyProcessor(Processor):
 		# output something like
 		# arg (int): The first argument.
 
-		arg_name = args[0]
-		field_path = javadoc.Path(args[1])
+		(pos_args, named_args) = _split_args(args)
+		arg_name = pos_args[0]
+		field_path = javadoc.Path(pos_args[1])
+
+		# parse the named args
+		arg_type = None
+		for (name, value) in named_args:
+			if name == 'type':
+				arg_type = value
 
 		# find the corresponding argument in the function
 		try:
@@ -165,7 +173,13 @@ class OspreyProcessor(Processor):
 			if arg.default_value == 'UseJavaDefault':
 				arg.default_value = field.initializer
 
-		return '%s %s: %s' % (arg_name, _render_type(field.type), field.javadoc)
+		# render the type
+		if arg_type is not None:
+			rendered_type = _literal_type(arg_type)
+		else:
+			rendered_type = _render_type(field.type)
+
+		return '%s %s: %s' % (arg_name, rendered_type, field.javadoc)
 
 
 	def _args_fields_javadoc(self, args):
@@ -174,20 +188,22 @@ class OspreyProcessor(Processor):
 		args = args[1:]
 
 		out = []
-		for pair in args:
+		for field_args in args:
+
+			(pos_args, named_args) = _split_args(field_args)
 
 			# deconstruct the argument pair
-			if len(pair) == 1:
-				arg_name = pair[0]
-				field_name = pair[0]
-			elif len(pair) == 2:
-				arg_name = pair[0]
-				field_name = pair[1]
+			if len(pos_args) == 1:
+				arg_name = pos_args[0]
+				field_name = pos_args[0]
+			elif len(pos_args) == 2:
+				arg_name = pos_args[0]
+				field_name = pos_args[1]
 			else:
-				raise Exception('invaild argument description: %s' % pair)
+				raise Exception('invalid field arguments: %s' % field_args)
 
 			field_path = '%s#%s' % (classname, field_name)
-			out.append(self._arg_field_javadoc([arg_name, field_path]))
+			out.append(self._arg_field_javadoc(_join_args([arg_name, field_path], named_args)))
 
 		return '\n'.join(out)
 
@@ -209,6 +225,39 @@ class OspreyProcessor(Processor):
 		return method.javadoc.header
 
 
+	def _arg_java(self, args):
+
+		(pos_args, named_args) = _split_args(args)
+		method = javadoc.get_method_or_throw(javadoc.Path(pos_args[0]))
+		java_arg_name = pos_args[1]
+		py_arg_name = pos_args[1]
+		if len(args) >= 3:
+			py_arg_name = pos_args[2]
+
+		# parse the named args
+		arg_type = None
+		for (name, value) in named_args:
+			if name == 'type':
+				arg_type = value
+
+		# lookup the arg in the java method
+		arg = method.find_arg_or_throw(java_arg_name)
+
+		# render the type
+		if arg_type is not None:
+			rendered_type = _literal_type(arg_type)
+		else:
+			rendered_type = _render_type(arg.type)
+
+		# lookup the arg javadoc, if any
+		try:
+			arg_javadoc = method.javadoc.params[arg_name]
+		except (KeyError, AttributeError):
+			arg_javadoc = ''
+
+		return '%s %s: %s' % (py_arg_name, rendered_type, arg_javadoc)
+
+
 	def _arg_javadoc(self, args):
 
 		method = javadoc.get_method_or_throw(javadoc.Path(args[0]))
@@ -217,7 +266,7 @@ class OspreyProcessor(Processor):
 		# lookup the arg javadoc
 		try:
 			arg = method.javadoc.params[arg_name]
-		except KeyError:
+		except (KeyError, AttributeError):
 			raise Exception("can't find arg %s in java method %s\n\tavailable args: %s" % (arg_name, method_path, method.javadoc.params.keys()))
 
 		return arg.description
@@ -234,6 +283,24 @@ class OspreyProcessor(Processor):
 			raise Exception("can't find arg %s in python funciton %s" % (arg_name, self._current_node.name))
 
 		candidates[0].default_value = value
+
+
+def _split_args(args):
+
+	# pull out the named optional arguments from the positional arguments
+	named_args = [a.split('=') for a in args if '=' in a]
+	pos_args = [a for a in args if '=' not in a]
+
+	# check the named args
+	for parts in named_args:
+		if len(parts) != 2:
+			raise Exception('invalid named argument: %s' % parts)
+
+	return (pos_args, named_args)
+
+
+def _join_args(pos_args, named_args):
+	return pos_args + ['='.join(a) for a in named_args]
 
 
 # use relative URLs here, not absoulte URLs, so the docs folders are copyable
@@ -257,3 +324,7 @@ def _render_type(type):
 		out.append('>')
 
 	return ''.join(out)
+
+
+def _literal_type(type):
+	return '`%s`' % type

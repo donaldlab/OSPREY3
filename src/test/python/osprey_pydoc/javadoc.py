@@ -64,6 +64,13 @@ def get_class(path: Path):
 	return Class(c)
 
 
+def get_class_or_throw(path: Path):
+	c = get_class(path)
+	if c is None:
+		raise Exception('unknown java class: %s' % path.classname)
+	return c
+
+
 class Field:
 
 	def __init__(self, name, json):
@@ -101,6 +108,19 @@ class Method:
 			self.javadoc = MethodJavadoc(json['javadoc'])
 		except KeyError:
 			self.javadoc = None
+		self.args = [MethodArg(a) for a in json['args']]
+
+	def find_arg(self, name):
+		for arg in self.args:
+			if arg.name == name:
+				return arg
+		return None
+
+	def find_arg_or_throw(self, name):
+		arg = self.find_arg(name)
+		if arg is None:
+			raise Exception('no argument named %s found in method %s\n\ttry one of: %s' % (name, self.id, [a.name for a in self.args]))
+		return arg
 
 
 class MethodJavadoc:
@@ -136,6 +156,13 @@ class ParamJavadoc:
 			self.description = None
 
 
+class MethodArg:
+
+	def __init__(self, json):
+		self.name = json['name']
+		self.type = Type(json['type'])
+
+
 def get_methods(path: Path):
 
 	try:
@@ -169,6 +196,10 @@ def get_method(path: Path):
 
 
 def get_method_or_throw(path: Path):
+
+	# look for the class or throw, since get_method() won't throw on a missing class
+	get_class_or_throw(path)
+
 	method = get_method(path)
 	if method is None:
 		raise Exception('unknown java method: %s\ntry one of:\n\t%s' % (path, '\n\t'.join(get_method_ids(path))))
@@ -180,7 +211,7 @@ def get_method_ids(path: Path):
 	try:
 		c = _javadoc[path.classname]
 	except KeyError:
-		return None
+		return []
 
 	return c['methods'].keys()
 
