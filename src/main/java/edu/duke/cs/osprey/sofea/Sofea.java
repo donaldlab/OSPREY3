@@ -111,7 +111,7 @@ public class Sofea {
 		private long fringedbUpperBytes = 1024*1024; // 1 MiB
 
 		/**
-		 * File for the Residue Conformation (RC) database, or null to skip traking RC info.
+		 * File for the Residue Conformation (RC) database, or null to skip tracking RC info.
 		 */
 		private File rcdbFile = null;
 
