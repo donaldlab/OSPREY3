@@ -22,11 +22,13 @@ class OspreyProcessor(Processor):
 		self._vtable = {
 			'class_javadoc': self._class_javadoc,
 			'type_java': self._type_java,
+			'field_javadoc': self._field_javadoc,
 			'arg_field_javadoc': self._arg_field_javadoc,
 			'args_fields_javadoc': self._args_fields_javadoc,
 			'returns_method_java': self._returns_method_java,
 			'method_javadoc': self._method_javadoc,
 			'arg_java': self._arg_java,
+			'args_java': self._args_java,
 			'arg_javadoc': self._arg_javadoc,
 			'default': self._default
 		}
@@ -140,6 +142,16 @@ class OspreyProcessor(Processor):
 		return _render_type(c.type)
 
 
+	def _field_javadoc(self, args):
+
+		field_path = javadoc.Path(args[0])
+
+		# lookup the field in the javadoc
+		field = javadoc.get_field_or_throw(field_path)
+
+		return field.javadoc
+
+
 	def _arg_field_javadoc(self, args):
 
 		# output something like
@@ -162,16 +174,14 @@ class OspreyProcessor(Processor):
 			raise Exception('unknown argument %s in python function %s' % (arg_name, self._current_node.name))
 
 		# lookup the field in the javadoc
-		field = javadoc.get_field(field_path)
-		if field is None:
-			raise Exception('unknown java field: %s' % field_path)
+		field = javadoc.get_field_or_throw(field_path)
 
-		# does the field have an initializer?
-		if field.initializer is not None:
-
-			# use the initializer as an argument default value
-			if arg.default_value == 'UseJavaDefault':
-				arg.default_value = field.initializer
+		# use the initializer as an argument default value
+		if arg.default_value == 'useJavaDefault':
+			if field.initializer is not None:
+				arg.default_value = _render_value(field.initializer)
+			else:
+				arg.default_value = 'None'
 
 		# render the type
 		if arg_type is not None:
@@ -210,7 +220,11 @@ class OspreyProcessor(Processor):
 
 	def _returns_method_java(self, args):
 
-		method = javadoc.get_method_or_throw(javadoc.Path(args[0]))
+		path = javadoc.Path(args[0])
+		method = javadoc.get_method_or_throw(path)
+
+		if method.returns is None:
+			raise Exception("can't write return type, method %s has no return type (maybe it's a constructor?)" % path)
 
 		return _render_type(method.returns)
 
@@ -228,11 +242,11 @@ class OspreyProcessor(Processor):
 	def _arg_java(self, args):
 
 		(pos_args, named_args) = _split_args(args)
-		method = javadoc.get_method_or_throw(javadoc.Path(pos_args[0]))
-		java_arg_name = pos_args[1]
-		py_arg_name = pos_args[1]
+		py_arg_name = pos_args[0]
+		method = javadoc.get_method_or_throw(javadoc.Path(pos_args[1]))
+		java_arg_name = pos_args[0]
 		if len(args) >= 3:
-			py_arg_name = pos_args[2]
+			java_arg_name = pos_args[2]
 
 		# parse the named args
 		arg_type = None
@@ -251,11 +265,24 @@ class OspreyProcessor(Processor):
 
 		# lookup the arg javadoc, if any
 		try:
-			arg_javadoc = method.javadoc.params[arg_name]
+			arg_javadoc = method.javadoc.params[java_arg_name]
 		except (KeyError, AttributeError):
 			arg_javadoc = ''
 
 		return '%s %s: %s' % (py_arg_name, rendered_type, arg_javadoc)
+
+
+	def _args_java(self, args):
+
+		path = javadoc.Path(args[0])
+		method = javadoc.get_method_or_throw(path)
+		args = args[1:]
+
+		out = []
+		for arg_args in args:
+			out.append(self._arg_java([arg_args[0]] + [path.path] + arg_args[1:]))
+
+		return '\n'.join(out)
 
 
 	def _arg_javadoc(self, args):
@@ -308,13 +335,27 @@ _URL_PREFIX = '../../java'
 
 def _render_type(type):
 
+	if type is None:
+		raise Exception("can't render type info, no type")
+
 	out = []
+
+	# perform any java->python type transformations that are automatically applied by JPype
+	try:
+		type_name = {
+			'java.lang.String': 'str',
+			'boolean': 'bool',
+			'double': 'float',
+			'long': 'int'
+		}[type.name]
+	except KeyError:
+		type_name = type.name
 
 	# render the type name, and a link if possible
 	if type.url is not None:
-		out.append('[%s](%s/%s)' % (type.name, _URL_PREFIX, type.url))
+		out.append('[%s](%s/%s)' % (type_name, _URL_PREFIX, type.url))
 	else:
-		out.append('`%s`' % type.name)
+		out.append('`%s`' % type_name)
 
 	# render the params
 	if type.params is not None:
@@ -328,3 +369,17 @@ def _render_type(type):
 
 def _literal_type(type):
 	return '`%s`' % type
+
+
+def _render_value(type):
+	# translate from Java to Python
+	try:
+		return {
+			'null': 'None',
+			'false': 'False',
+			'true': 'True',
+			'Double.POSITIVE_INFINITY': "float('inf')",
+			'Double.NEGATIVE_INFINITY': "float('-inf')"
+		}[type]
+	except KeyError:
+		return type

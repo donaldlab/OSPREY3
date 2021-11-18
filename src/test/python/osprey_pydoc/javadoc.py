@@ -94,6 +94,13 @@ def get_field(path: Path):
 	return Field(path.member, field)
 
 
+def get_field_or_throw(path: Path):
+	field = get_field(path)
+	if field is None:
+		raise Exception('unknown java field: %s' % path)
+	return field
+
+
 class Method:
 
 	def __init__(self, id, json):
