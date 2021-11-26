@@ -49,8 +49,8 @@ import com.jcraft.jsch.SftpProgressMonitor
 
 plugins {
 	`java-library`
-	kotlin("jvm") version "1.5.31"
-	kotlin("plugin.serialization") version "1.5.31"
+	kotlin("jvm") version "1.6.0"
+	kotlin("plugin.serialization") version "1.6.0"
 	application
 	idea
 	id("org.openjfx.javafxplugin") version("0.0.7")
@@ -148,7 +148,7 @@ repositories {
 	mavenCentral()
 }
 
-val javaLangVersion = 16
+val javaLangVersion = 17
 java {
 	toolchain {
 		languageVersion.set(JavaLanguageVersion.of(javaLangVersion))
@@ -165,7 +165,7 @@ idea {
 }
 
 application {
-	mainClassName = "edu.duke.cs.osprey.control.Main"
+	mainClassName = "edu.duke.cs.osprey.design.Main"
 }
 
 dependencies {
@@ -300,14 +300,11 @@ tasks.withType<KotlinCompile> {
 
 	kotlinOptions {
 
-		jvmTarget = "1.8"
+		jvmTarget = javaLangVersion.toString()
 
 		// enable experimental features so we can use the fancy ktor stuff
 		freeCompilerArgs += "-Xuse-experimental=kotlin.Experimental"
 		freeCompilerArgs += "-XXLanguage:+InlineClasses"
-
-		// use the newer (and less buggier?) compiler backend
-		useIR = true
 	}
 }
 

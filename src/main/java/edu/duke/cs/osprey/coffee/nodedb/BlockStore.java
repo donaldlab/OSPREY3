@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.coffee.nodedb;
 
 import jdk.incubator.foreign.MemorySegment;
+import jdk.incubator.foreign.ResourceScope;
 
 import java.io.File;
 import java.io.IOException;
@@ -25,6 +26,7 @@ public class BlockStore implements AutoCloseable {
 	public final long numBlocks;
 
 	private final MemorySegment mem;
+	private final ResourceScope confinedScope = ResourceScope.newConfinedScope();
 	private final Deque<Long> freeBlockids = new ArrayDeque<>();
 
 	private long nextBlockid = 0;
@@ -52,18 +54,18 @@ public class BlockStore implements AutoCloseable {
 				if (!file.exists()) {
 					file.createNewFile();
 				}
-				mem = MemorySegment.mapFile(file.toPath(), 0, bytes, FileChannel.MapMode.READ_WRITE);
+				mem = MemorySegment.mapFile(file.toPath(), 0, bytes, FileChannel.MapMode.READ_WRITE, confinedScope);
 			} catch (IOException ex) {
 				throw new RuntimeException("can't map path: " + file, ex);
 			}
 		} else {
-			mem = MemorySegment.allocateNative(bytes);
+			mem = MemorySegment.allocateNative(bytes, confinedScope);
 		}
 	}
 
 	@Override
 	public void close() {
-		mem.close();
+		confinedScope.close();
 	}
 
 	public long numUsedBlocks() {
