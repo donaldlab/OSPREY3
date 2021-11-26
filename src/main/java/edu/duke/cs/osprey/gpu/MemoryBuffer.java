@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.gpu;
 
 import jdk.incubator.foreign.MemoryHandles;
 import jdk.incubator.foreign.MemorySegment;
+import jdk.incubator.foreign.ResourceScope;
 
 import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
@@ -27,6 +28,7 @@ public class MemoryBuffer implements AutoCloseable {
 	private static final long sizeDouble = Double.BYTES;
 
 	private final MemorySegment base;
+	private final ResourceScope sharedScope = ResourceScope.newSharedScope();
 	private long pos = 0;
 
 	private MemoryBuffer(MemorySegment mem) {
@@ -34,7 +36,7 @@ public class MemoryBuffer implements AutoCloseable {
 	}
 
 	public MemoryBuffer(long size) {
-		this.base = MemorySegment.allocateNative(size).share();
+		this.base = MemorySegment.allocateNative(size, sharedScope);
 	}
 
 	public static MemoryBuffer ofByteBuffer(ByteBuffer buf) {
@@ -304,6 +306,6 @@ public class MemoryBuffer implements AutoCloseable {
 
 	@Override
 	public void close() throws IllegalStateException {
-		base.close();
+		sharedScope.close();
 	}
 }

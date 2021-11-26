@@ -10,21 +10,21 @@ jobs:
     matrix:
       Linux:
         imageName: ubuntu-latest
-        openJdkUrl: https://download.java.net/java/GA/jdk16.0.1/7147401fd7354114ac51ef3e1328291f/9/GPL/
-        jdkName: openjdk-16.0.1_linux-x64_bin.tar.gz
-        javaHome: $(Build.BinariesDirectory)/java/jdk-16.0.1
+        openJdkUrl: https://download.java.net/java/GA/jdk17.0.1/2a2082e5a09d4267845be086888add4f/12/GPL/
+        jdkName: openjdk-17.0.1_linux-x64_bin.tar.gz
+        javaHome: $(Build.BinariesDirectory)/java/jdk-17.0.1
         gradleWrapper: gradlew
       Mac:
         imageName: macos-latest
-        openJdkUrl: https://download.java.net/java/GA/jdk16.0.1/7147401fd7354114ac51ef3e1328291f/9/GPL/
-        jdkName: openjdk-16.0.1_osx-x64_bin.tar.gz
-        javaHome: $(Build.BinariesDirectory)/java/jdk-16.0.1.jdk/Contents/Home/
+        openJdkUrl: https://download.java.net/java/GA/jdk17.0.1/2a2082e5a09d4267845be086888add4f/12/GPL/
+        jdkName: openjdk-17.0.1_macos-x64_bin.tar.gz
+        javaHome: $(Build.BinariesDirectory)/java/jdk-17.0.1.jdk/Contents/Home/
         gradleWrapper: gradlew
       Windows:
         imageName: windows-latest
-        openJdkUrl: https://download.java.net/java/GA/jdk16.0.1/7147401fd7354114ac51ef3e1328291f/9/GPL/
-        jdkName: openjdk-16.0.1_windows-x64_bin.zip 
-        javaHome: $(Build.BinariesDirectory)/java/jdk-16.0.1
+        openJdkUrl: https://download.java.net/java/GA/jdk17.0.1/2a2082e5a09d4267845be086888add4f/12/GPL/
+        jdkName: openjdk-17.0.1_windows-x64_bin.zip
+        javaHome: $(Build.BinariesDirectory)/java/jdk-17.0.1
         gradleWrapper: gradlew.bat
 
   pool:
@@ -53,14 +53,14 @@ jobs:
         function standardize_path {
             echo `echo "$1" | tr '\\' '/'`
         }
-        
+
         p2=`standardize_path '$(GetPython2.pythonLocation)/python'`
         p3=`standardize_path '$(GetPython3.pythonLocation)/python'`
         JAVA_HOME=`standardize_path '$(javaHome)'`
         echo "Python2 -> ${p2}"
         echo "Python3 -> ${p3})"
         echo "JAVA_HOME -> ${JAVA_HOME}"
-        
+
         echo "##vso[task.setvariable variable=python2]${p2}"
         echo "##vso[task.setvariable variable=python3]${p3}"
         echo "##vso[task.setvariable variable=JAVA_HOME]${JAVA_HOME}"

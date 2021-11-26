@@ -187,41 +187,6 @@ A comprehensive manual for Osprey has yet to be written,
 but these example scripts can help you get started with common design tasks.
 
 
-using the command-line interface
---------------------------------
-
-The Python interface to Osprey represents a significant improvement in the user interface over the
-older command-line interface, and new Osprey projects should consider using the Python interface
-rather than the command-line interface.
-
-However, for backwards compatibility, the command-line interface is still provided, although
-it may not receive feature updates in the future. It may eventually be removed from Osprey.
-
-To access the command-line interface, download the Osprey Java distribution.
-Extract it to your favorite folder, then enter the following command into a shell::
-
-    $ cd bin
-    $ ./osprey [commands]
-
-where ``[commands]`` are the Osprey commands you want to run. You can run Osprey without
-``[commands]`` and Osprey will print a list of the available commands.
-
-To show the version of your Osprey installation, try::
-
-    $ ./osprey version
-
-To run a GMEC-based protein design, try::
-
-    $ ./osprey FindGMEC /path/to/config1 /path/to/config2 ...
-
-To show GPU informatino, try::
-
-    $ ./osprey GPUInfo
-
-The ``GpuInfo`` command prints info about available GPUs in the system, and which
-ones Osprey can use.
-
-
 Contributing
 ~~~~~~~~~~~~
 

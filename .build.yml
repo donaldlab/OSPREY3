@@ -11,5 +11,6 @@ tasks:
   - gradlew-assemble: |
       cd osprey
       ./gradlew -b simple.build.gradle assembleDist
+      ln build/distributions/osprey*.tar build/distributions/osprey-srht.tar
 artifacts:
-    - osprey/build/distributions/osprey-3.1-BETA.tar
+    - osprey/build/distributions/osprey-srht.tar
