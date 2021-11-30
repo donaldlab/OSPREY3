@@ -30,6 +30,7 @@ class OspreyProcessor(Processor):
 			'arg_java': self._arg_java,
 			'args_java': self._args_java,
 			'arg_javadoc': self._arg_javadoc,
+			'enum_java': self._enum_java,
 			'default': self._default
 		}
 
@@ -73,6 +74,7 @@ class OspreyProcessor(Processor):
 		#   arg1, arg2
 		#   [arg1a, arg1b], arg2
 		#   arg1(still_arg1,still_arg1), arg2
+		#   arg1(still_arg1[],still_arg1), arg2
 		func_args = expr[pivot + 1:-1]
 		args = []
 		args_stack = [args]
@@ -91,12 +93,18 @@ class OspreyProcessor(Processor):
 				in_paren = False
 				args_stack[-1][-1] += c
 			elif c == '[':
-				next = []
-				args_stack[-1].append(next)
-				args_stack.append(next)
+				if in_paren:
+					args_stack[-1][-1] += c
+				else:
+					next = []
+					args_stack[-1].append(next)
+					args_stack.append(next)
 			elif c == ']':
-				args_stack.pop()
-				in_arg = False
+				if in_paren:
+					args_stack[-1][-1] += c
+				else:
+					args_stack.pop()
+					in_arg = False
 			elif c == '\n' or c == '\t':
 				pass # ignore some kinds of whitespace
 			elif c == ' ':
@@ -287,6 +295,36 @@ class OspreyProcessor(Processor):
 			raise Exception("can't find arg %s in java method %s\n\tavailable args: %s" % (arg_name, method_path, method.javadoc.params.keys()))
 
 		return arg.description
+
+
+	def _enum_java(self, args):
+
+		path = javadoc.Path(args[0])
+		c = javadoc.get_class_or_throw(path)
+
+		out = ''
+
+		# show the javadoc, if any
+		if c.javadoc is not None:
+			out += _render_javadoc(c.javadoc)
+			out += '\n\n'
+
+		# also show the enum values
+		out += '**Enumeration:** %s' % _render_type(c.type)
+		for field_name in c.field_names:
+
+			# filter down to just the enum values
+			field = c.field_or_throw(field_name)
+			if field.type.name != c.type.name:
+				continue
+
+			# render the enum values as a markdown list
+			out += '\n\n * **%s**:' % field_name
+			if field is not None and field.javadoc is not None:
+				out += ' '
+				out += _render_javadoc(field.javadoc)
+
+		return out
 
 
 	def _default(self, args):
