@@ -51,7 +51,7 @@ class Class:
 	def __init__(self, json):
 		self.type = Type(json['type'])
 		try:
-			self.javadoc = json['javadoc']
+			self.javadoc = Javadoc(json['javadoc'])
 		except KeyError:
 			self.javadoc = None
 
@@ -77,9 +77,9 @@ class Field:
 		self.name = name
 		self.type = Type(json['type'])
 		try:
-			self.javadoc = json['javadoc']
+			self.javadoc = Javadoc(json['javadoc'])
 		except KeyError:
-			self.javadoc = ''
+			self.javadoc = None
 		try:
 			self.initializer = json['initializer']
 		except KeyError:
@@ -112,7 +112,7 @@ class Method:
 		except KeyError:
 			self.returns = None
 		try:
-			self.javadoc = MethodJavadoc(json['javadoc'])
+			self.javadoc = Javadoc(json['javadoc'])
 		except KeyError:
 			self.javadoc = None
 		self.args = [MethodArg(a) for a in json['args']]
@@ -128,40 +128,6 @@ class Method:
 		if arg is None:
 			raise Exception('no argument named %s found in method %s\n\ttry one of: %s' % (name, self.id, [a.name for a in self.args]))
 		return arg
-
-
-class MethodJavadoc:
-
-	def __init__(self, javadoc):
-
-		pivot = javadoc.find('@param')
-		if pivot >= 0:
-			self.header = javadoc[0:pivot].strip()
-		else:
-			self.header = javadoc.strip()
-
-		lines = javadoc.split('\n')
-		tag = '@param '
-		params = [ParamJavadoc(line[len(tag):]) for line in lines if line.strip().startswith(tag)]
-
-		self.params = {}
-		for param in params:
-			self.params[param.name] = param
-
-
-class ParamJavadoc:
-
-	def __init__(self, javadoc):
-		# eg:
-		# dir Path to directory. This directory will be created if it does not exist.
-		pivot = javadoc.find(' ')
-		if pivot >= 0:
-			self.name = javadoc[0:pivot]
-			self.description = javadoc[pivot:].strip()
-		else:
-			self.name = javadoc
-			self.description = None
-
 
 class MethodArg:
 
@@ -242,3 +208,113 @@ class Type:
 			self.params = [Type(param) for param in json['params']]
 		except (KeyError, TypeError):
 			self.params = None
+
+
+class Javadoc:
+
+	def __init__(self, json):
+
+		self.text = json['text']
+
+		# read the params, if any
+		try:
+			params_json = json['params']
+		except KeyError:
+			params_json = []
+		self.params = {}
+		for param_json in params_json:
+			param = Param(param_json)
+			self.params[param.name] = param
+
+		# read the citations, if any
+		try:
+			citations_json = json['citations']
+		except KeyError:
+			citations_json = []
+		self.citations = []
+		for citation_json in citations_json:
+			self.citations.append(Citation(citation_json))
+
+		# read the warnings, if any
+		try:
+			warnings_json = json['warnings']
+		except KeyError:
+			warnings_json = []
+		self.warnings = []
+		for warning_json in warnings_json:
+			self.warnings.append(Warning(warning_json))
+
+		# read the notes, if any
+		try:
+			notes_json = json['notes']
+		except KeyError:
+			notes_json = []
+		self.notes = []
+		for note_json in notes_json:
+			self.notes.append(Note(note_json))
+
+		# read the todos, if any
+		try:
+			todos_json = json['todos']
+		except KeyError:
+			todos_json = []
+		self.todos = []
+		for todo_json in todos_json:
+			self.todos.append(Todo(todo_json))
+
+		# read the links, if any
+		try:
+			links_json = json['links']
+		except KeyError:
+			links_json = []
+		self.links = []
+		for link_json in links_json:
+			self.links.append(Link(link_json))
+
+
+class Param:
+
+	def __init__(self, json):
+		self.text = json['text']
+		self.name = json['name']
+		self.description = json['description']
+
+
+class Citation:
+
+	def __init__(self, json):
+		self.text = json['text']
+		self.lines = json['lines']
+
+
+class Warning:
+
+	def __init__(self, json):
+		self.text = json['text']
+		self.content = json['content']
+
+
+class Note:
+
+	def __init__(self, json):
+		self.text = json['text']
+		self.content = json['content']
+
+
+class Todo:
+
+	def __init__(self, json):
+		self.text = json['text']
+		self.content = json['content']
+
+
+class Link:
+
+	def __init__(self, json):
+		self.text = json['text']
+		self.label = json['label']
+		self.type = Type(json['type'])
+		try:
+			self.signature = json['signature']
+		except KeyError:
+			self.signature = None

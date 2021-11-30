@@ -127,7 +127,7 @@ class OspreyProcessor(Processor):
 		if c is None:
 			raise Exception('unknown java class: %s' % class_path)
 
-		return c.javadoc
+		return _render_javadoc(c.javadoc)
 
 	def _type_java(self, args):
 
@@ -149,7 +149,7 @@ class OspreyProcessor(Processor):
 		# lookup the field in the javadoc
 		field = javadoc.get_field_or_throw(field_path)
 
-		return field.javadoc
+		return _render_javadoc(field.javadoc)
 
 
 	def _arg_field_javadoc(self, args):
@@ -189,7 +189,7 @@ class OspreyProcessor(Processor):
 		else:
 			rendered_type = _render_type(field.type)
 
-		return '%s %s: %s' % (arg_name, rendered_type, field.javadoc)
+		return '%s %s: %s' % (arg_name, rendered_type, _render_javadoc(field.javadoc))
 
 
 	def _args_fields_javadoc(self, args):
@@ -236,7 +236,7 @@ class OspreyProcessor(Processor):
 		if method.javadoc is None:
 			raise Exception('java method %s has no javadoc' % method_path)
 
-		return method.javadoc.header
+		return _render_javadoc(method.javadoc)
 
 
 	def _arg_java(self, args):
@@ -383,3 +383,44 @@ def _render_value(type):
 		}[type]
 	except KeyError:
 		return type
+
+
+def _render_javadoc(javadoc):
+
+	if javadoc is None:
+		return ''
+
+	# start with the raw javadoc text
+	text = javadoc.text
+
+	# replace citations
+	for citation in javadoc.citations:
+		# NOTE: add a \ between lines to preserve line breaks
+		repl = r'{{% notice info %}}' + '\n' + '\\\n'.join(citation.lines) + '\n' + r'{{% /notice %}}'
+		text = text.replace(citation.text, repl, 1)
+
+	# replace warnings
+	for warning in javadoc.warnings:
+		repl = r'{{% notice warning %}}' + '\n' + warning.content + '\n' + r'{{% /notice %}}'
+		text = text.replace(warning.text, repl, 1)
+
+	# replace notes
+	for note in javadoc.notes:
+		repl = r'{{% notice note %}}' + '\n' + note.content + '\n' + r'{{% /notice %}}'
+		text = text.replace(note.text, repl, 1)
+
+	# replace todos
+	for todo in javadoc.todos:
+		repl = r'{{% notice tip %}}' + '\nTODO:\n' + todo.content + '\n' + r'{{% /notice %}}'
+		text = text.replace(todo.text, repl, 1)
+
+	# replace links
+	for link in javadoc.links:
+		if link.signature is not None:
+			url = '%s#%s' % (link.type.url, link.signature)
+		else:
+			url = link.type.url
+		repl = '[%s](%s/%s)' % (link.label, _URL_PREFIX, url)
+		text = text.replace(link.text, repl, 1)
+
+	return text
