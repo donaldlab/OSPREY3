@@ -120,24 +120,13 @@ class OspreyProcessor(Processor):
 
 	def _class_javadoc(self, args):
 
-		class_path = javadoc.Path(args[0])
-
-		# lookup the class in the javadoc
-		c = javadoc.get_class(class_path)
-		if c is None:
-			raise Exception('unknown java class: %s' % class_path)
+		c = javadoc.get_class_or_throw(javadoc.Path(args[0]))
 
 		return _render_javadoc(c.javadoc)
 
 	def _type_java(self, args):
 
-		# render the type with links to other docs where possible
-		class_path = javadoc.Path(args[0])
-
-		# lookup the class
-		c = javadoc.get_class(class_path)
-		if c is None:
-			raise Exception('unknown java class: %s' % class_path)
+		c = javadoc.get_class_or_throw(javadoc.Path(args[0]))
 
 		return _render_type(c.type)
 
@@ -231,7 +220,8 @@ class OspreyProcessor(Processor):
 
 	def _method_javadoc(self, args):
 
-		method = javadoc.get_method_or_throw(javadoc.Path(args[0]))
+		method_path = javadoc.Path(args[0])
+		method = javadoc.get_method_or_throw(method_path)
 
 		if method.javadoc is None:
 			raise Exception('java method %s has no javadoc' % method_path)

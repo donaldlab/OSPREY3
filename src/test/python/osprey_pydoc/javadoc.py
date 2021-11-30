@@ -49,11 +49,62 @@ class Path:
 class Class:
 
 	def __init__(self, json):
+
+		self._json = json
+
 		self.type = Type(json['type'])
 		try:
 			self.javadoc = Javadoc(json['javadoc'])
 		except KeyError:
 			self.javadoc = None
+
+		try:
+			self.field_names = [f['name'] for f in json['fields']]
+		except KeyError:
+			self.field_names = []
+
+		try:
+			self.method_ids = [m['id'] for m in json['methods']]
+		except KeyError:
+			self.method_ids = []
+
+
+	def field(self, name):
+		try:
+			i = self._json['fieldsLut'][name]
+		except KeyError:
+			return None
+		return Field(self._json['fields'][i])
+
+
+	def field_or_throw(self, name):
+		field = self.field(name)
+		if field is None:
+			raise Exception('unknown java field: %s, try one of:\n\t%s' % (name, '\n\t'.join(self.field_names)))
+		return field
+
+
+	def method(self, id):
+		try:
+			i = self._json['methodsLut'][id]
+		except KeyError:
+			return None
+		return Method(self._json['methods'][i])
+
+
+	def method_or_throw(self, id):
+		method = self.method(id)
+		if method is not None:
+			raise Exception('unknown java method: %s, try one of:\n\t%s' % (name, '\n\t'.join(self.method_ids)))
+		return method
+
+
+	def methods(self, name=None):
+		methods = [self.method(id) for id in self.method_ids]
+		if name is None:
+			return methods
+		else:
+			return [m for m in methods if m.name == name]
 
 
 def get_class(path: Path):
@@ -73,8 +124,8 @@ def get_class_or_throw(path: Path):
 
 class Field:
 
-	def __init__(self, name, json):
-		self.name = name
+	def __init__(self, json):
+		self.name = json['name']
 		self.type = Type(json['type'])
 		try:
 			self.javadoc = Javadoc(json['javadoc'])
@@ -87,24 +138,23 @@ class Field:
 
 
 def get_field(path: Path):
-	try:
-		field = _javadoc[path.classname]['fields'][path.member]
-	except KeyError:
+	c = get_class(path)
+	if c is None:
 		return None
-	return Field(path.member, field)
+	return c.field(path.member)
 
 
 def get_field_or_throw(path: Path):
-	field = get_field(path)
-	if field is None:
-		raise Exception('unknown java field: %s' % path)
-	return field
+	c = get_class_or_throw(path)
+	if c is None:
+		return None
+	return c.field_or_throw(path.member)
 
 
 class Method:
 
-	def __init__(self, id, json):
-		self.id = id
+	def __init__(self, json):
+		self.id = json['id']
 		self.name = json['name']
 		self.signature = json['signature']
 		try:
@@ -129,6 +179,7 @@ class Method:
 			raise Exception('no argument named %s found in method %s\n\ttry one of: %s' % (name, self.id, [a.name for a in self.args]))
 		return arg
 
+
 class MethodArg:
 
 	def __init__(self, json):
@@ -136,29 +187,19 @@ class MethodArg:
 		self.type = Type(json['type'])
 
 
-def get_methods(path: Path):
-
-	try:
-		c = _javadoc[path.classname]
-	except KeyError:
-		return []
-
-	methods = c['methods']
-
-	try:
-		return [Method(path.member, methods[path.member])]
-	except KeyError:
-
-		# didn't get a direct hit, try to match just the method name without the type signature
-		ids = [id for (id, m) in methods.items() if m['name'] == path.member]
-
-		return [Method(id, methods[id]) for id in ids]
-
-
 def get_method(path: Path):
 
-	methods = get_methods(path)
+	c = get_class(path)
+	if c is None:
+		return None
 
+	# try searching by id first
+	method = c.method(path.member)
+	if method is not None:
+		return method
+
+	# try seaching by name next
+	methods = c.methods(path.member)
 	if len(methods) <= 0:
 		return None
 	elif len(methods) > 1:
@@ -170,23 +211,13 @@ def get_method(path: Path):
 
 def get_method_or_throw(path: Path):
 
-	# look for the class or throw, since get_method() won't throw on a missing class
-	get_class_or_throw(path)
+	c = get_class_or_throw(path)
 
 	method = get_method(path)
-	if method is None:
-		raise Exception('unknown java method: %s\ntry one of:\n\t%s' % (path, '\n\t'.join(get_method_ids(path))))
-	return method
+	if method is not None:
+		return method
 
-
-def get_method_ids(path: Path):
-
-	try:
-		c = _javadoc[path.classname]
-	except KeyError:
-		return []
-
-	return c['methods'].keys()
+	raise Exception('unknown java method: %s\ntry one of:\n\t%s' % (path, '\n\t'.join(c.method_ids)))
 
 
 class Type:

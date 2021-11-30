@@ -85,4 +85,10 @@ public class Test {
 	 * @note the note
 	 */
 	int blocks;
+
+	/** This is an eenumm! */
+	enum Eenumm {
+		Val1,
+		Val2
+	}
 }

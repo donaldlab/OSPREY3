@@ -206,8 +206,8 @@ public class JavadocTool {
 
 		// look for top-level classes
 		for (var type : tree.getTypeDecls()) {
-			switch (type.getKind()) {
-				case CLASS -> handleClass(ctx, (ClassTree)type, out);
+			if (type instanceof ClassTree classType) {
+				handleClass(ctx, classType, out);
 			}
 		}
 	}
@@ -226,23 +226,28 @@ public class JavadocTool {
 		}
 
 		// get the fields, methods, and inner classes
-		var outFields = new JSONObject();
+		var outFields = new JSONArray();
 		outClass.put("fields", outFields);
-		var outMethods = new JSONObject();
+		var lutFields = new JSONObject();
+		outClass.put("fieldsLut", lutFields);
+		var outMethods = new JSONArray();
 		outClass.put("methods", outMethods);
+		var lutMethods = new JSONObject();
+		outClass.put("methodsLut", lutMethods);
 		for (var member : c.getMembers()) {
-			switch (member.getKind()) {
-				case VARIABLE -> handleField(ctx, (VariableTree)member, outFields);
-				case METHOD -> handleMethod(ctx, (MethodTree)member, outMethods);
-				case CLASS -> handleClass(ctx, (ClassTree)member, out);
+			if (member instanceof VariableTree variableMember) {
+				handleField(ctx, variableMember, outFields, lutFields);
+			} else if (member instanceof MethodTree methodMember) {
+				handleMethod(ctx, methodMember, outMethods, lutMethods);
+			} else if (member instanceof ClassTree classMember) {
+				handleClass(ctx, classMember, out);
 			}
 		}
 	}
 
-	private static void handleField(Context ctx, VariableTree field, JSONObject out) {
+	private static void handleField(Context ctx, VariableTree field, JSONArray out, JSONObject lut) {
 
 		var outField = new JSONObject();
-		out.put(field.getName().toString(), outField);
 
 		// add the type
 		outField.put("type", renderTypeTree(ctx, field.getType()));
@@ -258,9 +263,15 @@ public class JavadocTool {
 		if (init != null) {
 			outField.put("initializer", init.toString());
 		}
+
+		// get the field name and update the outputs
+		String name = field.getName().toString();
+		outField.put("name", name);
+		lut.put(name, out.length());
+		out.put(outField);
 	}
 
-	private static void handleMethod(Context ctx, MethodTree method, JSONObject out) {
+	private static void handleMethod(Context ctx, MethodTree method, JSONArray out, JSONObject lut) {
 
 		var outMethod = new JSONObject();
 		outMethod.put("name", method.getName().toString());
@@ -302,8 +313,12 @@ public class JavadocTool {
 		}
 		outMethod.put("args", outArgs);
 
+		// get the method id and update the outputs
 		// names aren't necessarily unique, so decorate with the signature
-		out.put(method.getName().toString() + buf.toString(), outMethod);
+		String id = method.getName().toString() + buf;
+		outMethod.put("id", id);
+		lut.put(id, out.length());
+		out.put(outMethod);
 	}
 
 	private static Object renderTypeTree(Context ctx, Tree tree) {
@@ -377,7 +392,7 @@ public class JavadocTool {
 		interface CustomTagRenderer {
 			// no TriConsumer interface in the JVM runtime, so need a custom interface here to make the lambda
 			void render(String name, DocTree node, List<? extends DocTree> contents);
-		};
+		}
 		CustomTagRenderer customTagRenderer = (name, node, contents) -> {
 			switch (name) {
 
