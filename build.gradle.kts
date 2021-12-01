@@ -2012,5 +2012,10 @@ fun commandExistsOrThrow(name: String) {
 }
 
 
-fun <T> Iterable<T>.joinToClasspath(transform: ((T) -> CharSequence)? = null): String =
-	joinToString(File.pathSeparator)
+fun <T> Iterable<T>.joinToClasspath(transform: ((T) -> CharSequence)? = null): String {
+	if (transform == null) {
+		return joinToString(File.pathSeparator)
+	}
+
+	return this.map(transform).joinToString(File.pathSeparator)
+}
