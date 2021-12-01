@@ -28,6 +28,9 @@ import static edu.duke.cs.osprey.gpu.Structs.*;
 import static edu.duke.cs.osprey.tools.Log.log;
 
 
+/**
+ * An energy calculator that uses CUDA GPUs to accelerate the computation.
+ */
 public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 	private static class NativeLib {

@@ -48,24 +48,86 @@ public class Coffee {
 		public final MultiStateConfSpace confSpace;
 
 		private final StateConfig[] stateConfigs;
+
+		/** Information about the cluter resources available, if any. */
 		private Cluster cluster;
+
+		/** Information about parallel hardware resources available, if any. */
 		private Parallelism parallelism;
+
+		/** The precision of floating-point calculations for the energy function. */
 		private Structs.Precision precision = Structs.Precision.Float64;
+
+		/** Path to the Node Database file, if any. If no file is given, the calculation will be done in RAM. */
 		private File nodedbFile = null;
+
+		/** Size of the Node Database file. */
 		private long nodedbFileBytes = 0;
+
+		/** Amount of memory (RAM, in bytes) to use for the calculation. This memory will be pre-allocated. */
 		private long nodedbMemBytes = 2*1024*1024; // 2 MiB
+
+		/** Path to the file for the Sequence Database, if any. If no file is given, the sequence info will be stored in RAM. */
 		private File seqdbFile = null;
-		// NOTE: SeqDB needs a LOT of precision to keep the bounds acccurate,
-		// since we're adding/subtracting numbers with very different exponents
-		// empirical testing shows anything higher than 512 starts to show noticeable performance penalties
-		// unfortunately, testing also shows that values of 1024 of less can cause some pfunc computations to get stuck
-		// so we'll need something really huge by default to be safe for most computations
+
+		/**
+		 * Precision to use for calculations involving sequence partition function values.
+		 *
+		 * @note SeqDB needs a LOT of precision to keep the bounds acccurate,
+		 * since we're adding/subtracting numbers with very different exponents
+		 * empirical testing shows anything higher than 512 starts to show noticeable performance penalties
+		 * unfortunately, testing also shows that values of 1024 of less can cause some pfunc computations to get stuck
+		 * so we'll need something really huge by default to be safe for most computations
+		 */
 		private MathContext seqdbMathContext = new MathContext(2048, RoundingMode.HALF_UP);
+
+		/**
+		 * True to include interactions within the static region (unaffected by motions and mutations) of the input molecules.
+		 *
+		 * Including these energies, or not, won't change the rankings of sequences/conformations in a single design,
+		 * but including them will make your energies comaparable across different designs on the same molecules.
+		 *
+		 * Osprey has been optimized so that including these interactions, or not, should have no noticeable
+		 * impact on performance.
+		 */
 		private boolean includeStaticStatic = true;
+
+		/**
+		 * Threshold (in kcal/mol) for when triple interactions (ie between three design positions, rather than one or two) should
+		 * be included in the energy matrix.
+		 *
+		 * Use null to never include triple corrections to the energy matrix.
+		 *
+		 * Use a non-null value to include triple corrections in the energy matrix.
+		 * For example, a value like 10 kcal/mol seems to work well, but feel free to experiment with different values
+		 * in your own designs.
+		 *
+		 * Pairwise energies in energy matrices are often overly optimistic (ie too low) which leads to loose
+		 * lower bounds on conformation energies. Using triple information to correct (ie raise) the energy
+		 * bounds on conformations can speed up large Osprey calculations significantly by using a more accurate
+		 * conformtion order to compute free energies. However, the tradeoff for faster free energy calculation is
+		 * a slower energy matrix calculation step, so the speedup tends to only pay off for larger designs.
+		 *
+		 * A triple correction will be added to the energy matix when all of the triple's constituent single and pairwise energies
+		 * are below the threshold. This setting ensures we don't waste time correcting energy matrix energies that are
+		 * already very high, like clashes, since triple corrections are expensive to compute.
+		 */
 		private Double tripleCorrectionThreshold = null;
+
+		/**
+		 * Environmental conditions (like temperature) for calculations that use them (like Boltzmann weighting).
+		 */
 		private BoltzmannCalculator.Conditions conditions = BoltzmannCalculator.Conditions.Classic; // don't rock the boat
 		// TODO: experiment if other conditions better correlate with experimental results?
+
+		/**
+		 * For debugging Osprey performance, most users will not need this.
+		 */
 		private File nodeScoringLog = null;
+
+		/**
+		 * For debugging Osprey performance, most users will not need this.
+		 */
 		private Duration nodeStatsReportingInterval = null;
 
 		public Builder(MultiStateConfSpace confSpace) {

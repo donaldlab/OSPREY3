@@ -17,7 +17,8 @@ import java.util.List;
 /**
  * A translation layer that allows the new conf energy calculators
  * to be somewhat compatible with the old ones.
- *
+ */
+/*
  * Ideally, all the consumers of the old ConfEnergyCalculator should be updated
  * to use the new ConfEnergyCalculator instead, and the new ConfSpace class.
  * Using the newer code will lead to better performance, but we all understand

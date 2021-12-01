@@ -322,6 +322,9 @@ public class Structs {
 		return new StructField<>(struct);
 	}
 
+	/**
+	 * Determines the level of floating-point precision for calculations.
+	 */
 	public enum Precision {
 
 		Float32(4) {

@@ -14,6 +14,16 @@ import java.util.List;
 import java.util.Set;
 
 
+/**
+ * A basic conformation energy calculator implementation, written in pure Java.
+ *
+ * Not the fastest implementation available. Try the {@link NativeConfEnergyCalculator} first,
+ * or the {@link CudaConfEnergyCalculator} if you have GPUs available.
+ */
+/*
+ * But it is the simplest and easiest to understand implementation.
+ * So if you're working on a new implemtation, this is a good place to start learning how things work.
+ */
 public class CPUConfEnergyCalculator implements ConfEnergyCalculator {
 
 	public final ConfSpace confSpace;
