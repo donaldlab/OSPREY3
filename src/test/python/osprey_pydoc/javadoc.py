@@ -323,6 +323,7 @@ class Warning:
 	def __init__(self, json):
 		self.text = json['text']
 		self.content = json['content']
+		self.is_block = self.text.startswith('@')
 
 
 class Note:
@@ -330,6 +331,7 @@ class Note:
 	def __init__(self, json):
 		self.text = json['text']
 		self.content = json['content']
+		self.is_block = self.text.startswith('@')
 
 
 class Todo:
@@ -337,6 +339,7 @@ class Todo:
 	def __init__(self, json):
 		self.text = json['text']
 		self.content = json['content']
+		self.is_block = self.text.startswith('@')
 
 
 class Link:

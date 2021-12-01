@@ -174,7 +174,7 @@ class OspreyProcessor(Processor):
 		field = javadoc.get_field_or_throw(field_path)
 
 		# use the initializer as an argument default value
-		if arg.default_value == 'useJavaDefault':
+		if arg.default_value in ['useJavaDefault', '_useJavaDefault']:
 			if field.initializer is not None:
 				arg.default_value = _render_value(field.initializer)
 			else:
@@ -423,24 +423,19 @@ def _render_javadoc(javadoc):
 
 	# replace citations
 	for citation in javadoc.citations:
-		# NOTE: add a \ between lines to preserve line breaks
-		repl = r'{{% notice info %}}' + '\n' + '\\\n'.join(citation.lines) + '\n' + r'{{% /notice %}}'
-		text = text.replace(citation.text, repl, 1)
+		text = text.replace(citation.text, _render_citation(citation.lines), 1)
 
 	# replace warnings
 	for warning in javadoc.warnings:
-		repl = r'{{% notice warning %}}' + '\n' + warning.content + '\n' + r'{{% /notice %}}'
-		text = text.replace(warning.text, repl, 1)
+		text = text.replace(warning.text, _render_warning(warning.content), 1)
 
 	# replace notes
 	for note in javadoc.notes:
-		repl = r'{{% notice note %}}' + '\n' + note.content + '\n' + r'{{% /notice %}}'
-		text = text.replace(note.text, repl, 1)
+		text = text.replace(note.text, _render_note(note.content), 1)
 
 	# replace todos
 	for todo in javadoc.todos:
-		repl = r'{{% notice tip %}}' + '\nTODO:\n' + todo.content + '\n' + r'{{% /notice %}}'
-		text = text.replace(todo.text, repl, 1)
+		text = text.replace(todo.text, _render_todo(todo.content), 1)
 
 	# replace links
 	for link in javadoc.links:
@@ -451,4 +446,39 @@ def _render_javadoc(javadoc):
 		repl = '[%s](%s/%s)' % (link.label, _URL_PREFIX, url)
 		text = text.replace(link.text, repl, 1)
 
+	# add block elements to the end
+	for warning in javadoc.warnings:
+		if warning.is_block:
+			text += '\n\n'
+			text += _render_warning(warning.content)
+	for note in javadoc.notes:
+		if note.is_block:
+			text += '\n\n'
+			text += _render_note(note.content)
+	for todo in javadoc.todos:
+		if todo.is_block:
+			text += '\n\n'
+			text += _render_todo(todo.content)
+
 	return text
+
+
+def _render_notice(kind, content):
+	return r'{{% notice ' + kind + r' %}}' + '\n' + content + '\n' + r'{{% /notice %}}'
+
+
+def _render_citation(lines):
+	# NOTE: add a \ between lines to preserve line breaks
+	return _render_notice('info', '\\\n'.join(lines))
+
+
+def _render_warning(content):
+	return _render_notice('warning', content)
+
+
+def _render_note(content):
+	return _render_notice('note', content)
+
+
+def _render_todo(content):
+	return _render_notice('tip', '**TODO** ' + content)
