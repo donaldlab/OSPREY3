@@ -45,6 +45,7 @@ class OspreyProcessor:
 		self._vtable = {
 			'class_javadoc': self._class_javadoc,
 			'type_java': self._type_java,
+			'type_jre': self._type_jre,
 			'field_javadoc': self._field_javadoc,
 			'arg_field_javadoc': self._arg_field_javadoc,
 			'args_fields_javadoc': self._args_fields_javadoc,
@@ -162,6 +163,19 @@ class OspreyProcessor:
 		c = javadoc.get_class_or_throw(javadoc.Path(args[0]))
 
 		return _render_type(c.type)
+
+
+	def _type_jre(self, args):
+
+		type_name = args[0]
+
+		type = javadoc.Type({
+			'name': type_name,
+			'url': None,
+			'params': None
+		})
+
+		return _render_type(type)
 
 
 	def _field_javadoc(self, args):
