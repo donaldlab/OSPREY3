@@ -5,6 +5,8 @@ import re
 import dataclasses
 import typing as t
 
+from nr.databind.json import JsonSerializer
+
 # https://niklasrosenstein.github.io/docspec/specification/
 import docspec
 
@@ -13,8 +15,29 @@ from pydoc_markdown.interfaces import Processor, Resolver
 import osprey_pydoc.javadoc
 
 
-@dataclasses.dataclass
-class OspreyProcessor(Processor):
+# pydoc_markdown apparently uses some ultra hacky library to emulate interfaces in python
+# python doesn't provide interfaces natively, of course, because it's a freaking DUCK-TYPED LANGUAGE!!
+# these nr.interfaces/databind libraries are apparently ultra-complicated, so OF COURSE they stopped working on our plugin code
+# no idea why, but the best workaround I've found so far is to ignore all the garbage bloatware and
+# Just Quack Like a Duck
+# ie, just add process() and init() methods to our Processor class and be done with it
+# but first, we have to make their configuration deserializer recognize our class by adding a custom deserializer
+def _deserialize(mapper, node):
+	# pydoc_markdown hides error information here for Some Unfathomable Reason
+	# so explicitly capture and display it before letting pydoc_markdown waste our time
+	try:
+		return OspreyProcessor()
+	except Exception as ex:
+		print('exception!', ex, file=sys.stderr)
+		raise Exception('OspreyProcessor instantiation failed')
+
+
+@JsonSerializer(deserialize=_deserialize)
+class OspreyProcessor:
+#class OspreyProcessor(Processor):
+	# NOTE: don't try to "implement" the Processor "interface"
+	# here there be dragons!
+	# the "interface" implementation is appa+rently very brittle and prone to breakage
 
 	_tag = re.compile(r'\$\{([^\}]*)\}')
 
@@ -34,6 +57,8 @@ class OspreyProcessor(Processor):
 			'default': self._default
 		}
 
+	def init(self, context):
+		pass
 
 	def process(self, modules: t.List[docspec.Module], resolver: t.Optional[Resolver]) -> None:
 		docspec.visit(modules, self._process)
