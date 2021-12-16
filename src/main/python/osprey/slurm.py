@@ -1,4 +1,10 @@
 
+
+'''
+This module handles interactiing with [SLURM](https://slurm.schedmd.com/overview.html) clusters.
+'''
+
+
 import os
 import sys
 import subprocess
@@ -20,15 +26,41 @@ def _env_int_or_none(key):
 
 
 procid = _env_int_or_none('SLURM_PROCID')
+'''
+`int`: The current processor id of the SLURM job, or `None` if no SLURM job is currently running
+'''
+
 num_procs = _env_int_or_none('SLURM_NPROCS')
+'''
+`int`: The number of processors in the SLURM job, or `None` if no SLURM job is currently running
+'''
+
 
 is_slurm = procid is not None
+'''
+`bool`: `True` if a SLURM job is currently running, `False` if not.
+'''
+
 
 if is_slurm:
     print('Started Osprey on SLURM node %d/%d' % (procid + 1, num_procs))
 
 
 def launch(num_nodes, parallelism, mem_mib, python=sys.executable, srun_args=[]):
+    '''
+    Launches the currently-running Python script as a SLURM job.
+    The top-level python script, along with all its command-line arguments (ie `sys.argv`),
+    will be launched on the SLURM cluster using `srun`.
+
+    This function should be called on the SLURM login node.
+
+    # Arguments
+    num_nodes `int`: The number of SLURM nodes to use in the computation, ie the `--ntasks` flag.
+    parallelism ${type_java(.parallelism.Parallelism)}: The compute resources to request for each node, ie the `--cpus-per-task` and `--gpus-per-task` flags.
+    mem_mib `int`: The amount of memory to request for each node, in [Mebibytes](https://simple.wikipedia.org/wiki/Mebibyte), ie the `--mem` flag.
+    python `str`: The path to the python interpreter, defaults to the currently-running python interpreter.
+    srun_args `[str]`: Additional arguments to pass to `srun`.
+    '''
 
     # convert MiB to MB for slurm
     # NOPE: empirically, it looks like SLURM uses MiB, GiB, etc after all
