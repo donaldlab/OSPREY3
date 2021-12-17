@@ -1,4 +1,11 @@
 
+
+'''
+This module handles preparing molecules for Osprey designs,
+and building Conformation Spaces from those molecules.
+'''
+
+
 import os, sys
 
 # throw an error for python 2
@@ -17,6 +24,21 @@ def _kotlin_companion(cls):
 
 
 class LocalService:
+    '''
+    Runs an instance of the Osprey Service locally on this machine.
+
+    Only works on Linux.
+
+    Access the service in Python code by using the with guards:
+    ```python
+    from osprey.prep import LocalService
+    with LocalService():
+    	# run code that uses the service here
+    ```
+
+    If a function here needs the Osprey Service, but the Osprey Service is not running,
+    that function will raise an Exception.
+    '''
 
     # make these class variables instead of instance variables
     # only only one service instance is allowed at once
@@ -82,14 +104,46 @@ def _check_local_service():
 
 # export enums
 Hybridization = osprey.c.gui.forcefield.amber.Hybridization
+'''
+${enum_kotlin(.gui.forcefield.amber/Hybridization)}
+'''
+
 
 # export statics
 confLibs = osprey.c.gui.features.components.ConfLibs.INSTANCE.getInfos()
+'''
+${prop_kotlin(.gui.features.components/ConfLibs/infos)}
+'''
+
 
 class Forcefield:
+    '''
+    All the forcefields supported by Osprey for energy calculations
+
+    For example, to reference one of the forcefields in Python code:
+    ```python
+    from osprey.prep import Forcefield
+    ff = Forcefield.Amber96
+    ```
+    '''
+
     Amber96 = osprey.c.gui.forcefield.Forcefield.Amber96.INSTANCE
+    '''
+    ${type_kotlin(.gui.forcefield/Forcefield.Amber96)}
+    ${class_kdoc(.gui.forcefield/Forcefield.Amber96)}
+    '''
+
     Amber14SB = osprey.c.gui.forcefield.Forcefield.Amber14SB.INSTANCE
+    '''
+    ${type_kotlin(.gui.forcefield/Forcefield.Amber14SB)}
+    ${class_kdoc(.gui.forcefield/Forcefield.Amber14SB)}
+    '''
+
     EEF1 = osprey.c.gui.forcefield.Forcefield.EEF1.INSTANCE
+    '''
+    ${type_kotlin(.gui.forcefield/Forcefield.EEF1)}
+    ${class_kdoc(.gui.forcefield/Forcefield.EEF1)}
+    '''
 
 
 def loadPDB(pdb):

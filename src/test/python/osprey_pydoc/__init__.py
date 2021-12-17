@@ -13,6 +13,7 @@ import docspec
 from pydoc_markdown.interfaces import Processor, Resolver
 
 import osprey_pydoc.javadoc
+import osprey_pydoc.kdoc
 
 
 # pydoc_markdown apparently uses some ultra hacky library to emulate interfaces in python
@@ -44,18 +45,23 @@ class OspreyProcessor:
 	def __init__(self):
 		self._vtable = {
 			'class_javadoc': self._class_javadoc,
+			'class_kdoc': self._class_kdoc,
 			'type_java': self._type_java,
 			'type_jre': self._type_jre,
+			'type_kotlin': self._type_kotlin,
 			'field_javadoc': self._field_javadoc,
 			'arg_field_javadoc': self._arg_field_javadoc,
 			'args_fields_javadoc': self._args_fields_javadoc,
 			'returns_method_java': self._returns_method_java,
+			'returns_func_kotlin': self._returns_func_kotlin,
 			'method_javadoc': self._method_javadoc,
 			'arg_java': self._arg_java,
 			'args_java': self._args_java,
 			'arg_javadoc': self._arg_javadoc,
 			'enum_java': self._enum_java,
-			'default': self._default
+			'enum_kotlin': self._enum_kotlin,
+			'default': self._default,
+			'prop_kotlin': self._prop_kotlin
 		}
 
 	def init(self, context):
@@ -158,11 +164,19 @@ class OspreyProcessor:
 
 		return _render_javadoc(c.javadoc)
 
+
+	def _class_kdoc(self, args):
+
+		c = kdoc.get_class_or_throw(kdoc.Id(args[0]))
+
+		return _render_kdoc(c.kdoc)
+
+
 	def _type_java(self, args):
 
 		c = javadoc.get_class_or_throw(javadoc.Path(args[0]))
 
-		return _render_type(c.type)
+		return _render_type_java(c.type)
 
 
 	def _type_jre(self, args):
@@ -175,7 +189,14 @@ class OspreyProcessor:
 			'params': None
 		})
 
-		return _render_type(type)
+		return _render_type_java(type)
+
+
+	def _type_kotlin(self, args):
+
+		c = kdoc.get_class_or_throw(kdoc.Id(args[0]))
+
+		return _render_type_kotlin(c.type)
 
 
 	def _field_javadoc(self, args):
@@ -215,7 +236,7 @@ class OspreyProcessor:
 		# use the initializer as an argument default value
 		if arg.default_value in ['useJavaDefault', '_useJavaDefault']:
 			if field.initializer is not None:
-				arg.default_value = _render_value(field.initializer)
+				arg.default_value = _render_value_java(field.initializer)
 			else:
 				arg.default_value = 'None'
 
@@ -223,7 +244,7 @@ class OspreyProcessor:
 		if arg_type is not None:
 			rendered_type = _literal_type(arg_type)
 		else:
-			rendered_type = _render_type(field.type)
+			rendered_type = _render_type_java(field.type)
 
 		return '%s %s: %s' % (arg_name, rendered_type, _render_javadoc(field.javadoc))
 
@@ -262,7 +283,19 @@ class OspreyProcessor:
 		if method.returns is None:
 			raise Exception("can't write return type, method %s has no return type (maybe it's a constructor?)" % path)
 
-		return _render_type(method.returns)
+		return _render_type_java(method.returns)
+
+
+	def _returns_func_kotlin(self, args):
+
+		id = kdoc.Id(args[0])
+		func = kdoc.get_func_or_throw(id)
+		# TODO: implement this!! ^^^
+
+		if func.returns is None:
+			raise Exception("can't write return type, function %s has no return type" % id)
+
+		return ''#_render_type_kotlin(func.returns
 
 
 	def _method_javadoc(self, args):
@@ -298,7 +331,7 @@ class OspreyProcessor:
 		if arg_type is not None:
 			rendered_type = _literal_type(arg_type)
 		else:
-			rendered_type = _render_type(arg.type)
+			rendered_type = _render_type_java(arg.type)
 
 		# lookup the arg javadoc, if any
 		try:
@@ -349,7 +382,7 @@ class OspreyProcessor:
 			out += '\n\n'
 
 		# also show the enum values
-		out += '**Enumeration:** %s' % _render_type(c.type)
+		out += '**Enumeration:** %s' % _render_type_java(c.type)
 		for field_name in c.field_names:
 
 			# filter down to just the enum values
@@ -366,6 +399,32 @@ class OspreyProcessor:
 		return out
 
 
+	def _enum_kotlin(self, args):
+
+		id = kdoc.Id(args[0])
+		c = kdoc.get_class_or_throw(id)
+
+		out = ''
+
+		# show the kdoc, if any
+		if c.kdoc is not None:
+			out += _render_kdoc(c.kdoc)
+			out += '\n\n'
+
+		# also show the enum values
+		out += '**Enumeration:** %s' % _render_type_kotlin(c.type)
+		for entry_name in c.entry_names:
+			entry = c.entry_or_throw(entry_name)
+
+			# render the enum values as a markdown list
+			out += '\n\n * **%s**:' % entry.name
+			if entry.kdoc is not None:
+				out += ' '
+				out += _render_kdoc(entry.kdoc)
+
+		return out
+
+
 	def _default(self, args):
 
 		arg_name = args[0]
@@ -377,6 +436,14 @@ class OspreyProcessor:
 			raise Exception("can't find arg %s in python funciton %s" % (arg_name, self._current_node.name))
 
 		candidates[0].default_value = value
+
+
+	def _prop_kotlin(self, args):
+
+		id = kdoc.Id(args[0])
+		prop = kdoc.get_prop_or_throw(id)
+
+		return _render_type_kotlin(prop.type)
 
 
 def _split_args(args):
@@ -398,9 +465,10 @@ def _join_args(pos_args, named_args):
 
 
 # use relative URLs here, not absoulte URLs, so the docs folders are copyable
-_URL_PREFIX = '../../java'
+_URL_PREFIX_JAVADOC = '../../java'
+_URL_PREFIX_KDOC = '../../kotlin'
 
-def _render_type(type):
+def _render_type_java(type):
 
 	if type is None:
 		raise Exception("can't render type info, no type")
@@ -420,7 +488,7 @@ def _render_type(type):
 
 	# render the type name, and a link if possible
 	if type.url is not None:
-		out.append('[%s](%s/%s)' % (type_name, _URL_PREFIX, type.url))
+		out.append('[%s](%s/%s)' % (type_name, _URL_PREFIX_JAVADOC, type.url))
 	else:
 		out.append('`%s`' % type_name)
 
@@ -428,8 +496,51 @@ def _render_type(type):
 	if type.params is not None:
 		out.append('<')
 		for param in type.params:
-			out.extend(_render_type(param))
+			out.extend(_render_type_java(param))
 		out.append('>')
+
+	return ''.join(out)
+
+
+def _render_type_kotlin(type):
+
+	if type is None:
+		raise Exception("can't render type info, no type")
+
+	out = []
+
+	# perform any java->python type transformations that are automatically applied by JPype
+	try:
+		type_name = {
+			'java.lang.String': 'str',
+			'Boolean': 'bool',
+			'Float': 'float',
+			'Double': 'float',
+			'Int': 'int',
+			'Long': 'int'
+		}[type.name]
+	except KeyError:
+		type_name = type.name
+
+	# render the variance, if any
+	if type.variance is not None:
+		out.append('%s ' % type.variance)
+
+	# render the type name, and a link if possible
+	if type.url is not None:
+		out.append('[%s](%s/%s)' % (type_name, _URL_PREFIX_KDOC, type.url))
+	else:
+		out.append('`%s`' % type_name)
+
+	# render the params
+	if type.params is not None:
+		out.append('<')
+		for param in type.params:
+			out.extend(_render_type_kotlin(param))
+		out.append('>')
+
+	if type.nullable:
+		out.append('?')
 
 	return ''.join(out)
 
@@ -438,7 +549,7 @@ def _literal_type(type):
 	return '`%s`' % type
 
 
-def _render_value(type):
+def _render_value_java(type):
 	# translate from Java to Python
 	try:
 		return {
@@ -482,7 +593,7 @@ def _render_javadoc(javadoc):
 			url = '%s#%s' % (link.type.url, link.signature)
 		else:
 			url = link.type.url
-		repl = '[%s](%s/%s)' % (link.label, _URL_PREFIX, url)
+		repl = '[%s](%s/%s)' % (link.label, _URL_PREFIX_JAVADOC, url)
 		text = text.replace(link.text, repl, 1)
 
 	# add block elements to the end
@@ -500,6 +611,16 @@ def _render_javadoc(javadoc):
 			text += _render_todo(todo.content)
 
 	return text
+
+
+def _render_kdoc(kdoc):
+
+	if kdoc is None:
+		return ''
+
+	# TODO: do we need anything fancy here?
+
+	return kdoc.text
 
 
 def _render_notice(kind, content):

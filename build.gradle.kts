@@ -253,9 +253,10 @@ dependencies {
 
 	// used by the build system
 	testImplementation("org.json:json:20210307")
-	val dokkaVersion = "1.5.31"
+	val dokkaVersion = "1.6.0"
 	testImplementation("org.jetbrains.dokka:dokka-cli:$dokkaVersion")
 	testImplementation("org.jetbrains.dokka:dokka-base:$dokkaVersion")
+	testImplementation("org.jetbrains.dokka:dokka-core:$dokkaVersion")
 }
 
 
@@ -1190,7 +1191,53 @@ tasks {
 		outputs.file(javadocJsonFile)
 	}
 
-	// TODO: parse kotlin docs?
+	val dokkaJsonFile = buildDir.resolve("doc/kdoc.json")
+
+	val parseKdoc by creating {
+		group = "documentation"
+		description = "export dokka into a queryable format"
+		dependsOn("testClasses")
+		doLast {
+
+			val testDir = buildDir.resolve("classes/kotlin/test")
+
+			// install the dokka plugin
+			val pluginName = "build.OspreyPlugin"
+			val servicesDir = testDir.resolve("META-INF/services")
+			servicesDir.createFolder()
+			servicesDir.resolve("org.jetbrains.dokka.plugability.DokkaPlugin").write {
+				write(pluginName)
+			}
+
+			dokkaJsonFile.parent.createFolder()
+
+			// use a plugin to make Dokka render to a JSON file
+			// https://kotlin.github.io/dokka/1.6.0/developer_guide/introduction/
+			javaexec {
+				mainClass.set("org.jetbrains.dokka.MainKt")
+				setClasspath(sourceSets["test"].runtimeClasspath)
+				args(
+					"-moduleName", packagePath.replace('/', '.'),
+					"-outputDir", dokkaJsonFile.parent.toString(),
+					"-sourceSet", listOf(
+						"-src", kotlin.sourceSets.main.get().kotlin.srcDirs.first().absolutePath,
+						"-classpath", sourceSets.main.get().runtimeClasspath.joinToString(";") { it.absolutePath }
+					).joinToString(" "),
+					"-pluginsClasspath", listOf(
+						// add the build classes folder, so Dokka will pick up our plugin
+						testDir.toFile()
+					).joinToString(";") { it.absolutePath },
+					// NOTE: dokka always expects ; as the path separator, regardless of platform
+					"-pluginsConfiguration", """
+						|$pluginName={
+						|	filename: '${dokkaJsonFile.fileName}',
+						|	package: '${packagePath.replace('/', '.')}'
+						|}
+					""".trimMargin()
+				)
+			}
+		}
+	}
 
 	val generatePythonDocs by creating {
 		group = "documentation"
@@ -1302,12 +1349,7 @@ tasks {
 					"-sourceSet", listOf(
 						"-src", kotlin.sourceSets.main.get().kotlin.srcDirs.first().absolutePath,
 						"-classpath", sourceSets.main.get().runtimeClasspath.joinToString(";") { it.absolutePath }
-					).joinToString(" "),
-					"-pluginsClasspath", sourceSets.test.get().runtimeClasspath
-						// filter out the CLI jar from the plugin classpath... apparently dokka complains otherwise
-						.filter { !it.nameWithoutExtension.startsWith("dokka-cli-") }
-						.joinToString(";") { it.absolutePath }
-					// NOTE: dokka always expects ; as the path separator, regardless of platform
+					).joinToString(" ")
 				)
 			}
 

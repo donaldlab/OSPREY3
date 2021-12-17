@@ -357,7 +357,6 @@ public class JavadocTool {
 	private static JSONObject renderType(Context ctx, TypeElement typeElem) {
 
 		var outType = new JSONObject();
-		outType.put("name", typeElem.getSimpleName().toString());
 
 		// get the javadoc url for this type, if any
 		if (typeElem.getQualifiedName().toString().startsWith(ctx.rootPackage + '.')) {
