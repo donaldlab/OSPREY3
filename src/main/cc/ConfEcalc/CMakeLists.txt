@@ -16,7 +16,8 @@ SET(CMAKE_CXX_FLAGS -pedantic-errors)
 
 # get paths into the parent Osprey project
 set(OspreyPath ${CMAKE_SOURCE_DIR}/../../../..)
-set(JnaPlatform linux-x86-64) # TODO: get the JNA names for each platform
+#set(JnaPlatform linux-x86-64) # TODO: get the JNA names for each platform
+set(JnaPlatform darwin-aarch64) #for apple silicon macs
 set(OspreyBuildPath ${OspreyPath}/build/resources/main/${JnaPlatform})
 
 # tell CMake to write the libs into Osprey's resources dir
