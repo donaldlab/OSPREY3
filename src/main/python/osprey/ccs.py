@@ -175,3 +175,93 @@ def kstarBoundedMem(
         builder.setEnsembleMinUpdate(ensembleMinUpdate[0], ensembleMinUpdate[1])
 
     return builder.build()
+
+def affinityDirector(
+            complex,
+            design,
+            target,
+            k,
+            gWidthMax=_useJavaDefault,
+            maxSimultaneousMutations=_useJavaDefault,
+            timing=_useJavaDefault,
+            ensembleTracking=_useJavaDefault,
+            ensembleMinUpdate=_useJavaDefault
+    ):
+
+        builder = osprey.c.coffee.directors.AffinityDirector.Builder(complex, design, target)
+        builder.setK(k)
+
+        if gWidthMax is not _useJavaDefault:
+            builder.setGWidthMax(gWidthMax)
+        if maxSimultaneousMutations is not _useJavaDefault:
+            builder.setMaxSimultaneousMutations(jvm.boxInt(maxSimultaneousMutations))
+        if timing is not _useJavaDefault:
+            builder.setTiming(timing)
+        if ensembleTracking is not _useJavaDefault:
+            builder.setEnsembleTracking(ensembleTracking[0], jvm.toFile(ensembleTracking[1]))
+        if ensembleMinUpdate is not _useJavaDefault:
+            builder.setEnsembleMinUpdate(ensembleMinUpdate[0], ensembleMinUpdate[1])
+
+        return builder.build()
+
+def PfuncsDirector(
+       state,
+      #  k,
+       seq=_useJavaDefault,
+       gWidthMax=_useJavaDefault,
+      #  maxSimultaneousMutations=_useJavaDefault,
+       timing=_useJavaDefault,
+       ensembleTracking=_useJavaDefault,
+       ensembleMinUpdate=_useJavaDefault,
+       reportProgress=_useJavaDefault
+
+):
+
+    builder = osprey.c.coffee.directors.PfuncsDirector.Builder(state)
+   # builder.setK(k)
+
+    if gWidthMax is not _useJavaDefault:
+        builder.setGWidthMax(gWidthMax)
+   # if maxSimultaneousMutations is not _useJavaDefault:
+     #   builder.setMaxSimultaneousMutations(jvm.boxInt(maxSimultaneousMutations))
+    if timing is not _useJavaDefault:
+        builder.setTiming(timing)
+    if ensembleTracking is not _useJavaDefault:
+        builder.setEnsembleTracking(ensembleTracking[0], jvm.toFile(ensembleTracking[1]))
+    if ensembleMinUpdate is not _useJavaDefault:
+        builder.setEnsembleMinUpdate(ensembleMinUpdate[0], ensembleMinUpdate[1])
+    if reportProgress is not _useJavaDefault:
+        builder.setReportProgress(reportProgress)
+    return builder.build()
+
+
+def PfuncDirector(
+       state,
+      #  k,
+       seq=_useJavaDefault,
+       gWidthMax=_useJavaDefault,
+      #  maxSimultaneousMutations=_useJavaDefault,
+       timing=_useJavaDefault,
+       ensembleTracking=_useJavaDefault,
+       ensembleMinUpdate=_useJavaDefault,
+       reportProgress=_useJavaDefault
+
+):
+
+    builder = osprey.c.coffee.directors.PfuncDirector.Builder(state)
+   # builder.setK(k)
+
+    if gWidthMax is not _useJavaDefault:
+        builder.setGWidthMax(gWidthMax)
+   # if maxSimultaneousMutations is not _useJavaDefault:
+     #   builder.setMaxSimultaneousMutations(jvm.boxInt(maxSimultaneousMutations))
+    if timing is not _useJavaDefault:
+        builder.setTiming(timing)
+    if ensembleTracking is not _useJavaDefault:
+        builder.setEnsembleTracking(ensembleTracking[0], jvm.toFile(ensembleTracking[1]))
+    if ensembleMinUpdate is not _useJavaDefault:
+        builder.setEnsembleMinUpdate(ensembleMinUpdate[0], ensembleMinUpdate[1])
+    if reportProgress is not _useJavaDefault:
+            builder.setReportProgress(reportProgress)
+
+    return builder.build()

@@ -6,6 +6,7 @@ import edu.duke.cs.osprey.coffee.directions.Directions;
 import edu.duke.cs.osprey.coffee.seqdb.SeqFreeEnergies;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
+import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
 
 import java.util.*;
@@ -37,6 +38,14 @@ public class PfuncsDirector implements Coffee.Director {
 			this(confSpace, confSpace.getState(stateName));
 		}
 
+		public Builder(ConfSpace state) {
+			this(
+					new MultiStateConfSpace
+							.Builder("state", state)
+							.build(),
+					"state"
+			);
+		}
 		public Builder addSequence(Sequence val) {
 			seqs.add(val);
 			return this;
@@ -68,7 +77,8 @@ public class PfuncsDirector implements Coffee.Director {
 		}
 
 		public PfuncsDirector build() {
-			return new PfuncsDirector(confSpace, state, seqs, gWidthMax, timing, reportProgress);
+			//return new PfuncsDirector(confSpace, state, seqs, gWidthMax, timing, reportProgress);
+			return new PfuncsDirector(confSpace, state, confSpace.seqSpace.getSequences(), gWidthMax, timing, reportProgress);
 		}
 	}
 
