@@ -929,7 +929,7 @@ tasks {
 			}
 			val classpath = libs.joinToClasspath { "lib/$it" }
 			writeScript(
-				dir, "osprey-service",
+				dir, releaseNameService,
 				"""
 					|cd `dirname "$0"`/..
 					|java -Xmx1g -cp "$classpath" edu.duke.cs.osprey.service.MainKt $@
@@ -972,7 +972,7 @@ tasks {
 		// we won't gain much more by compressing a few small text files
 		//compression = Compression.BZIP2
 
-		val imagePath = buildDir.resolve("docker/osprey-service-docker-$versionService.tar.bz2")
+		val imagePath = buildDir.resolve("docker/$releaseNameServiceDocker-$versionService.tar.bz2")
 		val serviceDir = projectDir.resolve("src/main/docker/service")
 
 		val dir = buildDir.resolve("service-docker")
@@ -993,7 +993,7 @@ tasks {
 			from("README.rst")
 			from("LICENSE.txt")
 			from("CONTRIBUTING.rst")
-			from("$serviceDir/osprey-service")
+			from("$serviceDir/$releaseNameService")
 			from("$serviceDir/install.sh")
 			from("$serviceDir/uninstall.sh")
 			from(imagePath)
