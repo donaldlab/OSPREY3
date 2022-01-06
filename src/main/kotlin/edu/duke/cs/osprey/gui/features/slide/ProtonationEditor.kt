@@ -100,7 +100,7 @@ class ProtonationEditor : SlideFeature {
 						|forcefield atom types and bond types. Atom and bond type inference
 						|on unprotonated molecules is very error-prone, so feel free to use
 						|the fine-grained editing tools to add any missing Hydrogen atoms,
-						|removea any extraneous Hydrogen atoms, or change hybridizations and geometry.
+						|remove any extraneous Hydrogen atoms, or change hybridizations and geometry.
 					""".trimMargin())
 
 					unindent(10f)
