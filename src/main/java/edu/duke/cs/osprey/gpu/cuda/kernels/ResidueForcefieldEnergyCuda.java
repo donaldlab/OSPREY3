@@ -120,7 +120,7 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 	private static final int AtomPairBytes = Long.BYTES + Double.BYTES*3;
 	private static final int EEF1Bytes = Double.BYTES*6;
 	
-	private ResPair[] resPairs;
+	private ResPair[] resPairs = new ResPair[0];
 	private Map<Residue,Subset> subsets;
 	
 	private Kernel.Function func;
@@ -154,9 +154,9 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 		if (ffparams.solvationForcefield != null) {
 			solvInfo = ffparams.solvationForcefield.makeInfo(ffparams, this.residues);
 		}
-		
+
 		// map the residue numbers to residues
-		resPairs = new ResPair[inters.size()];
+		this.resPairs = new ResPair[inters.size()];
 		int index = 0;
 		for (ResidueInteractions.Pair pair : inters) {
 			resPairs[index++] = resPairCache.get(this.residues, pair, solvInfo);
