@@ -125,7 +125,7 @@ public class PfuncDirector implements Coffee.Director {
 
 		public PfuncDirector build() {
 			return new PfuncDirector(confSpace, state, seq, gWidthMax, gMax, timing, reportProgress, ensembleSize, ensembleFile, ensembleUpdate, ensembleUpdateUnit);
-			//return new PfuncDirector(confSpace, state, confSpace.seqSpace.getSequences().get(0), gWidthMax, gMax, timing, reportProgress, ensembleSize, ensembleFile, ensembleUpdate, ensembleUpdateUnit);
+			//return new PfuncDirector(confSpace, state, confSpace.seqSpace.getSequences().get(1), gWidthMax, gMax, timing, reportProgress, ensembleSize, ensembleFile, ensembleUpdate, ensembleUpdateUnit);
 
 		}
 	}

@@ -9,7 +9,9 @@ import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
 
+import java.io.File;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 
 public class PfuncsDirector implements Coffee.Director {
@@ -23,6 +25,12 @@ public class PfuncsDirector implements Coffee.Director {
 		private double gWidthMax = 1.0;
 		private Timing timing = Timing.Efficient;
 		private boolean reportProgress = false;
+
+		//from PfuncDirector
+		private int ensembleSize = 0;
+		private File ensembleFile = null;
+		private long ensembleUpdate = 30;
+		private TimeUnit ensembleUpdateUnit = TimeUnit.SECONDS;
 
 		public Builder(MultiStateConfSpace confSpace, MultiStateConfSpace.State state) {
 
@@ -76,9 +84,39 @@ public class PfuncsDirector implements Coffee.Director {
 			return this;
 		}
 
+		//from PfuncDirector
+		/**
+		 * Tracks the K lowest-energy conformations and periodically writes out an ensemble PDB file.
+		 */
+		public PfuncsDirector.Builder setEnsembleTracking(int size, File file) {
+			ensembleSize = size;
+			ensembleFile = file;
+			return this;
+		}
+
+		/**
+		 * Sets the minimum interval for writing the next lowest-energy ensemble PDB file.
+		 */
+		public PfuncsDirector.Builder setEnsembleMinUpdate(long update, TimeUnit updateUnit) {
+			ensembleUpdate = update;
+			ensembleUpdateUnit = updateUnit;
+			return this;
+		}
+
+
 		public PfuncsDirector build() {
-			//return new PfuncsDirector(confSpace, state, seqs, gWidthMax, timing, reportProgress);
-			return new PfuncsDirector(confSpace, state, confSpace.seqSpace.getSequences(), gWidthMax, timing, reportProgress);
+			//return new PfuncsDirector(confSpace, state, seqs, gWidthMax, timing, reportProgress, ensembleSize, ensembleFile, ensembleUpdate, ensembleUpdateUnit);
+			//return new PfuncsDirector(confSpace, state, confSpace.seqSpace.getSequences(), gWidthMax, timing, reportProgress, ensembleSize, ensembleFile, ensembleUpdate, ensembleUpdateUnit);
+			return new PfuncsDirector(confSpace, state, seqs, gWidthMax, timing, reportProgress, ensembleSize, ensembleFile, ensembleUpdate, ensembleUpdateUnit);
+
+
+
+			//List<Sequence> sequencesTemp = confSpace.seqSpace.getSequences();
+			//List<Sequence> inputTemp = new ArrayList<>();
+			//inputTemp.add(sequencesTemp.get(0));
+			//inputTemp.add(sequencesTemp.get(1));
+			//return new PfuncsDirector(confSpace, state, inputTemp, gWidthMax, timing, reportProgress, ensembleSize, ensembleFile, ensembleUpdate, ensembleUpdateUnit);
+
 		}
 	}
 
@@ -89,16 +127,26 @@ public class PfuncsDirector implements Coffee.Director {
 	public final double gWidthMax;
 	public final Timing timing;
 	public final boolean reportProgress;
-
 	public final List<SeqFreeEnergies> seqgs = new ArrayList<>();
 
-	private PfuncsDirector(MultiStateConfSpace confSpace, MultiStateConfSpace.State state, List<Sequence> seqs, double gWidthMax, Timing timing, boolean reportProgress) {
+	// from PfuncDirector
+	public final int ensembleSize;
+	public final File ensembleFile;
+	public final long ensembleUpdate;
+	public final TimeUnit ensembleUpdateUnit;
+
+	private PfuncsDirector(MultiStateConfSpace confSpace, MultiStateConfSpace.State state, List<Sequence> seqs, double gWidthMax, Timing timing, boolean reportProgress, int ensembleSize, File ensembleFile, long ensembleUpdate, TimeUnit ensembleUpdateUnit) {
 		this.confSpace = confSpace;
 		this.state = state;
 		this.seqs = seqs;
 		this.gWidthMax = gWidthMax;
 		this.timing = timing;
 		this.reportProgress = reportProgress;
+		//from PfuncDirector
+		this.ensembleSize = ensembleSize;
+		this.ensembleFile = ensembleFile;
+		this.ensembleUpdate = ensembleUpdate;
+		this.ensembleUpdateUnit = ensembleUpdateUnit;
 	}
 
 	@Override
@@ -117,6 +165,8 @@ public class PfuncsDirector implements Coffee.Director {
 						.setGWidthMax(gWidthMax)
 						.setTiming(timing)
 						.setReportProgress(reportProgress)
+//						.setEnsembleTracking(ensembleSize, ensembleFile)
+//						.setEnsembleMinUpdate(ensembleUpdate, ensembleUpdateUnit)
 						.build();
 					var g = pfunc.calc(directions, processor);
 
@@ -131,4 +181,5 @@ public class PfuncsDirector implements Coffee.Director {
 		// cleanup the nodedb when finised
 		processor.nodedb.clear(state.index);
 	}
+
 }
