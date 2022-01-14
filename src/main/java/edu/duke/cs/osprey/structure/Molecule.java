@@ -58,6 +58,10 @@ public class Molecule implements Serializable {
     public String name = null;
     
     public Residues residues;
+
+    public List<Fragment> fragments;
+    public boolean fragmented = false;
+
     private Map<Integer,ArrayList<Residue>> alternates;
     
     //also might have secondary structure elements...
@@ -261,4 +265,7 @@ public class Molecule implements Serializable {
         for(Residue res : residues)
             res.interResBondsMarked = true;
     }
+
+    //TODO: add fragmentation code
+    public void fragment(){}
 }

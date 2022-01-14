@@ -54,4 +54,6 @@ public class Fragment extends Molecule {
      */
     public Molecule parent;
 
+    //TODO: add methods for hydrogen capping
+
 }
