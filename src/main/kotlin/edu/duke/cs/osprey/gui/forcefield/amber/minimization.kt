@@ -66,6 +66,10 @@ class MinimizerInfo(
 fun List<MinimizerInfo>.minimizeBlocking(numSteps: Int) =
 	runBlocking { minimize(numSteps) }
 
+/**
+ * Minimize the selected molecules with molecule-associated information
+ * using sander from AmberTools
+ */
 suspend fun List<MinimizerInfo>.minimize(numSteps: Int) {
 
 	// capture the original coords

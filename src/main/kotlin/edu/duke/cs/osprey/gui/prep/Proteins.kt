@@ -17,6 +17,9 @@ object Proteins {
 			.find { it.name.equals(name, ignoreCase = true) }
 			?: throw NotAProteinException("residue does not have atom $name")
 
+	/**
+	 * Makes a design position for a conformation space from a protein residue
+	 */
 	fun makeDesignPosition(mol: Polymer, res: Polymer.Residue, name: String) =
 		DesignPosition(name, res.type, mol).apply {
 			setDesignPosition(this, res)

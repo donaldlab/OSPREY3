@@ -149,8 +149,14 @@ enum class MoleculeType(
 }
 
 /**
- * Returns the types of the molecule
+ * Returns the types of the molecules in the Molecule instance
  * based on AMBER rules for residue classification.
+ *
+ * Generally, the Molecule instance will describe only one molecule,
+ * so the returned set will have only one type.
+ *
+ * But, if the Molecule instance actually represents multiple molecules,
+ * this function will return a molecule type for each molecule present.
  */
 fun Molecule.findTypes(): Set<MoleculeType> {
 
