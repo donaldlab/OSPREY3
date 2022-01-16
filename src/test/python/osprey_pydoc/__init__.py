@@ -49,19 +49,25 @@ class OspreyProcessor:
 			'type_java': self._type_java,
 			'type_jre': self._type_jre,
 			'type_kotlin': self._type_kotlin,
+			'type_kotlin_stdlib': self._type_kotlin_stdlib,
 			'field_javadoc': self._field_javadoc,
 			'arg_field_javadoc': self._arg_field_javadoc,
 			'args_fields_javadoc': self._args_fields_javadoc,
 			'returns_method_java': self._returns_method_java,
 			'returns_func_kotlin': self._returns_func_kotlin,
 			'method_javadoc': self._method_javadoc,
+			'func_kdoc': self._func_kdoc,
 			'arg_java': self._arg_java,
 			'args_java': self._args_java,
+			'arg_kotlin': self._arg_kotlin,
+			'args_kotlin': self._args_kotlin,
+			'receiver_kotlin': self._receiver_kotlin,
 			'arg_javadoc': self._arg_javadoc,
 			'enum_java': self._enum_java,
 			'enum_kotlin': self._enum_kotlin,
 			'default': self._default,
-			'prop_kotlin': self._prop_kotlin
+			'prop_kotlin': self._prop_kotlin,
+			'link_func_kotlin': self._link_func_kotlin
 		}
 
 	def init(self, context):
@@ -98,7 +104,7 @@ class OspreyProcessor:
 		try:
 			func = self._vtable[func_name]
 		except KeyError:
-			raise Exception('unrecognized macro function %s' % func_name)
+			raise Exception('unrecognized macro function `%s`, try one of:\n\t%s' % (func_name, '\n\t'.join(self._vtable.keys())))
 
 		# parse the function arguments
 		# allow nested list syntax, eg
@@ -185,8 +191,7 @@ class OspreyProcessor:
 
 		type = javadoc.Type({
 			'name': type_name,
-			'url': None,
-			'params': None
+			'url': None # TODO: link to Oracle docs online?
 		})
 
 		return _render_type_java(type)
@@ -197,6 +202,18 @@ class OspreyProcessor:
 		c = kdoc.get_class_or_throw(kdoc.Id(args[0]))
 
 		return _render_type_kotlin(c.type)
+
+
+	def _type_kotlin_stdlib(self, args):
+
+		id = kdoc.Id(args[0])
+
+		type = kdoc.Type({
+			'name': id.raw,
+			'url': None # TODO: link to Kotlin docs online? The url transformations are non-trivial though =(
+		})
+
+		return _render_type_kotlin(type)
 
 
 	def _field_javadoc(self, args):
@@ -290,12 +307,8 @@ class OspreyProcessor:
 
 		id = kdoc.Id(args[0])
 		func = kdoc.get_func_or_throw(id)
-		# TODO: implement this!! ^^^
 
-		if func.returns is None:
-			raise Exception("can't write return type, function %s has no return type" % id)
-
-		return ''#_render_type_kotlin(func.returns
+		return _render_type_kotlin(func.returns)
 
 
 	def _method_javadoc(self, args):
@@ -307,6 +320,17 @@ class OspreyProcessor:
 			raise Exception('java method %s has no javadoc' % method_path)
 
 		return _render_javadoc(method.javadoc)
+
+
+	def _func_kdoc(self, args):
+
+		func_id = kdoc.Id(args[0])
+		func = kdoc.get_func_or_throw(func_id)
+
+		if func.kdoc is None:
+			raise Exception('kotlin function %s has no kdoc' % func_id)
+
+		return _render_kdoc(func.kdoc)
 
 
 	def _arg_java(self, args):
@@ -353,6 +377,60 @@ class OspreyProcessor:
 			out.append(self._arg_java([arg_args[0]] + [path.path] + arg_args[1:]))
 
 		return '\n'.join(out)
+
+
+	def _arg_kotlin(self, args):
+
+		(pos_args, named_args) = _split_args(args)
+		py_arg_name = pos_args[0]
+		func = kdoc.get_func_or_throw(kdoc.Id(pos_args[1]))
+		kotlin_arg_name = pos_args[0]
+		if len(args) >= 3:
+			kotlin_arg_name = pos_args[2]
+
+		# parse the named args
+		arg_type = None
+		for (name, value) in named_args:
+			if name == 'type':
+				arg_type = value
+
+		# lookup the arg in the kotlin function
+		arg = func.find_arg_or_throw(kotlin_arg_name)
+
+		# render the type
+		if arg_type is not None:
+			rendered_type = _literal_type(arg_type)
+		else:
+			rendered_type = _render_type_kotlin(arg.type)
+
+		# lookup the arg kdoc, if any
+		try:
+			arg_kdoc = func.kdoc.params[kotlin_arg_name]
+		except (KeyError, AttributeError):
+			arg_kdoc = ''
+
+		return '%s %s: %s' % (py_arg_name, rendered_type, arg_kdoc)
+
+
+	def _args_kotlin(self, args):
+
+		id = kdoc.Id(args[0])
+		func = kdoc.get_func_or_throw(id)
+		args = args[1:]
+
+		out = []
+		for arg_args in args:
+			out.append(self._arg_kotlin([arg_args[0]] + [id.raw] + arg_args[1:]))
+
+		return '\n'.join(out)
+
+
+	def _receiver_kotlin(self, args):
+
+		py_arg_name = args[0]
+		func = kdoc.get_func_or_throw(kdoc.Id(args[1]))
+
+		return '%s %s' % (py_arg_name, _render_type_kotlin(func.receiver))
 
 
 	def _arg_javadoc(self, args):
@@ -446,6 +524,14 @@ class OspreyProcessor:
 		return _render_type_kotlin(prop.type)
 
 
+	def _link_func_kotlin(self, args):
+
+		id = kdoc.Id(args[0])
+		func = kdoc.get_func_or_throw(id)
+
+		return '[%s](%s/%s)' % (func.name, _URL_PREFIX_KDOC, func.url)
+
+
 def _split_args(args):
 
 	# pull out the named optional arguments from the positional arguments
@@ -513,11 +599,12 @@ def _render_type_kotlin(type):
 	try:
 		type_name = {
 			'java.lang.String': 'str',
-			'Boolean': 'bool',
-			'Float': 'float',
-			'Double': 'float',
-			'Int': 'int',
-			'Long': 'int'
+			'kotlin.String': 'str',
+			'kotlin.Boolean': 'bool',
+			'kotlin.Float': 'float',
+			'kotlin.Double': 'float',
+			'kotlin.Int': 'int',
+			'kotlin.Long': 'int'
 		}[type.name]
 	except KeyError:
 		type_name = type.name

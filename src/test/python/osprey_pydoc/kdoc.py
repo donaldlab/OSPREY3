@@ -11,6 +11,13 @@ with open('build/doc/kdoc.json', 'r') as f:
 default_package = 'edu.duke.cs.osprey'
 
 
+def _or_empty(str):
+	if str is not None:
+		return str
+	else:
+		return ''
+
+
 class Id:
 
 	def __init__(self, id: str):
@@ -20,30 +27,59 @@ class Id:
 		#  p1.p2/Class
 		#  p1.p2/Class.InnerClass
 		#  package/Class/member
+		#  package/Class/member/signature
 		#  package/Class.Inner1.Inner2/member
 		#  .relative.package/Class
-
-		# apply the default package root if needed
-		if id[0] == '.':
-			id = '%s.%s' % (default_package, id[1:])
 
 		self.raw = id
 
 		# split the path parts
 		parts = id.split('/')
-		if len(parts) >= 2:
-			self.package = parts[0]
-			self.classname = parts[1]
+
+		# parse the package, if any, and add the prefix if needed
+		if len(parts) >= 1:
+			pack = parts[0]
+			if pack == '':
+				pack = None
+			elif pack[0] == '.':
+				pack = '%s.%s' % (default_package, pack[1:])
+			self.package = pack
 		else:
-			raise Exception('malformed kotlin ID: %s' % id)
-		if len(parts) > 2:
-			self.name = parts[2]
+			self.package = None
+
+		# parse the classname
+		if len(parts) >= 2:
+			cname = parts[1]
+			if cname == '':
+				cname = None
+			self.classname = cname
+		else:
+			self.classname = None
+
+		# parse the name
+		if len(parts) >= 3:
+			name = parts[2]
+			if name == '':
+				name = None
+			self.name = name
 		else:
 			self.name = None
 
+		# parse the signature, if any, and add package prefixes where needed
+		if len(parts) >= 4:
+			sig_parts = parts[3].split('#')
+			for i in range(len(sig_parts)):
+				p = sig_parts[i]
+				if len(p) > 0 and p[0] == '.':
+					p = '%s.%s' % (default_package, p[1:])
+				sig_parts[i] = p
+			self.signature = '#'.join(sig_parts)
+		else:
+			self.signature = None
+
 
 	def __str__(self):
-		return 'Id[package=%s, classname=%s, name=%s]' % (self.package, self.classname, self.name)
+		return 'Id[package=%s, classname=%s, name=%s, signature=%s, raw=%s]' % (self.package, self.classname, self.name, self.signature, self.raw)
 
 	def __repr__(self):
 		return self.raw
@@ -51,8 +87,9 @@ class Id:
 
 class Class:
 
-	def __init__(self, json):
+	def __init__(self, id, json):
 
+		self.id = id
 		self._json = json
 
 		self.type = Type(json['type'])
@@ -62,11 +99,14 @@ class Class:
 			self.kdoc = None
 
 		try:
-			self.prop_names = [p['name'] for p in json['props']]
+			self.prop_names = json['props']
 		except KeyError:
 			self.prop_names = []
 
-		# TODO: functions
+		try:
+			self.func_names = json['funcs']
+		except KeyError:
+			self.func_names = []
 
 		try:
 			self.entry_names = [f['name'] for f in json['entries']]
@@ -90,11 +130,7 @@ class Class:
 
 
 	def prop(self, name):
-		try:
-			i = self._json['propsLut'][name]
-		except KeyError:
-			return None
-		return Prop(self._json['props'][i])
+		return get_prop('%s/%s' % (self.id.raw, name))
 
 
 	def prop_or_throw(self, name):
@@ -104,12 +140,20 @@ class Class:
 		return prop
 
 
+	def func(self, name):
+		return get_func('%s/%s' % (self.id.raw, name))
+
+
+	def func_or_throw(self, name):
+		return get_func_or_throw('%s/%s' % (self.id.raw, name))
+
+
 def get_class(id: Id):
 	try:
-		c = _kdoc[id.package + '/' + id.classname]
+		c = _kdoc['classlikes'][id.package + '/' + id.classname]
 	except KeyError:
 		return None
-	return Class(c)
+	return Class(id, c)
 
 
 def get_class_or_throw(id: Id):
@@ -134,8 +178,9 @@ class Entry:
 
 class Prop:
 
-	def __init__(self, json):
+	def __init__(self, id, json):
 
+		self.id = id
 		self._json = json
 
 		self.name = json['name']
@@ -147,39 +192,107 @@ class Prop:
 
 
 def get_prop(id: Id):
-	if id.classname is None:
-
-		# look in the top-level
-		try:
-			json = _kdoc[id.package + '//' + id.name]
-		except KeyError:
-			return None
-		return Prop(json)
-
-	else:
-
-		# look in the enclosing class
-		c = get_class(id)
-		if c is None:
-			return None
-		return c.prop(id.name)
+	try:
+		json = _kdoc['props']['%s/%s/%s/#' % (id.package, _or_empty(id.classname), id.name)]
+	except KeyError:
+		return None
+	return Prop(id, json)
 
 
 def get_prop_or_throw(id: Id):
-	if id.classname is None:
+	prop = get_prop(id)
+	if prop is None:
+		raise Exception('unknown kotlin property: %s' % id)
+	return prop
 
-		# look in the top-level
+
+class Func:
+
+	def __init__(self, id, json):
+
+		self.id = id
+		self._json = json
+
+		self.name = json['name']
+		self.args = [FuncArg(a) for a in json['args']]
+		self.returns = Type(json['returns'])
+
 		try:
-			json = _kdoc[id.package + '//' + id.name]
+			self.receiver = Type(json['receiver'])
 		except KeyError:
-			raise Exception('unknown kotlin property: %s' % id)
-		return Prop(json)
+			self.receiver = None
+
+		self.url = json['url']
+
+		try:
+			self.kdoc = Kdoc(json['kdoc'])
+		except KeyError:
+			self.kdoc = None
+
+
+	def find_arg(self, name):
+		for arg in self.args:
+			if arg.name == name:
+				return arg
+		return None
+
+
+	def find_arg_or_throw(self, name):
+		arg = self.find_arg(name)
+		if arg is None:
+			raise Exception('no argument named %s found in function %s\n\ttry one of: %s' % (name, self.name, [a.name for a in self.args]))
+		return arg
+
+
+class FuncArg:
+
+	def __init__(self, json):
+		self.name = json['name']
+		self.type = Type(json['type'])
+
+
+def get_func(id: Id):
+	try:
+		return get_func(id)
+	except:
+		return None
+
+
+def get_func_or_throw(id: Id):
+	if id.signature is not None:
+
+		# look for overload directly
+		try:
+			json = _kdoc['funcs']['%s/%s/%s/%s' % (id.package, _or_empty(id.classname), id.name, id.signature)]
+		except KeyError:
+			raise Exception('unknown kotlin function: %s' % id)
+
+		return Func(id, json)
 
 	else:
 
-		# look in the enclosing class
-		c = get_class_or_throw(id)
-		return c.prop_or_throw(id.name)
+		# try to look up the overload
+		try:
+			overloads = _kdoc['funcs']['%s/%s/%s' % (id.package,  _or_empty(id.classname), id.name)]
+		except KeyError:
+
+			if id.classname is None:
+				raise Exception('unknown kotlin function: %s' % id)
+
+			# try looking inside the class for suggestions
+			c = get_class(id)
+			if c is None:
+				raise Exception('unknown kotlin class: %s' % id)
+
+			raise Exception('unknown kotlin function `%s` in class `%s`, try one of:\n\t%s' % (id.name, id.classname, '\n\t'.join(c.func_names)))
+
+		if len(overloads) != 1:
+			ids = ['%s/%s' % (id.raw, s) for s in overloads]
+			raise Exception('kotlin function `%s` has multiple overloads, try one of:\n\t%s' % (id.name, '\n\t'.join(ids)))
+
+		# just one overload, add the signature and try again
+		id = Id('%s/%s' % (id.raw, overloads[0]))
+		return get_func_or_throw(id)
 
 
 class Type:

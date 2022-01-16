@@ -4,8 +4,8 @@ import edu.duke.cs.osprey.service.write
 import org.jetbrains.dokka.CoreExtensions
 import org.jetbrains.dokka.DokkaConfiguration.DokkaSourceSet
 import org.jetbrains.dokka.base.DokkaBase
-import org.jetbrains.dokka.base.renderers.html.NavigationPage
 import org.jetbrains.dokka.base.resolvers.local.LocationProvider
+import org.jetbrains.dokka.base.translators.documentables.DefaultDocumentableToPageTranslator
 import org.jetbrains.dokka.links.DRI
 import org.jetbrains.dokka.model.*
 import org.jetbrains.dokka.model.doc.DocTag
@@ -14,6 +14,7 @@ import org.jetbrains.dokka.model.doc.Text
 import org.jetbrains.dokka.pages.*
 import org.jetbrains.dokka.plugability.*
 import org.jetbrains.dokka.renderers.Renderer
+import org.jetbrains.dokka.transformers.documentation.DocumentableToPageTranslator
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -24,94 +25,161 @@ class OspreyPlugin : DokkaPlugin() {
 
 	val dokkaBasePlugin by lazy { plugin<DokkaBase>() }
 
-	val ospreyPlugin by extending {
+	val pager by extending {
+		CoreExtensions.documentableToPageTranslator providing { ctx -> OspreyPager(ctx) } override dokkaBasePlugin.documentableToPageTranslator
+	}
+
+	val renderer by extending {
 		CoreExtensions.renderer providing { ctx -> OspreyRenderer(ctx) } override dokkaBasePlugin.htmlRenderer
 	}
 }
 
-class OspreyRenderer(val dokkaCtx: DokkaContext) : Renderer {
+private data class Config(
+	val filename: String,
+	val rootPackage: String
+)
 
-	data class Context(
-		val rootPackage: String,
-		val locations: LocationProvider
+private fun DokkaContext.config(): Config {
+
+	// read the plugin config
+	val config = configuration.pluginsConfiguration
+		.find { it.fqPluginName == OspreyPlugin::class.qualifiedName }
+		?.values
+		?: throw NoSuchElementException("need to send configuration JSON")
+	val json = JSONObject(config)
+
+	// read config values
+	return Config(
+		filename = json.getString("filename")!!,
+		rootPackage = json.getString("package")!!
 	)
+}
 
-	override fun render(root: RootPageNode) {
+private class OspreyPager(val ctx: DokkaContext): DocumentableToPageTranslator {
 
-		// read the plugin config
-		val config = dokkaCtx.configuration.pluginsConfiguration
-			.find { it.fqPluginName == OspreyPlugin::class.qualifiedName }
-			?.values
-			?: throw NoSuchElementException("need to send configuration JSON")
-		val json = JSONObject(config)
+	class Page(
+		override val name: String,
+		val json: JSONObject
+	) : RootPageNode() {
 
-		// read config values
-		val filename = json.getString("filename")!!
-		val rootPackage = json.getString("package")!!
+		override val children: List<PageNode>
+			get() = emptyList()
 
-		// build the output file path
-		val file = dokkaCtx.configuration.outputDir.resolve(filename).toPath()
+		override fun modified(name: String, children: List<PageNode>): RootPageNode =
+			Page(name, json)
+	}
 
-		// build the context
-		val ctx = Context(
-			rootPackage,
-			dokkaCtx.plugin<DokkaBase>().querySingle { locationProviderFactory }.getLocationProvider(root)
-		)
+	private val config = ctx.config()
+	private var locations: LocationProvider? = null
 
-		// TEMP: apply the usual preprocessors
-		//val preprocessors = dokkaCtx.plugin<DokkaBase>().query { htmlPreprocessors }
-		//val newRoot = preprocessors.fold(root) { acc, t -> t(acc) }
+	override fun invoke(module: DModule): Page {
 
-		// render the documentation into JSON
+		// call the default pager to get URLs for all the elements
+		val defaultPager = DefaultDocumentableToPageTranslator(ctx)
+		val defaultPage = defaultPager.invoke(module)
+		locations = ctx.plugin<DokkaBase>()
+			.querySingle { locationProviderFactory }
+			.getLocationProvider(defaultPage)
+
+		// init the json with top-level elements
 		val out = JSONObject()
-		render(root, ctx, out)
+		out.put("classlikes", JSONObject())
+		out.put("funcs", JSONObject())
+		out.put("props", JSONObject())
 
-		// write out the JSON file
-		out.toString(2).write(file)
+		// transform the documentation into JSON
+		transform(module, out)
+
+		// pass the json along the dokka pipeline as a page
+		return Page("page for module ${module.dri}", out)
 	}
 
-	private fun render(node: PageNode, ctx: Context, out: JSONObject) {
+	private fun urlKotlin(dri: DRI, sourceSets: Set<DokkaSourceSet>): String? {
 
-		// render this page, depending on the type
-		when (node) {
+		val displaySourceSets = sourceSets
+			.map { it.toDisplaySourceSet() }
+			.toSet()
 
-			is ContentPage -> renderContent(node, ctx, out)
+		val locations = locations
+			?: throw IllegalStateException("no locations available yet")
 
-			is RendererSpecificRootPage,
-			is RendererSpecificResourcePage,
-			is NavigationPage -> Unit // ignore
+		return locations.resolve(dri, displaySourceSets)
+	}
 
-			else -> throw Error("don't know how to render page ${node::class.qualifiedName}")
-		}
+	private fun urlJava(dri: DRI): String {
 
-		// recurse down the page tree
-		for (child in node.children) {
-			render(child, ctx, out)
+		// assuming this DRI points to a java class or a class member, generate its javadoc URL
+		// eg:      edu.duke.cs.osprey.structure/Molecule
+		// becomes: edu/duke/cs/osprey/structure/Molecule.html
+
+		val pname = dri.packageName
+			?.replace('.', '/')
+			?: throw Error("can't find URL to java element, no package: $dri")
+		val cname = dri.classNames
+			?: throw Error("can't find URL to java element, no class names: $dri")
+
+		return "$pname.$cname.html"
+	}
+
+	private fun findClasslike(id: String, out: JSONObject): JSONObject? {
+		val classlikes = out.getJSONObject("classlikes")
+		return if (classlikes.has(id)) {
+			classlikes.getJSONObject(id)
+		} else {
+			null
 		}
 	}
 
-	private fun renderContent(node: ContentPage, ctx: Context, out: JSONObject) =
-		when (val doc = node.documentable) {
+	private fun findClasslike(dri: DRI, out: JSONObject): JSONObject? =
+		if (dri.classNames != null) {
+			findClasslike(
+				listOf(
+					dri.packageName ?: "",
+					dri.classNames
+				).joinToString("/"),
+				out
+			)
+		} else {
+			null
+		}
+
+	private fun transform(doc: Documentable, out: JSONObject) =
+		when (doc) {
 
 			// ignore these
-			null,
 			is DTypeAlias,
-			is DPackage,
-			is DModule,
 			is DTypeParameter,
 			is DParameter -> Unit
 
-			// render these
-			is DEnumEntry -> renderEnumEntry(doc, ctx, out)
-			is DFunction -> renderFunction(doc, ctx, out)
-			is DClasslike -> renderClasslike(doc, ctx, out)
-			is DProperty -> renderProperty(doc, ctx, out)
+			// transform these
+			is DModule -> transformModule(doc, out)
+			is DPackage -> transformPackage(doc, out)
+			is DEnumEntry -> transformEnumEntry(doc, out)
+			is DFunction -> transformFunction(doc, out)
+			is DClasslike -> transformClasslike(doc, out)
+			is DProperty -> transformProperty(doc, out)
 
 			// just in case
 			else -> throw Error("don't know how to render Documentable: ${doc::class.qualifiedName}")
 		}
 
-	private fun renderClasslike(classlike: DClasslike, ctx: Context, out: JSONObject) {
+	private fun transformModule(module: DModule, out: JSONObject) {
+
+		// recurse
+		for (doc in module.children) {
+			transform(doc, out)
+		}
+	}
+
+	private fun transformPackage(pack: DPackage, out: JSONObject) {
+
+		// recurse
+		for (doc in pack.children) {
+			transform(doc, out)
+		}
+	}
+
+	private fun transformClasslike(classlike: DClasslike, out: JSONObject) {
 
 		// make a unique id for the class
 		val id = listOf(
@@ -122,67 +190,111 @@ class OspreyRenderer(val dokkaCtx: DokkaContext) : Renderer {
 		).joinToString("/")
 
 		val outClass = JSONObject()
-		out.put(id, outClass)
+		out.getJSONObject("classlikes").put(id, outClass)
 
 		// get the class name
 		outClass.put("name", classlike.name)
 
 		// get the KDoc, if any
-		outClass.putIfSomething("kdoc", renderKdoc(classlike.documentation))
+		outClass.putIfSomething("kdoc", transformKdoc(classlike.documentation))
 
 		// render the type info
-		outClass.put("type", renderType(classlike, ctx))
+		outClass.put("type", transformType(classlike.dri, classlike.sourceSets))
 
-		// TODO: properties, lut
-		// TODO: functions, lut
+		// recurse
+		for (doc in classlike.children) {
+			transform(doc, out)
+		}
 	}
 
-	private fun renderFunction(func: DFunction, ctx: Context, out: JSONObject) {
+	private fun transformFunction(func: DFunction, out: JSONObject) {
 
-		// TODO
-		//println("func ${func.dri}")
+		val outFunc = JSONObject()
+
+		// get the function id and make a top-level object
+		val baseId = listOf(
+			func.dri.packageName ?: "",
+			func.dri.classNames ?: "",
+			func.name
+		).joinToString("/")
+		val signature =
+			func.dri.callable?.signature() ?: ""
+		val id = listOf(
+			baseId,
+			signature
+		).joinToString("/")
+
+		val outFuncs = out.getJSONObject("funcs")
+		outFuncs.put(id, outFunc)
+
+		// save the overload lookups
+		outFuncs.getOrPutJSONArray(baseId)
+			.put(signature)
+
+		// add the function to the class, if any
+		findClasslike(func.dri, out)
+			?.getOrPutJSONArray("funcs")
+			?.put(func.name)
+
+		outFunc.put("name", func.name)
+
+		// arguments
+		val outArgs = JSONArray()
+		for (param in func.parameters) {
+
+			val outParam = JSONObject()
+
+			outParam.put("name", param.name)
+			outParam.put("type", transformTypeTree(param.type, param.sourceSets))
+
+			outArgs.put(outParam)
+		}
+		outFunc.put("args", outArgs)
+
+		// returns
+		outFunc.put("returns", transformTypeTree(func.type, func.sourceSets))
+
+		// receiver?
+		val receiver = func.receiver
+		if (receiver != null) {
+			outFunc.put("receiver", transformTypeTree(receiver.type, receiver.sourceSets))
+		}
+
+		// link
+		outFunc.put("url", "${config.rootPackage}/${urlKotlin(func.dri, func.sourceSets)}")
+
+		// get the KDoc, if any
+		outFunc.putIfSomething("kdoc", transformKdoc(func.documentation))
 	}
 
-	private fun renderProperty(prop: DProperty, ctx: Context, out: JSONObject) {
+	private fun transformProperty(prop: DProperty, out: JSONObject) {
 
 		val outProp = JSONObject()
 
-		// look up the enclosing class, if any
-		val classNames = prop.dri.classNames
-		if (classNames != null) {
+		// get the property id and make a top-level object
+		val id = listOf(
+			prop.dri.packageName ?: "",
+			prop.dri.classNames ?: "",
+			prop.name,
+			prop.dri.callable?.signature() ?: ""
+		).joinToString("/")
+		out.getJSONObject("props").put(id, outProp)
 
-			val classId = listOf(
-				prop.dri.packageName
-					?: "",
-				classNames
-			).joinToString("/")
-			val outClass = out.getJSONObject(classId)
-
-			val outProps = outClass.getOrPutJSONArray("props")
-			val outPropsLut = outClass.getOrPutJSONObject("propsLut")
-
-			// add the property to the class
-			outPropsLut.put(prop.name, outProps.length())
-			outProps.put(outProp)
-
-		} else {
-
-			// otherwise, add it to the top-level object
-			val id = listOf(
-				prop.dri.packageName,
-				"",
-				prop.name
-			).joinToString("/")
-			out.put(id, outProp)
-		}
+		// add the property to the class, if any
+		findClasslike(prop.dri, out)
+			?.getOrPutJSONArray("props")
+			?.put(prop.name)
 
 		outProp.put("name", prop.name)
-		outProp.put("type", renderTypeTree(prop.type, prop.sourceSets, ctx))
+		outProp.put("type", transformTypeTree(prop.type, prop.sourceSets))
+
+		// get the KDoc, if any
+		outProp.putIfSomething("kdoc", transformKdoc(prop.documentation))
 	}
 
-	private fun renderEnumEntry(entry: DEnumEntry, ctx: Context, out: JSONObject) {
+	private fun transformEnumEntry(entry: DEnumEntry, out: JSONObject) {
 
-		val outEnum = JSONObject()
+		val outEntry = JSONObject()
 
 		// look up the enclosing class
 		val classId = listOf(
@@ -199,31 +311,29 @@ class OspreyRenderer(val dokkaCtx: DokkaContext) : Renderer {
 				}
 				?: throw NoSuchElementException("enum ${entry.name} has no class names... somehow")
 		).joinToString("/")
-		val outClass = out.getJSONObject(classId)
+		val outClass = findClasslike(classId, out)
 			?: throw NoSuchElementException("enum entry enclosing class not found: $classId")
 
 		val outEntries = outClass.getOrPutJSONArray("entries")
 		val outEntriesLut = outClass.getOrPutJSONObject("entriesLut")
 
-		val outEntry = JSONObject()
-
 		outEntry.put("name", entry.name)
 
 		// get the KDoc, if any
-		outEntry.putIfSomething("kdoc", renderKdoc(entry.documentation))
+		outEntry.putIfSomething("kdoc", transformKdoc(entry.documentation))
 
 		outEntriesLut.put(entry.name, outEntries.length())
 		outEntries.put(outEntry)
 	}
 
-	private fun renderKdoc(kdoc: SourceSetDependent<DocumentationNode>): String =
+	private fun transformKdoc(kdoc: SourceSetDependent<DocumentationNode>): String =
 		kdoc.values.joinToString("\n") { node ->
 			node.children.joinToString("\n") { child ->
-				renderKdocTag(child.root)
+				transformKdocTag(child.root)
 			}
 		}
 
-	private fun renderKdocTag(tag: DocTag): String =
+	private fun transformKdocTag(tag: DocTag): String =
 		when (tag) {
 
 			// this appears to be the only tag with direct content
@@ -233,36 +343,36 @@ class OspreyRenderer(val dokkaCtx: DokkaContext) : Renderer {
 			// NOTE: currently, no KDoc comments use tags, so I won't worry about trying
 			// to render all the different tags into text correctly, for now
 			else -> tag.children.joinToString("\n") {
-				renderKdocTag(it)
+				transformKdocTag(it)
 			}
 		}
 
-	private fun renderTypeTree(type: Projection, sourceSets: Set<DokkaSourceSet>, ctx: Context): JSONObject =
+	private fun transformTypeTree(type: Projection, sourceSets: Set<DokkaSourceSet>): JSONObject =
 		when (type) {
 
-			is GenericTypeConstructor -> renderType(type.dri, sourceSets, ctx).apply {
+			is GenericTypeConstructor -> transformType(type.dri, sourceSets).apply {
 
 				// add generic parameters, if any
 				if (type.projections.isNotEmpty()) {
 					val outProjections = JSONArray()
 					for (projection in type.projections) {
-						outProjections.put(renderTypeTree(projection, sourceSets, ctx))
+						outProjections.put(transformTypeTree(projection, sourceSets))
 					}
 					put("params", outProjections)
 				}
 			}
 
-			is FunctionalTypeConstructor -> renderType(type.dri, sourceSets, ctx).apply {
+			is FunctionalTypeConstructor -> transformType(type.dri, sourceSets).apply {
 				// TODO: do we need to bother with redenring functional types correctly?
 				//  do they even appear in the Python API at all?
 				put("functional", true)
 			}
 
-			is Nullable -> renderTypeTree(type.inner, sourceSets, ctx).apply {
+			is Nullable -> transformTypeTree(type.inner, sourceSets).apply {
 				put("nullable", true)
 			}
 
-			is Variance<*> -> renderTypeTree(type.inner, sourceSets, ctx).apply {
+			is Variance<*> -> transformTypeTree(type.inner, sourceSets).apply {
 				val variance = when (type) {
 					is Covariance<*> -> "out"
 					is Contravariance<*> -> "in"
@@ -277,31 +387,25 @@ class OspreyRenderer(val dokkaCtx: DokkaContext) : Renderer {
 				put("name", type.name)
 			}
 
-			is TypeAliased -> renderTypeTree(type.typeAlias, sourceSets, ctx)
+			is TypeAliased -> transformTypeTree(type.typeAlias, sourceSets)
+
+			is Star -> JSONObject().apply {
+				put("name", "*")
+			}
 
 			else -> throw Error("don't know how to render type: ${type::class.simpleName}")
 		}
 
-	private fun renderType(classlike: DClasslike, ctx: Context): JSONObject =
-		renderType(
-			classlike.dri,
-			classlike.sourceSets,
-			ctx
-		)
-
-	private fun renderType(dri: DRI, sourceSets: Set<DokkaSourceSet>, ctx: Context): JSONObject {
+	private fun transformType(dri: DRI, sourceSets: Set<DokkaSourceSet>): JSONObject {
 
 		val out = JSONObject()
 
 		// get the dokka URL for this type, if any
-		if (dri.packageName?.startsWith(ctx.rootPackage) == true) {
+		if (dri.packageName?.startsWith(config.rootPackage) == true) {
 
-			val displaySourceSets = sourceSets
-				.map { it.toDisplaySourceSet() }
-				.toSet()
-			val url = ctx.locations.resolve(dri, displaySourceSets)
-				?: throw NoSuchElementException("no URL found for $dri")
-			out.put("url", "${ctx.rootPackage}/$url")
+			val url = urlKotlin(dri, sourceSets)
+				?: urlJava(dri)
+			out.put("url", "${config.rootPackage}/$url")
 
 			// render a short name
 			out.put("name", dri.classNames?.split(".")?.last() ?: "(Unnamed)")
@@ -313,6 +417,19 @@ class OspreyRenderer(val dokkaCtx: DokkaContext) : Renderer {
 		}
 
 		return out
+	}
+}
+
+private class OspreyRenderer(val ctx: DokkaContext) : Renderer {
+
+	private val config = ctx.config()
+
+	override fun render(root: RootPageNode) {
+
+		// write out the file from the page JSON
+		val page = root as OspreyPager.Page
+		val file = ctx.configuration.outputDir.resolve(config.filename).toPath()
+		page.json.toString(2).write(file)
 	}
 }
 

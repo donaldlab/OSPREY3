@@ -1241,7 +1241,7 @@ tasks {
 
 	val generatePythonDocs by creating {
 		group = "documentation"
-		dependsOn(parseJavadoc)
+		dependsOn(parseJavadoc, parseKdoc)
 		inputs.files(javadocJsonFile)
 		doLast {
 
@@ -1336,6 +1336,17 @@ tasks {
 			}
 			val contentDir = modDir.resolve("content")
 			contentDir.createFolder()
+
+			// uninstall the dokka plugin
+			buildDir
+				.resolve("classes/kotlin/test")
+				.resolve("META-INF/services")
+				.resolve("org.jetbrains.dokka.plugability.DokkaPlugin")
+				.let {
+					if (it.exists()) {
+						it.deleteFile()
+					}
+				}
 
 			// render Kotlin docs, see:
 			// https://kotlin.github.io/dokka/1.5.30/user_guide/cli/usage/
