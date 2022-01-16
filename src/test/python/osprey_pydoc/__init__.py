@@ -16,6 +16,14 @@ import osprey_pydoc.javadoc
 import osprey_pydoc.kdoc
 
 
+# use relative URLs here, not absoulte URLs, so the docs folders are copyable
+_URL_PREFIX_JAVADOC = '../../java'
+_URL_PREFIX_KDOC = '../../kotlin'
+
+_URL_PREFIX_JRE = 'https://docs.oracle.com/en/java/javase/16/docs/api/java.base'
+
+
+
 # pydoc_markdown apparently uses some ultra hacky library to emulate interfaces in python
 # python doesn't provide interfaces natively, of course, because it's a freaking DUCK-TYPED LANGUAGE!!
 # these nr.interfaces/databind libraries are apparently ultra-complicated, so OF COURSE they stopped working on our plugin code
@@ -23,7 +31,7 @@ import osprey_pydoc.kdoc
 # Just Quack Like a Duck
 # ie, just add process() and init() methods to our Processor class and be done with it
 # but first, we have to make their configuration deserializer recognize our class by adding a custom deserializer
-def _deserialize(mapper, node):
+def _deserialize_processor(mapper, node):
 	# pydoc_markdown hides error information here for Some Unfathomable Reason
 	# so explicitly capture and display it before letting pydoc_markdown waste our time
 	try:
@@ -33,12 +41,12 @@ def _deserialize(mapper, node):
 		raise Exception('OspreyProcessor instantiation failed')
 
 
-@JsonSerializer(deserialize=_deserialize)
+@JsonSerializer(deserialize=_deserialize_processor)
 class OspreyProcessor:
 #class OspreyProcessor(Processor):
 	# NOTE: don't try to "implement" the Processor "interface"
 	# here there be dragons!
-	# the "interface" implementation is appa+rently very brittle and prone to breakage
+	# the "interface" implementation is apparently very brittle and prone to breakage
 
 	_tag = re.compile(r'\$\{([^\}]*)\}')
 
@@ -49,7 +57,6 @@ class OspreyProcessor:
 			'type_java': self._type_java,
 			'type_jre': self._type_jre,
 			'type_kotlin': self._type_kotlin,
-			'type_kotlin_stdlib': self._type_kotlin_stdlib,
 			'field_javadoc': self._field_javadoc,
 			'arg_field_javadoc': self._arg_field_javadoc,
 			'args_fields_javadoc': self._args_fields_javadoc,
@@ -113,11 +120,13 @@ class OspreyProcessor:
 		#   [arg1a, arg1b], arg2
 		#   arg1(still_arg1,still_arg1), arg2
 		#   arg1(still_arg1[],still_arg1), arg2
+		#   arg1(still_arg1[],still_arg1)arg1[], arg2
 		func_args = expr[pivot + 1:-1]
 		args = []
 		args_stack = [args]
 		in_arg = False
 		in_paren = False
+		in_array = False
 		for c in func_args:
 			if c == ',':
 				if in_paren:
@@ -133,6 +142,9 @@ class OspreyProcessor:
 			elif c == '[':
 				if in_paren:
 					args_stack[-1][-1] += c
+				elif in_arg:
+					args_stack[-1][-1] += c
+					in_array = True
 				else:
 					next = []
 					args_stack[-1].append(next)
@@ -140,6 +152,9 @@ class OspreyProcessor:
 			elif c == ']':
 				if in_paren:
 					args_stack[-1][-1] += c
+				elif in_array:
+					args_stack[-1][-1] += c
+					in_array = False
 				else:
 					args_stack.pop()
 					in_arg = False
@@ -189,12 +204,10 @@ class OspreyProcessor:
 
 		type_name = args[0]
 
-		type = javadoc.Type({
-			'name': type_name,
-			'url': None # TODO: link to Oracle docs online?
-		})
+		class_name = type_name.split('.')[-1]
+		url = _prep_url(_URL_PREFIX_JRE, type_name.replace('.', '/') + '.html')
 
-		return _render_type_java(type)
+		return '[%s](%s)' % (class_name, url)
 
 
 	def _type_kotlin(self, args):
@@ -202,18 +215,6 @@ class OspreyProcessor:
 		c = kdoc.get_class_or_throw(kdoc.Id(args[0]))
 
 		return _render_type_kotlin(c.type)
-
-
-	def _type_kotlin_stdlib(self, args):
-
-		id = kdoc.Id(args[0])
-
-		type = kdoc.Type({
-			'name': id.raw,
-			'url': None # TODO: link to Kotlin docs online? The url transformations are non-trivial though =(
-		})
-
-		return _render_type_kotlin(type)
 
 
 	def _field_javadoc(self, args):
@@ -550,9 +551,6 @@ def _join_args(pos_args, named_args):
 	return pos_args + ['='.join(a) for a in named_args]
 
 
-# use relative URLs here, not absoulte URLs, so the docs folders are copyable
-_URL_PREFIX_JAVADOC = '../../java'
-_URL_PREFIX_KDOC = '../../kotlin'
 
 def _render_type_java(type):
 
@@ -615,7 +613,7 @@ def _render_type_kotlin(type):
 
 	# render the type name, and a link if possible
 	if type.url is not None:
-		out.append('[%s](%s/%s)' % (type_name, _URL_PREFIX_KDOC, type.url))
+		out.append('[%s](%s)' % (type_name, _prep_url(_URL_PREFIX_KDOC, type.url)))
 	else:
 		out.append('`%s`' % type_name)
 
@@ -729,3 +727,48 @@ def _render_note(content):
 
 def _render_todo(content):
 	return _render_notice('tip', '**TODO** ' + content)
+
+
+def _prep_url(prefix, url):
+	# escape URL protocols if needed, since pydoc_markdown is dumb
+	if url.startswith('http://'):
+		return 'http|//%s' % url[7:]
+	elif url.startswith('https://'):
+		return 'https|//%s' % url[8:]
+	elif prefix.startswith('http://'):
+		return 'http|//%s/%s' % (prefix[7:], url)
+	elif prefix.startswith('https://'):
+		return 'https|//%s/%s' % (prefix[8:], url)
+	else:
+		return '%s/%s' % (prefix, url)
+
+
+def _deserialize_url(mapper, node):
+	try:
+		return OspreyUrl()
+	except Exception as ex:
+		print('exception!', ex, file=sys.stderr)
+		raise Exception('OspreyUrl instantiation failed')
+
+
+# absolute URLs unfortunately have : characters in them,
+# which confuses the heck out of pydoc_mardown's processor
+# so we have to escape the URLs and then unescape them later in the processing pipeline
+@JsonSerializer(deserialize=_deserialize_url)
+class OspreyUrl:
+
+	def init(self, context):
+		pass
+
+	def process(self, modules: t.List[docspec.Module], resolver: t.Optional[Resolver]) -> None:
+		docspec.visit(modules, self._process)
+
+	def _process(self, node: docspec.ApiObject) -> bool:
+
+		if node.docstring is None:
+			return
+
+		# unescape all the URL protocols
+		node.docstring = node.docstring\
+			.replace('https|//', 'https://')\
+			.replace('http|//', 'http://')

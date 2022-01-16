@@ -401,18 +401,28 @@ private class OspreyPager(val ctx: DokkaContext): DocumentableToPageTranslator {
 		val out = JSONObject()
 
 		// get the dokka URL for this type, if any
-		if (dri.packageName?.startsWith(config.rootPackage) == true) {
+		val url = if (dri.packageName?.startsWith(config.rootPackage) == true) {
 
+			// one of ours, there definitely should be a url here
 			val url = urlKotlin(dri, sourceSets)
 				?: urlJava(dri)
-			out.put("url", "${config.rootPackage}/$url")
+			"${config.rootPackage}/$url"
 
-			// render a short name
+		} else {
+
+			// try to find the URL, dokka will still give us URLs for stdlib targets
+			urlKotlin(dri, sourceSets)
+		}
+
+		if (url != null) {
+
+			// have a url, render a short name
+			out.put("url", url)
 			out.put("name", dri.classNames?.split(".")?.last() ?: "(Unnamed)")
 
 		} else {
 
-			// not one of our classes, no url so use the fully qualified name
+			// no url, so use the full name
 			out.put("name", "${dri.packageName}.${dri.classNames}")
 		}
 

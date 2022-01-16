@@ -8,6 +8,7 @@ processors:
   - type: filter
   - type: osprey_pydoc.OspreyProcessor
   - type: pydocmd
+  - type: osprey_pydoc.OspreyUrl
   - type: crossref
 
 renderer:

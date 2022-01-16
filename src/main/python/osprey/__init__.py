@@ -568,7 +568,7 @@ def MultiStateConfSpace(states):
 	${class_javadoc(.confspace.MultiStateConfSpace)}
 
 	# Arguments
-	states `[`#StateMutable or #StateUnmutable`]`: a list of states to use
+	states [`#StateMutable` or `#StateUnmutable`]: a list of states to use
 
 	# Returns
 	${returns_method_java(.confspace.MultiStateConfSpace$Builder#build)}

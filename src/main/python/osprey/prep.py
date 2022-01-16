@@ -290,7 +290,7 @@ def saveCompiledConfSpace(ccs):
     ccs ${type_kotlin(.gui.compiler/CompiledConfSpace)}: The compiled conformation space
 
     # Returns
-    `${type_kotlin_stdlib(kotlin/ByteArray)}`: The bytes of a compiled conformation space file representing the given compiled conformation space
+    `${returns_method_java(.tools.LZMA2#compress(byte[])byte[])}`: The bytes of a compiled conformation space file representing the given compiled conformation space
     '''
     bytes = osprey.c.gui.io.CompiledConfSpaceKt.toBytes(ccs)
     return osprey.c.tools.LZMA2.compress(bytes)
@@ -379,10 +379,6 @@ def deprotonate(mol, atoms=None):
     # Arguments
     ${receiver_kotlin(mol, .gui.forcefield.amber//deprotonate/.molscope.molecule.Molecule#)}:
     The molecule from which to remove atoms
-
-    # TEMP
-    edu.duke.cs.osprey.gui.forcefield.amber//deprotonate/edu.duke.cs.osprey.molscope.molecule.Molecule#
-
 
     atoms `[`${type_kotlin(.molscope.molecule/Atom)}`]`:
     An iterable of atoms from which to remove protons, instead of deprotonating the whole molecule.
