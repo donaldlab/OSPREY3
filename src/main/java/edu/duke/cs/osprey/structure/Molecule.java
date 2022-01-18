@@ -59,7 +59,7 @@ public class Molecule implements Serializable {
     
     public Residues residues;
 
-    public List<Fragment> fragments;
+    public ArrayList<Fragment> fragments = new ArrayList<Fragment>();
     public boolean fragmented = false;
 
     private Map<Integer,ArrayList<Residue>> alternates;
@@ -267,5 +267,36 @@ public class Molecule implements Serializable {
     }
 
     //TODO: add fragmentation code
-    public void fragment(){}
+    public void fragment(){
+        for (int i = 1; i < this.residues.size() - 1; i++)
+        {
+            // create fragment i
+            Fragment frag_i = new Fragment();
+            frag_i.parent = this;
+
+            // add resiue i-1, i, i+1 to fragment
+            this.residues.get(i-1).copyToMol(frag_i, false);
+            this.residues.get(i).copyToMol(frag_i, false);
+            this.residues.get(i+1).copyToMol(frag_i, false);
+
+            // set terminus
+            if(i == 1){
+                frag_i.amino_terminus = true;
+            }
+            if(i == this.residues.size()-2){
+                frag_i.carboxyl_terminus = true;
+            }
+
+            // cap fragment
+            frag_i.cap();
+
+            // name fragment
+            frag_i.name = this.name + "_fragment_" + i;
+
+            // add fragment to list
+            this.fragments.add(frag_i);
+        }
+
+        this.fragmented = true;
+    }
 }

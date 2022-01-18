@@ -41,6 +41,7 @@ import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.restypes.ResTemplateMatching;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
+import edu.duke.cs.osprey.tools.PeriodicTable;
 import edu.duke.cs.osprey.tools.Protractor;
 import edu.duke.cs.osprey.tools.StringParsing;
 import edu.duke.cs.osprey.tools.VectorAlgebra;
@@ -734,5 +735,35 @@ public class Residue implements Serializable {
         coords = newCoords;
         atom.res = this;
         atom.indexInRes = atoms.size()-1;
+    }
+
+    public void leftCap(){
+        // Find amide nitrogen
+        Atom N = getAtomByName("N");
+
+        // Turn into H
+        N.name = "Hlc";
+        PeriodicTable.setElementProperties(N, "H");
+
+        // Remove amid hydrogen
+        int h_id = getAtomIndexByName("H");
+        if(h_id != -1){
+            this.atoms.remove(h_id);
+        }
+    }
+
+    public void rightCap(){
+        //Find carboxyl carbon
+        Atom C = getAtomByName("C");
+
+        //Turn into H
+        C.name = "Hrc";
+        PeriodicTable.setElementProperties(C, "H");
+
+        // remove carboxyl oxygen
+        int o_id = getAtomIndexByName("O");
+        if(o_id != -1){
+            this.atoms.remove(o_id);
+        }
     }
 }

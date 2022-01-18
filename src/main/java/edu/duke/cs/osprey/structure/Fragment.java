@@ -50,10 +50,32 @@ public class Fragment extends Molecule {
     public int indexInMolecule = -1;
 
     /**
-     * The molecule the fragment in
+     * The molecule the fragment is in
      */
     public Molecule parent;
 
-    //TODO: add methods for hydrogen capping
+    /**
+     * Flags for terminus
+     */
+    public boolean amino_terminus = false;
+    public boolean carboxyl_terminus = false;
+
+    /**
+     * Cap the fragment:
+     * First residue -> replace N-H with H
+     * Last residue -> replace C=0 with H
+     */
+    public void cap(){
+
+        if(!this.amino_terminus) {
+            this.residues.get(0).leftCap();
+        }
+        if(!this.carboxyl_terminus){
+            this.residues.get(2).rightCap();
+        }
+
+    }
+
+
 
 }
