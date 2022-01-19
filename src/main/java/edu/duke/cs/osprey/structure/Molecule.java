@@ -60,6 +60,7 @@ public class Molecule implements Serializable {
     public Residues residues;
 
     public ArrayList<Fragment> fragments = new ArrayList<Fragment>();
+    public ArrayList<ConjugateCap> concaps = new ArrayList<ConjugateCap>();
     public boolean fragmented = false;
 
     private Map<Integer,ArrayList<Residue>> alternates;
@@ -266,7 +267,7 @@ public class Molecule implements Serializable {
             res.interResBondsMarked = true;
     }
 
-    //TODO: add fragmentation code
+    //TODO: add conjugate caps
     public void fragment(){
         for (int i = 1; i < this.residues.size() - 1; i++)
         {
@@ -274,7 +275,7 @@ public class Molecule implements Serializable {
             Fragment frag_i = new Fragment();
             frag_i.parent = this;
 
-            // add resiue i-1, i, i+1 to fragment
+            // add residue i-1, i, i+1 to fragment
             this.residues.get(i-1).copyToMol(frag_i, false);
             this.residues.get(i).copyToMol(frag_i, false);
             this.residues.get(i+1).copyToMol(frag_i, false);
@@ -285,6 +286,18 @@ public class Molecule implements Serializable {
             }
             if(i == this.residues.size()-2){
                 frag_i.carboxyl_terminus = true;
+            }
+
+            // add cap
+            if(i < this.residues.size()-2){
+                ConjugateCap cap_i = new ConjugateCap();
+                cap_i.parent = this;
+                this.residues.get(i).copyToMol(cap_i, false);
+                this.residues.get(i+1).copyToMol(cap_i, false);
+                cap_i.cap();
+                cap_i.name = this.name+"_conjugate_cap_" + i;
+                this.concaps.add(cap_i);
+
             }
 
             // cap fragment

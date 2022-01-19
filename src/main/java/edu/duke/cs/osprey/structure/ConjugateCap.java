@@ -30,28 +30,35 @@
  ** Bruce Donald, Professor of Computer Science
  */
 
-
 package edu.duke.cs.osprey.structure;
 
 
-import org.junit.Test;
+/**
+ * A Conjugate cap consists of a fuse left and right cap from
+ * a molecular fragment. See Fragment class.
+ *
+ * author: Hunter Stephens 2022
+ */
+public class ConjugateCap extends Molecule{
+    /**
+     * Index of this residue in the molecule it's in
+     */
+    public int indexInMolecule = -1;
 
-import edu.duke.cs.osprey.structure.PDBIO;
+    /**
+     * The molecule the fragment is in
+     */
+    public Molecule parent;
 
 
 
-
-public class TestFragment {
-
-    @Test
-    public void fragmentMolecule(){
-        Molecule mol = PDBIO.readFile("examples/MFCC/TPEP.pdb");
-        mol.fragment();
-        for(int i=0; i<mol.fragments.size(); i++){
-            PDBIO.writeFile(mol.fragments.get(i), "examples/MFCC/fragments/fragment_"+i+".pdb");
-        }
-        for(int i=0; i<mol.concaps.size(); i++){
-            PDBIO.writeFile(mol.concaps.get(i), "examples/MFCC/fragments/cap_"+i+".pdb");
-        }
+    /**
+     * Cap the fragment:
+     * First residue -> replace N-H with H
+     * Second residue -> replace C=0 with H
+     */
+    public void cap(){
+        this.residues.get(0).leftCap();
+        this.residues.get(1).rightCap();
     }
 }
