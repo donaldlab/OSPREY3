@@ -267,7 +267,11 @@ public class Molecule implements Serializable {
             res.interResBondsMarked = true;
     }
 
-    //TODO: add conjugate caps
+    /**
+     * Method to fragment a molecule based on MFCC
+     *
+     * @author Hunter Stephens
+     */
     public void fragment(){
         for (int i = 1; i < this.residues.size() - 1; i++)
         {
@@ -297,7 +301,6 @@ public class Molecule implements Serializable {
                 cap_i.cap();
                 cap_i.name = this.name+"_conjugate_cap_" + i;
                 this.concaps.add(cap_i);
-
             }
 
             // cap fragment
@@ -312,4 +315,6 @@ public class Molecule implements Serializable {
 
         this.fragmented = true;
     }
+
+
 }
