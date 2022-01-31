@@ -1,0 +1,173 @@
+package osprey.build
+
+import org.gradle.api.Project
+import org.gradle.api.tasks.Exec
+import org.gradle.api.tasks.bundling.Compression
+import org.gradle.api.tasks.bundling.Tar
+import org.gradle.kotlin.dsl.creating
+import org.gradle.kotlin.dsl.get
+import org.gradle.kotlin.dsl.getValue
+
+import osprey.*
+
+
+object BuildServer {
+	const val name = "osprey-server"
+}
+
+
+fun Project.makeBuildServerTasks() {
+
+	val jar = tasks["jar"]
+
+	val pythonWheel by tasks.creating(Exec::class) {
+		group = "build"
+		description = "Build python wheel"
+		dependsOn("runtime", "processResources")
+
+		inputs.files(jar.outputs.files)
+		outputs.dir(pythonWheelDir)
+
+		doFirst {
+
+			// delete old cruft
+			delete {
+				delete(fileTree(pythonBuildDir) {
+					include("*.whl")
+				})
+			}
+			delete {
+				delete(pythonWheelDir)
+			}
+
+			// copy python sources
+			copy {
+				from(pythonSrcDir) {
+					includeEmptyDirs = false
+					include("osprey/*.py")
+				}
+				into(pythonWheelDir.toFile())
+			}
+
+			val wheelOspreyDir = pythonWheelDir / "osprey"
+
+			// copy the documentation
+			copy {
+				from(".") {
+					include("*.rst")
+					include("CITING_OSPREY.txt")
+					include("LICENSE.txt")
+				}
+				into(wheelOspreyDir.toFile())
+			}
+
+			// copy setup.py, but change the rootDir
+			copy {
+				from(pythonSrcDir) {
+					include("setup.py")
+				}
+				into(pythonWheelDir.toFile())
+				filter { line ->
+					if (line.startsWith("rootDir = ")) {
+						// make sure to escape backslashes in windows paths
+						"rootDir = \"${projectPath.toString().replace("\\", "\\\\")}\""
+					} else {
+						line
+					}
+				}
+			}
+
+			val libDir = wheelOspreyDir / "lib"
+
+			// copy osprey jar
+			copy {
+				from(jar)
+				into(libDir.toFile())
+			}
+
+			// copy java libs
+			copy {
+				from(sourceSets.main.runtimeClasspath.files
+					.filter { it.extension == "jar" }
+					// TODO: filter down to "natives" jars only for this OS
+				)
+				into(libDir.toFile())
+			}
+
+			// copy the jre folder
+			copy {
+				from(project.runtime.jreDir)
+				into((wheelOspreyDir / "jre").toFile())
+			}
+		}
+		workingDir = pythonWheelDir.toFile()
+		commandLine(pythonCmd, "setup.py", "bdist_wheel", "--dist-dir", pythonBuildDir.toString())
+	}
+
+	@Suppress("UNUSED_VARIABLE")
+	val serverTar by tasks.creating(Tar::class) {
+		group = "distribution"
+		description = "build the server distribution of osprey"
+		dependsOn(pythonWheel)
+
+		archiveBaseName.set("osprey-server-${OS.get().id}")
+		archiveVersion.set(project.version.toString())
+		destinationDirectory.set(releasesDir.toFile())
+		compression = Compression.BZIP2
+
+		val dir = buildPath / "server"
+		doFirst {
+			dir.recreateFolder()
+
+			// write installation scripts
+			val installPath = writeScript(
+				dir,
+				"install",
+				"""
+					|python -m pip uninstall -y osprey
+					|python -m pip install --user osprey --find-link=wheelhouse --pre
+				""".trimMargin()
+			)
+			val uninstallPath = writeScript(
+				dir,
+				"uninstall",
+				"python -m pip uninstall -y osprey"
+			)
+
+			into("") { // project root
+				from(installPath)
+				from(uninstallPath)
+			}
+		}
+
+		into("") { // project root
+			from("README.rst")
+			from("LICENSE.txt")
+			from("CONTRIBUTING.rst")
+		}
+		/* TODO: include documentation in the release archive?
+		into("doc") {
+			from(docBuildDir) {
+				exclude(".doctrees")
+			}
+		}
+		*/
+		listOf(
+			"python.GMEC",
+			"python.KStar",
+			"python.ccs",
+			"python.EWAKStar",
+			"python.PAStE",
+			"gpu"
+		).forEach {
+			into("examples/$it") {
+				from("examples/$it")
+			}
+		}
+		into("wheelhouse") {
+			from(pythonBuildDir) {
+				include("osprey-*.whl")
+			}
+		}
+	}
+}

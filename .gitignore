@@ -1,6 +1,7 @@
 
 # temp folders
 /build
+/buildSrc/build
 **/*.egg-info
 **/*.pyc
 
