@@ -16,73 +16,53 @@ object BuildDesktop {
 
 fun Project.makeBuildDesktopTasks() {
 
-	runtime {
-
-		options.addAll(
-			"--strip-debug",
-			"--compress", "2",
-			"--no-header-files",
-			"--no-man-pages"
-		)
-		modules.addAll(
-			// TODO: do we really need all of these?
-			"java.desktop",
-			"java.xml",
-			"jdk.unsupported",
-			"java.logging",
-			"java.sql",
-			"java.naming",
-			"java.management",
-			"jdk.httpserver",
-			"jdk.zipfs", // needed to provide jar:// file system
-			"jdk.incubator.foreign"
-		)
-
-		fun checkJpackage(path: Path) {
-			if (!path.exists()) {
-				throw NoSuchElementException("""
-					|jpackage was not found at the path given: $path
-					|Make sure JDK 14 (or higher) is installed and that systemProp.jpackage.home path points to its home directory.
-				""".trimMargin())
-			}
+	fun checkJpackage(path: Path) {
+		if (!path.exists()) {
+			throw NoSuchElementException("""
+				|jpackage was not found at the path given: $path
+				|Make sure JDK 14 (or higher) is installed and that systemProp.jpackage.home path points to its home directory.
+			""".trimMargin())
 		}
+	}
 
-		jpackage {
+	runtime.jpackage {
 
-			imageName = "Osprey"
-			imageOutputDir = (buildPath / "jpackage").toFile()
-			installerName = imageName
-			mainClass = "$group.osprey.gui.MainKt"
-			jpackageHome = jPackageHomeOrDefault
+		imageName = BuildDesktop.name
+		imageOutputDir = (buildPath / "jpackage").toFile()
+		installerName = imageName
+		mainClass = "$group.osprey.gui.MainKt"
+		jpackageHome = jPackageHomeOrDefault
 
-			val binDir = Paths.get(jpackageHome) / "bin"
+		val binDir = Paths.get(jpackageHome) / "bin"
 
-			when (OS.get()) {
+		when (OS.get()) {
 
-				OS.LINUX -> {
+			OS.LINUX -> {
 
-					checkJpackage(binDir / "jpackage")
+				checkJpackage(binDir / "jpackage")
 
-					installerType = "deb"
-				}
+				installerType = "deb"
+				// TOOO: support `rpm` type (Fedora/RHEL/CentOS/Rocky) via command-line flag?
+				// NOTE: arch linux not supported by jpackage, see:
+				// https://bugs.openjdk.java.net/browse/JDK-8265498
+			}
 
-				OS.OSX -> {
+			OS.OSX -> {
 
-					checkJpackage(binDir / "jpackage")
+				checkJpackage(binDir / "jpackage")
 
-					installerType = "dmg"
-					jvmArgs = listOf("-XstartOnFirstThread")
-				}
+				installerType = "dmg"
+				jvmArgs = listOf("-XstartOnFirstThread")
+			}
 
-				OS.WINDOWS -> {
+			OS.WINDOWS -> {
 
-					checkJpackage(binDir / "jpackage.exe")
+				checkJpackage(binDir / "jpackage.exe")
 
-					installerType = "msi"
-					installerOptions = listOf("--win-per-user-install", "--win-dir-chooser", "--win-menu", "--win-shortcut")
-					// useful for debugging launcher issues
-					//imageOptions = listOf("--win-console")
-				}
+				installerType = "msi"
+				installerOptions = listOf("--win-per-user-install", "--win-dir-chooser", "--win-menu", "--win-shortcut")
+				// useful for debugging launcher issues
+				//imageOptions = listOf("--win-console")
 			}
 		}
 	}
@@ -125,6 +105,12 @@ fun Project.makeBuildDesktopTasks() {
 	tasks["build"].dependsOn(compileShaders)
 
 	// add documentation to the gui distribution
+	val desktopRelease by tasks.creating {
+		group = "release"
+		description = "build the desktop release of osprey"
+		dependsOn(tasks.jpackage)
+	}
+
 	tasks.jpackageImage {
 		doLast {
 			val jp = project.runtime.jpackageData.get()

@@ -105,9 +105,9 @@ fun Project.makeBuildServerTasks() {
 	}
 
 	@Suppress("UNUSED_VARIABLE")
-	val serverTar by tasks.creating(Tar::class) {
-		group = "distribution"
-		description = "build the server distribution of osprey"
+	val serverRelease by tasks.creating(Tar::class) {
+		group = "release"
+		description = "build the server release of osprey"
 		dependsOn(pythonWheel)
 
 		archiveBaseName.set("osprey-server-${OS.get().id}")
@@ -133,25 +133,22 @@ fun Project.makeBuildServerTasks() {
 				"uninstall",
 				"python -m pip uninstall -y osprey"
 			)
-
-			into("") { // project root
-				from(installPath)
-				from(uninstallPath)
-			}
 		}
 
 		into("") { // project root
 			from("README.rst")
 			from("LICENSE.txt")
 			from("CONTRIBUTING.rst")
-		}
-		/* TODO: include documentation in the release archive?
-		into("doc") {
-			from(docBuildDir) {
-				exclude(".doctrees")
+
+			// install scripts, but with wildcards to accomodate
+			// that they might end in .bat on Windows
+			// sadly, we can't generate the filename and then include them in
+			// the copy spec because Gradle won't let us change the copy spec in doFirst =(
+			from(dir) {
+				from("install*")
+				from("uninstall*")
 			}
 		}
-		*/
 		listOf(
 			"python.GMEC",
 			"python.KStar",

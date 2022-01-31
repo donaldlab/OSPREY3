@@ -12,7 +12,7 @@ RUN chmod +x /tmp/s6-overlay-amd64-installer && /tmp/s6-overlay-amd64-installer 
 ENTRYPOINT ["/init"]
 
 # set up directories
-ARG servicedir=src/main/docker/service
+ARG servicedir=buildSrc/src/main/docker/service
 WORKDIR /opt/osprey
 
 # add each supported version of the API

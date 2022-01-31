@@ -16,9 +16,9 @@ object BuildServiceDocker {
 fun Project.makeBuildServiceDockerTasks() {
 
 	@Suppress("UNUSED_VARIABLE")
-	val serviceDockerTar by tasks.creating(Tar::class) {
-		group = "distribution"
-		description = "build the distribution package of the docker image for the osprey service"
+	val serviceDockerRelease by tasks.creating(Tar::class) {
+		group = "release"
+		description = "build the release of the docker image for the osprey service"
 
 		archiveBaseName.set(BuildServiceDocker.name)
 		archiveVersion.set(BuildService.version)
@@ -30,7 +30,7 @@ fun Project.makeBuildServiceDockerTasks() {
 		//compression = Compression.BZIP2
 
 		val imagePath = buildPath / "docker/osprey-service-docker-${BuildService.version}.tar.bz2"
-		val serviceDir = projectPath / "src/main/docker/service"
+		val serviceDir = projectPath / "buildSrc/src/main/docker/service"
 
 		val dir = buildPath / "service-docker"
 		doFirst {

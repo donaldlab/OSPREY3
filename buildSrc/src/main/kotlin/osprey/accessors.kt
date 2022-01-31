@@ -1,6 +1,7 @@
 package osprey
 
 import org.beryx.runtime.JPackageImageTask
+import org.beryx.runtime.JPackageTask
 import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.Project
 import org.gradle.api.tasks.SourceSetContainer
@@ -44,6 +45,9 @@ fun Project.runtime(configure: Action<RuntimePluginExtension>): Unit =
 
 val TaskContainer.jpackageImage: TaskProvider<JPackageImageTask> get() =
 	named<JPackageImageTask>("jpackageImage")
+
+val TaskContainer.jpackage: TaskProvider<JPackageTask> get() =
+	named<JPackageTask>("jpackage")
 
 operator fun <T> NamedDomainObjectProvider<T>.invoke(action: T.() -> Unit) =
 	configure(action)

@@ -47,8 +47,8 @@ fun Project.makeBuildServiceTasks() {
 	val jar = tasks["jar"]
 
 	@Suppress("UNUSED_VARIABLE")
-	val serviceTar by tasks.creating(Tar::class) {
-		group = "distribution"
+	val serviceRelease by tasks.creating(Tar::class) {
+		group = "release"
 		description = "build the app server runtime for this version of the osprey service"
 		dependsOn("jar")
 

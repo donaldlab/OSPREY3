@@ -6,7 +6,7 @@
 cd `dirname "$0"`
 
 # use the project root as the build context for docker
-context=../../../..
+context=../../../../..
 
 # pick a compressor for bzip2
 if command -v lbzip2; then
@@ -22,13 +22,18 @@ else
   exit 1
 fi
 
-# get the current osprey service version by parsing build.gradle.kts
+# get the current osprey service version by parsing the gradle build code
 # NOTE: don't try to run Gradle here... we shouldn't trust Gradle with sudo
 version=` \
-  cat "$context/build.gradle.kts" \
-  | grep -E "^val versionService = \"[^\"]+\"" \
-  | sed -E "s/^val versionService = \"([^\"]+)\".*$/\\1/" \
+  cat "$context/buildSrc/src/main/kotlin/osprey/build/service.kt" \
+  | grep -E "^\s*const val version = \"[^\"]+\"" \
+  | sed -E "s/^\s*const val version = \"([^\"]+)\".*$/\\1/" \
 `
+if [ -z "$version" ]; then
+  echo "Osprey service version not found, this is probably a bug in this build script"
+  exit 1
+fi
+
 echo Building osprey service v$version Docker image ...
 
 tag="osprey/service:$version"

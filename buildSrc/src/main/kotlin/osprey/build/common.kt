@@ -32,6 +32,31 @@ object Builds {
 
 fun Project.makeBuildTasks() {
 
+	// options for the Java runtime that gets bundled into the server and desktop releases, see:
+	// https://badass-runtime-plugin.beryx.org/releases/latest/
+	runtime {
+
+		options.addAll(
+			"--strip-debug",
+			"--compress", "2",
+			"--no-header-files",
+			"--no-man-pages"
+		)
+		modules.addAll(
+			// TODO: do we really need all of these?
+			"java.desktop",
+			"java.xml",
+			"jdk.unsupported",
+			"java.logging",
+			"java.sql",
+			"java.naming",
+			"java.management",
+			"jdk.httpserver",
+			"jdk.zipfs", // needed to provide jar:// file system
+			"jdk.incubator.foreign" // needed for foreign memory access API
+		)
+	}
+
 	@Suppress("UNUSED_VARIABLE")
 	val archiveReleases by tasks.creating {
 		group = "release"
