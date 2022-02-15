@@ -8,6 +8,9 @@ cd `dirname "$0"`
 # use the project root as the build context for docker
 context=../../../../..
 
+# get the build folder, it should already exist
+build=$context/build/docker
+
 # pick a compressor for bzip2
 if command -v lbzip2; then
   zip=lbzip2
@@ -22,31 +25,24 @@ else
   exit 1
 fi
 
-# get the current osprey service version by parsing the gradle build code
-# NOTE: don't try to run Gradle here... we shouldn't trust Gradle with sudo
-version=` \
-  cat "$context/buildSrc/src/main/kotlin/osprey/build/service.kt" \
-  | grep -E "^\s*const val version = \"[^\"]+\"" \
-  | sed -E "s/^\s*const val version = \"([^\"]+)\".*$/\\1/" \
-`
-if [ -z "$version" ]; then
-  echo "Osprey service version not found, this is probably a bug in this build script"
+# get the current osprey service version by parsing the versions.txt file written by gradle
+versionsfile="$build/versions.txt"
+if [ ! -f "$versionsfile" ]; then
+  echo "Versions file not found. Try running gradle prep task first."
   exit 1
 fi
+version=`sed -n '1p' < "$versionsfile"`
+versions=`sed -n '2p' < "$versionsfile"`
 
 echo Building osprey service v$version Docker image ...
 
 tag="osprey/service:$version"
 
-docker build -f Dockerfile $context --tag $tag || exit 1
+docker build -f Dockerfile $context --tag $tag --build-arg VERSIONS="$versions" || exit 1
 
 # make a `usdo` (user do) command so we can do things as the logged in user
 user=`logname`
 usdo="sudo -u $user"
-
-# make the build dir
-build=$context/build/docker
-$usdo mkdir -p $build
 
 # save the docker image somewhere we can find it,
 # but don't save the file with root permissions

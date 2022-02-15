@@ -6,6 +6,7 @@ import org.gradle.kotlin.dsl.creating
 import org.gradle.kotlin.dsl.getValue
 
 import osprey.*
+import java.net.URL
 
 
 object BuildServiceDocker {
@@ -14,6 +15,68 @@ object BuildServiceDocker {
 }
 
 fun Project.makeBuildServiceDockerTasks() {
+
+	/**
+	 * Add an entry here for each version of the service to include in the docker container
+	 */
+	val oldVersions = listOf(
+		"0.3"
+	)
+
+	/**
+	 * always include the current version, if not already there,
+	 * but as the first entry
+ 	 */
+	val versions =
+		listOf(BuildService.version) + oldVersions.filter { it != BuildService.version }
+
+	@Suppress("UNUSED_VARIABLE")
+	val serviceDockerPrep by tasks.creating {
+		group = "release"
+		description = "Download all versions of the service releases from the donaldlab website, for the docker build script"
+		doLast {
+
+			fun filename(version: String) =
+				"${BuildService.name}-$version.tbz2"
+
+			// dowload previous versions from the release archvie
+			for (version in versions) {
+				val filename = filename(version)
+				val path = releasesDir / filename
+				if (!path.exists()) {
+					println("Downloading $filename ...")
+					URL(releaseArchiveUrl, filename).download(path)
+				}
+			}
+
+			// unpack them all to a folder that docker can find
+			val versionsDir = buildPath / "docker" / "versions"
+			versionsDir.createFolderIfNeeded()
+
+			for (version in versions) {
+				val filename = filename(version)
+				val path = releasesDir / filename
+				val versionDir = versionsDir / "v$version"
+				copy {
+					from(tarTree(path.toFile()))
+					into(versionDir)
+				}
+			}
+
+			// write out the versions to a file so the docker build script can read it
+			(buildPath / "docker" / "versions.txt").write {
+				for (version in versions) {
+
+					// write the current version on the first line
+					write("$version\n")
+
+					// write all the supported versions on the next line
+					// in a json list-like format
+					write("[${versions.joinToString(",")}]")
+				}
+			}
+		}
+	}
 
 	@Suppress("UNUSED_VARIABLE")
 	val serviceDockerRelease by tasks.creating(Tar::class) {

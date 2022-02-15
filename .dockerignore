@@ -5,4 +5,4 @@
 
 # then stop ignoring the paths we want to allow
 !buildSrc/src/main/docker/service
-!build/releases
+!build/docker

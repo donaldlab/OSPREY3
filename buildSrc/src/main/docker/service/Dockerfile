@@ -1,9 +1,11 @@
 
-# NOTE: the build context for this Dockerfile is the project roots
+# NOTE: the build context for this Dockerfile is the project root
 
 # use JDK 16 as the base image, since that's probably the heaviest dependency here
 # image based on Ubuntu 20.04 LTS (Focal Fossa)
 FROM adoptopenjdk:16-jdk-hotspot-focal
+
+ARG VERSIONS
 
 # install s6-overlay as the init system
 # https://github.com/just-containers/s6-overlay
@@ -15,10 +17,9 @@ ENTRYPOINT ["/init"]
 ARG servicedir=buildSrc/src/main/docker/service
 WORKDIR /opt/osprey
 
-# add each supported version of the API
-# (add a line here for each service version, and add that version to the label too)
-ADD build/releases/osprey-service-0.3.tbz2 versions/v0.3
-LABEL "osprey.service.versions"="[0.3]"
+# add the service versions
+ADD build/docker/versions versions
+LABEL "osprey.service.versions"="$VERSIONS"
 
 # install libraries needed by AmberTools
 RUN apt-get update \

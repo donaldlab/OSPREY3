@@ -5,6 +5,7 @@ import org.gradle.kotlin.dsl.creating
 import org.gradle.kotlin.dsl.getValue
 
 import osprey.*
+import java.net.URL
 import java.nio.file.Paths
 
 
@@ -20,6 +21,10 @@ val Project.releasesDir get() = buildPath / "releases"
  */
 val releaseArchiveDir = Paths.get("/usr/project/dlab/www/donaldlab/software/osprey/releases")
 
+/**
+ * The publicly-accessible URL for the release archive
+ */
+val releaseArchiveUrl = URL("https://www.cs.duke.edu/donaldlab/software/osprey/releases/")
 
 
 object Builds {

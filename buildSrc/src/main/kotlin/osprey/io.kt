@@ -1,8 +1,10 @@
 package osprey
 
 import java.io.*
+import java.net.URL
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.PosixFilePermission
 import java.util.stream.Stream
 import kotlin.streams.asSequence
@@ -123,3 +125,11 @@ fun writeScript(dir: Path, filename: String, cmd: String): Path =
 
 fun <T> Path.walk(block: (Stream<Path>) -> T): T =
 	Files.walk(this).use(block)
+
+
+fun URL.download(dst: Path) {
+	dst.parent.createFolderIfNeeded()
+	openStream().use {
+		Files.copy(it, dst, StandardCopyOption.REPLACE_EXISTING)
+	}
+}

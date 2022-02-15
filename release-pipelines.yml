@@ -8,6 +8,10 @@
 # If you're looking for CI/CD builds, try the ci-pipelines.yml file.
 
 
+# Azure Pipelines YAML reference:
+# https://docs.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/?view=azure-pipelines
+
+
 # don't automatically trigger builds from commits, this is for manual releases only
 trigger: none
 
@@ -39,6 +43,10 @@ jobs:
       vmImage: $(imageName)
 
     steps:
+      # Azure task catalog:
+      # https://docs.microsoft.com/en-us/azure/devops/pipelines/tasks/?view=azure-devops
+      # Predefined variables:
+      # https://docs.microsoft.com/en-us/azure/devops/pipelines/build/variables?view=azure-devops&tabs=yaml
 
       - task: JavaToolInstaller@0
         # https://docs.microsoft.com/en-us/azure/devops/pipelines/tasks/tool/java-tool-installer?view=azure-devops
@@ -63,8 +71,25 @@ jobs:
         # https://docs.microsoft.com/en-us/azure/devops/pipelines/tasks/build/gradle?view=azure-devops
         inputs:
           gradleWrapperFile: $(gradleWrapper)
-          tasks: 'serverRelease'
-          # TODO: other gradle tasks
+          tasks: 'desktopRelease serverRelease'
+
+      - task: Gradle@3
+        condition: eq(variables['Agent.JobName'], 'build Linux')
+        inputs:
+          gradleWrapperFile: $(gradleWrapper)
+          tasks: 'serviceRelease serviceDockerPrep'
+
+      - task: Bash@3
+        # https://docs.microsoft.com/en-us/azure/devops/pipelines/tasks/utility/bash?view=azure-devops
+        condition: eq(variables['Agent.JobName'], 'build Linux')
+        inputs:
+          filePath: buildSrc/src/main/docker/service/build.sh
+
+      - task: Gradle@3
+        condition: eq(variables['Agent.JobName'], 'build Linux')
+        inputs:
+          gradleWrapperFile: $(gradleWrapper)
+          tasks: 'serviceDockerRelease'
 
       - task: PublishPipelineArtifact@1
         # https://docs.microsoft.com/en-us/azure/devops/pipelines/tasks/utility/publish-pipeline-artifact?view=azure-devops

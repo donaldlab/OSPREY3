@@ -30,8 +30,6 @@ object BuildService {
 	 *
 	 * For instructions on building the docker container for the Osprey service, see:
 	 * docs/content/contributing/service-building.md
-	 *
-	 * NOTE: this line parsed by src/main/docker/service/build.sh to read the current version
 	 */
 	const val version = "0.3"
 }
