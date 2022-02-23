@@ -29,6 +29,7 @@ fun Project.makeBuildDesktopTasks() {
 
 		imageName = BuildDesktop.name
 		imageOutputDir = (buildPath / "jpackage").toFile()
+		installerOutputDir = releasesDir.toFile()
 		installerName = imageName
 		mainClass = "$group.osprey.gui.MainKt"
 		jpackageHome = jPackageHomeOrDefault
