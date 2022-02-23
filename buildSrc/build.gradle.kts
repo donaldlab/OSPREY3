@@ -25,8 +25,12 @@ dependencies {
 	implementation("org.jetbrains.kotlin:kotlin-serialization:$kotlinVersion")
 
 	// id("org.beryx.runtime") version "1.12.5"
+	// https://badass-runtime-plugin.beryx.org
 	implementation("org.beryx:badass-runtime-plugin:1.12.5")
 
 	// SSH client, BSD license: https://github.com/mwiede/jsch
 	implementation("com.github.mwiede:jsch:0.1.66")
+
+	// JSON library, The JSON License: https://json.org/license.html
+	implementation("org.json:json:20210307")
 }
