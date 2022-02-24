@@ -78,7 +78,7 @@ fun Project.makeAzureTasks() {
 	val azureProject = "osprey"
 	val azurePipeline = "donaldlab.OSPREY4.release"
 	// TEMP
-	//val azBranch = "main"
+	//val azureBranch = "main"
 	val azureBranch = "docsite-azure-pipelines"
 
 
@@ -200,6 +200,22 @@ fun Project.makeAzureTasks() {
 					into(releasesDir)
 				}
 				zipPath.deleteFile()
+			}
+
+			// the linux desktop build comes out with a weird name (thanks, debian)
+			// eg: osprey-desktop_4.0-1_amd64.deb
+			// jpackage seems to hard-code this format with no configuration options:
+			// https://github.com/openjdk/jdk/blob/master/src/jdk.jpackage/linux/classes/jdk/jpackage/internal/LinuxDebBundler.java#L118
+			// the eg `-1` bit is the release number
+			// since we're packaging our own releases, we don't really need it
+			// so rename the file to eg: osprey-desktop-4.0-amd64.deb
+			val linuxDebPattern = Regex("^([^_]+)_([0-9.]+)-[0-9]+_([^.]+)\\.deb$")
+			for (file in releasesDir.listFiles()) {
+				val match = linuxDebPattern.matchEntire(file.fileName.toString()) ?: continue
+				val pack = match.groups.get(1)!!.value
+				val version = match.groups.get(2)!!.value
+				val arch = match.groups.get(3)!!.value
+				file.rename("$pack-$version-$arch.deb")
 			}
 		}
 	}
