@@ -27,11 +27,30 @@ val releaseArchiveDir = Paths.get("/usr/project/dlab/www/donaldlab/software/ospr
 val releaseArchiveUrl = URL("https://www.cs.duke.edu/donaldlab/software/osprey/releases/")
 
 
+interface Build {
+
+	val name: String
+
+	fun isBuild(filename: String): Boolean =
+		filename.startsWith(name)
+
+	fun getRelease(filename: String): Release?
+}
+
 object Builds {
+
 	val desktop = BuildDesktop
 	val server = BuildServer
 	val service = BuildService
 	val serviceDocker = BuildServiceDocker
+
+	val all = listOf(desktop, server, service, serviceDocker)
+
+	operator fun get(filename: String): Build? =
+		all.find { it.isBuild(filename) }
+
+	fun getRelease(filename: String): Release? =
+		get(filename)?.getRelease(filename)
 }
 
 
@@ -92,5 +111,81 @@ fun Project.makeBuildTasks() {
 				}
 			}
 		}
+	}
+}
+
+
+data class Release(
+	val build: Build,
+	val version: Version,
+	val os: OS,
+	val filename: String
+)
+
+data class Version(
+	val major: Int,
+	val minor: Int,
+	val patch: Int
+) : Comparable<Version> {
+
+	companion object {
+
+		fun of(str: String): Version {
+
+			var major = 0
+			var minor = 0
+			var patch = 0
+
+			val parts = str.split(".")
+			if (parts.size > 0) {
+				major = parts[0].toIntOrNull()
+					?: throw Error("can't parse version: $str")
+			}
+			if (parts.size > 1) {
+				minor = parts[1].toIntOrNull()
+					?: throw Error("can't parse version: $str")
+			}
+			if (parts.size > 2) {
+				patch = parts[2].toIntOrNull()
+					?: throw Error("can't parse version: $str")
+			}
+
+			return Version(major, minor, patch)
+		}
+	}
+
+	override fun compareTo(other: Version): Int {
+
+		// simple lexicographical ordering: major, minor, then patch
+
+		this.major.compareTo(other.major)
+			.takeIf { it != 0 }
+			?.let { return it }
+
+		this.minor.compareTo(other.minor)
+			.takeIf { it != 0 }
+			?.let { return it }
+
+		return this.patch.compareTo(other.patch)
+	}
+}
+
+fun Project.analyzeReleases(): List<Release> {
+
+	// first, collect the releases that are currently available for public download
+	val archivedReleases = sftp {
+		ls(releaseArchiveDir.toString())
+			.filter { !it.attrs.isDir }
+			.map { it.filename }
+	}
+
+	/* DEBUG: to get local filenames for testing instead of remote filenames from SSH
+	val archivedReleases = releasesDir.listFiles()
+		.map { it.fileName.toString() }
+		.toList()
+	*/
+
+	return archivedReleases.mapNotNull {
+		Builds.getRelease(it)
 	}
 }

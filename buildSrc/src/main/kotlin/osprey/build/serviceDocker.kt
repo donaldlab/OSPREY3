@@ -7,11 +7,32 @@ import org.gradle.kotlin.dsl.getValue
 
 import osprey.*
 import java.net.URL
+import java.nio.file.Paths
 
 
-object BuildServiceDocker {
+object BuildServiceDocker : Build {
+
 	// NOTE: osprey-service build scripts depend on these names, so don't change them without also updating the shell scripts
-	const val name = "osprey-service-docker"
+	override val name = "osprey-service-docker"
+
+	override fun getRelease(filename: String): Release? {
+
+		// filenames look like, eg:
+		//   osprey-service-docker-0.3.tar
+
+		val (base, _) = Paths.get(filename).baseAndExtension()
+		val parts = base.split('-')
+
+		// get the version
+		val version = parts.getOrNull(3)
+			?.let { Version.of(it) }
+			?: run {
+				System.err.println("unrecognized version for service-docker release: $filename")
+				return null
+			}
+
+		return Release(this, version, OS.LINUX, filename)
+	}
 }
 
 fun Project.makeBuildServiceDockerTasks() {
@@ -155,14 +176,16 @@ fun Project.makeBuildServiceDockerTasks() {
 			sftp {
 
 				// what releases do we have already?
-				val localReleaseNames = releasesDir.listFiles()
-					.map { it.fileName.toString() }
-					.filter { it.isServiceRelease() }
+				val localReleases = releasesDir.listFiles()
+					.mapNotNull { Builds.getRelease(it.fileName.toString()) }
+					.filter { it.build === Builds.service }
 					.toSet()
 
 				// what releases do we need?
 				val missingReleases = ls(releaseArchiveDir.toString())
-					.filter { !it.attrs.isDir && it.filename.isServiceRelease() && it.filename !in localReleaseNames }
+					.filter { !it.attrs.isDir }
+					.mapNotNull { Builds.getRelease(it.filename) }
+					.filter { it.build === Builds.service && it !in localReleases }
 
 				// download the missing releases
 				if (missingReleases.isNotEmpty()) {

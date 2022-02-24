@@ -70,6 +70,15 @@ fun Path.extension(): String? =
 		.takeIf { it.size > 1 }
 		?.last()
 
+fun Path.baseAndExtension(): Pair<String,String?> {
+	val parts = fileName.toString().split('.')
+	return when (parts.size) {
+		0 -> "" to null
+		1 -> parts[0] to null
+		else -> parts.subList(0, parts.size - 1).joinToString(".") to parts.last()
+	}
+}
+
 fun Path.deleteFile() =
 	Files.delete(this)
 

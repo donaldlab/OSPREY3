@@ -6,7 +6,11 @@ import org.gradle.kotlin.dsl.getValue
 import java.nio.file.Path
 import kotlin.streams.asSequence
 
+import osprey.build.*
+import java.net.URL
 
+
+// is there a docDir in the house??
 val Project.docDir get() = projectPath / "doc"
 val Project.docMainDir  get() = docDir / "content/documentation/main"
 val Project.pluginPath get() = buildPath / "classes/kotlin/test/META-INF/services/org.jetbrains.dokka.plugability.DokkaPlugin"
@@ -259,10 +263,44 @@ fun Project.makeDocsTasks() {
 		}
 	}
 
+	val generateDownloadLinks by tasks.creating {
+		group = "documentation"
+		description = "Generates the download links in the documentation"
+		doLast {
+
+			val releases = analyzeReleases()
+
+			fun latestLink(build: Build, os: OS): String {
+
+				val release = releases
+					.filter { it.build === build && it.os == os }
+					.sortedBy { it.version }
+					.last()
+
+				val url = URL(releaseArchiveUrl, release.filename)
+
+				return "[${release.filename}]($url)"
+			}
+
+			updateTags(docDir / "content" / "_index.md",
+				"download/desktop/linux/latest" to latestLink(Builds.desktop, OS.LINUX),
+				"download/desktop/osx/latest" to latestLink(Builds.desktop, OS.OSX),
+				"download/desktop/windows/latest" to latestLink(Builds.desktop, OS.WINDOWS),
+				"download/server/linux/latest" to latestLink(Builds.server, OS.LINUX),
+				"download/server/osx/latest" to latestLink(Builds.server, OS.OSX),
+				"download/server/windows/latest" to latestLink(Builds.server, OS.WINDOWS),
+				"download/service-docker/linux/latest" to latestLink(Builds.serviceDocker, OS.LINUX),
+			)
+
+			// TODO: make a releases page with all the available releases?
+		}
+	}
+
 	@Suppress("UNUSED_VARIABLE")
 	val buildWebsite by tasks.creating {
 		group = "documentation"
 		description = "Builds the Osprey documentation and download website"
+		dependsOn(generateDownloadLinks)
 		doLast {
 
 			checkHugoPrereqs()
@@ -363,5 +401,43 @@ fun Project.pydocMarkdown(module: String, file: Path, title: String = module, we
 				projectPath / "src/test/python"
 			).joinToClasspath()
 		}
+	}
+}
+
+
+/**
+ * Make a regex to pick out a single HTML span tag inside of a markdown document.
+ *
+ * Using RegEx to parse HTML dosen't work in general.
+ * But in this specific case of picking out an isolated tag in a markdown document,
+ * it'll work just fine! 8]
+ *
+ * Need to match, eg:
+ * <span id="download/desktop/linux/latest"></span>
+ * <span id="download/desktop/linux/latest">some non-HTML content here</span>
+ */
+val spanRegex = Regex("<span id=\"([^\"]+)\">[^<]*</span>")
+
+/**
+ * Rewrite the given file with the given span tag substitutions
+ */
+fun updateTags(path: Path, vararg substitutions: Pair<String,String>) {
+
+	val subs = substitutions.associate { (id, sub) -> id to sub }
+
+	var markdown = path.read()
+
+	markdown = spanRegex.replace(markdown) r@{ match ->
+
+		// find the substitution for this tag, if any
+		val id = match.groups.get(1)?.value ?: return@r match.value
+		val sub = subs[id] ?: return@r match.value
+
+		return@r "<span id=\"$id\">$sub</span>"
+	}
+
+	// save the file
+	path.write {
+		write(markdown)
 	}
 }

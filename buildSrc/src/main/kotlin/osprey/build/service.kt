@@ -8,12 +8,36 @@ import org.gradle.kotlin.dsl.get
 import org.gradle.kotlin.dsl.getValue
 
 import osprey.*
+import java.nio.file.Paths
 
 
-object BuildService {
+object BuildService : Build {
 
 	// NOTE: osprey-service build scripts depend on these names, so don't change them without also updating the shell scripts
-	const val name = "osprey-service"
+	override val name = "osprey-service"
+
+	override fun isBuild(filename: String): Boolean =
+		filename.startsWith(name) && !filename.startsWith(BuildServiceDocker.name)
+		// have to check both prefixes, since they share a common prefix themselves
+
+	override fun getRelease(filename: String): Release? {
+
+		// filenames look like, eg:
+		//   osprey-service-0.3.tbz2
+
+		val (base, _) = Paths.get(filename).baseAndExtension()
+		val parts = base.split('-')
+
+		// get the version
+		val version = parts.getOrNull(2)
+			?.let { Version.of(it) }
+			?: run {
+				System.err.println("unrecognized version for service release: $filename")
+				return null
+			}
+
+		return Release(this, version, OS.LINUX, filename)
+	}
 
 	/**
 	 * Version number of the osprey service network protocol
@@ -33,11 +57,6 @@ object BuildService {
 	 */
 	const val version = "0.3"
 }
-
-
-fun String.isServiceRelease(): Boolean =
-	startsWith(BuildService.name) && !startsWith(BuildServiceDocker.name)
-	// have to check both prefixes, since they share a common prefix themselves
 
 
 fun Project.makeBuildServiceTasks() {

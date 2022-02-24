@@ -9,10 +9,40 @@ import org.gradle.kotlin.dsl.get
 import org.gradle.kotlin.dsl.getValue
 
 import osprey.*
+import java.nio.file.Paths
 
 
-object BuildServer {
-	const val name = "osprey-server"
+object BuildServer : Build {
+
+	override val name = "osprey-server"
+
+	override fun getRelease(filename: String): Release? {
+
+		// filenames look like, eg:
+		//   osprey-server-linux-4.0.tbz2
+		//   osprey-server-osx-4.0.tbz2
+		//   osprey-server-windows-4.0.tbz2
+
+		val (base, _) = Paths.get(filename).baseAndExtension()
+		val parts = base.split('-')
+
+		// get the OS
+		val os = OS[parts.getOrNull(2)]
+			?: run {
+				System.err.println("unrecognized os for server release: $filename")
+				return null
+			}
+
+		// get the version
+		val version = parts.getOrNull(3)
+			?.let { Version.of(it) }
+			?: run {
+				System.err.println("unrecognized version for server release: $filename")
+				return null
+			}
+
+		return Release(this, version, os, filename)
+	}
 }
 
 

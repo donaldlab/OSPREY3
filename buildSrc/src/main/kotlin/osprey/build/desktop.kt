@@ -10,8 +10,41 @@ import java.nio.file.Path
 import java.nio.file.Paths
 
 
-object BuildDesktop {
-	const val name = "osprey-desktop"
+object BuildDesktop : Build {
+
+	override val name = "osprey-desktop"
+
+	override fun getRelease(filename: String): Release? {
+
+		// filenames look like, eg:
+		//   osprey-desktop-4.0.dmg
+		//   osprey-desktop-4.0.msi
+		//   osprey-desktop-4.0-amd64.deb
+
+		val (base, extension) = Paths.get(filename).baseAndExtension()
+
+		// get the OS
+		val os = when (extension) {
+			"deb" -> OS.LINUX
+			"dmg" -> OS.OSX
+			"msi" -> OS.WINDOWS
+			else -> {
+				System.err.println("unrecognized file extension ($extension) for desktop release: $filename")
+				return null
+			}
+		}
+
+		// get the version
+		val version = base.split('-')
+			.getOrNull(2)
+			?.let { Version.of(it) }
+			?: run {
+				System.err.println("unrecognized version for desktop release: $filename")
+				return null
+			}
+
+		return Release(this, version, os, filename)
+	}
 }
 
 fun Project.makeBuildDesktopTasks() {

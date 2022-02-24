@@ -9,6 +9,9 @@ enum class OS(val id: String) {
 
 	companion object {
 
+		operator fun get(id: String?): OS? =
+			values().find { it.id == id }
+
 		/**
 		 * Lookup the operating system type using JVM property os.name
 		 */
