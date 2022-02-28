@@ -292,7 +292,26 @@ fun Project.makeDocsTasks() {
 				"download/service-docker/linux/latest" to latestLink(Builds.serviceDocker, OS.LINUX),
 			)
 
-			// TODO: make a releases page with all the available releases?
+			fun allLinks(build: Build, os: OS): String =
+				releases
+					.filter { it.build === build && it.os == os }
+					.sortedBy { it.version }
+					.map { release ->
+						val url = URL(releaseArchiveUrl, release.filename)
+						" * **v${release.version}**: [${release.filename}]($url)"
+					}
+					.joinToString("\n")
+					.let { "\n\n$it\n\n" }
+
+			updateTags(docDir / "content" / "install" / "versions.md",
+				"download/desktop/linux/all" to allLinks(Builds.desktop, OS.LINUX),
+				"download/desktop/osx/all" to allLinks(Builds.desktop, OS.OSX),
+				"download/desktop/windows/all" to allLinks(Builds.desktop, OS.WINDOWS),
+				"download/server/linux/all" to allLinks(Builds.server, OS.LINUX),
+				"download/server/osx/all" to allLinks(Builds.server, OS.OSX),
+				"download/server/windows/all" to allLinks(Builds.server, OS.WINDOWS),
+				"download/serviceDocker/linux/all" to allLinks(Builds.serviceDocker, OS.LINUX)
+			)
 		}
 	}
 

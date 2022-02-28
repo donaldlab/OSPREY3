@@ -61,6 +61,9 @@ Choose this download to help you prepape your designs for OSPREY Server.
 * **Installation:** [Installation Instructions for OSPREY Desktop on Windows](install/desktop-windows)
 
 
+[Download older versions](install/versions/#osprey-desktop)
+
+
 ### OSPREY Server
 
 OSPREY Server is a [Python][python] library that provides scripting access to all of OSPREY's features.
@@ -96,6 +99,9 @@ Choose this download if you want to run OSPREY designs and are familiar with Pyt
  * **Installation:** [Installation Instructions for OSPREY Server on Windows](install/server-windows)
 
 
+[Download older versions](install/versions/#osprey-server)
+
+
 ### OSPREY Service
 
 Although OSPREY is a cross-platform application, not all of the design preparation features work on all platforms.
@@ -113,6 +119,9 @@ Choose this download to self-host your own service for OSPREY design preparation
 #### Linux
 * **Download:** <span id="download/service-docker/linux/latest">[osprey-service-docker-0.3.tar](https://www.cs.duke.edu/donaldlab/software/osprey/releases/osprey-service-docker-0.3.tar)</span>
 * **Installation:** [Installation Instructions for OSPREY Service on Linux](install/service-docker-linux)
+
+
+[Download older versions](install/versions/#osprey-service)
 
 
 ## Citing OSPREY

@@ -168,6 +168,17 @@ data class Version(
 
 		return this.patch.compareTo(other.patch)
 	}
+
+	override fun toString(): String =
+		StringBuilder().apply {
+			append(major)
+			append('.')
+			append(minor)
+			if (patch != 0) {
+				append('.')
+				append(patch)
+			}
+		}.toString()
 }
 
 fun Project.analyzeReleases(): List<Release> {
