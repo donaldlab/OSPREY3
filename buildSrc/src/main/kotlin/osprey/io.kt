@@ -62,7 +62,7 @@ fun Path.rename(dst: String) {
 	if ('/' in dst) {
 		throw IllegalArgumentException("invalid rename, can't have /")
 	}
-	Files.move(this, parent.resolve(dst))
+	Files.move(this, parent.resolve(dst), StandardCopyOption.REPLACE_EXISTING)
 }
 
 fun Path.extension(): String? =

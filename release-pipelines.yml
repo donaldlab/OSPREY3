@@ -71,12 +71,14 @@ jobs:
         # https://docs.microsoft.com/en-us/azure/devops/pipelines/tasks/build/gradle?view=azure-devops
         inputs:
           gradleWrapperFile: $(gradleWrapper)
+          options: '-PAZURE_BUILD_ID=$(Build.BuildId)'
           tasks: 'desktopRelease serverRelease'
 
       - task: Gradle@3
         condition: eq(variables['Agent.JobName'], 'build Linux')
         inputs:
           gradleWrapperFile: $(gradleWrapper)
+          options: '-PAZURE_BUILD_ID=$(Build.BuildId)'
           tasks: 'serviceRelease serviceDockerPrep'
 
       - task: Bash@3
@@ -89,6 +91,7 @@ jobs:
         condition: eq(variables['Agent.JobName'], 'build Linux')
         inputs:
           gradleWrapperFile: $(gradleWrapper)
+          options: '-PAZURE_BUILD_ID=$(Build.BuildId)'
           tasks: 'serviceDockerRelease'
 
       - task: PublishPipelineArtifact@1
