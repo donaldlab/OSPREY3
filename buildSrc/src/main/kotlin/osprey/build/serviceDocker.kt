@@ -41,7 +41,7 @@ fun Project.makeBuildServiceDockerTasks() {
 	 * Add an entry here for each version of the service to include in the docker container
 	 */
 	val oldVersions = listOf(
-		"0.3"
+		"1.0"
 	)
 
 	/**

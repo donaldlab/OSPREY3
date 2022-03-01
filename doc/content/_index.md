@@ -117,7 +117,7 @@ Choose this download to self-host your own service for OSPREY design preparation
 <!-- these <span> HTML tags' contents are auto-generated. if you edit them manually, your changes will be lost -->
 
 #### Linux
-* **Download:** <span id="download/service-docker/linux/latest">[osprey-service-docker-0.3.tar](https://www.cs.duke.edu/donaldlab/software/osprey/releases/osprey-service-docker-0.3.tar)</span>
+* **Download:** <span id="download/service-docker/linux/latest">[osprey-service-docker-1.0.tar](https://www.cs.duke.edu/donaldlab/software/osprey/releases/osprey-service-docker-1.0.tar)</span>
 * **Installation:** [Installation Instructions for OSPREY Service on Linux](install/service-docker-linux)
 
 

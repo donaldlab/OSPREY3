@@ -23,7 +23,7 @@ object BuildService : Build {
 	override fun getRelease(filename: String): Release? {
 
 		// filenames look like, eg:
-		//   osprey-service-0.3.tbz2
+		//   osprey-service-1.0.tbz2
 
 		val (base, _) = Paths.get(filename).baseAndExtension()
 		val parts = base.split('-')
@@ -52,10 +52,12 @@ object BuildService : Build {
 	 * So older service clients in the wild can still be supported,
 	 * as long as the requested service version has been built into the docker container.
 	 *
+	 * If you do increment this version, add it to the service-docker version list.
+	 *
 	 * For instructions on building the docker container for the Osprey service, see:
 	 * docs/content/contributing/service-building.md
 	 */
-	const val version = "0.3"
+	const val version = "1.0"
 }
 
 

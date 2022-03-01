@@ -56,5 +56,5 @@ weight = 2
 ### Linux
 <span id="download/serviceDocker/linux/all">
 
- * **v0.3**: [osprey-service-docker-0.3.tar](https://www.cs.duke.edu/donaldlab/software/osprey/releases/osprey-service-docker-0.3.tar)
+ * **v1.0**: [osprey-service-docker-1.0.tar](https://www.cs.duke.edu/donaldlab/software/osprey/releases/osprey-service-docker-1.0.tar)
 </span>
