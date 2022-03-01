@@ -132,6 +132,13 @@ and cite our papers as described in [CITING_OSPREY.txt][citing].
 [citing]: https://github.com/donaldlab/OSPREY3/blob/main/CITING_OSPREY.txt
 
 
+## Source Code
+
+OSPREY is Open Source software. All OSPREY source code is available on GitHub.
+
+[OSPREY Source Code at GitHub](https://github.com/donaldlab/OSPREY3)
+
+
 ## License
 
 GPLv2
