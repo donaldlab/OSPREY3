@@ -274,8 +274,7 @@ fun Project.makeDocsTasks() {
 
 				val release = releases
 					.filter { it.build === build && it.os == os }
-					.sortedBy { it.version }
-					.last()
+					.maxByOrNull { it.version }!!
 
 				val url = URL(releaseArchiveUrl, release.filename)
 
@@ -301,7 +300,7 @@ fun Project.makeDocsTasks() {
 						" * **v${release.version}**: [${release.filename}]($url)"
 					}
 					.joinToString("\n")
-					.let { "\n\n$it\n\n" }
+					.let { "\n\n$it\n" }
 
 			updateTags(docDir / "content" / "install" / "versions.md",
 				"download/desktop/linux/all" to allLinks(Builds.desktop, OS.LINUX),

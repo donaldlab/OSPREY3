@@ -95,7 +95,7 @@ Choose this download if you want to run OSPREY designs and are familiar with Pyt
  * **Installation:** [Installation Instructions for OSPREY Server on OSX](install/server-osx)
 
 #### Windows
- * **Dowload:** <span id="download/server/windows/latest">[osprey-server-win-4.0.tbz2](https://www.cs.duke.edu/donaldlab/software/osprey/releases/osprey-server-win-4.0.tbz2)</span>
+ * **Dowload:** <span id="download/server/windows/latest">[osprey-server-win-4.0.zip](https://www.cs.duke.edu/donaldlab/software/osprey/releases/osprey-server-win-4.0.zip)</span>
  * **Installation:** [Installation Instructions for OSPREY Server on Windows](install/server-windows)
 
 
