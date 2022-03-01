@@ -2,8 +2,10 @@ package osprey.build
 
 import org.gradle.api.Project
 import org.gradle.api.tasks.Exec
+import org.gradle.api.tasks.bundling.AbstractArchiveTask
 import org.gradle.api.tasks.bundling.Compression
 import org.gradle.api.tasks.bundling.Tar
+import org.gradle.api.tasks.bundling.Zip
 import org.gradle.kotlin.dsl.creating
 import org.gradle.kotlin.dsl.get
 import org.gradle.kotlin.dsl.getValue
@@ -21,7 +23,7 @@ object BuildServer : Build {
 		// filenames look like, eg:
 		//   osprey-server-linux-4.0.tbz2
 		//   osprey-server-osx-4.0.tbz2
-		//   osprey-server-windows-4.0.tbz2
+		//   osprey-server-windows-4.0.zip
 
 		val (base, _) = Paths.get(filename).baseAndExtension()
 		val parts = base.split('-')
@@ -134,23 +136,16 @@ fun Project.makeBuildServerTasks() {
 		commandLine(pythonCmd, "setup.py", "bdist_wheel", "--dist-dir", pythonBuildDir.toString())
 	}
 
-	@Suppress("UNUSED_VARIABLE")
-	val serverRelease by tasks.creating(Tar::class) {
-		group = "release"
-		description = "build the server release of osprey"
+	fun AbstractArchiveTask.configureServerRelease() {
 		dependsOn(pythonWheel)
 
-		archiveBaseName.set("osprey-server-${OS.get().id}")
-		archiveVersion.set(project.version.toString())
-		destinationDirectory.set(releasesDir.toFile())
-		compression = Compression.BZIP2
-
 		val dir = buildPath / "server"
-		doFirst {
+
+ 		doFirst {
 			dir.recreateFolder()
 
 			// write installation scripts
-			val installPath = writeScript(
+			writeScript(
 				dir,
 				"install",
 				"""
@@ -158,12 +153,16 @@ fun Project.makeBuildServerTasks() {
 					|python -m pip install --user osprey --find-link=wheelhouse --pre
 				""".trimMargin()
 			)
-			val uninstallPath = writeScript(
+			writeScript(
 				dir,
 				"uninstall",
 				"python -m pip uninstall -y osprey"
 			)
 		}
+
+		archiveBaseName.set("osprey-server-${OS.get().id}")
+		archiveVersion.set(project.version.toString())
+		destinationDirectory.set(releasesDir.toFile())
 
 		into("") { // project root
 			from("README.rst")
@@ -195,6 +194,27 @@ fun Project.makeBuildServerTasks() {
 			from(pythonBuildDir) {
 				include("osprey-*.whl")
 			}
+		}
+	}
+
+	val serverReleasePosix by tasks.creating(Tar::class) {
+		compression = Compression.BZIP2
+		configureServerRelease()
+	}
+
+	val serverReleaseWindows by tasks.creating(Zip::class) {
+		configureServerRelease()
+	}
+
+	@Suppress("UNUSED_VARIABLE")
+	val serverRelease by tasks.creating {
+		group = "release"
+		description = "build the server release of osprey"
+
+		// use tar.bz2, unless windows, then use zip
+		when (OS.get()) {
+			OS.LINUX, OS.OSX -> dependsOn(serverReleasePosix)
+			OS.WINDOWS -> dependsOn(serverReleaseWindows)
 		}
 	}
 }
