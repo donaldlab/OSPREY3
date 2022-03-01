@@ -38,7 +38,7 @@ fun Project.makePythonTasks() {
 			"install",
 			"--user", "--editable",
 			".", // path to package to install, ie osprey
-			"--find-links=$pythonWheelhouseDir" // add a wheelhouse dir to find our Jpype-py2
+			"--find-links=$pythonWheelhouseDir" // add a wheelhouse dir to find any bundled packages
 		)
 		doLast {
 			// write the java classpath somewhere our python code can find it
