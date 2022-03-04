@@ -24,6 +24,9 @@ dependencies {
 	// kotlin("plugin.serialization")
 	implementation("org.jetbrains.kotlin:kotlin-serialization:$kotlinVersion")
 
+	// id("org.jetbrains.dokka")
+	implementation("org.jetbrains.dokka:dokka-gradle-plugin:$kotlinVersion")
+
 	// id("org.beryx.runtime") version "1.12.5"
 	// https://badass-runtime-plugin.beryx.org
 	implementation("org.beryx:badass-runtime-plugin:1.12.5")
@@ -33,4 +36,16 @@ dependencies {
 
 	// JSON library, The JSON License: https://json.org/license.html
 	implementation("org.json:json:20210307")
+
+	// used by the kotlin dokka plugin
+	implementation("org.jetbrains.dokka:dokka-base:$kotlinVersion")
+	implementation("org.jetbrains.dokka:dokka-core:$kotlinVersion")
+
+	// test dependencies
+	testImplementation("org.hamcrest:hamcrest-all:1.3")
+	testImplementation("junit:junit:4.12")
+}
+
+tasks.withType<Test>().configureEach {
+	useJUnit()
 }

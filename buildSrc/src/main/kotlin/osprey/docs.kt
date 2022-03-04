@@ -1,119 +1,127 @@
 package osprey
 
 import org.gradle.api.Project
-import org.gradle.kotlin.dsl.creating
-import org.gradle.kotlin.dsl.getValue
+import org.gradle.api.tasks.bundling.Compression
+import org.gradle.api.tasks.bundling.Tar
+import org.gradle.kotlin.dsl.*
+import org.json.JSONObject
 import java.nio.file.Path
 import kotlin.streams.asSequence
+import org.jetbrains.dokka.gradle.DokkaTask
 
 import osprey.build.*
+import java.io.File
 import java.net.URL
+import java.net.URLClassLoader
 
 
 // is there a docDir in the house??
 val Project.docDir get() = projectPath / "doc"
 val Project.docMainDir  get() = docDir / "content/documentation/main"
-val Project.pluginPath get() = buildPath / "classes/kotlin/test/META-INF/services/org.jetbrains.dokka.plugability.DokkaPlugin"
 
 
 fun Project.makeDocsTasks() {
 
-	val javadocJsonFile = buildPath / "doc/javadoc.json"
+	val buildDocDir = buildPath / "doc"
+	val dokkaCacheDir = buildDocDir / "dokkaCache"
+
+	// weirdly enough, this one needs to be created at config time
+	dokkaCacheDir.createFolderIfNeeded()
+
+	val javadocJsonFile = buildDocDir / "javadoc.json"
+	val dokkaJsonFile = buildDocDir / "kdoc" / "kdoc.json"
+
 
 	val parseJavadoc by tasks.creating {
 		group = "documentation"
 		description = "export javadocs into a queryable format"
-		dependsOn("testClasses")
-		// NOTE: this task apparently won't re-run after a code recompile
-		// my gradle-fu isn't good enough to figure out how to do that
-		// in the meantime, just delete the build/doc/javadoc.json file to get this task to run again
+
+		// set up inputs/outputs for incremental builds
+		inputs.files(fileTree(sourceSets.main.java.sourceDirectories.first()))
+		outputs.file(javadocJsonFile)
+
 		doLast {
 
 			javadocJsonFile.parent.createFolderIfNeeded()
-			javadocJsonFile.write { json ->
+			javadocJsonFile.write {
 
-				javaexec {
-					classpath = sourceSets.test.runtimeClasspath
-					mainClass.set("build.JavadocTool")
-					jvmArgs(
-						*Jvm.moduleArgs.toTypedArray()
-					)
-					args(
-						Jvm.packagePath.replace('/', '.'),
-						sourceSets.main.java.sourceDirectories.first().absolutePath
-					)
-					standardOutput = json
-				}
+				val json = JSONObject()
+				JavadocTool.runFolder( // IntelliJ is wrong here, gradle doesn't think this is an error
+					Jvm.packagePath.replace('/', '.'),
+					sourceSets.main.java.sourceDirectories.first().absoluteFile.toPath(),
+					json
+				)
+				write(json.toString(2))
 			}
 		}
-		outputs.file(javadocJsonFile)
 	}
 
-	val dokkaJsonFile = buildPath / "doc/kdoc.json"
-
-	val parseKdoc by tasks.creating {
+	val parseKdoc by tasks.creating(DokkaTask::class) {
 		group = "documentation"
 		description = "export dokka into a queryable format"
-		dependsOn("testClasses")
-		doLast {
 
-			val testDir = buildPath / "classes/kotlin/test"
+		val dir = buildDocDir / "kdoc"
+		outputDirectory.set(dir.toFile())
 
-			// install the dokka plugin
-			val pluginName = "build.OspreyPlugin"
-			pluginPath.parent.createFolderIfNeeded()
-			pluginPath.write {
-				write(pluginName)
-			}
+		moduleName.set(Jvm.packagePath.replace('/', '.'))
 
-			dokkaJsonFile.parent.createFolderIfNeeded()
+		// the default is apparently in the home directory, so override that obviously
+		cacheRoot.set(dokkaCacheDir.toFile())
 
-			// use a plugin to make Dokka render to a JSON file
-			// https://kotlin.github.io/dokka/1.6.0/developer_guide/introduction/
-			javaexec {
-				mainClass.set("org.jetbrains.dokka.MainKt")
-				setClasspath(sourceSets.test.runtimeClasspath)
-				args(
-					"-moduleName", Jvm.packagePath.replace('/', '.'),
-					"-outputDir", dokkaJsonFile.parent.toString(),
-					"-sourceSet", listOf(
-						"-src", kotlin.sourceSets.main.kotlin.srcDirs.first().absolutePath,
-						"-classpath", sourceSets.main.runtimeClasspath.joinToString(";") { it.absolutePath }
-					).joinToString(" "),
-					"-pluginsClasspath", listOf(
-						// add the build classes folder, so Dokka will pick up our plugin
-						testDir.toFile()
-					).joinToString(";") { it.absolutePath },
-					// NOTE: dokka always expects ; as the path separator, regardless of platform
-					"-pluginsConfiguration", """
-						|$pluginName={
-						|	filename: '${dokkaJsonFile.fileName}',
-						|	package: '${Jvm.packagePath.replace('/', '.')}'
-						|}
-					""".trimMargin()
-				)
+		dokkaSourceSets {
+			configureEach {
+				// by default, dokka wants to analyze the java code too
+				// so just set the kotlin source folder
+				sourceRoots.setFrom(kotlin.sourceSets.main.kotlin.srcDirs.first().absolutePath)
 			}
 		}
-		outputs.file(dokkaJsonFile)
+
+		// tell dokka where to find our plugin, and its dependencies
+		dependencies {
+
+			// tragically, there seems to be no way to ask gradle what the buildSrc dependencies are
+			// but we can just ask the class loader
+			val classpathFiles = (OspreyDokkaPlugin::class.java.classLoader as URLClassLoader)
+				.urLs
+				.map { File(it.file) }
+
+			// the buildSrc jar has our plugin itself in it
+			val buildSrcJar = classpathFiles.first { it.name == "buildSrc.jar" }
+			plugins(files(buildSrcJar))
+
+			// and we'll have to pull out the dependencies manually
+			val jsonJar = classpathFiles.first { it.name.startsWith("json-") }
+			plugins(files(jsonJar))
+
+			// NOTE: dokka complains if you put its own jars on the plugin classpath,
+			// so we can't just use the whole buildSrc classpath
+		}
+
+		// send arguments to our plugin, json-style
+		pluginsMapConfiguration.set(mapOf(
+			OspreyDokkaPlugin::class.qualifiedName to """
+				|{
+				|	filename: '${dokkaJsonFile.fileName}',
+				|	package: '${Jvm.packagePath.replace('/', '.')}'
+				|}
+			""".trimMargin()
+		))
 	}
 
 	val generatePythonDocs by tasks.creating {
 		group = "documentation"
+
+		val dir = buildDocDir / "code-python"
+
 		dependsOn(parseJavadoc, parseKdoc)
 		inputs.files(javadocJsonFile)
+		inputs.files(dokkaJsonFile)
+		outputs.dir(dir)
+
 		doLast {
 
-			// generate the documentation into a hugo module in the build folder
-			val modDir = buildPath / "doc/code-python"
-			modDir.recreateFolder()
-
-			// init the hugo module
-			exec {
-				commandLine("hugo", "mod", "init", "code-python")
-				workingDir = modDir.toFile()
-			}
-			val contentDir = modDir.resolve("content")
-			contentDir.createFolderIfNeeded()
+			// generate the documentation into a build sub-folder
+			dir.recreateFolder()
 
 			// render python docs
 			val modules = listOf(
@@ -124,26 +132,23 @@ fun Project.makeDocsTasks() {
 				"osprey.jvm"
 			)
 			for ((modulei, module) in modules.withIndex()) {
-				pydocMarkdown(module, contentDir / "$module.md", weight = modulei + 1)
+				pydocMarkdown(module, dir / "$module.md", weight = modulei + 1)
 			}
 		}
 	}
 
 	val generateJavaDocs by tasks.creating {
 		group = "documentation"
+
+		val dir = buildDocDir / "code-java"
+
+		// set up inputs/outputs for incremental builds
+		inputs.files(fileTree(sourceSets.main.java.sourceDirectories.first()))
+		outputs.dir(dir)
+
 		doLast {
 
-			// generate the documentation into a hugo module in the build folder
-			val modDir = buildPath / "doc/code-java"
-			modDir.recreateFolder()
-
-			// init the hugo module
-			exec {
-				commandLine("hugo", "mod", "init", "code-java")
-				workingDir = modDir.toFile()
-			}
-			val contentDir = modDir / "content"
-			contentDir.createFolderIfNeeded()
+			dir.recreateFolder()
 
 			// render java docs, see:
 			// https://docs.oracle.com/en/java/javase/17/docs/specs/man/javadoc.html
@@ -152,7 +157,7 @@ fun Project.makeDocsTasks() {
 					"javadoc",
 					"-source", Jvm.javaLangVersion.toString(),
 					"-sourcepath", sourceSets.main.java.srcDirs.first().absolutePath,
-					"-d", contentDir.toString(),
+					"-d", dir.toString(),
 					"-subpackages", Jvm.packagePath.replace('/', '.'),
 					"-classpath", sourceSets.main.runtimeClasspath.joinToClasspath { it.absolutePath },
 					*Jvm.moduleArgs.toTypedArray(),
@@ -162,10 +167,10 @@ fun Project.makeDocsTasks() {
 
 			// hugo wants to use the index.html url,
 			// so rename the index file generated by javadoc to something else
-			contentDir.resolve("index.html").rename("start.html")
+			dir.resolve("index.html").rename("start.html")
 
 			// tweak the markdown files from the javadoc folder, otherwise hugo get confused
-			contentDir.walk { stream ->
+			dir.walk { stream ->
 				stream.asSequence()
 					.filter { it.extension() == "md" }
 					.forEach {
@@ -179,50 +184,35 @@ fun Project.makeDocsTasks() {
 		}
 	}
 
-	val generateKotlinDocs by tasks.creating {
+	val generateKotlinDocs by tasks.creating(DokkaTask::class) {
 		group = "documentation"
+
+		val outDir = buildDocDir / "code-kotlin"
+		doFirst {
+			outDir.createFolderIfNeeded()
+		}
+		outputDirectory.set(outDir.toFile())
+
+		moduleName.set(Jvm.packagePath.replace('/', '.'))
+
+		// the default is apparently in the home directory, so override that obviously
+		cacheRoot.set(dokkaCacheDir.toFile())
+
+		dokkaSourceSets {
+			configureEach {
+				// by default, dokka wants to analyze the java code too
+				// so just set the kotlin source folder
+				sourceRoots.setFrom(kotlin.sourceSets.main.kotlin.srcDirs.first().absolutePath)
+			}
+		}
+
 		doLast {
-
-			// generate the documentation into a hugo module in the build folder
-			val modDir = buildPath / "doc/code-kotlin"
-			modDir.recreateFolder()
-
-			// init the hugo module
-			exec {
-				commandLine("hugo", "mod", "init", "code-kotlin")
-				workingDir = modDir.toFile()
-			}
-			val contentDir = modDir.resolve("content")
-			contentDir.createFolderIfNeeded()
-
-			// uninstall the dokka plugin
-			if (pluginPath.exists()) {
-				pluginPath.deleteFile()
-			}
-
-			// render Kotlin docs, see:
-			// https://kotlin.github.io/dokka/1.5.30/user_guide/cli/usage/
-			// https://discuss.kotlinlang.org/t/problems-running-dokka-cli-1-4-0-rc-jar-from-the-command-line/18855
-			javaexec {
-				mainClass.set("org.jetbrains.dokka.MainKt")
-				setClasspath(sourceSets.test.runtimeClasspath)
-				args(
-					"-moduleName", Jvm.packagePath.replace('/', '.'),
-					"-outputDir", contentDir.toString(),
-					"-sourceSet", listOf(
-						"-src", kotlin.sourceSets.main.kotlin.srcDirs.first().absolutePath,
-						"-classpath", sourceSets.main.runtimeClasspath.joinToString(";") { it.absolutePath }
-					).joinToString(" ")
-				)
-			}
-
 			// hugo wants to use the index.html url,
 			// so rename the index file generated by dokka to something else
-			(contentDir / "index.html").rename("start.html")
+			(outDir / "index.html").rename("start.html")
 		}
 	}
 
-	@Suppress("UNUSED_VARIABLE")
 	val generateCodeDocs by tasks.creating {
 		group = "documentation"
 		description = "Generate the Python, Java, and Kotlin code documentation for the current source tree"
@@ -234,10 +224,10 @@ fun Project.makeDocsTasks() {
 		// commands we'll need
 		commandExistsOrThrow("hugo")
 		commandExistsOrThrow("git")
-		commandExistsOrThrow("go")
 
 		// download the theme, if needed
-		val themeDir = buildPath / "doc/hugo-theme-learn"
+		// TODO: into what folder should this go?
+		val themeDir = buildDocDir / "hugo-theme-learn"
 		if (!themeDir.exists()) {
 
 			exec {
@@ -249,12 +239,6 @@ fun Project.makeDocsTasks() {
 					themeDir.toString()
 				)
 			}
-
-			// pretend the theme is a go module
-			exec {
-				commandLine("go", "mod", "init", "local.tld/hugo-theme-learn")
-				workingDir = themeDir.toFile()
-			}
 		}
 
 		// make sure we got it
@@ -263,11 +247,97 @@ fun Project.makeDocsTasks() {
 		}
 	}
 
-	val generateDownloadLinks by tasks.creating {
+	val buildDocsRelease by tasks.creating(Tar::class) {
 		group = "documentation"
-		description = "Generates the download links in the documentation"
+		description = "Builds the code documention archive for the current version of Osprey"
+		dependsOn(generateCodeDocs)
+
+		val versionStr = project.version.toString()
+
+		archiveBaseName.set("osprey-codedocs")
+		archiveVersion.set(versionStr)
+		destinationDirectory.set(releasesDir.toFile())
+		compression = Compression.BZIP2
+
+		into("content/documentation/v$versionStr/") {
+			into ("code/python") {
+				from(buildPath / "doc/code-python")
+			}
+			into ("code/java") {
+				from(buildPath / "doc/code-java")
+			}
+			into ("code/kotlin") {
+				from(buildPath / "doc/code-kotlin")
+			}
+			from(docDir / "content" / "main")
+		}
+	}
+
+	data class CodedocRelease(
+		val version: Version,
+		val path: Path
+	)
+
+	@Suppress("UNUSED_VARIABLE")
+	val buildWebsite by tasks.creating {
+		group = "documentation"
+		description = "Builds the Osprey documentation and download website"
+		dependsOn(generateCodeDocs)
 		doLast {
 
+			checkHugoPrereqs()
+
+			val webDir = buildPath / "website-release"
+			webDir.recreateFolder()
+
+			val srcDir = webDir / "src"
+			srcDir.createFolderIfNeeded()
+			val dstDir = webDir / "dst"
+			dstDir.createFolderIfNeeded()
+
+			// copy over the docs from the source tree
+			copy {
+				into(srcDir)
+				from(docDir)
+			}
+
+			// query for the available codedoc releases
+			val codedocs = releasesDir.listFiles()
+				.mapNotNull { path ->
+					if (!path.toString().startsWith("osprey-codedocs-")) {
+						null
+					} else {
+						// parse the filename to get the version, eg:
+						// osprey-codedocs-4.0.tbz2
+						val (base, _) = path.baseAndExtension()
+						val parts = base.split('-')
+						CodedocRelease(
+							Version.of(parts[2]),
+							path
+						)
+					}
+				}
+				.toList()
+
+			for (release in codedocs) {
+				copy {
+					into(srcDir) {
+						from(tarTree(release.path))
+					}
+				}
+			}
+
+			// add version links to the versioned docs main page
+			updateTags(srcDir / "content/documentation/_index.md",
+				"codedoc/versions" to codedocs
+					.map { release ->
+						" * [v${release.version}](documentation/code/${release.version})"
+					}
+					.joinToString("\n")
+					.let { "\n\n$it\n" }
+			)
+
+			// generate the download links
 			val releases = analyzeReleases()
 
 			fun latestLink(build: Build, os: OS): String {
@@ -281,7 +351,7 @@ fun Project.makeDocsTasks() {
 				return "[${release.filename}]($url)"
 			}
 
-			updateTags(docDir / "content" / "_index.md",
+			updateTags(srcDir / "content" / "_index.md",
 				"download/desktop/linux/latest" to latestLink(Builds.desktop, OS.LINUX),
 				"download/desktop/osx/latest" to latestLink(Builds.desktop, OS.OSX),
 				"download/desktop/windows/latest" to latestLink(Builds.desktop, OS.WINDOWS),
@@ -302,7 +372,7 @@ fun Project.makeDocsTasks() {
 					.joinToString("\n")
 					.let { "\n\n$it\n" }
 
-			updateTags(docDir / "content" / "install" / "versions.md",
+			updateTags(srcDir / "content" / "install" / "versions.md",
 				"download/desktop/linux/all" to allLinks(Builds.desktop, OS.LINUX),
 				"download/desktop/osx/all" to allLinks(Builds.desktop, OS.OSX),
 				"download/desktop/windows/all" to allLinks(Builds.desktop, OS.WINDOWS),
@@ -311,40 +381,29 @@ fun Project.makeDocsTasks() {
 				"download/server/windows/all" to allLinks(Builds.server, OS.WINDOWS),
 				"download/serviceDocker/linux/all" to allLinks(Builds.serviceDocker, OS.LINUX)
 			)
-		}
-	}
 
-	@Suppress("UNUSED_VARIABLE")
-	val buildWebsite by tasks.creating {
-		group = "documentation"
-		description = "Builds the Osprey documentation and download website"
-		dependsOn(generateDownloadLinks)
-		doLast {
-
-			checkHugoPrereqs()
-
-			val webDir = buildPath / "website"
-			webDir.recreateFolder()
-
+			/* TEMP
+			// build the website using hugo
 			exec {
 				commandLine(
 					"hugo",
 					"--destination", webDir.toString()
 				)
-				workingDir = docDir.toFile()
+				workingDir = dstDir.toFile()
 			}
+			*/
 		}
 	}
 
 	@Suppress("UNUSED_VARIABLE")
 	val hugoServer by tasks.creating {
 		group = "documentation"
-		description = "Start the Hugo development server. Useful for writing documentation"
+		description = "Start the Hugo development server. Useful for getting quick feedback when writing and editing documentation"
 		doLast {
 
 			checkHugoPrereqs()
 
-			val webDir = buildPath / "website"
+			val webDir = buildPath / "website-dev"
 
 			exec {
 				commandLine(
@@ -416,7 +475,7 @@ fun Project.pydocMarkdown(module: String, file: Path, title: String = module, we
 			standardOutput = out
 			environment["PYTHONPATH"] = listOf(
 				System.getenv("PYTHONPATH"),
-				projectPath / "src/test/python"
+				projectPath / "buildSrc/src/main/python"
 			).joinToClasspath()
 		}
 	}

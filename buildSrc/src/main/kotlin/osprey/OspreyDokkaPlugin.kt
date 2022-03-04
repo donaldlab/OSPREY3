@@ -1,6 +1,5 @@
-package build
+package osprey
 
-import edu.duke.cs.osprey.service.write
 import org.jetbrains.dokka.CoreExtensions
 import org.jetbrains.dokka.DokkaConfiguration.DokkaSourceSet
 import org.jetbrains.dokka.base.DokkaBase
@@ -21,7 +20,7 @@ import org.json.JSONObject
 
 // see: https://kotlin.github.io/dokka/1.6.0/developer_guide/introduction/
 
-class OspreyPlugin : DokkaPlugin() {
+class OspreyDokkaPlugin : DokkaPlugin() {
 
 	val dokkaBasePlugin by lazy { plugin<DokkaBase>() }
 
@@ -43,7 +42,7 @@ private fun DokkaContext.config(): Config {
 
 	// read the plugin config
 	val config = configuration.pluginsConfiguration
-		.find { it.fqPluginName == OspreyPlugin::class.qualifiedName }
+		.find { it.fqPluginName == OspreyDokkaPlugin::class.qualifiedName }
 		?.values
 		?: throw NoSuchElementException("need to send configuration JSON")
 	val json = JSONObject(config)
@@ -439,7 +438,9 @@ private class OspreyRenderer(val ctx: DokkaContext) : Renderer {
 		// write out the file from the page JSON
 		val page = root as OspreyPager.Page
 		val file = ctx.configuration.outputDir.resolve(config.filename).toPath()
-		page.json.toString(2).write(file)
+		file.write {
+			write(page.json.toString(2))
+		}
 	}
 }
 

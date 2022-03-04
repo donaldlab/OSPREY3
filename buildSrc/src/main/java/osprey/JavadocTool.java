@@ -1,10 +1,8 @@
-package build;
-
+package osprey;
 
 import com.sun.source.doctree.*;
 import com.sun.source.tree.*;
 import com.sun.source.util.*;
-import edu.duke.cs.osprey.tools.FileTools;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -18,7 +16,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
@@ -30,85 +27,20 @@ import java.util.stream.Collectors;
  */
 public class JavadocTool {
 
-	public static void main(String[] args) {
-
-		// parse the args
-		if (args.length != 2) {
-			System.err.println("argument: <root package> <source folder or source file>");
-			System.exit(1);
-			return; // hahaha, stupid javac
-		}
-
-		var rootPackage = args[0];
-
-		var path = Paths.get(args[1]);
-		if (!Files.exists(path)) {
-			System.err.println("source path does not exist: " + path);
-			System.exit(1);
-			return; // hahaha, stupid javac
-		}
-
-		var out = new JSONObject();
-
-		int code;
-		if (Files.isDirectory(path)) {
-			code = runFolder(rootPackage, path, out);
-		} else {
-			code = runFile(rootPackage, path, out);
-		}
-
-		// write the JSON to stdout
-		System.out.println(out.toString(2));
-		System.exit(code);
-	}
-
-	public static int runFolder(String rootPackage, Path sourceFolder, JSONObject out) {
-
-		int failed = 0;
+	public static void runFolder(String rootPackage, Path sourceFolder, JSONObject out)
+	throws IOException {
 
 		// walk the source folder
-		List<Path> paths;
-		try {
-			paths = Files.walk(sourceFolder).toList();
-		} catch (IOException e) {
-			e.printStackTrace(System.err);
-			return 2;
-		}
-		for (var path : paths) {
+		List<Path> paths = Files.walk(sourceFolder)
+			.filter(path -> !Files.isDirectory(path))
+			.toList();
 
-			// skip folders
-			if (Files.isDirectory(path)) {
-				continue;
-			}
-
-			try {
-				handleFile(rootPackage, path.toString(), out);
-			} catch (Exception ex) {
-				System.err.println("can't process " + path);
-				ex.printStackTrace(System.err);
-				failed += 1;
-			}
-		}
-
-		if (failed > 0) {
-			System.err.println("failed to process " + failed + " files");
-			return 3;
-		}
-
-		return 0;
+		handleFiles(rootPackage, paths, out);
 	}
 
-	public static int runFile(String rootPackage, Path sourceFile, JSONObject out) {
-
-		try {
-			handleFile(rootPackage, sourceFile.toString(), out);
-		} catch (IOException ex) {
-			System.err.println("can't process " + sourceFile);
-			ex.printStackTrace(System.err);
-			return 4;
-		}
-
-		return 0;
+	public static void runFile(String rootPackage, Path sourceFile, JSONObject out)
+	throws IOException {
+		handleFiles(rootPackage, List.of(sourceFile), out);
 	}
 
 	private static class Context {
@@ -167,17 +99,25 @@ public class JavadocTool {
 		}
 	}
 
-	private static void handleFile(String rootPackage, String sourcePath, JSONObject out)
+	private static void handleFiles(String rootPackage, List<Path> sourcePaths, JSONObject out)
 	throws IOException {
 
 		// wrap the source in an object javac understands
-		var sourceUrl = URI.create("string:///" + sourcePath);
-		var sourceFile = new SimpleJavaFileObject(sourceUrl, JavaFileObject.Kind.SOURCE) {
-			@Override
-			public CharSequence getCharContent(boolean ignoreEncodingErrors) {
-				return FileTools.readFile(sourcePath);
-			}
-		};
+		var sourceFiles = sourcePaths.stream()
+			.map(sourcePath -> {
+				var sourceUrl = URI.create("string://" + sourcePath);
+				return new SimpleJavaFileObject(sourceUrl, JavaFileObject.Kind.SOURCE) {
+					@Override
+					public CharSequence getCharContent(boolean ignoreEncodingErrors) {
+						try {
+							return Files.readString(sourcePath);
+						} catch (IOException ex) {
+							throw new RuntimeException("can't read " + sourcePath, ex);
+						}
+					}
+				};
+			})
+			.collect(Collectors.toList());
 
 		// init the compiler
 		var compiler = ToolProvider.getSystemJavaCompiler();
@@ -188,26 +128,29 @@ public class JavadocTool {
 			diagnostics,
 			null,
 			null,
-			List.of(sourceFile)
+			sourceFiles
 		);
 
 		// parse the source
-		var tree = task.parse().iterator().next();
+		var trees = task.parse();
 
 		// analyze the source to resolve the types
 		task.analyze();
 
-		// build the context
-		var ctx = new Context();
-		ctx.tree = tree;
-		ctx.trees = DocTrees.instance(task);
-		ctx.elements = task.getElements();
-		ctx.rootPackage = rootPackage;
+		for (var tree : trees) {
 
-		// look for top-level classes
-		for (var type : tree.getTypeDecls()) {
-			if (type instanceof ClassTree classType) {
-				handleClass(ctx, classType, out);
+			// build the context
+			var ctx = new Context();
+			ctx.tree = tree;
+			ctx.trees = DocTrees.instance(task);
+			ctx.elements = task.getElements();
+			ctx.rootPackage = rootPackage;
+
+			// look for top-level classes
+			for (var type : tree.getTypeDecls()) {
+				if (type instanceof ClassTree classType) {
+					handleClass(ctx, classType, out);
+				}
 			}
 		}
 	}

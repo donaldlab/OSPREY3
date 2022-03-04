@@ -4,7 +4,7 @@ import json
 
 
 # load the parsed javadoc
-with open('build/doc/kdoc.json', 'r') as f:
+with open('build/doc/kdoc/kdoc.json', 'r') as f:
 	_kdoc = json.load(f)
 
 

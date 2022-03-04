@@ -163,13 +163,6 @@ dependencies {
 	listOf("linux-x86_64", "apple-x86_64", "windows-x86_64").forEach {
 		runtimeOnly("org.jcuda:jcuda-natives:0.8.0:$it")
 	}
-
-	// used by the build system
-	testImplementation("org.json:json:20210307")
-	val dokkaVersion = "1.6.0"
-	testImplementation("org.jetbrains.dokka:dokka-cli:$dokkaVersion")
-	testImplementation("org.jetbrains.dokka:dokka-base:$dokkaVersion")
-	testImplementation("org.jetbrains.dokka:dokka-core:$dokkaVersion")
 }
 
 

@@ -49,15 +49,15 @@ Choose this download to help you prepape your designs for OSPREY Server.
 <!-- these <span> HTML tags' contents are auto-generated. if you edit them manually, your changes will be lost -->
 
 #### Linux
-* **Download:** <span id="download/desktop/linux/latest">[osprey-desktop-4.0-amd64.deb](https://www.cs.duke.edu/donaldlab/software/osprey/releases/osprey-desktop-4.0-amd64.deb)</span>
+* **Download:** <span id="download/desktop/linux/latest"></span>
 * **Installation:** [Installation Instructions for OSPREY Desktop on Linux](install/desktop-linux)
 
 #### OSX
-* **Download:** <span id="download/desktop/osx/latest">[osprey-desktop-4.0.dmg](https://www.cs.duke.edu/donaldlab/software/osprey/releases/osprey-desktop-4.0.dmg)</span>
+* **Download:** <span id="download/desktop/osx/latest"></span>
 * **Installation:** [Installation Instructions for OSPREY Desktop on OSX](install/desktop-osx)
 
 #### Windows
-* **Dowload:** <span id="download/desktop/windows/latest">[osprey-desktop-4.0.msi](https://www.cs.duke.edu/donaldlab/software/osprey/releases/osprey-desktop-4.0.msi)</span>
+* **Dowload:** <span id="download/desktop/windows/latest"></span>
 * **Installation:** [Installation Instructions for OSPREY Desktop on Windows](install/desktop-windows)
 
 
@@ -87,15 +87,15 @@ Choose this download if you want to run OSPREY designs and are familiar with Pyt
 <!-- these <span> HTML tags' contents are auto-generated. if you edit them manually, your changes will be lost -->
 
 #### Linux
- * **Download:** <span id="download/server/linux/latest">[osprey-server-linux-4.0.tbz2](https://www.cs.duke.edu/donaldlab/software/osprey/releases/osprey-server-linux-4.0.tbz2)</span>
+ * **Download:** <span id="download/server/linux/latest"></span>
  * **Installation:** [Installation Instructions for OSPREY Server on Linux](install/server-linux)
 
 #### OSX
- * **Download:** <span id="download/server/osx/latest">[osprey-server-osx-4.0.tbz2](https://www.cs.duke.edu/donaldlab/software/osprey/releases/osprey-server-osx-4.0.tbz2)</span>
+ * **Download:** <span id="download/server/osx/latest"></span>
  * **Installation:** [Installation Instructions for OSPREY Server on OSX](install/server-osx)
 
 #### Windows
- * **Dowload:** <span id="download/server/windows/latest">[osprey-server-win-4.0.zip](https://www.cs.duke.edu/donaldlab/software/osprey/releases/osprey-server-win-4.0.zip)</span>
+ * **Dowload:** <span id="download/server/windows/latest"></span>
  * **Installation:** [Installation Instructions for OSPREY Server on Windows](install/server-windows)
 
 
@@ -117,7 +117,7 @@ Choose this download to self-host your own service for OSPREY design preparation
 <!-- these <span> HTML tags' contents are auto-generated. if you edit them manually, your changes will be lost -->
 
 #### Linux
-* **Download:** <span id="download/service-docker/linux/latest">[osprey-service-docker-1.0.tar](https://www.cs.duke.edu/donaldlab/software/osprey/releases/osprey-service-docker-1.0.tar)</span>
+* **Download:** <span id="download/service-docker/linux/latest"></span>
 * **Installation:** [Installation Instructions for OSPREY Service on Linux](install/service-docker-linux)
 
 
