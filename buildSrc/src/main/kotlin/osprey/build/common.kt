@@ -21,6 +21,13 @@ val Project.releasesDir get() = buildPath / "releases"
  */
 val releaseArchiveDir = Paths.get("/usr/project/dlab/www/donaldlab/software/osprey/releases")
 
+
+/**
+ * Folder (in the dlab file system) where the website should be deplpoyed
+ */
+val websiteDeployDir = Paths.get("/usr/project/dlab/www/donaldlab/software/osprey/docs")
+
+
 /**
  * The publicly-accessible URL for the release archive
  */
@@ -86,28 +93,30 @@ fun Project.makeBuildTasks() {
 		group = "release"
 		description = "Upload release builds to the dlab archive, where they are downloadable by the public"
 		doLast {
-			sftp {
+			ssh {
+				sftp {
 
-				// get the current releases
-				val archivedReleases = ls(releaseArchiveDir.toString())
-					.filter { !it.attrs.isDir }
-					.map { it.filename }
+					// get the current releases
+					val archivedReleases = ls(releaseArchiveDir.toString())
+						.filter { !it.attrs.isDir }
+						.map { it.filename }
 
-				// diff against the local releases
-				val missingReleases = releasesDir.listFiles()
-					.filter { it.fileName.toString() !in archivedReleases }
-					.toList()
+					// diff against the local releases
+					val missingReleases = releasesDir.listFiles()
+						.filter { it.fileName.toString() !in archivedReleases }
+						.toList()
 
-				if (missingReleases.isNotEmpty()) {
-					for (release in missingReleases) {
-						put(
-							release.toString(),
-							(releaseArchiveDir / release.fileName).toString(),
-							SftpProgressLogger()
-						)
+					if (missingReleases.isNotEmpty()) {
+						for (release in missingReleases) {
+							put(
+								release.toString(),
+								(releaseArchiveDir / release.fileName).toString(),
+								SftpProgressLogger()
+							)
+						}
+					} else {
+						println("No new releases to upload")
 					}
-				} else {
-					println("No new releases to upload")
 				}
 			}
 		}
@@ -184,10 +193,12 @@ data class Version(
 fun Project.analyzeReleases(): List<Release> {
 
 	// first, collect the releases that are currently available for public download
-	val archivedReleases = sftp {
-		ls(releaseArchiveDir.toString())
-			.filter { !it.attrs.isDir }
-			.map { it.filename }
+	val archivedReleases = ssh {
+		sftp {
+			ls(releaseArchiveDir.toString())
+				.filter { !it.attrs.isDir }
+				.map { it.filename }
+		}
 	}
 
 	/* DEBUG: to get local filenames for testing instead of remote filenames from SSH

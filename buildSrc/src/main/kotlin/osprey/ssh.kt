@@ -5,12 +5,16 @@ import java.nio.file.Files
 import java.nio.file.Paths
 import com.jcraft.jsch.JSch
 import com.jcraft.jsch.ChannelSftp
+import com.jcraft.jsch.ChannelExec
+import com.jcraft.jsch.Session
 import com.jcraft.jsch.Logger as JschLogger
 import com.jcraft.jsch.SftpProgressMonitor
+import java.io.InputStream
+import java.util.concurrent.ConcurrentLinkedQueue
 
 
-/** configure and open an SFTP connection over SSH */
-fun <T> Project.sftp(block: ChannelSftp.() -> T): T {
+/** configure and open an SSH connection */
+fun <T> Project.ssh(block: Session.() -> T): T {
 
 	// get user auth info
 	val sshDir = Paths.get(System.getProperty("user.home")).resolve(".ssh")
@@ -88,20 +92,26 @@ fun <T> Project.sftp(block: ChannelSftp.() -> T): T {
 		throw t
 	}
 	try {
-		val channel = session.openChannel("sftp") as ChannelSftp
-		try {
-			channel.connect()
 
-			// at long last, we're connected. Do The Thing!
-			return channel.block()
+		// at long last, we're connected. Do The Thing!
+		return session.block()
 
-		} finally {
-			channel.disconnect()
-		}
 	} finally {
 		if (session.isConnected) {
 			session.disconnect()
 		}
+	}
+}
+
+
+/** start a SFTP channel in an SSH session */
+fun <T> Session.sftp(block: ChannelSftp.() -> T): T {
+	val channel = openChannel("sftp") as ChannelSftp
+	try {
+		channel.connect()
+		return channel.block()
+	} finally {
+		channel.disconnect()
 	}
 }
 
@@ -155,5 +165,52 @@ class SftpProgressLogger : SftpProgressMonitor {
 		} else {
 			println("   done")
 		}
+	}
+}
+
+
+/** execute a command in an SSH session */
+fun Session.exec(command: String) {
+
+	val channel = openChannel("exec") as ChannelExec
+	channel.setCommand(command)
+
+	// start threads to read stdout and stderr
+	val console = ConcurrentLinkedQueue<String>()
+	fun streamReader(name: String, stream: InputStream) =
+		Thread {
+			stream.bufferedReader().forEachLine { line ->
+				console.add(line)
+			}
+		}.apply {
+			this.name = name
+			isDaemon = true
+			start()
+		}
+	val threadOut = streamReader("SSH Exec Out", channel.inputStream)
+	val threadErr = streamReader("SSH Exec Err", channel.errStream)
+
+	// send the command and wait for it to finish
+	channel.connect()
+
+	// finish reading the result
+	try {
+		threadOut.join()
+		threadErr.join()
+	} finally {
+		channel.disconnect()
+	}
+
+	// process the result
+	if (channel.exitStatus != 0) {
+		throw Exception("""
+			|SSH command failed with exit code ${channel.exitStatus}:
+			|command: $command
+			|console: ${console.joinToString("\n         ")}
+		""".trimMargin())
+	} else {
+		println(console.joinToString("\n") { line ->
+			"SSH: $line"
+		})
 	}
 }

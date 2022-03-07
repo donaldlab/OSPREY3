@@ -1,6 +1,6 @@
 
 # basic hugo config
-#baseURL = "http://example.org/"
+baseURL = "https://www2.cs.duke.edu/donaldlab/software/osprey/docs/"
 languageCode = "en-us"
 title = "OSPREY"
 theme = "hugo-theme-learn"

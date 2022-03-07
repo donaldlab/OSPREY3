@@ -299,30 +299,32 @@ fun Project.makeDocsTasks() {
 		group = "documentation"
 		description = "Download all versions of the doc releases, for the website generator"
 		doLast {
-			sftp {
+			ssh {
+				sftp {
 
-				// what releases do we have already?
-				val localReleases = releasesDir.listFiles()
-					.map { it.fileName.toString() }
-					.filter { it.startsWith(docReleaseName) }
-					.toSet()
+					// what releases do we have already?
+					val localReleases = releasesDir.listFiles()
+						.map { it.fileName.toString() }
+						.filter { it.startsWith(docReleaseName) }
+						.toSet()
 
-				// what releases do we need?
-				val missingReleases = ls(releaseArchiveDir.toString())
-					.filter { !it.attrs.isDir }
-					.filter { it.filename.startsWith(docReleaseName) && it.filename !in localReleases }
+					// what releases do we need?
+					val missingReleases = ls(releaseArchiveDir.toString())
+						.filter { !it.attrs.isDir }
+						.filter { it.filename.startsWith(docReleaseName) && it.filename !in localReleases }
 
-				// download the missing releases
-				if (missingReleases.isNotEmpty()) {
-					for (release in missingReleases) {
-						get(
-							(releaseArchiveDir / release.filename).toString(),
-							(releasesDir / release.filename).toString(),
-							SftpProgressLogger()
-						)
+					// download the missing releases
+					if (missingReleases.isNotEmpty()) {
+						for (release in missingReleases) {
+							get(
+								(releaseArchiveDir / release.filename).toString(),
+								(releasesDir / release.filename).toString(),
+								SftpProgressLogger()
+							)
+						}
+					} else {
+						println("No extra documentation releases to download")
 					}
-				} else {
-					println("No extra documentation releases to download")
 				}
 			}
 		}
@@ -333,21 +335,22 @@ fun Project.makeDocsTasks() {
 		val path: Path
 	)
 
-	@Suppress("UNUSED_VARIABLE")
-	val buildWebsite by tasks.creating {
+	val buildWebsite by tasks.creating(Tar::class) {
 		group = "documentation"
 		description = "Builds the Osprey documentation and download website"
-		dependsOn(generateCodeDocs, downloadDocReleases)
-		doLast {
+		// TEMP
+		//dependsOn(generateCodeDocs, downloadDocReleases)
+
+		val webDir = buildPath / "website-release"
+		val srcDir = webDir / "src"
+		val dstDir = webDir / "dst"
+
+		doFirst {
 
 			checkHugoPrereqs()
 
-			val webDir = buildPath / "website-release"
 			webDir.recreateFolder()
-
-			val srcDir = webDir / "src"
 			srcDir.createFolderIfNeeded()
-			val dstDir = webDir / "dst"
 			dstDir.createFolderIfNeeded()
 
 			// copy over the docs from the source tree
@@ -461,6 +464,43 @@ fun Project.makeDocsTasks() {
 					"--destination", dstDir.toString()
 				)
 				workingDir = srcDir.toFile()
+			}
+		}
+
+		destinationDirectory.set(buildDocDir.toFile())
+		archiveBaseName.set("osprey-website")
+		compression = Compression.GZIP
+
+		from(dstDir)
+	}
+
+	@Suppress("UNUSED_VARIABLE")
+	val deployWebsite by tasks.creating {
+		group = "documentation"
+		description = "Replace the documentation website with the one currently in the build folder"
+		doLast {
+
+			// first, make sure we have the website tar file
+			val tarPath = buildWebsite.outputs.files.first().toPath()
+			if (!tarPath.exists()) {
+				throw Error("Create the website with the `${buildWebsite.name}` task first")
+			}
+
+			val tarPathRemote = websiteDeployDir / tarPath.fileName
+
+			ssh {
+
+				// upload the tar file
+				sftp {
+					put(
+						tarPath.toString(),
+						tarPathRemote.toString(),
+						SftpProgressLogger()
+					)
+				}
+
+				// extract the tar file
+				exec("tar --extract -f \"$tarPathRemote\" --directory \"$websiteDeployDir\"")
 			}
 		}
 	}

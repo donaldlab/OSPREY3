@@ -173,31 +173,33 @@ fun Project.makeBuildServiceDockerTasks() {
 		group = "release"
 		description = "Download all versions of the service releases, for the docker build script"
 		doLast {
-			sftp {
+			ssh {
+				sftp {
 
-				// what releases do we have already?
-				val localReleases = releasesDir.listFiles()
-					.mapNotNull { Builds.getRelease(it.fileName.toString()) }
-					.filter { it.build === Builds.service }
-					.toSet()
+					// what releases do we have already?
+					val localReleases = releasesDir.listFiles()
+						.mapNotNull { Builds.getRelease(it.fileName.toString()) }
+						.filter { it.build === Builds.service }
+						.toSet()
 
-				// what releases do we need?
-				val missingReleases = ls(releaseArchiveDir.toString())
-					.filter { !it.attrs.isDir }
-					.mapNotNull { Builds.getRelease(it.filename) }
-					.filter { it.build === Builds.service && it !in localReleases }
+					// what releases do we need?
+					val missingReleases = ls(releaseArchiveDir.toString())
+						.filter { !it.attrs.isDir }
+						.mapNotNull { Builds.getRelease(it.filename) }
+						.filter { it.build === Builds.service && it !in localReleases }
 
-				// download the missing releases
-				if (missingReleases.isNotEmpty()) {
-					for (release in missingReleases) {
-						get(
-							(releaseArchiveDir / release.filename).toString(),
-							(releasesDir / release.filename).toString(),
-							SftpProgressLogger()
-						)
+					// download the missing releases
+					if (missingReleases.isNotEmpty()) {
+						for (release in missingReleases) {
+							get(
+								(releaseArchiveDir / release.filename).toString(),
+								(releasesDir / release.filename).toString(),
+								SftpProgressLogger()
+							)
+						}
+					} else {
+						println("No extra service releases to download")
 					}
-				} else {
-					println("No extra service releases to download")
 				}
 			}
 		}
