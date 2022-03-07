@@ -19,6 +19,8 @@ import java.net.URLClassLoader
 val Project.docDir get() = projectPath / "doc"
 val Project.docMainDir  get() = docDir / "content/documentation/main"
 
+const val docReleaseName = "osprey-docs"
+
 
 fun Project.makeDocsTasks() {
 
@@ -226,7 +228,6 @@ fun Project.makeDocsTasks() {
 		commandExistsOrThrow("git")
 
 		// download the theme, if needed
-		// TODO: into what folder should this go?
 		val themeDir = docDir / "themes" / "hugo-theme-learn"
 		if (!themeDir.exists()) {
 			exec {
@@ -253,10 +254,20 @@ fun Project.makeDocsTasks() {
 
 		val versionStr = project.version.toString()
 
-		archiveBaseName.set("osprey-codedocs")
+		archiveBaseName.set(docReleaseName)
 		archiveVersion.set(versionStr)
 		destinationDirectory.set(releasesDir.toFile())
 		compression = Compression.BZIP2
+
+		// compute a sorting weight from the version number
+		// newest versions should be at the top
+		// meaning, weights for newer versions should be smaller than weights for older versions
+		// the weight 1 is reserved for the main branch
+		val version = Version.of(versionStr)
+		var weight = 100_000_000
+		weight -= version.major*1_000_000
+		weight -= version.minor*1_000
+		weight -= version.minor
 
 		into("content/documentation/v$versionStr/") {
 			into ("code/python") {
@@ -268,11 +279,56 @@ fun Project.makeDocsTasks() {
 			into ("code/kotlin") {
 				from(buildPath / "doc/code-kotlin")
 			}
-			from(docDir / "content" / "main")
+			from(docDir / "content" / "documentation" / "main") {
+
+				// copy the documentation/main folder, but rewrite the index.md file,
+				// which has lots of references to the main branch that won't be appropriate here
+				exclude("/_index.md")
+			}
+			from(docDir / "archetypes" / "doc-version.md") {
+				rename("doc-version.md", "_index.md")
+				expand(
+					"versionStr" to versionStr,
+					"weight" to "$weight"
+				)
+			}
 		}
 	}
 
-	data class CodedocRelease(
+	val downloadDocReleases by tasks.creating {
+		group = "documentation"
+		description = "Download all versions of the doc releases, for the website generator"
+		doLast {
+			sftp {
+
+				// what releases do we have already?
+				val localReleases = releasesDir.listFiles()
+					.map { it.fileName.toString() }
+					.filter { it.startsWith(docReleaseName) }
+					.toSet()
+
+				// what releases do we need?
+				val missingReleases = ls(releaseArchiveDir.toString())
+					.filter { !it.attrs.isDir }
+					.filter { it.filename.startsWith(docReleaseName) && it.filename !in localReleases }
+
+				// download the missing releases
+				if (missingReleases.isNotEmpty()) {
+					for (release in missingReleases) {
+						get(
+							(releaseArchiveDir / release.filename).toString(),
+							(releasesDir / release.filename).toString(),
+							SftpProgressLogger()
+						)
+					}
+				} else {
+					println("No extra documentation releases to download")
+				}
+			}
+		}
+	}
+
+	data class DocRelease(
 		val version: Version,
 		val path: Path
 	)
@@ -281,7 +337,7 @@ fun Project.makeDocsTasks() {
 	val buildWebsite by tasks.creating {
 		group = "documentation"
 		description = "Builds the Osprey documentation and download website"
-		dependsOn(generateCodeDocs)
+		dependsOn(generateCodeDocs, downloadDocReleases)
 		doLast {
 
 			checkHugoPrereqs()
@@ -296,21 +352,36 @@ fun Project.makeDocsTasks() {
 
 			// copy over the docs from the source tree
 			copy {
-				into(srcDir)
 				from(docDir)
+				into(srcDir)
 			}
 
-			// query for the available codedoc releases
-			val codedocs = releasesDir.listFiles()
+			// copy over the generated code docs
+			val mainCodeDir = srcDir / "content" / "documentation" / "main" / "code"
+			copy {
+				from((buildDocDir / "code-java").toFile())
+				into((mainCodeDir / "java").toFile())
+			}
+			copy {
+				from((buildDocDir / "code-kotlin").toFile())
+				into((mainCodeDir / "kotlin").toFile())
+			}
+			copy {
+				from((buildDocDir / "code-python").toFile())
+				into((mainCodeDir / "python").toFile())
+			}
+
+			// query for the available doc releases
+			val docReleases = releasesDir.listFiles()
 				.mapNotNull { path ->
-					if (!path.toString().startsWith("osprey-codedocs-")) {
+					if (!path.fileName.toString().startsWith("$docReleaseName-")) {
 						null
 					} else {
 						// parse the filename to get the version, eg:
-						// osprey-codedocs-4.0.tbz2
+						// osprey-docs-4.0.tbz2
 						val (base, _) = path.baseAndExtension()
 						val parts = base.split('-')
-						CodedocRelease(
+						DocRelease(
 							Version.of(parts[2]),
 							path
 						)
@@ -318,19 +389,21 @@ fun Project.makeDocsTasks() {
 				}
 				.toList()
 
-			for (release in codedocs) {
+			println("found documentation releases: ${docReleases.map { it.version }}")
+
+			// unpack the docs releases
+			for (release in docReleases) {
 				copy {
-					into(srcDir) {
-						from(tarTree(release.path))
-					}
+					from(tarTree(release.path.toFile()))
+					into(srcDir.toFile())
 				}
 			}
 
 			// add version links to the versioned docs main page
 			updateTags(srcDir / "content/documentation/_index.md",
-				"codedoc/versions" to codedocs
+				"doc/versions" to docReleases
 					.map { release ->
-						" * [v${release.version}](documentation/code/${release.version})"
+						" * [v${release.version}](documentation/${release.version})"
 					}
 					.joinToString("\n")
 					.let { "\n\n$it\n" }
@@ -381,16 +454,14 @@ fun Project.makeDocsTasks() {
 				"download/serviceDocker/linux/all" to allLinks(Builds.serviceDocker, OS.LINUX)
 			)
 
-			/* TEMP
 			// build the website using hugo
 			exec {
 				commandLine(
 					"hugo",
-					"--destination", webDir.toString()
+					"--destination", dstDir.toString()
 				)
-				workingDir = dstDir.toFile()
+				workingDir = srcDir.toFile()
 			}
-			*/
 		}
 	}
 

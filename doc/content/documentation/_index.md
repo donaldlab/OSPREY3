@@ -10,4 +10,5 @@ This is the main location for all OSPREY documentation.
 
 Choose the documentation that matches your version os OSPREY:
 
-<span id="codedoc/versions"></span>
+ * [main branch](main)
+<span id="doc/versions"></span>
