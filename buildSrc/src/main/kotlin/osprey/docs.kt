@@ -227,9 +227,8 @@ fun Project.makeDocsTasks() {
 
 		// download the theme, if needed
 		// TODO: into what folder should this go?
-		val themeDir = buildDocDir / "hugo-theme-learn"
+		val themeDir = docDir / "themes" / "hugo-theme-learn"
 		if (!themeDir.exists()) {
-
 			exec {
 				commandLine(
 					"git", "clone",
@@ -402,6 +401,22 @@ fun Project.makeDocsTasks() {
 		doLast {
 
 			checkHugoPrereqs()
+
+			println("""
+				|
+				|
+				|NOTE:
+				|The Huge dev server is useful for editing hand-written documentation,
+				|but none of the automatically generated parts will be available there.
+				|Meaning the code documentation, version history, and download links
+				|will not appear while editing your documents.
+				|
+				|
+			""".trimMargin());
+
+			// TODO: any way to make the auto-generated bits show up in dev server mode?
+			//   hugo's only modularity system is the go modules, which are a huge pain
+			//   and have tradeoffs to deal with too
 
 			val webDir = buildPath / "website-dev"
 

@@ -2,7 +2,8 @@
 # basic hugo config
 #baseURL = "http://example.org/"
 languageCode = "en-us"
-title = "My New Hugo Site"
+title = "OSPREY"
+theme = "hugo-theme-learn"
 
 
 [outputs]
