@@ -500,7 +500,18 @@ fun Project.makeDocsTasks() {
 				}
 
 				// extract the tar file
+				println("Extracting website ...")
 				exec("tar --extract -f \"$tarPathRemote\" --directory \"$websiteDeployDir\"")
+
+				// all done!
+				println("""
+					|
+					|Website deployed successfully!
+					|You can visit the website at:
+					|
+					|https://www2.cs.duke.edu/donaldlab/software/osprey/docs/
+					|
+				""".trimMargin())
 			}
 		}
 	}
