@@ -3,7 +3,7 @@ package osprey
 
 object Jvm {
 
-	const val javaLangVersion = 16
+	const val javaLangVersion = 17
 
 	const val packagePath = "edu/duke/cs/osprey"
 

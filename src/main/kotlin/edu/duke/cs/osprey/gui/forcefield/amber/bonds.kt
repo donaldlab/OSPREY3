@@ -15,7 +15,7 @@ fun Molecule.inferBondsAmberBlocking() =
 	runBlocking { inferBondsAmber() }
 
 /**
- * Uses Amber forecfields to infer atom connectivity,
+ * Uses Amber forcefields to infer atom connectivity,
  * but not bond order.
  */
 suspend fun Molecule.inferBondsAmber(): List<AtomPair> {
