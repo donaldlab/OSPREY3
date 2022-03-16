@@ -338,8 +338,7 @@ fun Project.makeDocsTasks() {
 	val buildWebsite by tasks.creating(Tar::class) {
 		group = "documentation"
 		description = "Builds the Osprey documentation and download website"
-		// TEMP
-		//dependsOn(generateCodeDocs, downloadDocReleases)
+		dependsOn(generateCodeDocs, downloadDocReleases)
 
 		val webDir = buildPath / "website-release"
 		val srcDir = webDir / "src"
@@ -406,7 +405,7 @@ fun Project.makeDocsTasks() {
 			updateTags(srcDir / "content/documentation/_index.md",
 				"doc/versions" to docReleases
 					.map { release ->
-						" * [v${release.version}](documentation/${release.version})"
+						" * [v${release.version}](v${release.version})"
 					}
 					.joinToString("\n")
 					.let { "\n\n$it\n" }
