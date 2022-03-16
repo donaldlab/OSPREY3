@@ -31,7 +31,7 @@ on the [OSPREY website][osprey].
 All documentation for OSPREY can be found in the
 [Documentation section of the OSPREY website][osprey-docs].
 
-[osprey-docs]: https://www2.cs.duke.edu/donaldlab/software/osprey/docs/documentation/
+[osprey-docs]: https://www.cs.duke.edu/donaldlab/software/osprey/docs/documentation/
 
 
 ## Contributing
@@ -40,4 +40,4 @@ OSPREY is open-source software and contributions are welcome.
 
 Visit the [OSPREY website for contributors][osprey-contributing] to learn more.
 
-[osprey-contributing]: https://wwww.cs.duke.edu/donaldlab/software/osprey/docs/contributing/
+[osprey-contributing]: https://www.cs.duke.edu/donaldlab/software/osprey/docs/contributing/
