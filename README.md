@@ -1,21 +1,7 @@
 
 # Osprey
 
-<!--
-use raw HTML here, since apparently markdown doesn't have any markup for underlines
--->
-<style>
-    .u {
-        text-decoration: underline;
-    }
-</style>
-<h4>
-    <span class="u">O</span>pen-<span class="u">S</span>ource
-    <span class="u">P</span>rotein
-    <span class="u">Re</span>design
-    For
-    <span class="u">Y</span>ou
-</h4>
+**O**pen-**S**ource **P**rotein **Re**design for **Y**ou
 
 OSPREY is developed and maintained by the [Donald Lab][dlab] in the
 [Department of Computer Science][dukecs] at [Duke University][duke].
