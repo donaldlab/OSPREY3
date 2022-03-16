@@ -1,6 +1,6 @@
 +++
 title = "All OSPREY Releases"
-weight = 2
+weight = 1
 +++
 
 
