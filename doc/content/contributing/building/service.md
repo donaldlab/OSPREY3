@@ -126,3 +126,36 @@ where `$VERSION` is the value of the `BuildService.version`.
 
 
 ### TODO: publish docker release to dlab archive?
+
+
+## Customizations to AmberTools
+
+To remove some limitations in the [AmberTools][ambertools] used by OSPREY Service,
+and make it more friendly to being called as a library, we have made some minor
+customizations to the source code:
+
+[ambertools]: https://ambermd.org/AmberTools.php
+
+The patched AmberTools binaries are already included in the OSPREY git repository,
+so applying the customizations are not necessary to build OSPREY.
+However, if a developer needed to change the customizations for some reason,
+here are instructions for patching AmberTools:
+
+1. [Download AmberTools 19](https://ambermd.org/GetAmber.php) in source code format.
+   Versions newer than 19 have not been tested.
+2. Upack the AmberTools19.tar.bz2 file
+3. export AMBERHOME=/path/to/unpacked/folder
+4. `./configure --skip-python gnu`
+    yes to all patches
+5. apply patches in `progs/ambertools/patches` folder
+6. `make install` (the build can be slow, e.g., `-j 4` can speed things up a lot)
+7. copyable binaries are at `bin/` and `bin/to_be_dispatched`
+
+More information about the patching process can be found in `progs/ambertools/patches/readme.txt`
+
+To compile debug builds for testing:
+
+1. `make clean`
+2. `make AMBERBUILDFLAGS='-O0 -g' $MAKE_TARGET`
+
+where `$MAKE_TARGET` is the Make target you're trying to build.
