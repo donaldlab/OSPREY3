@@ -72,6 +72,7 @@ jobs:
         inputs:
           gradleWrapperFile: $(gradleWrapper)
           options: '-PAZURE_BUILD_ID=$(Build.BuildId)'
+          gradleOptions: '-Dosprey.buildSrc.skipTests=true'
           tasks: 'desktopRelease serverRelease'
 
       - task: Gradle@3

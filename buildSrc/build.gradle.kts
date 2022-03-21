@@ -48,4 +48,9 @@ dependencies {
 
 tasks.withType<Test>().configureEach {
 	useJUnit()
+
+	// skip buildSrc tests when requested by the command line
+	// useful because the buildSrc tests can fail on Windows for unimportant platform-specific reasons,
+	// but that shouldn't break the entire build
+	enabled = !(System.getProperty("osprey.buildSrc.skipTests").toBoolean())
 }
