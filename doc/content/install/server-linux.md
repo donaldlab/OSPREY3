@@ -24,7 +24,7 @@ sudo apt install python3 python3-pip
 
 If you haven't already, download the OSPREY Server release.
 
-[OSPREY downloads](/install/versions)
+[OSPREY downloads]({{< ref "/install/versions" >}})
 
 Extract the release `.tar.bz2` file you downloaded into your favorite folder.
 From that folder, run the installation script to install OSPREY:

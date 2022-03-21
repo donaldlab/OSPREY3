@@ -22,7 +22,7 @@ During Python installation, enable the option to
 
 If you haven't already, download the OSPREY Server release.
 
-[OSPREY downloads](/install/versions)
+[OSPREY downloads]({{< ref "/install/versions" >}})
 
 Extract the release `.zip` file you downloaded into your favorite folder.
 From that folder, run the installation script from a command prompt to

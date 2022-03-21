@@ -32,7 +32,7 @@ First, [install Docker for Ubuntu Linux][docker-ubuntu].
 
 If you haven't already, download the OSPREY Service release.
 
-[OSPREY downloads](/install/versions)
+[OSPREY downloads]({{< ref "/install/versions" >}})
 
 Extract the release `.tar` file you downloaded into your favorite folder.
 Let's call that folder `$DIR`.
