@@ -44,6 +44,12 @@ Point your browser to https://grisman-36.cs.duke.edu:44342/about
 
 Just use the features of OSPSREY Desktop and look for any errors.
 
+You can also use the test tool in the Service Manager.
+In the `Settings` toolbar menu, select the `Service Providers`.
+Then click the `Test` button to test the service.
+If the service is running correctly, you should see a message
+like `Success: Osprey Service 1.0` in the GUI.
+
 
 ## Check service status in systemd
 
