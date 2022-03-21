@@ -269,7 +269,8 @@ Just copy that into your shell or analysis tools.
 Fair warning though: The Java class path needed for Osprey is ridiculously long,
 so the command line invocation is also ridiculously long.
 
-For more information about the build system, consult `/contributing.rst`.
+For more information about the build system, consult the OSPREY
+[Contributing Guide]({{< ref "/contributing" >}}).
 
 
 ## Part 4. Getting more info

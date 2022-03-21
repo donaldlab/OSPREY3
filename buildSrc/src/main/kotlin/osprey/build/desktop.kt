@@ -154,7 +154,7 @@ fun Project.makeBuildDesktopTasks() {
 			}
 			copy {
 				from(
-					projectDir / "readme.md",
+					projectDir / "README.md",
 					projectDir / "LICENSE.txt"
 				)
 				into(imageDir)

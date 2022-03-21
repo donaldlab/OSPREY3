@@ -86,7 +86,7 @@ fun Project.makeBuildServerTasks() {
 			// copy the documentation
 			copy {
 				from(".") {
-					include("*.rst")
+					include("README.md")
 					include("CITING_OSPREY.txt")
 					include("LICENSE.txt")
 				}
@@ -165,9 +165,8 @@ fun Project.makeBuildServerTasks() {
 		destinationDirectory.set(releasesDir.toFile())
 
 		into("") { // project root
-			from("README.rst")
+			from("README.md")
 			from("LICENSE.txt")
-			from("CONTRIBUTING.rst")
 
 			// install scripts, but with wildcards to accomodate
 			// that they might end in .bat on Windows

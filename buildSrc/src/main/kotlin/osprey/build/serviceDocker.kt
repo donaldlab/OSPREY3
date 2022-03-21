@@ -131,9 +131,8 @@ fun Project.makeBuildServiceDockerTasks() {
 		}
 
 		into("") { // root folder
-			from("README.rst")
+			from("README.md")
 			from("LICENSE.txt")
-			from("CONTRIBUTING.rst")
 			from(serviceDir / "osprey-service")
 			from(serviceDir / "install.sh")
 			from(serviceDir / "uninstall.sh")

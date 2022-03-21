@@ -99,9 +99,8 @@ fun Project.makeBuildServiceTasks() {
 		}
 
 		into("") { // root folder
-			from("README.rst")
+			from("README.md")
 			from("LICENSE.txt")
-			from("CONTRIBUTING.rst")
 		}
 		into("bin") {
 			from(dir)

@@ -78,7 +78,7 @@ setuptools.setup(
 	package_data={
 		'osprey': [
 			'lib/*.jar',
-			'*.rst',
+			'*.md',
 			'*.txt',
 			# the runtime's support for globs leaves much to be desired...
 			#'jre/**/*'
