@@ -98,7 +98,7 @@ that use the code from the local git clone of OSPREY, we'll need to install OSPR
 environment. To do that, run the Gradle task `pythonDevelop` (in the `develop` group).
 
 {{% notice tip %}}
-To see how to run tasks in Gradle, go to [Gradle Tasks]({{< ref "gradle-tasks" >}})
+To see how to run tasks in Gradle, go to [Running Gradle Tasks]({{< ref "gradle#running-gradle-tasks" >}})
 {{% /notice %}}
 
 Once installed into the Python environment, calls to e.g., `import osprey` in Python scripts will run
