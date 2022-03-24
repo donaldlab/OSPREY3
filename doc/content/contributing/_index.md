@@ -1,9 +1,8 @@
 +++
-title = "Contributing"
+menuTitle = "Contributing"
+title = "Contributing to OSPREY"
 weight = 4
 +++
-
-# Contributing to Osprey
 
 Welcome to OSPREY development! OSPREY is open-source software and contributions are welcome.
 See the instructions below to get started with the code and compiling it.
