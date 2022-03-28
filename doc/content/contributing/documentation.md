@@ -34,7 +34,7 @@ HTML/CSS/Javascript in subsequent processing steps.
 
 ### Java comments
 
-Java comments are processed with the standard [JavaCoc][javadoc] tool directly into HTML/CSS/Javascript.
+Java comments are processed with the standard [JavaDoc][javadoc] tool directly into HTML/CSS/Javascript.
 
 [javadoc]: https://docs.oracle.com/en/java/javase/17/javadoc/javadoc.html
 
@@ -104,6 +104,19 @@ to the language. We've confiured Goldmark to also allow raw HTML to be rendered 
 
 For more information about Hugo/Learn features useful for writing Markdown documents, see
 [Hugo Learn Theme Documentation, Content Chapter](https://learn.netlify.app/en/cont/).
+
+
+#### Hugo server mode
+
+To help shorten the write-read-revise loop, Huge offers a server mode that watches for changes in the `doc` folder,
+re-renders documents, and refreshes the browser page as needed. You can turn on server mode with the Gradle task
+`hugoServer`. After starting, Hugo will print the URL of your temporary website. It might be something like
+[http://localhost:1313/donaldlab/software/osprey/docs/](http://localhost:1313/donaldlab/software/osprey/docs/).
+Point your browser to that URL to see quick feedback on your changes to Markdown files while you're editing them.
+The Hugo server will keep running until you tell it to stop. You can stop the Hugo server by [stopping the running
+Gradle task][gradle-stop-task].
+
+[gradle-stop-task]: {{< ref "/contributing/gradle#stop-task" >}}
 
 
 #### Some useful Markdown extensions available in OSPREY
@@ -361,45 +374,169 @@ ${returns_func_kotlin(.gui.forcefield.amber//findTypes)}
 ${returns_func_kotlin(.gui.motions/DihedralAngle.ConfDescription.Companion/makeFromLibrary)}
 ```
 
-#### `method_javadoc()`
-TODO
+#### `method_javadoc(path)`
+Renders the JavaDoc of the [Java method identified by `path`](#methods-java).
+
+**Examples:**
+```
+${method_javadoc(.astar.conf.ConfAStarTree$Builder#setTraditional)}
+```
 
 #### `func_kdoc()`
-TODO
+Renders the KDoc of the [Kotlin function identified by `id`](#functions-kotlin).
 
-#### `arg_java()`
-TODO
+**Examples:**
+```
+${func_kdoc(.gui.forcefield.amber//inferProtonation)}
+${func_kdoc(.gui.prep/Proteins/makeDesignPosition)}
+```
 
-#### `args_java()`
-TOOD
+#### `arg_java(python_name, method_path, java_name, type=type)`
+Renders an argument entry for a Python function that draws information from a Java method argument.
+`python_name` refers to the name of the argument in the Python function.
+`method_path` is the [Java method](#methods-java).
+`java_name` is an optional positional argument to give the name of the argument in the Java method,
+if it differs from the name of the Python argument.
+`type` is an optional named argument to override the Java type with something more Pythonic, if needed.
 
-#### `arg_kotlin()`
-TODO
 
-#### `args_kotlin()`
-TODO
+**Examples:**
+```
+# Arguments
+${arg_java(kstar, .kstar.SequenceAnalyzer#<init>(KStar))} a configured instance of KStar
+${arg_java(rcs, .astar.conf.RCs#<init>(RCs,PruningMatrix), other)}
+```
 
-#### `receiver_kotlin()`
-TODO
+#### `args_java(path, [python_name, java_name, type=type])`
+Renders multiple arguments entries for a Python function where the information comes from a list of Java method arguments.
+`path` is the [Java method](#methods-java).
+The second argument is an array of function/method argument values:
+`python_name` names the argument in the Python function.
+`java_name` names the argument in the Java method identified by `path`.
+`type` is an optional named argument to override the Java type with something more Pythonic, if needed.
 
-#### `arg_javadoc()`
-TODO
+**Examples:**
+```
+# Arguments
+${args_java(.lute.LUTEPfunc#<init>,
+    [luteEcalc, ecalc],
+    [astar]
+)}
+${args_java(.sofea.Sofea$StateConfig#<init>,
+    [emat],
+    [confEcalc],
+    [confdbPath, confDBFile, type=str]
+)}
+```
 
-#### `enum_java()`
-TODO
+#### `arg_kotlin(python_name, function_id, kotlin_name, type=type)`
+Renders an argument entry for a Python function that draws information from a Java method argument.
+`python_name` refers to the name of the argument in the Python function.
+`function_id` is the [Kotlin function](#functions-java).
+`kotlin_name` is an optional positional argument to give the name of the argument in the Kotlin function,
+if it differs from the name of the Python argument.
+`type` is an optional named argument to override the Kotlin type with something more Pythonic, if needed.
 
-#### `enum_kotlin()`
-TODO
+**Examples:**
+```
+# Arguments
+${arg_kotlin(mol, .gui.prep/DuplicateAtoms/DuplicateAtoms)}:
+The molecule for which to search for duplicate atoms
+${arg_kotlin(confSpace, .gui.compiler/ConfSpaceCompiler/ConfSpaceCompiler)}: the conformation space to compile
+```
 
-#### `default()`
-TODO
+#### `args_kotlin(id, [python_name, kotlin_name, type=type])`
+Renders multiple arguments entries for a Python function where the information comes from a list of Kotlin function arguments.
+`id` is the [Kotlin function](#functions-kotlin).
+The second argument is an array of function/method argument values:
+`python_name` names the argument in the Python function.
+`kotlin_name` names the argument in the Kotlin function identified by `id`.
+`type` is an optional named argument to override the Java type with something more Pythonic, if needed.
 
-#### `prop_kotlin()`
-TODO
 
-#### `link_func_kotlin()`
-TODO
+**Examples:**
+```
+${args_kotlin(.molscope.molecule/Polymer/findResidueOrThrow/#kotlin.String#kotlin.String,
+    [chainId],
+    [resId]
+)}
+```
 
+#### `receiver_kotlin(python_name, id)`
+Renders the receiver of a [Kotlin function idenfitied by `id`](#functions-kotlin) as an argument to the Python function.
+`python_name` names the argument in the Python function.
+
+**Examples:**
+```
+# Arguments
+${receiver_kotlin(mol, .gui.forcefield.amber//findTypes)}:
+The molecule (or multiple molecules in a single Molecule instance) for which to determine molecule types
+
+# Arguments
+${receiver_kotlin(mol, .gui.forcefield.amber//deprotonate/.molscope.molecule.Molecule#)}:
+The molecule from which to remove atoms
+```
+
+#### `arg_javadoc(path, arg_name)`
+Renders the JavaDoc of the argument named `arg_name` in a [Java method identified by `path`](#methods-java).
+
+**Examples:**
+```
+# Arguments
+tempDir `str`: ${arg_javadoc(.externalMemory.ExternalMemory#setTempDir(String)void, dir)}
+```
+
+#### `enum_java(path)`
+Renders the JavaDoc and all of the enum values for the [Java enum class identified by `path`](#classes-java).
+
+**Examples:**
+```
+Precision = osprey.c.gpu.Structs.Precision
+'''
+${enum_java(.gpu.Structs$Precision)}
+'''
+```
+
+#### `enum_kotlin(id)`
+Renders the KDoc and all of the enum values for the [Kotlin enum class identified by `id`](#classes-kotlin).
+
+**Examples:**
+```
+Hybridization = osprey.c.gui.forcefield.amber.Hybridization
+'''
+${enum_kotlin(.gui.forcefield.amber/Hybridization)}
+'''
+```
+
+#### `default(arg_nane, value)`
+Shows the default value of a Python function argument `arg_name` as the literal `value`.
+
+**Examples:**
+```
+# Arguments
+tempDir `str`: The temporary directory
+${default(tempSubdir, <automatically generated>)}
+```
+
+#### `prop_kotlin(id)`
+Renders the name, type, and KDoc of the [Kotlin property identified by `id`](#properties-kotlin).
+
+**Examples:**
+```
+confLibs = osprey.c.gui.features.components.ConfLibs.INSTANCE.getInfos()
+'''
+${prop_kotlin(.gui.features.components/ConfLibs/infos)}
+'''
+```
+
+#### `link_func_kotlin(id)`
+Renders a link to the KDoc page for the` [Kotlin function identified by `id`](#functions-kotlin).
+
+**Examples:**
+```
+${link_func_kotlin(.gui.prep/ConfSpace/getConformations/#edu.duke.cs.osprey.gui.prep.DesignPosition#kotlin.String)}
+```
+ 
 
 ### Referring to Java entities with paths
 
@@ -470,7 +607,7 @@ For Java class constructors, the name `<init>` should be used.
 When a Kotlin class is identified by `id`, the `id` is the unique identifier used by Dokka for the class.
 For Kotlin classes, `id` takes the form `$package/$classname` where:
 
- * `$package` is the package of the class
+ * `$package` is the package of the class.
  * `$classname` is the name of the class within the package.
 
 As a shortcut, OSPREY classes can be referenced with a relatively-qualified package where the common
@@ -486,7 +623,20 @@ edu.duke.cs.osprey.gui.motions/DihedralAngle
 
 #### Properties {#properties-kotlin}
 
-TODO
+When a Kotlin property is identified by `id`, the `id` is the unique identifier used by Dokka for the property.
+For Kotlin properties, `id` takes the form `$package/$classname/$propertyName` where:
+
+ * `$package` is the package of the class.
+ * `$classname` is the name of the class within the package.
+ * `$propertyName` is the name of the property within the class. 
+
+As a shortcut, OSPREY classes can be referenced with a relatively-qualified package where the common
+prefix `edu.duke.cs.osprey` has been omitted, and the rest of the package name begins with `.`.
+
+**Examples:**
+```
+.gui.features.components/ConfLibs/infos
+```
 
 
 #### Functions {#functions-kotlin}
@@ -512,14 +662,74 @@ For Kotlin functions, `id` takes the form `$package/$className/$functionName/$si
 
 ### Prerequisite tools
 
-[hugo](https://gohugo.io)
-* [install release](https://github.com/gohugoio/hugo/releases)
-  (get the "extended" version, needed by pydoc-markdown)
+Before you can build the documentation, you'll need to install some tools:
 
-[pydoc-markdown](https://github.com/NiklasRosenstein/pydoc-markdown):
-* [installation](https://pydoc-markdown.readthedocs.io/en/latest/docs/getting-started/)
+[Hugo](https://gohugo.io):
+ * [Download releases](https://github.com/gohugoio/hugo/releases)\
+   Choose the "extended" version for your operating system. The extended features are needed by PyDoc Markdown.
+
+[PyDoc Markdown](https://github.com/NiklasRosenstein/pydoc-markdown):
+ * [Installation Instructions](https://niklasrosenstein.github.io/pydoc-markdown/#installation)\
+   Make sure to install the "old-style" version with the YAML configuration file (before v4.6).
+   Apparently PyDoc Markdown has been completely rewritten recently to use a new backend called Novella,
+   but OSPREY hasn't yet been updated to use it. And why huge updates like this only seem to merit a minor
+   version bump is beyond me... Open Source is fun like that I guess.
 
 
 ### Gradle tasks
 
-TODO
+To build the documentation, there are a few different tasks you'll use:
+
+ * **`buildDocsRelease`**:\
+   This task generates all the documentation that's specific to the current version of OSPREY,
+   so it can be archived and shown on the website next to all the other versions of OSPREY.
+   The task generates the documentation from the code comments, runs Hugo on all the Markdown documents
+   in `/doc/content/documentation/main`, and packages the results into a release archive at
+   `/build/releases/osprey-docs-$VERSION.tbz2` where `$VERSION` is the current version of OSPREY.
+   This task is useful when building release versions of OSPREY.
+
+ * **`archiveReleases`**:\
+   This task uploads all the releases you currently have in `/build/releases`, including documentation releases,
+   to the [DLab release archive][dlab-release-archive], if they're not there already.
+
+ * **`downloadDocReleases`**:\
+   This task downloads all the documentation releases from the [DLab release archive][dlab-release-archive].
+   This task is useful for building the documentation website, which requires all the documentation releases.
+
+ * **`buildWebsite`**:\
+   This task builds the entire documentation website from the current contents of `/doc` and the
+   documentation releases in `/build/releases`. This task will also generate the dynamic parts of the website, like
+    * Download links to release files
+    * Code documentation from the source file comments
+   
+   After building, the finished website files will appear in `/build/website-release`.
+
+ * **`deployWebsite`**:\
+   This task copies the documentation website in `/build/website-release` to the [DLab filesystem][dlab-docsite].
+
+ * **`hugoServer`**:\
+   This task starts a local Hugo development server, for quick feedback when editing Markdown documents for the
+   website. Once started, the server stays running until you [tell it to stop][gradle-stop-task].
+
+   {{% notice note %}}
+   Dynamically generated content like the code documentation or download links will not be available
+   on the Hugo server. Only static content from the `/doc` folder will be available.
+   {{% /notice %}}
+
+[dlab-release-archive]: {{< ref "/contributing/dlab-filesystem#release-archive" >}}
+[dlab-docsite]: {{< ref "/contributing/dlab-filesystem#docsite" >}}
+
+
+## Updating the live documentation website
+
+To update the live documentation website, follow these steps:
+
+ * Make your changes to the Markdown documents in `/doc/content`.
+ * Review your changes locally by running the Hugo server with the `hugoServer` Gradle task.
+ * Dowload any previous documentation releases with the `downloadDocReleases` Gradle task.
+ * Build the documentation website with the `buildWebsite` Gradle task.
+ * Upload the documentation website with the `deployWebsite` Gradle task.
+
+Note that these tasks will reqiure access to the [DLab filesystem][dlab-filesystem].
+
+[dlab-filesystem]: {{< ref "/contributing/dlab-filesystem" >}}

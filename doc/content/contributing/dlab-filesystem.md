@@ -1,10 +1,9 @@
 +++
 menuTitle = "Dlab Filesystem"
+title = "Accessing the Dlab filesystem"
 weight = 4
 +++
 
-
-# Accessing the Dlab filesystem
 
 Some Gradle tasks make use of the Dlab filesystem
 to store files, like build artifacts.
@@ -62,3 +61,28 @@ SSH environment is configured in the usual way.
 But if the build script can't establish the SSH connection, the
 console output should hopefully give you clues where the errors
 might be, and suggestions for how to fix them.
+
+
+## OSPREY locations in the DLab filesystem
+
+### The Release Archive {#release-archive}
+
+**Location:** `/www/donaldlab/software/osprey/releases`
+
+This folder houses all of the OSPREY release files. It is used by OSPREY build tools to store build artifacts.
+It is also publicly available over HTTP(s) and is used to serve downloads for OSPREY releases to users.
+
+**URL:**: https://www.cs.duke.edu/donaldlab/software/osprey/releases/
+
+Take care when placing files here, since they will be visible to everyone on the internet.
+
+
+### The documentatinon website {#docsite}
+
+**Location:** `/www/donaldlab/software/osprey/docs`
+
+This folder houses the live version of the documentation website and is publicly available over HTTP(s).
+
+**URL:**: https://www.cs.duke.edu/donaldlab/software/osprey/docs/
+
+Take care when placing files here, since they will be visible to everyone on the internet.

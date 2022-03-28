@@ -51,6 +51,7 @@ class OspreyProcessor:
 	_tag = re.compile(r'\$\{([^\}]*)\}')
 
 	def __init__(self):
+		# NOTE: all of these options are documented at /doc/content/contributing/documentation.md
 		self._vtable = {
 			'class_javadoc': self._class_javadoc,
 			'class_kdoc': self._class_kdoc,

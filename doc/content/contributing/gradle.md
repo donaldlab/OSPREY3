@@ -59,3 +59,13 @@ In windows, the command looks slightly different:
 ```shell
 gradlew.bat $TASK
 ```
+
+
+## Stopping long-running Gradle tasks {#stop-task}
+
+For Gradle tasks that keep running until explicitly stopped (like servers), how you stop the task depends on how
+you started it.
+
+For Gradle tasks started in IntelliJ IDEA, look for the square red Stop button in the Run window.
+
+For Gradle tasks started in a console, simply press Ctrl-C to ask the process to exit.
