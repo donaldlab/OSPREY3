@@ -1,10 +1,9 @@
 +++
-menuTitle = "Building OSPREY Desktop"
+menuTitle = "Desktop"
+title = "Building OSPREY Desktop"
 weight = 2
 +++
 
-
-# Building OSPREY Desktop
 
 Run gradle task `desktopRelease`:
 ```shell

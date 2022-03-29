@@ -1,7 +1,7 @@
 +++
 menuTitle = "Documentation"
 title = "OSPREY's Documentation System"
-weight = 2
+weight = 4
 +++
 
 ## Overview

@@ -1,10 +1,9 @@
 +++
-menuTitle = "Building Osprey Server"
+menuTitle = "Server"
+title = "Building OSPREY Server"
 weight = 1
 +++
 
-
-# Building the Osprey Server
 
 Run gradle task `serverRelease`:
 ```shell

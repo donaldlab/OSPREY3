@@ -1,7 +1,7 @@
 +++
 menuTitle = "Dlab Filesystem"
 title = "Accessing the Dlab filesystem"
-weight = 4
+weight = 6
 +++
 
 

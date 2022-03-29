@@ -1,10 +1,9 @@
 +++
-menuTitle = "Building Osprey Service"
+menuTitle = "Service"
+title = "Building OSPREY Service"
 weight = 3
 +++
 
-
-# Building the Osprey Service
 
 A fully-deployed instance of the Osprey Service has two different layers.
 

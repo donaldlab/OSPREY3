@@ -1,6 +1,6 @@
 +++
 menuTitle = "Dlab Osprey Service Deployment"
-weight = 4
+weight = 6
 +++
 
 
