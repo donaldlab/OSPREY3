@@ -26,7 +26,7 @@ distributions, including Debian, Ubuntu, Mint, and others.
 
 ## for OSX:
 
-TODO: what does jpackage do on OSX?
+OSPREY Desktop builds as a `.dmg` application installer in OSX.
 
 
 ## for Windows:
