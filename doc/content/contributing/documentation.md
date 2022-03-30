@@ -720,7 +720,7 @@ To build the documentation, there are a few different tasks you'll use:
 [dlab-docsite]: {{< ref "/contributing/dlab-filesystem#docsite" >}}
 
 
-## Updating the live documentation website
+## Updating the live documentation website {#updating}
 
 To update the live documentation website, follow these steps:
 
