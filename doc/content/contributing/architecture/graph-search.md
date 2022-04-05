@@ -1,15 +1,10 @@
 +++
-title = "Graphs"
-weight = 1
+title = "Graph Search"
+weight = 2
 +++
 
-# Task 1: Find a conformation using graph theory
 
-*This document focuses on just the graph algorithms in Osprey.
-You'll want to read [the general overview](optimizing.md) first.*
-
-
-## Part 1. Theory
+## Task 1: Find a conformation using graph theory
 
 Osprey uses several graph algorithms to find conformations to evaluate in the conformation
 space, including primarily [A* search](https://en.wikipedia.org/wiki/A*_search_algorithm).
@@ -222,37 +217,3 @@ but the pairwise energies rely on different rotamers, and the energy of all poss
 combinations of rotamers at the three residues is much higher. Finding a way to
 efficiently determine if a design could be divided into smaller designs and 
 reassembled would be very valuable graph theoretical insight!
-
-
-## Part 2. Code
-
-The class names will be given by Java's verbose Fully-Qualified
-class name, but the common package `edu.duke.cs.osprey` has been omitted.
-
- * **Energy Matrix** `ematrix.EnergyMatrix`
-   * Implementation of the lookup table for the A* scoring function
- 
- * **Energy matrix calculator** `ematrix.compiled.EmatCalculator`
-   * Functions to compute the energy matrix from a conformation space
-     and a conformation energy calculator instance.
-   * Energy matrix calculation can take a long time to finish,
-     so some work has been done to parallelize and optimize this,
-     but it's typically not the overall bottleneck of a design.
-   * I actually haven't finished the parallelization of the newest
-     energy matrix calculator yet. That's still on the TODO list.
-     
- * **A\* search** `astar.conf.ConfAStarTree`
-   * Osprey's implemenation of A* search
-   * There's also an implementation of a memory-bounded version of A*
-     in there too, that trades time for space.
-   * There are options to choose different heuristics for A* too.
-
-
-### Testing
-
-All of these classes are in the `/test` folder.
- 
- * **A\* Correctness/regression tests** `TestAStar` (in `/test` not `/src`)
-   * This code is quite old now, so it uses the old system of defining
-     conformation spaces.
-   * But the A* code is old too. We haven't updated it very recently.

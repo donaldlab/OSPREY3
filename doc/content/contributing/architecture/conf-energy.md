@@ -1,15 +1,10 @@
 +++
-title = "Minimizers"
-weight = 1
+title = "Conformation Energy"
+weight = 3
 +++
 
-# Task 2: Evaluate a conformation using physics
 
-*This document focuses on just the minimization bottlenecks in Osprey.
-You'll want to read [the general overview](optimizing.md) first.*
-
-
-## Part 1. Theory
+## Task 2: Evaluate a conformation using physics
 
 ### Forcefields in more detail
 
@@ -129,107 +124,3 @@ subroutine inside CCD can focus only on the atom pairs affected by the degree of
 being searched. This single optimization causes Osprey's CCD implementation to consistently
 out-perform other gradient-based minimization algorithms we've tried in the past, like
 [Newtonian methods](https://en.wikipedia.org/wiki/Newton%27s_method_in_optimization).
-
-
-## Part 2. The code
-
-The class names will be given by Java's verbose Fully-Qualified
-class name, but the common package `edu.duke.cs.osprey` has been omitted.
-All of these classes are in the `/src` folder.
-
- * **Conformation energy calculator** `energy.compiled.CPUConfEnergyCalculator`
-   * This is the Java implementation of the newest energy calculator and minimizer.
-     It's the slowest option available, but it's accessible to students,
-     and makes a good baseline for benchmarks.
-     
- * **"native" energy calculator** `energy.compiled.NativeConfEnergyCalculator`
-   * This is the reference implementation of the C++ version of the energy calculator
-     and minimizer. It's basically a straight port of the Java code into C++ and it's
-     totally unoptimized. It also makes a good baseline for benchmarking.
-   * It was created originally as a stepping stone for the CUDA implementation,
-     so it's written in a very C-style subset of C++, and uses exactly zero libraries.
-   * Also, C++ isn't my main language these days, so I'm a little rusty.
-     If you have feedback on how to write better C++ code, please share.
-     I'd love to learn more!
-     
- * **CUDA energy calculator** `energy.compiled.CudaConfEnergyCalculator`
-   * This is the CUDA version of the energy calculator. It's been optimized quite a bit
-     and is currently the fastest option available by far.
-   * The approach to parallelism here is to run one minimization per SM (symmetric
-     multiprocessor) on the GPU and rely heavily on the `syncthreads()` mechanism to
-     allow us to mix parallel and serial code and handle temporal dependencies.
-   * Newer CUDA versions have introduced cooperative kernels that might give us
-     better options for parallelism, but I haven't had time to look into that yet.
-     It's not clear yet if the multi-block synchronization mechanisms are fast enough
-     for our purposes. We're never huring for more conformations to minimize concurrently,
-     so one SM per minimization has worked really well so far.
-   * We saturate the compute capability of the GPUs by submitting many conformation
-     minimizations in parallel, so all the SMs are kept busy.
-   * NVidia's SIMT approach works well on the energy function, since computing atom pair
-     energies is a bunch of sequential reads and math. But SIMT doesn't work well on the
-     CCD part, since CCD is essentially a serial algorithm.
-     
- * **Intel energy calculator** `energy.compiled.IntelConfEnergyCalculator`
-   * For now, this is nearly a verbatim copy of the "native" conf energy calculator code,
-     but I've updated cmake to use `icc` instead of the default `gcc`.
-   * I've just started learning how to use `icc`, so I haven't made much progress
-     vectorizing the code yet.
-   * **If you're looking for a good place to start optimizing, this is it!**
-
-
-### Testing and Benchmarking
-
-All of these classes are in the `/test` folder.
-
- * **Correctness/Regession tests** `energy.compiled.TestNativeConfEnergyCalculator`
-   * Run these tests to make sure the computed energies are correct.
-   * Your IDE should give you convenient options to run the tests
-     (I recommend [IntelliJ IDEA](https://www.jetbrains.com/idea/)).
-     
- * **Benchmarks** `BenchmarkEnergies`
-   * Run the `main()` method
-   * You'll want to comment/uncomment various sections to disable/enable certain code paths.
-   * Use the `benchmarkMinimize()` code path to run the benchmarks for the minimizer.
-   * If you want, use the `nativeLab()` code path to isolate certain functions for testing.
-   * The benchmarks refer to a `classic` implemenation of Osprey's basic features.
-     This is an older way of perparing conformation spaces that we're going to start
-     (hopefully) phasing out when the new conformation space tools are more
-     production-ready.
-
-
-### Interaction between Java code and C++ code
-
-Tragically, the object-oriented programming paradigm fails miserably when you really want
-your code to go fast. So some of Osprey's performance-critical functions are implemented
-in C++ in more of a data-oriented programming style.
-
-Osprey has a few Java classes that translate the data needed for the C++ implementations
-into contiguous blocks of memory suitable for C++ code to consume. Once the data buffers
-are ready, the Java code sends the pointers to the C++ functions (defined via `extern "C"`)
-over one of Java's FFI (foreign function interface) mechanisms called
-[JNA (Java native access)](https://github.com/java-native-access/jna).
-JNA loads the `.so` libraries at runtime into the JVM (Java virutal machine) process and
-binds the native functions to Java function stubs. It also handles type marshalling
-for primitive types and pointers across the Java/C++ boundary.
-
-The `NativeConfEnergyCalculator`, `CUDAConfEnergyCalculator`, and `IntelConfEnergyCalculator`
-classes are all the newest versions of the Java/C++ bridge class idea.
-They're based on a [Foreign Memory Access API](https://openjdk.java.net/jeps/370)
-that's a new feature of JDK14 (Java development kit, ie the compiler and runtime for Java).
-These classes handle all the memory layouts and alignments
-for the constant data that's needed by the C++ code. They use a crude struct definition
-API I wrote on the Java side to help read/write the data from/into the raw memory buffers.
-
-
-### Compiling the C++ code
-
-The C++ side is much easier to compile than the Java side (so far).
-Each `ConfEnergyCalculator` implementation
-is a separate subfolder inside the `/native` folder. Just open the project folder
-with your favorite C++ development environment and run `cmake`.
-
-The main `cmake` task (named something like `XXXConfEcalc`) will build the shared
-library for the project. There's a second task (named something like
-`XXXConfEcalc_CopyLibs`) that will build the shared library and also copy it to
-the place where the Java side expects to find it. Use that task if you want to
-run the Java code using your newly-built library.

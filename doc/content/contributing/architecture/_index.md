@@ -16,9 +16,9 @@ OSPREY's purpose in life is to find protein sequences that have properties we're
 interested in, like stability or affinity with other molecules. OSPREY does this
 by doing two basic tasks over and over:
 
-**Task 1:** Find a conformation using graph theory
+**Task 1:** [Find a conformation using graph theory](graph-search)
 
-**Task 2:** Evaluate a conformation using physics
+**Task 2:** [Evaluate a conformation using physics](conf-energy)
 
 In this case, a [*conformation*](conformation-spaces) is a molecule, but we've replaced some of the atoms
 in it with a different set of atoms. This allows us to describe mutations to a
@@ -90,7 +90,45 @@ verbose Fully-Qualified name of the relevant class, but the common package `edu.
     * The atom coordinates and degrees of freedom that embody a conformation.
 
 
-#### TODO: other categories? energy? design prep?
+#### Conformation Search
+
+* **Energy Matrix:** `/src/main/java` / `ematrix.EnergyMatrix`
+    * Implementation of the lookup table for the A* scoring function
+
+* **Energy matrix calculator:** `/src/main/java` / `ematrix.compiled.EmatCalculator`
+    * Functions to compute the energy matrix from a conformation space
+      and a conformation energy calculator instance.
+
+* **A\* search:** `/src/main/java` / `astar.conf.ConfAStarTree`
+    * Osprey's implemenation of A* search
+    * There's also an implementation of a memory-bounded version of A*
+      in there too, that trades time for space.
+    * There are options to choose different heuristics for A* too.
+
+
+#### Energy Calculation and Minimization
+
+* **Conformation energy calculator:** `/src/main/java` / `energy.compiled.CPUConfEnergyCalculator`
+    * This is the Java implementation of the newest energy calculator and minimizer.
+      It's the slowest option available, but the design is simple, it's pure Java,
+      and it makes a good baseline for benchmarks.
+
+* **"native" energy calculator:** `/src/main/java` / `energy.compiled.NativeConfEnergyCalculator`
+    * This is the reference implementation of the C++ version of the energy calculator
+      and minimizer. It's basically a straight port of the Java code into C++ and it's
+      totally unoptimized. It also makes a good baseline for benchmarking.
+    * It was created originally as a stepping stone for the CUDA implementation,
+      so it's written in a very C-style subset of C++, and uses exactly zero libraries.
+    * The native side of the code is at `/src/main/cc/ConfEcalc`.
+
+* **CUDA energy calculator:** `/src/main/java` / `energy.compiled.CudaConfEnergyCalculator`
+    * This is the CUDA version of the energy calculator. It's been optimized quite a bit
+      and is currently the fastest option available by far.
+    * Of course, it requires CUDA-capable GPU hardware to run.
+    * The native side of the code is at `/src/main/cu/CudaConfEcalc`.
+
+
+#### TODO: other categories? design prep? design algorithms?
 
 
 #### Parallelism and high-performance code
@@ -108,3 +146,7 @@ verbose Fully-Qualified name of the relevant class, but the common package `edu.
     * The `streamsPerGpu` option isn't used anymore in the latest CUDA code.
       Stream management is handled internally by the CUDA code now based on
       hardware specs queried at runtime.
+
+* **Cluster Communication:** `/src/main/java` / `.parallelism.Cluster`
+    * OSPREY's main tool for using Hazelcast to coordinate communication between machines
+      in multi-machine jobs. Supports integration with SLURM as well.
