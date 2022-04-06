@@ -28,7 +28,7 @@ fi
 # get the current osprey service version by parsing the versions.txt file written by gradle
 versionsfile="$build/versions.txt"
 if [ ! -f "$versionsfile" ]; then
-  echo "Versions file not found. Try running gradle prep task first."
+  echo "Versions file not found. Try running gradle task 'serviceDockerPrep' first."
   exit 1
 fi
 version=`sed -n '1p' < "$versionsfile"`

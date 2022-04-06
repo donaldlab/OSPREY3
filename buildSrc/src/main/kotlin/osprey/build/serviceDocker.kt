@@ -166,41 +166,4 @@ fun Project.makeBuildServiceDockerTasks() {
 	 * Don't subject your development machine to huge security risks for a tiny bit of convenience.
 	 * Just run your docker build steps directly in a short shell script under sudo.
 	 */
-
-	@Suppress("UNUSED_VARIABLE")
-	val downloadServiceReleases by tasks.creating {
-		group = "release"
-		description = "Download all versions of the service releases, for the docker build script"
-		doLast {
-			ssh {
-				sftp {
-
-					// what releases do we have already?
-					val localReleases = releasesDir.listFiles()
-						.mapNotNull { Builds.getRelease(it.fileName.toString()) }
-						.filter { it.build === Builds.service }
-						.toSet()
-
-					// what releases do we need?
-					val missingReleases = ls(releaseArchiveDir.toString())
-						.filter { !it.attrs.isDir }
-						.mapNotNull { Builds.getRelease(it.filename) }
-						.filter { it.build === Builds.service && it !in localReleases }
-
-					// download the missing releases
-					if (missingReleases.isNotEmpty()) {
-						for (release in missingReleases) {
-							get(
-								(releaseArchiveDir / release.filename).toString(),
-								(releasesDir / release.filename).toString(),
-								SftpProgressLogger()
-							)
-						}
-					} else {
-						println("No extra service releases to download")
-					}
-				}
-			}
-		}
-	}
 }

@@ -40,7 +40,7 @@ OSPREY uses [Gradle][gradle] to manage builds and automate other development tas
 [build-src]: https://docs.gradle.org/current/userguide/organizing_gradle_projects.html#sec:build_sources
 
 
-## Running Gradle Tasks
+## Running Gradle Tasks {#running-tasks}
 
 Your IDE should give you tools to run Gradle Tasks easily.
 

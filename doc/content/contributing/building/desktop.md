@@ -21,7 +21,13 @@ and `$VERSION` is the current version of Osprey.
 OSPREY Desktop builds as a `.deb` package for Debian-based Linux
 distributions, including Debian, Ubuntu, Mint, and others.
 
+{{% notice note %}}
+The `.deb` packaging tools will only work in a Debian-based linux,
+and not other distributions like Fedora/RHEL/CentOS/Rocky/Alma or Arch/Manjaro.
+{{% /notice %}}
+
 <!-- TODO: build RPMs for Fedora/RHEL/CentOS/Rocky/Alma/etc ? -->
+<!-- TODO: find a way to build for Arch/Manjaro? ? -->
 
 
 ## for OSX:

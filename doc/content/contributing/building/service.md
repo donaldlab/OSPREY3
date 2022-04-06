@@ -22,6 +22,11 @@ This two-layer approach has a few benefits:
    will still expect to work with older versions of the service.
  * All of these features are bundled into a single Docker container,
    which can be easily deployed on any Docker-compatible host.
+ 
+{{% notice note %}}
+Due to the way Docker works, building OSPREY Service is only supported in Linux.
+Additionally, you will need `sudo` access on the machine where you will be building the Docker container.
+{{% /notice %}}
 
 Therefore, the build process for the service has different steps
 for each layer of the service.
@@ -29,33 +34,29 @@ for each layer of the service.
 
 ## Layer 1: Building the Java server
 
-Run the `serviceRelease` task in Gradle:
-```shell
-./gradlew serviceRelease
-```
+Run the `serviceRelease` task in Gradle.
 This will build the service and place the distribution archive at
 ```
 build/releases/osprey-service-$VERSON.tbz2
 ```
 where `$VERSION` is the value of the `BuildService.version` constant
-in `buildSrc/src/main/kotlin/osprey/build/service`.
+in `buildSrc/src/main/kotlin/osprey/build/service.kt`.
+
+{{% notice tip %}}
+To see how to run tasks in Gradle, go to [Running Gradle Tasks]({{< ref "gradle#running-tasks" >}})
+{{% /notice %}}
 
 
 ## Layer 2: Building the Docker multiplexer
 
-### Download releases
+### Preparation
 
-First, gather all the versions of the service you want to bundle
-into the Docker container by running the `downloadServiceReleases` Gradle task:
-```shell
-./gradlew downloadServiceReleases
-```
-
-This will download all built releases of the service into your
+First prepare the Docker build process by running the Gradle task `serviceDockerPrep`.
+This will download all previously-built releases of the service into your
 `build/releases` folder.
 
 {{% notice note %}}
-If `BuildService.version` matches any of the previously-built
+If the current `BuildService.version` matches any of the previously-built
 releases, that previously-built release will overwrite the releases of that
 version you have built locally. If this is not the desired outcome,
 bump your `BuildService.version` to a new version number, or rebuild your
@@ -65,35 +66,7 @@ service after downloading relases.
 
 ### Build the Docker container
 
-To configure which versions of the service are built into the Docker
-container, edit `buildSrc/src/main/docker/service/Dockerfile`. Add a build
-command for each version to include like this:
-```docker
-ADD build/releases/osprey-service-$VERSION.tbz2 versions/v$VERSION
-```
-replacing `$VERSION` with the version you wish to include.
-Then update the Docker container label to list all the included versions
-by appending to the list of comma-delimited versions:
-```docker
-LABEL "osprey.service.versions"="[$OLD_VERSION[0],$OLD_VERSION[1],$NEW_VERSION]"
-```
-Here, `$OLD_VERSION[*]` are the old versions already in the file,
-and `$NEW_VERSION` is the new version you wish to add.
-
-For example, to include version `17.4` in the next build, when version
-`16.2` is already present, find these lines:
-```docker
-ADD build/releases/osprey-service-16.2.tbz2 versions/v16.2
-LABEL "osprey.service.versions"="[16.2]"
-```
-and change them to:
-```docker
-ADD build/releases/osprey-service-16.2.tbz2 versions/v16.2
-ADD build/releases/osprey-service-17.4.tbz2 versions/v17.4
-LABEL "osprey.service.versions"="[16.2,17.4]"
-```
-
-Then run the Docker container build script in Linux with `sudo`.
+Then run the Docker container build script in Linux. You'll need to run the command with `sudo`.
 That's just how Docker works.
 ```shell
 sudo buildSrc/src/main/docker/service/build.sh
@@ -103,28 +76,20 @@ When the script completes, the Docker container should appear at
 where `$VERSION` is the value of the `BuildService.version`.
 
 {{% notice note %}}
-If the docker daemon is not started yet, start it with:
-```shell
-sudo systemctl start docker
-```
+If the docker daemon is not started yet, start it with the command:\
+`sudo systemctl start docker`
 {{% /notice %}}
 
 
 ### Build the Docker release archive
 
 Once the Docker container itself is ready, build the release archive
-using the `serviceDockerRelease` task in Gradle:
-```shell
-./gradlew serviceDockerRelease
-```
+using the `serviceDockerRelease` task in Gradle.
 This will build the docker container and place the distribution archive at
 ```
 build/releases/osprey-service-docker-$VERSION.tar
 ```
 where `$VERSION` is the value of the `BuildService.version`.
-
-
-### TODO: publish docker release to dlab archive?
 
 
 ## Customizations to AmberTools
