@@ -144,8 +144,15 @@ edge weights:
    * indexed in four dimensions: `posi1,confi1,posi2,confi2`
    
 Osprey also has settings to use different distributions of edges onto the energy
-matrix that can result in much tighter lower bounds for the A* search, but those
-distribution schemes are much more complicated to explain, so they're omitted here.
+matrix that can result in much tighter lower bounds for the A* search. Older parts of the code
+call this process "energy partitioning" (embodied in the `EnergyPartition` class), and
+the newest parts of the code calls this process the "position interation distribution"
+(embodied in the `PosInterDist` class). The idea there is that when the energy function is
+described at a high level using the interations between design positions in the conformation
+space, those interations can be mapped to different "distributions" of low-level interations
+between individual atom pairs. In the newest energy calculation code, these distribution
+settings can be configured by any class that accepts a position interaction generator
+(embodied in the `PosInterGen` class).
 
 Once the energy matrix is computed, Osprey has enough information to run the A* algorithm
 and sort the conformations by their A* scores. All the edge weights are readily available
@@ -188,32 +195,11 @@ language for memory efficiency).
 We've integrated an I/O-efficient implementation
 of a priority queue into Osprey to spill A* memory to local storage (eg SSD, NVME).
 
-The newest design algorithms we're working on in Osprey do away with A* completely.
-We're trying to relax the requirements of "best-first" search when sometimes
-all we really need is "good enough-soon". This makes it much easier to store
-A* memory in local storage and recall it when needed, since strict sorting is no
-longer required.
+Newer attempts at conformation search in OSPREY deviate slightly from the traditional A*-based approaches.
+One experimental approach, codenamed "COFFEE" for now, tries to relax the requirements
+of "best-first" search in the hopes that all we really need is "good enough-soon" search.
+Once strict sorting of possible conformations in the search is no longer required,
+that gives us more options to store the possible conformatations efficiently,
+and distribute the computation across parallel hardware -- even across an entire compute cluster.
 
-
-### Not all pairwise energies are equal
-
-As the size of the design grows, the effect of mutations at one residue on other residues
-can become negligible due to the presence of solvent, the quadratic reduction (1/r^2) of
-electrostatic effects, and the presence of other residues between a particular residue
-pair. When this reduction of effect can be captured, pairwise energy terms can be
-omitted from the energy function, and the resulting sparse energy function induces
-optimal substructure. This means that two conformations with different rotamers
-may have the same energy, because the differing rotamers do not interact, and thus
-dynamic programming strategies are possible. In fact, the lowest-energy conformation
-can be found in time exponential only in the hardest subproblem, and conformations
-can be enumerated in logn time!
-
-When moving from computing conformations to computing Boltzmann-weighted partition 
-functions, however, the optimal substructure may be less common. Namely, although
-conformational energies are additive, partition functions become multiplicative
-due to the boltzmann weighting of each conformation's energy. As an example, residues
-r1, r2, and r3 may have rotamers such that the energy of any pair can be very low,
-but the pairwise energies rely on different rotamers, and the energy of all possible 
-combinations of rotamers at the three residues is much higher. Finding a way to
-efficiently determine if a design could be divided into smaller designs and 
-reassembled would be very valuable graph theoretical insight!
+TODO: add a link here to the upcoming COFFEE section.

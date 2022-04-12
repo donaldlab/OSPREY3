@@ -66,6 +66,8 @@ service after downloading relases.
 
 ### Build the Docker container
 
+If you haven't already, [install Docker Server](https://docs.docker.com/engine/install/#server).
+
 Then run the Docker container build script in Linux. You'll need to run the command with `sudo`.
 That's just how Docker works.
 ```shell

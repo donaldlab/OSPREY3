@@ -670,7 +670,10 @@ Before you can build the documentation, you'll need to install some tools:
 
 [PyDoc Markdown](https://github.com/NiklasRosenstein/pydoc-markdown):
  * [Installation Instructions](https://pypi.org/project/pydoc-markdown/3.13.0/)\
-   Install version 3.13.0 of pydoc-markdown, newer versions are incompatible.
+   Install version 3.13.0 of pydoc-markdown, newer versions are incompatible. This command seems to work:
+   ```shell
+   pipx install 'pydoc-markdown>=3.0.0,<4.0.0'
+   ```
    Apparently PyDoc Markdown has been completely rewritten recently to use a new backend called Novella,
    but OSPREY hasn't yet been updated to use it. And why huge updates like this only seem to merit a minor
    version bump is beyond me... Open Source is fun like that I guess.

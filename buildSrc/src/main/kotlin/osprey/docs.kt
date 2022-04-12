@@ -250,7 +250,12 @@ fun Project.makeDocsTasks() {
 	val buildDocsRelease by tasks.creating(Tar::class) {
 		group = "documentation"
 		description = "Builds the code documention archive for the current version of Osprey"
-		dependsOn(generateCodeDocs)
+		dependsOn(generateCodeDocs, "classes")
+
+		doFirst {
+			// make the releases folder if it's not already there
+			releasesDir.createFolderIfNeeded()
+		}
 
 		val versionStr = project.version.toString()
 
@@ -299,6 +304,10 @@ fun Project.makeDocsTasks() {
 		group = "documentation"
 		description = "Download all versions of the doc releases, for the website generator"
 		doLast {
+
+			// make the releases folder if it's not already there
+			releasesDir.createFolderIfNeeded()
+
 			ssh {
 				sftp {
 

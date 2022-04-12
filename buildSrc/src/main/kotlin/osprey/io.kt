@@ -24,7 +24,9 @@ fun Path.createFolderIfNeeded(): Path {
 }
 
 fun Path.recreateFolder() {
-	deleteFolder()
+	if (exists()) {
+		deleteFolder()
+	}
 	createFolderIfNeeded()
 }
 
