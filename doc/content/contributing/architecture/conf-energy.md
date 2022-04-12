@@ -15,7 +15,7 @@ Osprey uses two different forcefields to do this:
  * [AMBER](https://en.wikipedia.org/wiki/AMBER)
  * [EEF1 or Effective Energy Function 1](http://charmm.sunhwanj.com/html/eef1.html)
  
-For the AMBER forecfield, we only use the non-bonded terms modeling van der Waals
+For the AMBER forcefield, we only use the non-bonded terms modeling van der Waals
 and electrostatic interactions. EEF1 models the interactions between the molecule
 and an implicit bulk solvent (eg water).
 
@@ -84,7 +84,7 @@ Osprey's design algorithm that try to find conformations to evaluate sometimes o
 care about interactions between some of the positions. For example, a design algorithm
 in Osprey may want to compute the pairwise energy between positions `0` and `1`
 independently of the other interactions. So our energy calculators need to support
-compute energies on aritrary subsets of the position interactions.
+compute energies on arbitrary subsets of the position interactions.
 
 
 ### Computing minimized energies for conformations 
@@ -96,11 +96,11 @@ these atoms (recall the `r^12` terms in the van der Waals equations!) and hence 
 poor energies. Osprey improves its biophysical modeling by allowing the atom coordinates
 to "relax" before recording the conformation energy. That is, the atoms are allowed to
 move a little closer to an equilibrium state where the atomic forces are more in balance.
-As long as the atoms don't move too far away from their original positions, it's sound
-to say the "relaxed" conformation is a better physical model of the origial conformation
+As long as the atoms don't move too far away from their original positions, it's reasonable
+to say the "relaxed" conformation is a better physical model of the original conformation
 before relaxation.
 
-Osprey performs this relaxtion by minimizing the energy function over continuous motions
+Osprey performs this relaxation by minimizing the energy function over continuous motions
 of the atoms, like dihedral rotations around rotatable bonds. The parameters for these
 dihedral rotations are also defined in the conformation space. In general, there are
 many different kinds of continuous motions we need to model for molecular flexiblity,
