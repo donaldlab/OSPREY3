@@ -106,7 +106,13 @@ However, if a developer needed to change the customizations for some reason,
 here are instructions for patching AmberTools:
 
 1. [Download AmberTools 19](https://ambermd.org/GetAmber.php) in source code format.
-   Versions newer than 19 have not been tested.
+   Versions newer than 19 have not been tested.\
+   {{% notice note %}}
+   Tragically, the Amber group doesn't make it easy to download AmberTools19 anymore.
+   A copy of the install files for AmberTools19 has been backed up on the
+   [DLab filesystem]({{< ref "/contributing/dlab-filesystem" >}}) at `/Code/AmberTools19.tar.bz2`,
+   in case we need it.
+   {{% /notice %}}
 2. Upack the AmberTools19.tar.bz2 file
 3. export AMBERHOME=/path/to/unpacked/folder
 4. `./configure --skip-python gnu`
