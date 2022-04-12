@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Parameters(commandDescription = CommandPartitionFunction.CommandDescription)
-public class CommandPartitionFunction extends RunnableCommand {
+public class CommandPartitionFunction extends RunDesignCommand {
 
     public static final String CommandName = "stability";
     static final String CommandDescription = "Estimate the partition function value(s) of different conformations";

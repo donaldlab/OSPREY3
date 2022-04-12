@@ -16,7 +16,7 @@ import edu.duke.cs.osprey.structure.PDBIO;
 import java.nio.file.Paths;
 
 @Parameters(commandDescription = CommandGMEC.CommandDescription)
-public class CommandGMEC extends RunnableCommand {
+public class CommandGMEC extends RunDesignCommand {
 
     public static final String CommandName = "gmec";
     static final String CommandDescription = "Find the GMEC of the conformation space";

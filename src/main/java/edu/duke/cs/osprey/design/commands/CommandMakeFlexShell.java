@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Parameters(commandDescription = CommandMakeFlexShell.CommandDescription)
-public class CommandMakeFlexShell extends RunnableCommand {
+public class CommandMakeFlexShell extends RunDesignCommand {
     public static final String CommandName = "add-flexible-shell";
     public static final String CommandDescription = "Adds a flexible shell around mutable residues";
 

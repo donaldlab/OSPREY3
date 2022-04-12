@@ -38,7 +38,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Parameters(commandDescription = CommandBindingAffinity.CommandDescription)
-public class CommandBindingAffinity extends RunnableCommand {
+public class CommandBindingAffinity extends RunDesignCommand {
 
     public static final String CommandName = "affinity";
     public static final String CommandDescription = "Compute an epsilon approximation to binding affinity (K*).";

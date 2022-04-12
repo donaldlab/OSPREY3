@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Parameters(commandDescription = CommandTopNConfs.CommandDescription)
-public class CommandTopNConfs extends RunnableCommand {
+public class CommandTopNConfs extends RunDesignCommand {
 
     public static final String CommandName = "topn";
     static final String CommandDescription = "Calculate the energies of the top (n) confs";

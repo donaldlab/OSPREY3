@@ -33,7 +33,8 @@ public class Main {
                 CommandBindingAffinity.CommandName, new CommandBindingAffinity(),
                 CommandTopNConfs.CommandName, new CommandTopNConfs(),
                 CommandGMEC.CommandName, new CommandGMEC(),
-                CommandMakeFlexShell.CommandName, new CommandMakeFlexShell()
+                CommandMakeFlexShell.CommandName, new CommandMakeFlexShell(),
+                CommandFlipChirality.CommandName, new CommandFlipChirality()
         );
 
         var builder = JCommander.newBuilder()
