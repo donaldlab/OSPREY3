@@ -669,8 +669,8 @@ Before you can build the documentation, you'll need to install some tools:
    Choose the "extended" version for your operating system. The extended features are needed by PyDoc Markdown.
 
 [PyDoc Markdown](https://github.com/NiklasRosenstein/pydoc-markdown):
- * [Installation Instructions](https://niklasrosenstein.github.io/pydoc-markdown/#installation)\
-   Make sure to install the "old-style" version with the YAML configuration file (before v4.6).
+ * [Installation Instructions](https://pypi.org/project/pydoc-markdown/3.13.0/)\
+   Install version 3.13.0 of pydoc-markdown, newer versions are incompatible.
    Apparently PyDoc Markdown has been completely rewritten recently to use a new backend called Novella,
    but OSPREY hasn't yet been updated to use it. And why huge updates like this only seem to merit a minor
    version bump is beyond me... Open Source is fun like that I guess.
@@ -730,6 +730,6 @@ To update the live documentation website, follow these steps:
  * Build the documentation website with the `buildWebsite` Gradle task.
  * Upload the documentation website with the `deployWebsite` Gradle task.
 
-Note that these tasks will reqiure access to the [DLab filesystem][dlab-filesystem].
+Note that these tasks will require access to the [DLab filesystem][dlab-filesystem].
 
 [dlab-filesystem]: {{< ref "/contributing/dlab-filesystem" >}}
