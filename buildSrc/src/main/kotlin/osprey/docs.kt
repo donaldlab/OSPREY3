@@ -353,7 +353,7 @@ fun Project.makeDocsTasks() {
 		val srcDir = webDir / "src"
 		val dstDir = webDir / "dst"
 
-		doFirst {
+		doLast {
 
 			checkHugoPrereqs()
 
