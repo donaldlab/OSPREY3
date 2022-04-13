@@ -344,31 +344,33 @@ fun Project.makeDocsTasks() {
 		val path: Path
 	)
 
-	val buildWebsite by tasks.creating(Tar::class) {
+	val webDir = buildPath / "website-release"
+	val webSrcDir = webDir / "src"
+	val webDstDir = webDir / "dst"
+
+	val prebuildWebsite by tasks.creating {
 		group = "documentation"
-		description = "Builds the Osprey documentation and download website"
+		description = "prep steps to build the Osprey documentation and download website"
 		dependsOn(generateCodeDocs, downloadDocReleases)
 
-		val webDir = buildPath / "website-release"
-		val srcDir = webDir / "src"
-		val dstDir = webDir / "dst"
+		outputs.dir(webDstDir)
 
 		doLast {
 
 			checkHugoPrereqs()
 
 			webDir.recreateFolder()
-			srcDir.createFolderIfNeeded()
-			dstDir.createFolderIfNeeded()
+			webSrcDir.createFolderIfNeeded()
+			webDstDir.createFolderIfNeeded()
 
 			// copy over the docs from the source tree
 			copy {
 				from(docDir)
-				into(srcDir)
+				into(webSrcDir)
 			}
 
 			// copy over the generated code docs
-			val mainCodeDir = srcDir / "content" / "documentation" / "main" / "code"
+			val mainCodeDir = webSrcDir / "content" / "documentation" / "main" / "code"
 			copy {
 				from((buildDocDir / "code-java").toFile())
 				into((mainCodeDir / "java").toFile())
@@ -406,12 +408,12 @@ fun Project.makeDocsTasks() {
 			for (release in docReleases) {
 				copy {
 					from(tarTree(release.path.toFile()))
-					into(srcDir.toFile())
+					into(webSrcDir.toFile())
 				}
 			}
 
 			// add version links to the versioned docs main page
-			updateTags(srcDir / "content/documentation/_index.md",
+			updateTags(webSrcDir / "content/documentation/_index.md",
 				"doc/versions" to docReleases
 					.map { release ->
 						" * [v${release.version}](v${release.version})"
@@ -434,7 +436,7 @@ fun Project.makeDocsTasks() {
 				return "[${release.filename}]($url)"
 			}
 
-			updateTags(srcDir / "content" / "_index.md",
+			updateTags(webSrcDir / "content" / "_index.md",
 				"download/desktop/linux/latest" to latestLink(Builds.desktop, OS.LINUX),
 				"download/desktop/osx/latest" to latestLink(Builds.desktop, OS.OSX),
 				"download/desktop/windows/latest" to latestLink(Builds.desktop, OS.WINDOWS),
@@ -455,7 +457,7 @@ fun Project.makeDocsTasks() {
 					.joinToString("\n")
 					.let { "\n\n$it\n" }
 
-			updateTags(srcDir / "content" / "install" / "versions.md",
+			updateTags(webSrcDir / "content" / "install" / "versions.md",
 				"download/desktop/linux/all" to allLinks(Builds.desktop, OS.LINUX),
 				"download/desktop/osx/all" to allLinks(Builds.desktop, OS.OSX),
 				"download/desktop/windows/all" to allLinks(Builds.desktop, OS.WINDOWS),
@@ -469,17 +471,23 @@ fun Project.makeDocsTasks() {
 			exec {
 				commandLine(
 					"hugo",
-					"--destination", dstDir.toString()
+					"--destination", webDstDir.toString()
 				)
-				workingDir = srcDir.toFile()
+				workingDir = webSrcDir.toFile()
 			}
 		}
+	}
+
+	val buildWebsite by tasks.creating(Tar::class) {
+		group = "documentation"
+		description = "Builds the Osprey documentation and download website"
+		dependsOn(prebuildWebsite)
 
 		destinationDirectory.set(buildDocDir.toFile())
 		archiveBaseName.set("osprey-website")
 		compression = Compression.GZIP
 
-		from(dstDir)
+		from(webDstDir)
 	}
 
 	@Suppress("UNUSED_VARIABLE")
