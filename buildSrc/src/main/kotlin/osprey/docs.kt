@@ -515,9 +515,14 @@ fun Project.makeDocsTasks() {
 					)
 				}
 
-				// extract the tar file
+				println("Setting group permission to match user permission for archive ...")
+				exec("chmod g=u \"$tarPathRemote\"")
+
 				println("Extracting website ...")
 				exec("tar --extract -f \"$tarPathRemote\" --directory \"$websiteDeployDir\"")
+
+				println("Setting the group to match user permissions for extracted website ...")
+				exec("chmod -R g=u \"$websiteDeployDir\"")
 
 				// all done!
 				println("""
