@@ -6,6 +6,7 @@ import org.gradle.kotlin.dsl.getValue
 
 import osprey.*
 import java.net.URL
+import java.nio.file.Path
 import java.nio.file.Paths
 
 
@@ -94,6 +95,9 @@ fun Project.makeBuildTasks() {
 		description = "Upload release builds to the dlab archive, where they are downloadable by the public"
 		doLast {
 			ssh {
+
+				val uploadedPaths = ArrayList<Path>()
+
 				sftp {
 
 					// get the current releases
@@ -108,15 +112,22 @@ fun Project.makeBuildTasks() {
 
 					if (missingReleases.isNotEmpty()) {
 						for (release in missingReleases) {
+							val path = releaseArchiveDir / release.fileName
 							put(
 								release.toString(),
-								(releaseArchiveDir / release.fileName).toString(),
+								path.toString(),
 								SftpProgressLogger()
 							)
+							uploadedPaths.add(path)
 						}
 					} else {
 						println("No new releases to upload")
 					}
+				}
+
+				// set group write perms explicitly, since users have umask 0022 by default
+				for (path in uploadedPaths) {
+					exec("chmod --quiet g+w \"$path\"", throwErrors=false)
 				}
 			}
 		}

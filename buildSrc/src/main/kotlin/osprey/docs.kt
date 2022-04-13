@@ -515,14 +515,12 @@ fun Project.makeDocsTasks() {
 					)
 				}
 
-				println("Setting group permission to match user permission for archive ...")
-				exec("chmod g=u \"$tarPathRemote\"")
-
+				// extract the tar file
 				println("Extracting website ...")
 				exec("tar --extract -f \"$tarPathRemote\" --directory \"$websiteDeployDir\"")
 
-				println("Setting the group to match user permissions for extracted website ...")
-				exec("chmod -R g=u \"$websiteDeployDir\"")
+				// set group write perms explicitly, since users have umask 0022 by default
+				exec("chmod -R --quiet g+w \"$websiteDeployDir\"", throwErrors=false)
 
 				// all done!
 				println("""

@@ -170,7 +170,7 @@ class SftpProgressLogger : SftpProgressMonitor {
 
 
 /** execute a command in an SSH session */
-fun Session.exec(command: String) {
+fun Session.exec(command: String, throwErrors: Boolean = true) {
 
 	val channel = openChannel("exec") as ChannelExec
 	channel.setCommand(command)
@@ -203,11 +203,13 @@ fun Session.exec(command: String) {
 
 	// process the result
 	if (channel.exitStatus != 0) {
-		throw Exception("""
-			|SSH command failed with exit code ${channel.exitStatus}:
-			|command: $command
-			|console: ${console.joinToString("\n         ")}
-		""".trimMargin())
+		if (throwErrors) {
+			throw Exception("""
+				|SSH command failed with exit code ${channel.exitStatus}:
+				|command: $command
+				|console: ${console.joinToString("\n         ")}
+			""".trimMargin())
+		}
 	} else {
 		println(console.joinToString("\n") { line ->
 			"SSH: $line"
