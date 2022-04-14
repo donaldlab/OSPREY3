@@ -164,6 +164,8 @@ It's magic. Who really knows how it works.
 
 Once the Azure CLI is installed and working, actually start the OSPREY builds with the `azureBuild` task.
 This task uses the Azure CLI to start the build using your logged-in user.
+Or, you could login to the Azure Devops website, click on OSPREY project, and manually run the [donaldlab.OSPREY4.release][azure-release-pipeline] pipeline.
+These two options do the same thing.
 
 After starting, you can watch the progress of the builds on the [donaldlab.OSPREY4.release][azure-release-pipeline] website.
 The logs there are particularly helpful when troubleshooting problems.
@@ -204,7 +206,7 @@ Run the `buildDocsRelease` Gradle task to build the documentation that goes with
 
 Run the `archiveReleases` task to upload all the shiny new releases to the [DLab release archive][dlab-release-archive].
 This will archive all the releases built by Azure, as well as the new documentation you just built.
-This step will make all the new release files available for dowload by the public too, but they won't have links on
+This step will make all the new release files available for download by the public too, but they won't have links on
 the website yet.
 
 [dlab-release-archive]: {{< ref "/contributing/dlab-filesystem#release-archive" >}}

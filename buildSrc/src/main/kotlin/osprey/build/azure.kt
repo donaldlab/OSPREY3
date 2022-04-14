@@ -79,9 +79,9 @@ fun Project.makeAzureTasks() {
 	val azureOrganization = "https://dev.azure.com/donaldlab"
 	val azureProject = "osprey"
 	val azurePipeline = "donaldlab.OSPREY4.release"
+	val azureBranch = "main"
 	// TEMP
-	//val azureBranch = "main"
-	val azureBranch = "docsite-azure-pipelines"
+	// val azureBranch = "docsite-azure-pipelines"
 
 
 	fun cliPipelines(cmd: List<String>): String {
