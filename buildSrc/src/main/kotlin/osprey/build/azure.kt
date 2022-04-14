@@ -59,13 +59,15 @@ fun Project.makeAzureTasks() {
 			try {
 				// try to get the logged in user
 				val json = cli("ad", "signed-in-user", "show").toJsonObject()
-				println("Logged into Azure as: ${json.getString("userPrincipalName")}")
+				val user = json.getString("userPrincipalName")
+				println("Logged into Azure as: ${user}")
+				if (!user.endsWith("@duke.edu")) { throw Error("") }
 			} catch (t: Throwable) {
 				throw Error("""
 					|Azure CLi check failed. Make sure that:
-					|	Azure CLI is installed on your machine:
+					|	1. Azure CLI is installed on your machine:
 					|		https://docs.microsoft.com/en-us/cli/azure/install-azure-cli
-					|	You are logged into your account:
+					|	2. You are logged into your Duke account:
 					|		Run `az login --allow-no-subscriptions`
 					|		Login with your Duke NetID, for example: `abc123@duke.edu`
 				""".trimMargin())
