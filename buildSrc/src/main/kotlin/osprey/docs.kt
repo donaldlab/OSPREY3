@@ -517,7 +517,7 @@ fun Project.makeDocsTasks() {
 
 				// extract the tar file
 				println("Extracting website ...")
-				exec("tar --extract -f \"$tarPathRemote\" --directory \"$websiteDeployDir\"")
+				exec("tar --extract --no-overwrite-dir --touch -f \"$tarPathRemote\" --directory \"$websiteDeployDir\"")
 
 				// set group write perms explicitly, since users have umask 0022 by default
 				exec("chmod -R --quiet g+w \"$websiteDeployDir\"", throwErrors=false)
