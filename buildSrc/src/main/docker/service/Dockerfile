@@ -1,9 +1,10 @@
 
 # NOTE: the build context for this Dockerfile is the project root
 
-# use JDK 16 as the base image, since that's probably the heaviest dependency here
+# use JDK 17 as the base image, since that's probably the heaviest dependency here
 # image based on Ubuntu 20.04 LTS (Focal Fossa)
-FROM adoptopenjdk:16-jdk-hotspot-focal
+# https://hub.docker.com/_/eclipse-temurin/
+FROM eclipse-temurin:17.0.2_8-jdk-focal
 
 ARG VERSIONS
 
