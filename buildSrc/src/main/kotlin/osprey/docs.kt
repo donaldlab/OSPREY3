@@ -429,7 +429,8 @@ fun Project.makeDocsTasks() {
 
 				val release = releases
 					.filter { it.build === build && it.os == os }
-					.maxByOrNull { it.version }!!
+					.maxByOrNull { it.version }
+					?: throw Error("no releases for $build, $os, can't pick newest one")
 
 				val url = URL(releaseArchiveUrl, release.filename)
 
@@ -450,6 +451,7 @@ fun Project.makeDocsTasks() {
 				releases
 					.filter { it.build === build && it.os == os }
 					.sortedBy { it.version }
+					.reversed()
 					.map { release ->
 						val url = URL(releaseArchiveUrl, release.filename)
 						" * **v${release.version}**: [${release.filename}]($url)"
