@@ -27,8 +27,7 @@ These particular forcefields work by treating the conformation (which could be a
 molecule by itself, or multiple molecules interacting with each other) as a list of pairs
 of atoms, where each pair of atoms is associated with *forcefield parameters*.
 
-For example, in AMBER, every pair of atoms with at least two bonds between them
-(or no bonds between them at all) is associated with three values:
+For example, in AMBER, every 1-4 bonded or non-bonded pair of atoms is associated with three values:
 `vdwA`, `vdwB`, and `esQ`.
 
 The energy of that atom pair is represented by an equation similar to:
