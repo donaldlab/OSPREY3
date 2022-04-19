@@ -131,6 +131,14 @@ fun Project.makeBuildServerTasks() {
 				from(project.runtime.jreDir)
 				into((wheelOspreyDir / "jre").toFile())
 			}
+
+			// copy the progs folder if building in Linux
+			if (OS.get() == OS.LINUX) {
+				copy {
+					from(project.projectPath.resolve("progs").toFile())
+					into((wheelOspreyDir / "progs").toFile())
+				}
+			}
 		}
 		workingDir = pythonWheelDir.toFile()
 		commandLine(pythonCmd, "setup.py", "bdist_wheel", "--dist-dir", pythonBuildDir.toString())
@@ -197,11 +205,13 @@ fun Project.makeBuildServerTasks() {
 	}
 
 	val serverReleasePosix by tasks.creating(Tar::class) {
+		group = "release"
 		compression = Compression.BZIP2
 		configureServerRelease()
 	}
 
 	val serverReleaseWindows by tasks.creating(Zip::class) {
+		group = "release"
 		configureServerRelease()
 	}
 

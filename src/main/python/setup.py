@@ -82,7 +82,9 @@ setuptools.setup(
 			'*.txt',
 			# the runtime's support for globs leaves much to be desired...
 			#'jre/**/*'
-			'jre/*', 'jre/*/*', 'jre/*/*/*', 'jre/*/*/*/*', 'jre/*/*/*/*/*', 'jre/*/*/*/*/*/*'
+			'jre/*', 'jre/*/*', 'jre/*/*/*', 'jre/*/*/*/*', 'jre/*/*/*/*/*', 'jre/*/*/*/*/*/*',
+			#'progs/**/*'
+			'progs/*', 'progs/*/*', 'progs/*/*/*', 'progs/*/*/*/*', 'progs/*/*/*/*/*', 'progs/*/*/*/*/*/*'
 		]
 	},
 	classifiers=classifiers
