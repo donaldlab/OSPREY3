@@ -160,14 +160,14 @@ partition function value is reduced. When a node is processed, its bounds get su
 sequence assignment in SeqDB. Then, when the new children nodes are created, their bounds are added to their
 corresponding sequence assignment in SeqDB, which will have one more assignment than the parent sequence.
 Typically the sum of the bounds of all the child nodes are smaller than the bound of the parent node, so node
-processing reduces the overall uncertainty of the partition function value.
+processing reduces the overall uncertainty of the partition function value. Finally, as the leaf nodes in the
+conformation tree are searched, energy minimization of the corresponding conformation results in exactly zero
+uncertainty of the partition function contribution of that conformation.
 
-Finally, as the leaf nodes in the conformation tree are searched, energy minimization of the corresponding
-conformation results in exactly zero uncertainty of the partition function contribution of that conformation.
-Therefore, fully-assigned sequences in SeqDB tend to have no uncertainty in their partition function bounds, but
-this is not the true bound on the partition function value for the sequence.
-To get the true bounds on the partition function value for the sequence, including any remaining uncertainty,
-the bounds for all sequence assignments in the chain, from fully-assigned to totally-unassigned, are combined together.
+To get the total bound on the partition function value for a sequence, you need to not only look at the bound
+in SeqDB for the fully-assigned sequence, but also combine it with bounds at all the preceding partially assigned
+sequences (all the way to the totally-unassigned sequence) to account for the uncertainty of the unexplored subtrees
+of the conformation tree for that sequence.
 
 The partition function computation is complete when the bounds on the sequence are sufficiently precise.
 SeqDB itself is saved as an output of the COFFEE computation, so the partition function value bounds persist
