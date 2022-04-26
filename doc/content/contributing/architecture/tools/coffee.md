@@ -16,6 +16,7 @@ COFFEE uses ideas from previous design tools in OPSREY:
  * MARK\*: recursive K*
  * SOFEA: computing in bounded memory, early stopping with partial results
  * COMETS: multi-state conformation spaces
+ * FRIES: discovering sequences by looking at low-energy conformations in a multi-sequence conformation tree
 
 There are also a few key ideas that distinguish COFFEE from previous design tools in OSPREY:
  * COFFEE uses distributed computing to use compute cluster resources efficiently.
