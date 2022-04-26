@@ -26,26 +26,26 @@ The main goal of COFFEE is to be a very practical design tool. Theoretical and m
 guarantees are sacrificed to provide conveniences for the designer. For example, many previous design tools
 in OSPREY attempt to compute rigorous approximations to partition function values. To compute the
 approximations in a reasonable amount of time, the designer has to hope that sufficient computational
-resources are available, and that the design calculation finishes to completion without exausting memory resources.
-The designer usually has no idea how much time or memory is needed to complete design calculations either,
-and stopping the computation early usualy gives no useful results. So running a design becomes a huge gamble of
+resources are available, and that the design calculation completes without exhausting memory resources.
+The designer usually has no a priori knowledge of how much time or memory is needed to complete design calculations,
+and stopping the computation early usually gives no useful results. So running a design becomes a gamble of
 whether or not the design can finish in a reasonable amount of time with the compute resources available,
-but the designer can't know if the computation will finish util after spending the resources, both time and compute.
+but the designer can't know if the computation will finish until after spending the resources, both time and compute.
 The best strategy we can offer to OSPREY designers is to start with the smallest possible version of the design
 and try to get the computation to finish. Then increase the size of the design incrementally until the design no
-longer finishes in a reasonable amount of time, or runs out of memory.
+longer finishes in a reasonable amount of time or runs out of memory.
 
 In practice, regardless of the design problem, a designer generally only has access to a fixed amount of computing
-resources, and is only patient enough to wait a week or two for results. COFFEE attempts to accomodate these
+resources, and is only patient enough to wait a week or two for results. COFFEE attempts to accommodate these
 realities in a couple ways. First, the design of COFFEE handles the most memory-hungry operations (the conformation search)
 with a bounded-memory system called the NodeDB so that the computation can continue even when the memory
-allocated to the NodeDB has been exhausted. The tradeoff to using bounded memory is that after NodeDB runs out
+allocated to the NodeDB has been exhausted. The trade-off to using bounded memory is that after NodeDB runs out
 of memory, the free energy estimation loses precision. So the epsilon approximation is sacrificed for the convenience of
-having a more reliable compuation that can still provide a result even after running out of memory.
+having a computation that provides a result even after running out of memory.
 
 COFFEE also maintains partial results during the computation in a database called SeqDB, so stopping the
 computation early will still provide useful results to the designer. Even with bounded-memory and early-stopping
-properties, COFFEE can't give the designer any useful predictions for now long or how many resources
+properties, COFFEE can't give the designer any useful predictions for how long or how many resources
 a design computation will need to reach a desired precision, but those properties take much of the gambling out
 of designs because the computation will (barring any bugs in the code) end with a concrete result that might be
 still precise enough to be useful too. So designers can start designs using COFFEE knowing the effort won't be
@@ -74,7 +74,7 @@ to efficiently remove the best-scoring nodes first. But in COFFEE, to implement 
 uses a double-ended priority queue that can efficiently remove both the best-scoring and worst-scoring nodes.
 When NodeDB needs to store new nodes but has no more available space, NodeDB will just discard some of the
 worst-scoring nodes to free up extra space. The hope is that the worst-scoring nodes represent negligible
-contributions to the partition function value, so their absense will not be missed. However, by discarding
+contributions to the partition function value, so their absence will not be missed. However, by discarding
 nodes from the conformation search, COFFEE is unable to guarantee any epsilon approximation to the partition
 function value. In the trivial, but extreme, case where epsilon is set to exactly zero, all nodes must be
 considered, and none can be discarded entirely.
@@ -99,9 +99,9 @@ Therefore, an efficient partition function calculator need only to avoid computi
 energies, while still computing all the conformations with low energies, but strict ordering of conformations
 by energy is unnecessary, especially when computing that strict ordering imposes high computational costs.
 If A\* search is a best-first search, then we'll call this more relaxed philosophy a good-enough-soon search.
-Computing the best (ie absolute lowest-energy) conformation first isn't as important for partition function
-calculation as computing the good-enough (ie low-energy) conformations early in the search (ie soon), since
-the summation nature of partition function calculation is insensitve to the order in which the low-energy
+Computing the best (i.e. absolute lowest-energy) conformation first isn't as important for partition function
+calculation as computing the good-enough (i.e. low-energy) conformations early in the search (i.e. soon), since
+the summation nature of partition function calculation is insensitive to the order in which the low-energy
 conformations are computed.
 
 
@@ -115,10 +115,10 @@ any nodes. As the partition function computation proceeds, NodeDB performs two p
  * Store nodes that are created by the search
  * Retreive nodes corresponding to low-energy conformations
 
-When storing new nodes, NodeDB prefers to store the node on the custer member where the node was created, if
+When storing new nodes, NodeDB prefers to store the node on the cluster member where the node was created, if
 space is available. If the local NodeDB member doesn't have enough free space to store the node, then the
 node is sent over the network to another NodeDB member with available free space. The particular choice of NodeDB
-member isn't super important, but hueristically, the NodeDB member with the most available free space is chosen.
+member isn't super important, but heuristically, the NodeDB member with the most available free space is chosen.
 These heuristics require that each NodeDB member keep statistics on the state of all other NodeDB members.
 The statistics tracking is implemented in the Java `.coffee.nodedb.Neighbors` class.
 Finally, if all NodeDB members have exhausted their storage space, the local NodeDB member will remove high-energy
@@ -136,7 +136,7 @@ not actually contain the lowest-energy nodes currently known to the conformation
 nodes will be close to the truly lowest-energy node at any given moment. In this distributed environment where the
 strictly lowest-energy nodes may be difficult to retrieve exactly, the strict node ordering required by a traditional
 best-first A\* approach may have significant performance penalties. But the more relaxed good-enough-soon
-approach is naturally a good fit here, since batches of low-energy nodes can be retrieved efficently from single
+approach is naturally a good fit here, since batches of low-energy nodes can be retrieved efficiently from single
 NodeDB members.
 
 
@@ -157,7 +157,7 @@ and refined for the partially-assigned sequences corresponding to the interior n
 The bounds stored at any partially-assigned sequence represent the bounds of any unexplored conformation subtree
 that matches the partial sequence. As the conformation subtree gets explored, the uncertainty of the
 partition function value is reduced. When a node is processed, its bounds get subtracted from the corresponding
-sequence assigment in SeqDB. Then, when the new children nodes are created, their bounds are added to their
+sequence assignment in SeqDB. Then, when the new children nodes are created, their bounds are added to their
 corresponding sequence assignment in SeqDB, which will have one more assignment than the parent sequence.
 Typically the sum of the bounds of all the child nodes are smaller than the bound of the parent node, so node
 processing reduces the overall uncertainty of the partition function value.
@@ -166,7 +166,7 @@ Finally, as the leaf nodes in the conformation tree are searched, energy minimiz
 conformation results in exactly zero uncertainty of the partition function contribution of that conformation.
 Therefore, fully-assigned sequences in SeqDB tend to have no uncertainty in their partition function bounds, but
 this is not the true bound on the partition function value for the sequence.
-To get the true bounds on the partition function value for the sequence, including any remaining undertainty,
+To get the true bounds on the partition function value for the sequence, including any remaining uncertainty,
 the bounds for all sequence assignments in the chain, from fully-assigned to totally-unassigned, are combined together.
 
 The partition function computation is complete when the bounds on the sequence are sufficiently precise.
@@ -179,7 +179,7 @@ computation was stopped.
 ### Multi-state and multi-sequence
 
 Not only can SeqDB hold the partition function value bounds for one sequence, it can also hold bounds
-for multiple sequences and mutiple design states simultaneously. For example, the typical affinity design
+for multiple sequences and multiple design states simultaneously. For example, the typical affinity design
 has three design states: the designed molecule, the target molecule, and the molecular complex.
 A multi-state design may have even more states for positive and negative design.
 
