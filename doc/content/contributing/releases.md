@@ -80,6 +80,30 @@ When in doubt, the safest way to bump the version number is to just increment th
 And remember that the next number after `9` is `10`.
 
 
+### The version number for the OSPREY Service is a little different than the main version number
+
+The version number for the OSPREY service has a strict semantic meaning, so only change it with care.
+
+We fully expect to have older versions of OSPREY linger in the wild long after their initial release.
+But the OSPREY version number for the Service hosted at the DLab will not always exactly match whatever OSPREY
+version users are using. To handle the version mismatches, the OSPREY Service has a separate version number, and
+the Docker container for the OSPREY Service can host multiple versions of the service at the same time. That way,
+as OSPREY evolves and the Service hosted at the DLab is updated, it can still serve users using older OSPREY
+versions without much hassle.
+
+Therefore, most of the time when you update OSPREY and bump its version number, you should leave the Service
+version number alone. That way, older OSPREY versions will still work if you re-deploy the OSPREY Service hosted at
+the DLab.
+
+However, there's one exception. If you make a change to OSPREY that would affect any results returned by the
+OSPREY Service, you should bump the version number of the Service too.
+
+When you bump the Service version number and re-deploy the OSPREY Service, your new changes will be only accessible
+to OSPREY versions that know about the new Service version. Older OSPREY versions using the older Service version
+number will still see the same old results. The Docker container for the OSPREY Service will host both service
+versions side-by-side and OSPREY versions can pick the Service version they want to use.
+
+
 ### Commit your changes
 
 Once you've found a new version number that brings you joy, commit your change to the git `main` branch,
