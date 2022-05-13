@@ -59,7 +59,7 @@ group = "edu.duke.cs"
  * This version number is largely cosmetic, compared to the versioning scheme for the Osprey Service
  * But it does help users provide some information to developers when reporting issues.
  */
-version = "4.0.1"
+version = "4.0.2"
 
 repositories {
 	mavenCentral()
