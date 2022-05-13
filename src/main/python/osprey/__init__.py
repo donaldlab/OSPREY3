@@ -454,7 +454,7 @@ def TemplateLibrary(
 	for text in [_ensureText(pathOrText) for pathOrText in extraBackboneDependentRotamers]:
 		builder.addBackboneDependentRotamers(text)
 
-	if makeDAminoAcids is not None:
+	if makeDAminoAcids is not useJavaDefault:
 		builder.setMakeDAminoAcidTemplates(makeDAminoAcids)
 
 	for mol in moleculesForWildTypeRotamers:
