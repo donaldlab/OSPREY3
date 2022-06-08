@@ -20,7 +20,7 @@ For an introduction to OSPREY 3.0 and its new features please read this paper:
 
 ## Downloads and Installation
 
-Downloads and installation instructions for all OPSREY releases can be found
+Downloads and installation instructions for all OSPREY releases can be found
 on the [OSPREY website][osprey].
 
 [osprey]: https://www.cs.duke.edu/donaldlab/software/osprey/docs/
