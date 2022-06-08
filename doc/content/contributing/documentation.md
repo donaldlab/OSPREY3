@@ -729,7 +729,7 @@ To update the live documentation website, follow these steps:
 
  * Make your changes to the Markdown documents in `/doc/content`.
  * Review your changes locally by running the Hugo server with the `hugoServer` Gradle task.
- * Dowload any previous documentation releases with the `downloadDocReleases` Gradle task.
+ * Download any previous documentation releases with the `downloadDocReleases` Gradle task.
  * Build the documentation website with the `buildWebsite` Gradle task.
  * Upload the documentation website with the `deployWebsite` Gradle task.
 
