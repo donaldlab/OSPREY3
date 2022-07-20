@@ -2,8 +2,17 @@
 import osprey
 osprey.start()
 
+# setup for custom forcefield parameter parsing
+import jpype.imports
+from java.nio.file import Files, FileSystems
+from edu.duke.cs.osprey.energy.forcefield.amber import ForcefieldFileParser
+
+main_stream = osprey.ForcefieldParams().getClass().getResourceAsStream(osprey.Forcefield.AMBER.paramsPath)
+frcmod_path = FileSystems.getDefault().getPath('/home/nsg/Downloads/FTR.frcmod')
+ff_parser = ForcefieldFileParser(main_stream, frcmod_path)
+
 # choose a forcefield
-ffparams = osprey.ForcefieldParams()
+ffparams = osprey.ForcefieldParams(params=ff_parser)
 
 # read a PDB file for molecular info
 mol = osprey.readPdb('2RL0.min.reduce.pdb')
