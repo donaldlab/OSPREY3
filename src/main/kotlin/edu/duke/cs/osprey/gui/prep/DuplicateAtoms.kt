@@ -5,6 +5,13 @@ import edu.duke.cs.osprey.molscope.molecule.Molecule
 import edu.duke.cs.osprey.molscope.molecule.Polymer
 
 
+/**
+ * Detects atom duplications in a molecule, and provides tools for removing one of the duplicated atoms.
+ *
+ * PDB files from the Protein Data Bank are usually very high quality files,
+ * but rarely a third-party tool will create a malformed PDB file with duplicated atoms.
+ * This tool can help correct those errors.
+ */
 class DuplicateAtoms private constructor(
 	val mol: Molecule,
 	private val groups: MutableList<AtomGroup>

@@ -109,5 +109,5 @@ interface ForcefieldParams {
 fun List<ForcefieldParams>.unconnectedDistance(): Int =
 	this
 		.map { it.unconnectedDistance }
-		.max()
+		.maxOrNull()
 		?: throw NoSuchElementException("no forcefield params to combine")

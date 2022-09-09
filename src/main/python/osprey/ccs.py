@@ -1,4 +1,11 @@
 
+'''
+Osprey for Compiled Conformation Spaces (CCS)
+
+Provides functions to setup designs using the compiled conformation space system, and run them.
+'''
+
+
 import sys
 
 # throw an error for python 2
@@ -14,8 +21,16 @@ _useJavaDefault = osprey.useJavaDefault
 
 
 # export enums
+
 Precision = osprey.c.gpu.Structs.Precision
+'''
+${enum_java(.gpu.Structs$Precision)}
+'''
+
 PosInterDist = osprey.c.confspace.compiled.PosInterDist
+'''
+${enum_java(.confspace.compiled.PosInterDist)}
+'''
 
 
 # fix Hazelcast's completely obnoxious default logging settings
@@ -23,23 +38,95 @@ osprey.c.parallelism.Cluster.fixHazelcastLogging()
 
 
 def loadConfSpace(path):
+    '''
+    ${method_javadoc(.confspace.compiled.ConfSpace#fromBytes)}
+
+    # Arguments
+    path `str`: Path to the compiled conformation space file (usually has a .ccsx or .ccs extension)
+
+    # Returns
+    ${returns_method_java(.confspace.compiled.ConfSpace#fromBytes)}
+    '''
     return osprey.c.confspace.compiled.ConfSpace.fromBytes(osprey.c.tools.FileTools.readFileBytes(path))
 
 
 def cudaEnergyCalculator(confSpace, precision, parallelism):
+    '''
+    ${class_javadoc(.energy.compiled.CudaConfEnergyCalculator)}
+    ${method_javadoc(.energy.compiled.CudaConfEnergyCalculator#<init>(ConfSpace,Precision,Parallelism))}
+
+    # Arguments
+    ${args_java(.energy.compiled.CudaConfEnergyCalculator#<init>(ConfSpace,Precision,Parallelism),
+        [confSpace],
+        [precision],
+        [parallelism]
+    )}
+
+    # Returns
+    ${type_java(.energy.compiled.CudaConfEnergyCalculator)}
+    '''
     return osprey.c.energy.compiled.CudaConfEnergyCalculator(confSpace, precision, parallelism)
 
 def nativeEnergyCalculator(confSpace, precision):
+    '''
+    ${class_javadoc(.energy.compiled.NativeConfEnergyCalculator)}
+
+    # Arguments
+    ${args_java(.energy.compiled.NativeConfEnergyCalculator#<init>(ConfSpace,Precision),
+        [confSpace],
+        [precision]
+    )}
+
+    # Returns
+    ${type_java(.energy.compiled.NativeConfEnergyCalculator)}
+    '''
     return osprey.c.energy.compiled.NativeConfEnergyCalculator(confSpace, precision)
 
-def javaEnergyCalculator(confSpace, precision):
-    return osprey.c.energy.compiled.CPUConfEnergyCalculator(confSpace, precision)
+def javaEnergyCalculator(confSpace):
+    '''
+    ${class_javadoc(.energy.compiled.CPUConfEnergyCalculator)}
+
+    # Arguments
+    ${args_java(.energy.compiled.CPUConfEnergyCalculator#<init>,
+        [confSpace]
+    )}
+
+    # Returns
+    ${type_java(.energy.compiled.CPUConfEnergyCalculator)}
+    '''
+    return osprey.c.energy.compiled.CPUConfEnergyCalculator(confSpace)
 
 def bestEnergyCalculator(confSpace, parallelism):
+    '''
+    ${method_javadoc(.energy.compiled.ConfEnergyCalculator#makeBest(ConfSpace,Parallelism)ConfEnergyCalculator)}
+
+    # Arguments
+    ${args_java(.energy.compiled.ConfEnergyCalculator#makeBest(ConfSpace,Parallelism)ConfEnergyCalculator,
+        [confSpace],
+        [parallelism]
+    )}
+
+    # Returns
+    ${type_java(.energy.compiled.ConfEnergyCalculator)}
+    '''
     return osprey.c.energy.compiled.ConfEnergyCalculator.makeBest(confSpace, parallelism)
 
 
 def calcReferenceEnergies(ecalc, minimize=_useJavaDefault):
+    '''
+    ${class_javadoc(.ematrix.compiled.ErefCalculator)}
+
+    # Arguments
+    ${args_java(.ematrix.compiled.ErefCalculator$Builder#<init>,
+        [ecalc, confEcalc]
+    )}
+    ${args_fields_javadoc(.ematrix.compiled.ErefCalculator$Builder,
+        [minimize]
+    )}
+
+    # Returns
+    ${type_java(.ematrix.SimpleReferenceEnergies)}
+    '''
 
     builder = osprey.c.ematrix.compiled.ErefCalculator.Builder(ecalc)
 
@@ -50,6 +137,24 @@ def calcReferenceEnergies(ecalc, minimize=_useJavaDefault):
 
 
 def calcEnergyMatrix(ecalc, tasks=_useJavaDefault, eref=_useJavaDefault, posInterDist=_useJavaDefault, minimize=_useJavaDefault, includeStaticStatic=_useJavaDefault, cachePath=_useJavaDefault):
+    '''
+    ${class_javadoc(.ematrix.compiled.EmatCalculator)}
+
+    # Arguments
+    ${args_java(.ematrix.compiled.EmatCalculator$Builder#<init>,
+        [ecalc, confEcalc]
+    )}
+    ${args_fields_javadoc(.ematrix.compiled.EmatCalculator$Builder,
+        [eref],
+        [posInterDist],
+        [minimize],
+        [includeStaticStatic],
+        [cachePath, cacheFile, type=str]
+    )}
+
+    # Returns
+    ${type_java(.ematrix.EnergyMatrix)}
+    '''
 
     builder = osprey.c.ematrix.compiled.EmatCalculator.Builder(ecalc)
 
@@ -73,6 +178,24 @@ def calcEnergyMatrix(ecalc, tasks=_useJavaDefault, eref=_useJavaDefault, posInte
 
 
 def ecalcAdapter(ecalc, tasks, eref=_useJavaDefault, posInterDist=_useJavaDefault, minimize=_useJavaDefault, includeStaticStatic=_useJavaDefault):
+    '''
+    ${class_javadoc(.energy.compiled.ConfEnergyCalculatorAdapter)}
+
+    # Arguments
+    ${args_java(.energy.compiled.ConfEnergyCalculatorAdapter$Builder#<init>,
+        [ecalc, confEcalc],
+        [tasks]
+    )}
+    ${args_fields_javadoc(.energy.compiled.ConfEnergyCalculatorAdapter$Builder,
+        [eref],
+        [posInterDist],
+        [minimize],
+        [includeStaticStatic]
+    )}
+
+    # Returns
+    ${returns_method_java(.energy.compiled.ConfEnergyCalculatorAdapter$Builder#build)}
+    '''
 
     builder = osprey.c.energy.compiled.ConfEnergyCalculatorAdapter.Builder(ecalc, tasks)
 
@@ -106,6 +229,36 @@ def freeEnergyCalc(
     nodeStatsReportingSeconds=_useJavaDefault,
     useFactorBounder=_useJavaDefault,
 ):
+    '''
+    A free energy calculator based on a scalable and memory-bounded partition function calculator.
+
+    Used with memory-bounded implementations of K*. See #kstarBoundedMem
+
+    # Arguments
+    ${args_java(.coffee.Coffee$Builder#<init>,
+        [confSpace]
+    )}
+    ${args_fields_javadoc(.coffee.Coffee$Builder,
+        [parallelism],
+        [cluster],
+        [precision],
+        [nodeDBFile, nodedbFile, type=str],
+        [nodeDBMem, nodedbMemBytes],
+        [seqDBFile, seqdbFile, type=str],
+        [seqDBMathContext, seqdbMathContext]
+    )}
+    ${arg_java(posInterDist, .energy.compiled.PosInterGen#<init>, dist)}
+    ${args_fields_javadoc(.coffee.Coffee$Builder,
+        [staticStatic, includeStaticStatic],
+        [tripleCorrectionThreshold],
+        [conditions],
+        [nodeScoringLog],
+        [nodeStatsReportingSeconds, nodeStatsReportingInterval, type=int]
+    )}
+
+    # Returns
+    ${type_java(.coffee.Coffee)}
+    '''
 
     builder = osprey.c.coffee.Coffee.Builder(confSpace)
 
@@ -159,6 +312,30 @@ def kstarBoundedMem(
     ensembleTracking=_useJavaDefault,
     ensembleMinUpdate=_useJavaDefault
 ):
+    '''
+    An implementation of the K* design algorithm that uses the bounded-memory free energy calculator. See #freeEnergyCalc.
+
+    For an example of how to use this function, see `examples/python.ccs/kstar/kstar.boundedMem.py` in your Osprey distribution.
+
+    # Arguments
+    ${args_java(.coffee.directors.KStarDirector$Builder#<init>(ConfSpace,ConfSpace,ConfSpace),
+        [complex],
+        [design],
+        [target]
+    )}
+    ${args_fields_javadoc(.coffee.directors.KStarDirector$Builder,
+        [gWidthMax],
+        [maxSimultaneousMutations],
+        [stabilityThreshold],
+        [timing],
+        [reportStateProgress]
+    )}
+    ensembleTracking `[int,str]`: ${method_javadoc(.coffee.directors.KStarDirector$Builder#setEnsembleTracking)}
+    ensembleMinUpdate `[int,java.util.concurrent.TimeUnit]`: ${method_javadoc(.coffee.directors.KStarDirector$Builder#setEnsembleMinUpdate)}
+
+    # Returns
+    ${returns_method_java(.coffee.directors.KStarDirector$Builder#build)}
+    '''
 
     builder = osprey.c.coffee.directors.KStarDirector.Builder(complex, design, target)
 

@@ -322,7 +322,7 @@ class MutationEditor(val confSpace: ConfSpace) : SlideFeature {
 						?.substring(prefix.length)
 						?.toIntOrNull()
 				}
-				.max()
+				.maxOrNull()
 				?: 0
 			val num = maxNum + 1
 

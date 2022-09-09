@@ -19,8 +19,11 @@ import edu.duke.cs.osprey.gpu.MemoryBuffer;
 
 
 /**
- * A reference implementation of a conformation minimizer and energy calculator in C++.
+ * A reference implementation of a conformation minimizer and energy calculator in C++, rather than Java.
  *
+ * It's not terribly optimized, but it's already faster than the original implementation in Java.
+ */
+/*
  * This is the Java side, which is mostly responsible for converting the Java objects into
  * something C++ can understand (and dealing with memory layouts, etc), calling the C++ library
  * over Java's FFI, and then convertering the C++ results back into something Java can understand.

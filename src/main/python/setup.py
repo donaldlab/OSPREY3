@@ -43,8 +43,8 @@ import sys
 # so we need a configurable root
 rootDir = '../../../'
 
-# when run in the current folder by the gradle task `pythonDevelop`, we keep this rootDir
-# the gradle task `pythonBdist` will re-write rootDir when it copies this script to the build dir
+# when run in the current folder by the gradle task `pythonDevelop`, we keep this rootDir,
+# but the gradle task `pythonWheel` will re-write rootDir when it copies this script to the build dir
 
 
 # read the osprey version
@@ -52,18 +52,11 @@ with open(os.path.join(rootDir, 'build/osprey-version'), 'r') as file:
 	version = file.read()
 
 
-# get python details
-python_version = sys.version_info[0]
-if python_version == 2:
-	python_requires = '>=2.7,<3'
-	install_requires = ['JPype-py2>=0.5.8']
-	classifiers = ['Programming Language :: Python :: 2.7']
-elif python_version == 3:
-	python_requires = '>=3'
-	install_requires = ['JPype1>=0.7.2']
-	classifiers = ['Programming Language :: Python :: 3']
-else:
-	raise Exception('unrecognized Python version: %d' % python_version)
+# collect the python package classifiers
+classifiers = [
+	'Programming Language :: Python :: 3',
+	'License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)'
+]
 
 # get OS details
 if sys.platform in ('win32', 'cygwin'):
@@ -80,17 +73,19 @@ setuptools.setup(
 	description='Open-Source Protein Redesign for You',
 	url='https://github.com/donaldlab/OSPREY_refactor',
 	packages=['osprey'],
-	python_requires=python_requires,
-	install_requires=install_requires,
+	python_requires='>=3',
+	install_requires=['JPype1>=0.7.2'],
 	package_data={
 		'osprey': [
 			'lib/*.jar',
-			'*.rst',
+			'*.md',
 			'*.txt',
 			# the runtime's support for globs leaves much to be desired...
 			#'jre/**/*'
-			'jre/*', 'jre/*/*', 'jre/*/*/*', 'jre/*/*/*/*', 'jre/*/*/*/*/*', 'jre/*/*/*/*/*/*'
+			'jre/*', 'jre/*/*', 'jre/*/*/*', 'jre/*/*/*/*', 'jre/*/*/*/*/*', 'jre/*/*/*/*/*/*',
+			#'progs/**/*'
+			'progs/*', 'progs/*/*', 'progs/*/*/*', 'progs/*/*/*/*', 'progs/*/*/*/*/*', 'progs/*/*/*/*/*/*'
 		]
 	},
-	classifiers=classifiers + ['License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)']
+	classifiers=classifiers
 )

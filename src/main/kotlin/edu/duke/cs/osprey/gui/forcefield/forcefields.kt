@@ -39,6 +39,9 @@ interface Forcefield {
 			Amber14SBParams().apply { block() }
 	}
 
+	/**
+	 * Calculates solvation energies for proteins in water.
+	 */
 	object EEF1 : Forcefield {
 
 		override val ospreyImplementation = "eef1"

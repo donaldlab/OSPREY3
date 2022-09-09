@@ -6,4 +6,5 @@ chapter = true
 
 # Installing Osprey
 
-download it, install it
+See the menu on the left for detailed installation instructions
+for your OSPREY release and operating system.

@@ -141,7 +141,7 @@ fun main() {
 	for (v in SphereGrid(2)) {
 
 		// which cardinal direction is closest?
-		val iDir = dirs.indices.maxBy { dirs[it].dot(v) }!!
+		val iDir = dirs.indices.maxByOrNull { dirs[it].dot(v) }!!
 
 		// filter out the points in "negative" directions
 		if (iDir == 0 || iDir == 2 || iDir == 4) {

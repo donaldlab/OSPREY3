@@ -279,6 +279,9 @@ public class ConfSpace implements ConfSpaceIteration {
 	private final double[][][] ffparams;
 
 
+	/**
+	 * Loads a compiled conformation space.
+	 */
 	public static ConfSpace fromBytes(byte[] bytes) {
 
 		// compute the hash code from the raw bytes

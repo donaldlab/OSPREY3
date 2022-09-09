@@ -211,9 +211,10 @@ def _start_jvm_common(fn_jvm_start):
 def start_with_jvm_args(jvm_args=None):
 	'''
 	Start the jvm with JVM arguments.
-	:param jvm_args: a list of arguments to the JVM. For example, ["-XX:MaxHeapSize=100g", "-XX:MinHeapSize=100g"].
+
+	# Arguments
+	jvm_args `[str]`: a list of arguments to the JVM. For example, `["-XX:MaxHeapSize=100g", "-XX:MinHeapSize=100g"]`.
 	defaults to None, which implies the JVM will run with its default configuration.
-	:return: None
 	'''
 	if jvm_args is None:
 		jvm_args = []
@@ -225,24 +226,25 @@ def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=16, garbageSize
 	'''
 	Starts the Java Virtual Machine (JVM) that runs Osprey's computation libraries.
 
-	Call :meth:`start` before using any of Osprey's other functions.
+	Call #start before using any of Osprey's other functions.
 
-	:param int heapSizeMiB: Size of the JVM heap in megabytes. This is essentially the amount of memory
+	# Arguments
+	heapSizeMiB `int`: Size of the JVM heap in megabytes. This is essentially the amount of memory
 		Osprey will have to do computations. 1024 MiB is 1 GiB, but for larger designs,
 		you may want to use 2048 MiB (2 GiB), 4096 MiB (4 GiB), or even more memory.
 
-	:param bool enableAssertions: pass ``True`` to enable JVM assertions. Only useful for debugging.
+	enableAssertions `bool`: pass `True` to enable JVM assertions. Only useful for debugging.
 
-	:param int stackSizeMiB: Size of the JVM stack portion of the heap in megabytes.
+	stackSizeMiB `int`: Size of the JVM stack portion of the heap in megabytes.
 		Generally leave this at the default value, unless Osprey crashes because it's too small. Then try increasing it.
 
-	:param int garbageSizeMiB: Size of the garbage portion of the JVM heap that is reserved for temporary objects.
+	garbageSizeMiB `int`: Size of the garbage portion of the JVM heap that is reserved for temporary objects.
 		This default value is appropriate for the default heap size, but if using larger heap sizes, then increasing
 		the garbage size to 256, 512, or even 1024 MiB can give a modest improvement in performance.
 
-	:param bool allowRemoteManagement: pass ``True`` to listen on ports 9010 and 9011 for JMX remote management.
+	allowRemoteManagement `bool`: pass `True` to listen on ports 9010 and 9011 for JMX remote management.
 
-	:param bool attachJvmDebugger: pass ``True`` to be able to attach a Java debugger to the JVM.
+	attachJvmDebugger `bool`: pass `True` to be able to attach a Java debugger to the JVM.
 	'''
 	_start_jvm_common(lambda jre_path: jvm.start(jre_path, heapSizeMiB, enableAssertions, stackSizeMiB, garbageSizeMiB, allowRemoteManagement, attachJvmDebugger))
 
@@ -258,8 +260,11 @@ def readTextFile(path):
 	'''
 	Useful for passing file contents to functions that expect strings rather than file paths
 
-	:returns: the text of the file at ``path``
-	:rtype: str
+	# Arguments
+	path `str`: path to the text file
+
+	# Returns
+	`str`: the text of the file at `path`
 	'''
 	return c.tools.FileTools.readFile(path)
 
@@ -277,11 +282,14 @@ def readPdb(path):
 	'''
 	loads a PDB file into a molecule object
 
-	.. note:: Raw molecules cannot be used directly in designs.
-		Create a :py:meth:`Strand` with the molecule to use it in a design.
+	NOTE: Raw molecules cannot be used directly in designs.
+	Create a #Strand with the molecule to use it in a design.
 
-	:param str path: path to PDB file
-	:rtype: :java:ref:`.structure.Molecule`
+	# Arguments
+	path `str`: path to PDB file
+
+	# Returns
+	${returns_method_java(.structure.PDBIO#readFile(String)Molecule)}
 	'''
 	mol = c.structure.PDBIO.readFile(path)
 	print('read PDB file from file: %s' % path)
@@ -292,10 +300,10 @@ def writePdb(mol, path, comment=None):
 	'''
 	save a molecule to a PDB file
 
-	:param mol: the molecule to save
-	:type mol: :java:ref:`.structure.Molecule`
-	:param str path: path of the PDB file
-	:param str comment: Optional comment to add to the PDB file headers
+	# Arguments
+	mol ${type_java(.structure.Molecule)}: the molecule to save
+	path `str`: path of the PDB file
+	comment `str`: optional comment to add to the PDB file headers
 	'''
 
 	# deal with different molecule types
@@ -324,11 +332,13 @@ def initExternalMemory(internalSizeMiB, tempDir=None, tempSubdir=None):
 	'''
 	Initializes external memory for calculations.
 
-	:param int internalSizeMiB: :java:methoddoc:`.externalMemory.ExternalMemory#setInternalLimit`
-	:param str tempDir: Path to temporary directory to host external memory
-	:default tempDir: <system temp dir>
-	:param str tempSubdir: name of subdirectory within tempDir
-	:default tempSubdir: <automatically generated>
+	# Arguments
+	internalSizeMiB `int`: ${method_javadoc(.externalMemory.ExternalMemory#setInternalLimit)}
+	tempDir `str`: ${method_javadoc(.externalMemory.ExternalMemory#setTempDir(String)void)}
+	               ${arg_javadoc(.externalMemory.ExternalMemory#setTempDir(String)void, dir)}
+	               ${default(tempDir, <system temp dir>)}
+	tempSubDir `str`: ${arg_javadoc(.externalMemory.ExternalMemory#setTempDir(String,String)void, subdir)}
+	                  ${default(tempSubdir, <automatically generated>)}
 	'''
 
 	ExternalMemory.setInternalLimit(internalSizeMiB)
@@ -358,21 +368,26 @@ def initExternalMemory(internalSizeMiB, tempDir=None, tempSubdir=None):
 # pythonic wrappers for Java builders #
 #-------------------------------------#
 
-def Parallelism(cpuCores=None, gpus=None, streamsPerGpu=None):
+def Parallelism(cpuCores=useJavaDefault, gpus=useJavaDefault, streamsPerGpu=useJavaDefault):
 	'''
-	:java:classdoc:`.parallelism.Parallelism`
+	${class_javadoc(.parallelism.Parallelism)}
 
-	:builder_option cpuCores .parallelism.Parallelism$Builder#numCpus:
-	:builder_option gpus .parallelism.Parallelism$Builder#numGpus:
-	:builder_option streamsPerGpu .parallelism.Parallelism$Builder#numStreamsPerGpu:
-	:builder_return .parallelism.Parallelism$Builder:
+	# Arguments
+	${args_fields_javadoc(.parallelism.Parallelism$Builder,
+		[cpuCores, numCpus],
+		[gpus, numGpus],
+		[streamsPerGpu, numStreamsPerGpu]
+	)}
+
+	# Returns
+	${returns_method_java(.parallelism.Parallelism$Builder#build)}
 	'''
 	builder = _get_builder(c.parallelism.Parallelism)()
-	if cpuCores is not None:
+	if cpuCores is not useJavaDefault:
 		builder.setNumCpus(cpuCores)
-	if gpus is not None:
+	if gpus is not useJavaDefault:
 		builder.setNumGpus(gpus)
-	if streamsPerGpu is not None:
+	if streamsPerGpu is not useJavaDefault:
 		builder.setNumStreamsPerGpu(streamsPerGpu)
 
 	return builder.build()
@@ -385,35 +400,35 @@ def TemplateLibrary(
 		defaultRotamers=True, extraRotamers=[],
 		extraBackboneDependentRotamers=[],
 		defaultResidueEntropies=True, extraResidueEntropies=[],
-		makeDAminoAcids=None,
+		makeDAminoAcids=useJavaDefault,
 		moleculesForWildTypeRotamers=[]
 	):
 	'''
-	:java:classdoc:`.restypes.ResidueTemplateLibrary`
+	${class_javadoc(.restypes.ResidueTemplateLibrary)}
 
-	:builder_option ffparams .restypes.ResidueTemplateLibrary$Builder#ffparams:
+	# Arguments
+	${arg_field_javadoc(ffparams, .restypes.ResidueTemplateLibrary$Builder#ffparams)}
 
-	:param bool defaultTemplates: :java:methoddoc:`.restypes.ResidueTemplateLibrary$Builder#clearTemplates`
-	:param extraTemplates: :java:methoddoc:`.restypes.ResidueTemplateLibrary$Builder#addTemplates`
-	:type extraTemplates: [template string or file path]
+	defaultTemplates `bool`: ${method_javadoc(.restypes.ResidueTemplateLibrary$Builder#clearTemplates)}
+	extraTemplates `[str]`: ${method_javadoc(.restypes.ResidueTemplateLibrary$Builder#addTemplates)}
+	                        Each element can be the text of a template file, or the path to one.
 
-	:param bool defaultTemplateCoords: :java:methoddoc:`.restypes.ResidueTemplateLibrary$Builder#clearTemplateCoords`
-	:param extraTemplateCoords: :java:methoddoc:`.restypes.ResidueTemplateLibrary$Builder#addTemplateCoords`
-	:type extraTemplateCoords: [coords string or file path]
+	defaultTemplateCoords `bool`: ${method_javadoc(.restypes.ResidueTemplateLibrary$Builder#clearTemplateCoords)}
+	extraTemplateCoords `[str]`: ${method_javadoc(.restypes.ResidueTemplateLibrary$Builder#addTemplateCoords)}
+	                             Each element can be the text of a template coords file, or the path to one.
 
-	:param bool defaultRotamers: :java:methoddoc:`.restypes.ResidueTemplateLibrary$Builder#clearRotamers`
-	:param extraRotamers: :java:methoddoc:`.restypes.ResidueTemplateLibrary$Builder#addRotamers`
-	:type extraRotamers: [rotamers string or file path]
+	defaultRotamers `bool`: ${method_javadoc(.restypes.ResidueTemplateLibrary$Builder#clearRotamers)}
+	extraRotamers `[str]`: ${method_javadoc(.restypes.ResidueTemplateLibrary$Builder#addRotamers)}
+	                       Each element can be the text of a rotamers file, or the path to one.
 
-	:param extraBackboneDependentRotamers: :java:methoddoc:`.restypes.ResidueTemplateLibrary$Builder#addBackboneDependentRotamers`
-	:type extraBackboneDependentRotamers: [backbone-dependent rotamers string or file path]
+	extraBackboneDependentRotamers `[str]`: ${method_javadoc(.restypes.ResidueTemplateLibrary$Builder#addBackboneDependentRotamers)}
+	                                        Each element can be the text of a backbone-dependent rotamers file, or the path to one.
+	${arg_field_javadoc(makeDAminoAcids, .restypes.ResidueTemplateLibrary$Builder#makeDAminoAcidTemplates)}
 
-	:builder_option makeDAminoAcids .restypes.ResidueTemplateLibrary$Builder#makeDAminoAcidTemplates:
+	moleculesForWildTypeRotamers `[`${type_java(.structure.Molecule)}`]`: ${method_javadoc(.restypes.ResidueTemplateLibrary$Builder#addMoleculeForWildTypeRotamers)}
 
-	:param moleculesForWildTypeRotamers: :java:methoddoc:`.restypes.ResidueTemplateLibrary$Builder#addMoleculeForWildTypeRotamers`
-	:type moleculesForWildTypeRotamers: [:java:ref:`.structure.Molecule`]
-
-	:builder_return .restypes.ResidueTemplateLibrary$Builder:
+	# Returns
+	${returns_method_java(.restypes.ResidueTemplateLibrary$Builder#build)}
 	'''
 
 	if ffparams is None:
@@ -439,7 +454,7 @@ def TemplateLibrary(
 	for text in [_ensureText(pathOrText) for pathOrText in extraBackboneDependentRotamers]:
 		builder.addBackboneDependentRotamers(text)
 
-	if makeDAminoAcids is not None:
+	if makeDAminoAcids is not useJavaDefault:
 		builder.setMakeDAminoAcidTemplates(makeDAminoAcids)
 
 	for mol in moleculesForWildTypeRotamers:
@@ -448,20 +463,20 @@ def TemplateLibrary(
 	return builder.build()
 	
 
-def Strand(pathOrMol, residues=None, templateLib=None, templateMatchingMethod=None):
+def Strand(pathOrMol, residues=None, templateLib=useJavaDefault, templateMatchingMethod=useJavaDefault):
 	'''
-	:java:classdoc:`.confspace.Strand`
+	${class_javadoc(.confspace.Strand)}
 
-	:param pathOrMol: path to a PDB file, or a molecule instance
-	:type pathOrMol: str or :java:ref:`.structure.Molecule`
+	# Arguments
+	pathOrMol `str` or ${type_java(.structure.Molecule)}: path to a PDB file, or a molecule instance
+	residues `[str, str]`: range of residue numbers, inclusive. `None` to include all residues.
+	${args_fields_javadoc(.confspace.Strand$Builder,
+		[templateLib],
+		[templateMatchingMethod]
+	)}
 
-	:param residues: range of residue numbers, inclusive. `None` to include all residues.
-	:type residues: [str, str]
-
-	:builder_option templateLib .confspace.Strand$Builder#templateLib:
-	:builder_option templateMatchingMethod .confspace.Strand$Builder#templateMatchingMethod:
-
-	:builder_return .confspace.Strand$Builder:
+	# Returns
+	${returns_method_java(.confspace.Strand$Builder#build)}
 	'''
 
 	# did we get a path or a molecule?
@@ -475,23 +490,25 @@ def Strand(pathOrMol, residues=None, templateLib=None, templateMatchingMethod=No
 	if residues is not None:
 		builder.setResidues(residues[0], residues[1])
 
-	if templateLib is not None:
+	if templateLib is not useJavaDefault:
 		builder.setTemplateLibrary(templateLib)
 
-	if templateMatchingMethod is not None:
+	if templateMatchingMethod is not useJavaDefault:
 		builder.setTemplateMatchingMethod(templateMatchingMethod)
 
 	return builder.build()
 
 
-def ConfSpace(strands, shellDist=None):
+def ConfSpace(strands, shellDist=useJavaDefault):
 	'''
-	:java:classdoc:`.confspace.SimpleConfSpace`
+	${class_javadoc(.confspace.SimpleConfSpace)}
 
-	:param strands: the strands to use
-	:type strands: :java:ref:`.confspace.Strand` or list of Strands
-	:builder_option shellDist .confspace.SimpleConfSpace$Builder#shellDist:
-	:builder_return .confspace.SimpleConfSpace$Builder:
+	# Arguments
+	strands ${type_java(.confspace.Strand)} or [${type_java(.confspace.Strand)}]: the strands to use
+	${arg_field_javadoc(shellDist, .confspace.SimpleConfSpace$Builder#shellDist)}
+
+	# Returns
+	${returns_method_java(.confspace.SimpleConfSpace$Builder#build)}
 	'''
 
 	builder = _get_builder(c.confspace.SimpleConfSpace)()
@@ -519,7 +536,7 @@ def ConfSpace(strands, shellDist=None):
 		builder.addStrand(strand, flex)
 
 	# add the shell distance if needed
-	if shellDist is not None:
+	if shellDist is not useJavaDefault:
 		builder.setShellDistance(shellDist)
 	
 	return builder.build()
@@ -528,9 +545,9 @@ def ConfSpace(strands, shellDist=None):
 class StateMutable(object):
 	def __init__(self, name, confSpace):
 		'''
-		:param str name: unique for the state
-		:param confSpace: the conformation space
-		:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
+		# Arguments
+		name `str`: a unique name for the state
+		confSpace ${type_java(.confspace.SimpleConfSpace)}: the conformation space
 		'''
 		self.name = name
 		self.confSpace = confSpace
@@ -538,9 +555,9 @@ class StateMutable(object):
 class StateUnmutable(object):
 	def __init__(self, name, confSpace):
 		'''
-		:param str name: unique for the state
-		:param confSpace: the conformation space
-		:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
+		# Arguments
+		name `str`: a unique name for the state
+		confSpace ${type_java(.confspace.SimpleConfSpace)}: the conformation space
 		'''
 		self.name = name
 		self.confSpace = confSpace
@@ -548,10 +565,13 @@ class StateUnmutable(object):
 
 def MultiStateConfSpace(states):
 	'''
-	:java:classdoc:`.confspace.MultiStateConfSpace`
+	${class_javadoc(.confspace.MultiStateConfSpace)}
 
-	:param states: A list of states to use
-	:type states: list of StateMutable and StateUnmutable instances
+	# Arguments
+	states [`#StateMutable` or `#StateUnmutable`]: a list of states to use
+
+	# Returns
+	${returns_method_java(.confspace.MultiStateConfSpace$Builder#build)}
 	'''
 
 	# split out the mutable and unmutable states
@@ -574,12 +594,15 @@ def MultiStateConfSpace(states):
 
 def ForcefieldParams(params=None):
 	'''
-	:java:classdoc:`.energy.forcefield.ForcefieldParams`
+	${class_javadoc(.energy.forcefield.ForcefieldParams)}
 	
-	Configure the forcefield parameters by setting the properties of the :java:ref:`.energy.forcefield.ForcefieldParams` object.
+	Configure the forcefield parameters by setting the properties of the ${type_java(.energy.forcefield.ForcefieldParams)} object.
 
-	:param str params: text of forcefield parameters in Amber format, to override defaults if desired
-	:rtype: :java:ref:`.energy.forcefield.ForcefieldParams`
+	# Arguments
+	params `str`: text of forcefield parameters in Amber format, to override defaults if desired
+
+	# Returns
+	${type_java(.energy.forcefield.ForcefieldParams)}
 	'''
 	if params:
 		return c.energy.forcefield.ForcefieldParams(Forcefield.AMBER, params)
@@ -587,19 +610,22 @@ def ForcefieldParams(params=None):
 		return c.energy.forcefield.ForcefieldParams(Forcefield.AMBER)
 
 
-def EnergyCalculator(confSpace, ffparams, parallelism=None, type=None, isMinimizing=None, infiniteWellEnergy=None):
+def EnergyCalculator(confSpace, ffparams, parallelism=useJavaDefault, type=useJavaDefault, isMinimizing=useJavaDefault, infiniteWellEnergy=useJavaDefault):
 	'''
-	:java:classdoc:`.energy.EnergyCalculator`
+	${class_javadoc(.energy.EnergyCalculator)}
 
-	:param confSpace: The conformation space containing the residue templates to use for atom connectivities.
-	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
-	:builder_option ffparams .energy.EnergyCalculator$Builder#ffparams:
-	:builder_option parallelism .energy.EnergyCalculator$Builder#parallelism:
-	:builder_option type .energy.EnergyCalculator$Builder#type:
-	:builder_option isMinimizing .energy.EnergyCalculator$Builder#isMinimizing:
-	:builder_option infiniteWellEnergy .energy.EnergyCalculator$Builder#infiniteWellEnergy:
+	# Arguments
+	confSpace ${type_java(.confspace.SimpleConfSpace)}: The conformation space containing the residue templates to use for atom connectivities.
+	${args_fields_javadoc(.energy.EnergyCalculator$Builder,
+		[ffparams],
+		[parallelism],
+		[type],
+		[isMinimizing],
+		[infiniteWellEnergy, type=float]
+	)}
 
-	:builder_return .energy.EnergyCalculator$Builder:
+	# Returns
+	${returns_method_java(.energy.EnergyCalculator$Builder#build)}
 	'''
 
 	# convert confSpace to a jvm list if possible
@@ -611,62 +637,72 @@ def EnergyCalculator(confSpace, ffparams, parallelism=None, type=None, isMinimiz
 
 	builder = _get_builder(c.energy.EnergyCalculator)(confSpace, ffparams)
 
-	if parallelism is not None:
+	if parallelism is not useJavaDefault:
 		builder.setParallelism(parallelism)
 
-	if type is not None:
+	if type is not useJavaDefault:
 		builder.setType(type)
 
-	if isMinimizing is not None:
+	if isMinimizing is not useJavaDefault:
 		builder.setIsMinimizing(isMinimizing)
 
-	if infiniteWellEnergy is not None:
+	if infiniteWellEnergy is not useJavaDefault:
 		builder.setInfiniteWellEnergy(jvm.boxDouble(infiniteWellEnergy))
 
 	return builder.build()
 
 
-def SharedEnergyCalculator(ecalc, isMinimizing=None):
+def SharedEnergyCalculator(ecalc, isMinimizing=useJavaDefault):
 	'''
-	:java:classdoc:`.energy.EnergyCalculator$SharedBuilder`
+	${class_javadoc(.energy.EnergyCalculator$SharedBuilder)}
 
-	:param ecalc: The existing energy calculator with which to share resources
-	:type ecalc: :java:ref:`.energy.EnergyCalculator`
-	:builder_option isMinimizing .energy.EnergyCalculator$Builder#isMinimizing:
-	:builder_return .energy.EnergyCalculator$SharedBuilder:
+	# Arguments
+	${args_fields_javadoc(.energy.EnergyCalculator$SharedBuilder,
+		[ecalc, parent],
+		[isMinimizing]
+	)}
+	
+	# Returns
+	${returns_method_java(.energy.EnergyCalculator$SharedBuilder#build)}
 	'''
 	builder = jvm.getInnerClass(c.energy.EnergyCalculator, 'SharedBuilder')(ecalc)
 
-	if isMinimizing is not None:
+	if isMinimizing is not useJavaDefault:
 		builder.setIsMinimizing(isMinimizing)
 
 	return builder.build()
 
 
-def ConfEnergyCalculator(confSpace, ecalc, referenceEnergies=UseJavaDefault, addResEntropy=UseJavaDefault, energyPartition=UseJavaDefault, amat=UseJavaDefault, approximationErrorBudget=UseJavaDefault):
+def ConfEnergyCalculator(confSpace, ecalc, referenceEnergies=useJavaDefault, addResEntropy=useJavaDefault, energyPartition=useJavaDefault, amat=useJavaDefault, approximationErrorBudget=useJavaDefault):
 	'''
-	:java:classdoc:`.energy.ConfEnergyCalculator`
+	${class_javadoc(.energy.ConfEnergyCalculator)}
 
-	:builder_option confSpace .energy.ConfEnergyCalculator$Builder#confSpace:
-	:builder_option ecalc .energy.ConfEnergyCalculator$Builder#ecalc:
-	:builder_option referenceEnergies .energy.ConfEnergyCalculator$Builder#eref:
-	:builder_option addResEntropy .energy.ConfEnergyCalculator$Builder#addResEntropy:
-	:builder_option energyPartition .energy.ConfEnergyCalculator$Builder#epart:
-	:builder_option amat .energy.ConfEnergyCalculator$Builder#amat:
-	:builder_option approximationErrorBudget .energy.ConfEnergyCalculator$Builder#approximationErrorBudget:
-	:builder_return .energy.ConfEnergyCalculator$Builder:
+	# Arguments
+	${args_fields_javadoc(.energy.ConfEnergyCalculator$Builder,
+		[confSpace],
+		[ecalc],
+		[referenceEnergies, eref],
+		[addResEntropy],
+		[energyPartition, epart],
+		[amat],
+		[approximationErrorBudget]
+	)}
+
+	# Returns
+	${returns_method_java(.energy.ConfEnergyCalculator$Builder#build)}
 	'''
+
 	builder = _get_builder(c.energy.ConfEnergyCalculator)(confSpace, ecalc)
 
-	if referenceEnergies is not UseJavaDefault:
+	if referenceEnergies is not useJavaDefault:
 		builder.setReferenceEnergies(referenceEnergies)
-	if addResEntropy is not UseJavaDefault:
+	if addResEntropy is not useJavaDefault:
 		builder.addResEntropy(addResEntropy)
-	if energyPartition is not UseJavaDefault:
+	if energyPartition is not useJavaDefault:
 		builder.setEnergyPartition(energyPartition)
-	if amat is not UseJavaDefault:
+	if amat is not useJavaDefault:
 		builder.setApproximatorMatrix(amat)
-	if approximationErrorBudget is not UseJavaDefault:
+	if approximationErrorBudget is not useJavaDefault:
 		builder.setApproximationErrorBudget(approximationErrorBudget)
 
 	return builder.build()
@@ -674,70 +710,89 @@ def ConfEnergyCalculator(confSpace, ecalc, referenceEnergies=UseJavaDefault, add
 
 def ConfEnergyCalculatorCopy(source, ecalc):
 	'''
-	:java:classdoc:`.energy.ConfEnergyCalculator`
+	Makes a copy of a ${type_java(.energy.ConfEnergyCalculator)} that uses a different underlying ${type_java(.energy.EnergyCalculator)}
 
-	:param source: The conformation energy calculator you wish to copy.
-	:type source: :java:ref:`.energy.ConfEnergyCalculator`
-	:builder_option ecalc .energy.ConfEnergyCalculator$Builder#ecalc:
-	:builder_return .energy.ConfEnergyCalculator$Builder:
+	# Arguments
+	source ${type_java(.energy.ConfEnergyCalculator)}: The conformation energy calculator you wish to copy.
+	ecalc ${type_java(.energy.EnergyCalculator)}: The energy calculator to re-use.
+
+	# Returns
+	${returns_method_java(.energy.ConfEnergyCalculator$Builder#build)}
 	'''
 	return c.energy.ConfEnergyCalculator(source, ecalc)
 
 
-def ApproximatorMatrix(confEcalc, cacheFile=UseJavaDefault, numSamplesPerParam=UseJavaDefault):
+def ApproximatorMatrix(confEcalc, cacheFile=useJavaDefault, numSamplesPerParam=useJavaDefault):
 	'''
-	:java:classdoc:`.energy.approximation.ApproximatorMatrix`
+	${class_javadoc(.energy.approximation.ApproximatorMatrix)}
 
-	:builder_option confEcalc .energy.approximation.ApproximatorMatrixCalculator#confEcalc:
-	:builder_option cacheFile .energy.approximation.ApproximatorMatrixCalculator#cacheFile:
-	:builder_option numSamplesPerParam .energy.approximation.ApproximatorMatrixCalculator#numSamplesPerParam:
+	# Arguments
+	${args_fields_javadoc(.energy.approximation.ApproximatorMatrixCalculator,
+		[confEcalc],
+		[cacheFile, type=str],
+		[numSamplesPerParam]
+	)}
+
+	# Returns
+	${returns_method_java(.energy.approximation.ApproximatorMatrixCalculator#calc()ApproximatorMatrix)}
 	'''
 
 	calculator = c.energy.approximation.ApproximatorMatrixCalculator(confEcalc)
 
-	if cacheFile is not UseJavaDefault:
+	if cacheFile is not useJavaDefault:
 		calculator.setCacheFile(jvm.toFile(cacheFile))
-	if numSamplesPerParam is not UseJavaDefault:
+	if numSamplesPerParam is not useJavaDefault:
 		calculator.setNumSamplesPerDof(numSamplesPerParam)
 
 	return calculator.calc()
 
 
-def EnergyMatrix(confEcalc, cacheFile=UseJavaDefault, tripleCorrectionThreshold=UseJavaDefault, quadCorrectionThreshold=UseJavaDefault):
+def EnergyMatrix(confEcalc, cacheFile=useJavaDefault, tripleCorrectionThreshold=useJavaDefault, quadCorrectionThreshold=useJavaDefault):
 	'''
-	:java:methoddoc:`.ematrix.SimplerEnergyMatrixCalculator#calcEnergyMatrix`
+	${method_javadoc(.ematrix.SimplerEnergyMatrixCalculator#calcEnergyMatrix)}
 
-	:builder_option confEcalc .ematrix.SimplerEnergyMatrixCalculator$Builder#confEcalc:
-	:builder_option cacheFile .ematrix.SimplerEnergyMatrixCalculator$Builder#cacheFile:
-	:builder_option tripleCorrectionThreshold .ematrix.SimplerEnergyMatrixCalculator$Builder#tripleCorrectionThreshold:
-	:builder_option quadCorrectionThreshold .ematrix.SimplerEnergyMatrixCalculator$Builder#quadCorrectionThreshold:
+	# Arguments
+	${args_fields_javadoc(.ematrix.SimplerEnergyMatrixCalculator$Builder,
+		[confEcalc],
+		[cacheFile, type=str],
+		[tripleCorrectionThreshold, type=float],
+		[quadCorrectionThreshold, type=float]
+	)}
+
+	# Returns
+	${returns_method_java(.ematrix.SimplerEnergyMatrixCalculator#calcEnergyMatrix)}
 	'''
 	
 	builder = _get_builder(c.ematrix.SimplerEnergyMatrixCalculator)(confEcalc)
 
-	if cacheFile is not UseJavaDefault:
+	if cacheFile is not useJavaDefault:
 		builder.setCacheFile(jvm.toFile(cacheFile))
-	if tripleCorrectionThreshold is not UseJavaDefault:
+	if tripleCorrectionThreshold is not useJavaDefault:
 		builder.setTripleCorrectionThreshold(jvm.boxDouble(tripleCorrectionThreshold))
-	if quadCorrectionThreshold is not UseJavaDefault:
+	if quadCorrectionThreshold is not useJavaDefault:
 		builder.setQuadCorrectionThreshold(jvm.boxDouble(quadCorrectionThreshold))
 
 	return builder.build().calcEnergyMatrix()
 
 
-def ReferenceEnergies(confSpace, ecalc, addResEntropy=None):
+def ReferenceEnergies(confSpace, ecalc, addResEntropy=useJavaDefault):
 	'''
-	:java:methoddoc:`.ematrix.SimplerEnergyMatrixCalculator#calcReferenceEnergies`
+	${method_javadoc(.ematrix.SimplerEnergyMatrixCalculator#calcReferenceEnergies)}
 
-	:builder_option confSpace .ematrix.SimpleReferenceEnergies$Builder#confSpace:
-	:builder_option ecalc .ematrix.SimpleReferenceEnergies$Builder#ecalc:
-	:builder_option addResEntropy .ematrix.SimpleReferenceEnergies$Builder#addResEntropy:
-	:builder_return .ematrix.SimpleReferenceEnergies$Builder:
+	# Arguments
+	${args_fields_javadoc(.ematrix.SimpleReferenceEnergies$Builder,
+		[confSpace],
+		[ecalc],
+		[addResEntropy]
+	)}
+
+	# Returns
+	${returns_method_java(.ematrix.SimplerEnergyMatrixCalculator#calcReferenceEnergies)}
 	'''
 
 	builder = _get_builder(c.ematrix.SimpleReferenceEnergies)(confSpace, ecalc)
 
-	if addResEntropy is not None:
+	if addResEntropy is not useJavaDefault:
 		builder.addResEntropy(addResEntropy)
 
 	return builder.build()
@@ -752,27 +807,32 @@ def DEE(confSpace, emat,
 		showProgress=useJavaDefault, parallelism=useJavaDefault, cacheFile=useJavaDefault
 	):
 	'''
-	:java:classdoc:`.pruning.SimpleDEE$Runner`
+	${class_javadoc(.pruning.SimpleDEE$Runner)}
 
-	:param confSpace: The design conformation space
-	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
-	:param emat: An energy matrix computed for the conformation space
-	:type emat: :java:ref:`.ematrix.EnergyMatrix`
+	# Arguments
+	confSpace ${type_java(.confspace.SimpleConfSpace)}: The design conformation space
+	emat ${type_java(.ematrix.EnergyMatrix)}: An energy matrix computed for the conformation space
+	${args_fields_javadoc(.pruning.SimpleDEE$Runner,
+		[singlesThreshold, type=float],
+		[pairsThreshold, type=float],
+		[singlesGoldsteinDiffThreshold, type=float],
+		[pairsGoldsteinDiffThreshold, type=float],
+		[triplesGoldsteinDiffThreshold, type=float],
+		[singlesPlugThreshold, type=float],
+		[pairsPlugThreshold, type=float],
+		[triplesPlugThreshold, type=float],
+		[singlesTransitivePruning],
+		[pairsTransitivePruning],
+		[triplesTransitivePruning],
+		[typeDependent],
+		[numIterations],
+		[showProgress],
+		[parallelism],
+		[cacheFile, type=str]
+	)}
 
-	:builder_option singlesThreshold .pruning.SimpleDEE$Runner#singlesThreshold:
-	:builder_option pairsThreshold .pruning.SimpleDEE$Runner#pairsThreshold:
-	:builder_option singlesGoldsteinDiffThreshold .pruning.SimpleDEE$Runner#singlesGoldsteinDiffThreshold:
-	:builder_option pairsGoldsteinDiffThreshold .pruning.SimpleDEE$Runner#pairsGoldsteinDiffThreshold:
-	:builder_option triplesGoldsteinDiffThreshold .pruning.SimpleDEE$Runner#triplesGoldsteinDiffThreshold:
-	:builder_option singlesPlugThreshold .pruning.SimpleDEE$Runner#singlesPlugThreshold:
-	:builder_option pairsPlugThreshold .pruning.SimpleDEE$Runner#pairsPlugThreshold:
-	:builder_option triplesPlugThreshold .pruning.SimpleDEE$Runner#triplesPlugThreshold:
-	:builder_option singlesTransitivePruning .pruning.SimpleDEE$Runner#singlesTransitivePruning:
-	:builder_option pairsTransitivePruning .pruning.SimpleDEE$Runner#pairsTransitivePruning:
-	:builder_option triplesTransitivePruning .pruning.SimpleDEE$Runner#triplesTransitivePruning:
-	:builder_option typeDependent .pruning.SimpleDEE$Runner#typeDependent:
-	:builder_option numIterations .pruning.SimpleDEE$Runner#numIterations:
-	:builder_option showProgress .pruning.SimpleDEE$Runner#showProgress:
+	# Returns
+	${returns_method_java(.pruning.SimpleDEE$Runner#run)}
 	'''
 
 	runner = _get_builder(c.pruning.SimpleDEE, 'Runner')()
@@ -817,9 +877,12 @@ def DEE_read(confSpace, path):
 	'''
 	Reads a pruning matrix from a file
 
-	:param confSpace: The design conformation space
-	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
-	:param str path: Path to the file
+	# Arguments
+	confSpace ${type_java(.confspace.SimpleConfSpace)}: The design conformation space
+	path `str`: Path to the file
+
+	# Returns
+	${returns_method_java(.pruning.SimpleDEE#read)}
 	'''
 
 	return c.pruning.SimpleDEE.read(confSpace, jvm.toFile(path))
@@ -827,18 +890,19 @@ def DEE_read(confSpace, path):
 
 def AStarTraditional(emat, confSpaceOrPmat, showProgress=True, useExternalMemory=False, maxNumNodes=useJavaDefault):
 	'''
-	:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#setTraditional`
+	${method_javadoc(.astar.conf.ConfAStarTree$Builder#setTraditional)}
 
-	:builder_option emat .astar.conf.ConfAStarTree$Builder#emat:
-	:param confSpaceOrPmat: The conformation space containing the residue conformations to search.
-	:type confSpaceOrPmat: :java:ref:`.confspace.SimpleConfSpace` or :java:ref:`.pruning.PruningMatrix`
-	:param useExternalMemory: set to True to use external memory.
+	# Arguments
+	${arg_field_javadoc(emat, .astar.conf.ConfAStarTree$Builder#emat)}
+	confSpaceOrPmat ${type_java(.confspace.SimpleConfSpace)} or ${type_java(.pruning.PruningMatrix)}:
+	                The conformation space containing the residue conformations to search,
+	                or the pruning matrix.
+	useExternalMemory `bool`: set to `True` to use external memory.
+	                          ${method_javadoc(.astar.conf.ConfAStarTree$Builder#useExternalMemory)}
+	${arg_field_javadoc(maxNumNodes, .astar.conf.ConfAStarTree$Builder#maxNumNodes, type=int)}
 
-		:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#useExternalMemory`
-
-	:type useExternalMemory: boolean
-	:builder_option maxNumNodes .astar.conf.ConfAStarTree$Builder#maxNumNodes:
-	:builder_return .astar.conf.ConfAStarTree$Builder:
+	# Returns
+	${returns_method_java(.astar.conf.ConfAStarTree$Builder#build)}
 	'''
 	builder = _get_builder(c.astar.conf.ConfAStarTree)(emat, confSpaceOrPmat)
 	builder.setShowProgress(showProgress)
@@ -861,33 +925,36 @@ def EdgeUpdater():
 def NodeUpdater():
 	return c.astar.conf.scoring.mplp.NodeUpdater()
 
-def AStarMPLP(emat, confSpaceOrPmat, updater=None, numIterations=None, convergenceThreshold=None, useExternalMemory=False, maxNumNodes=useJavaDefault):
+def AStarMPLP(emat, confSpaceOrPmat, updater=useJavaDefault, numIterations=useJavaDefault, convergenceThreshold=useJavaDefault, useExternalMemory=False, maxNumNodes=useJavaDefault):
 	'''
-	:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#setMPLP`
+	${method_javadoc(.astar.conf.ConfAStarTree$Builder#setMPLP()Builder)}
 
-	:builder_option emat .astar.conf.ConfAStarTree$Builder#emat:
-	:param confSpaceOrPmat: The conformation space containing the residue conformations to search.
-	:type confSpaceOrPmat: :java:ref:`.confspace.SimpleConfSpace` or :java:ref:`.pruning.PruningMatrix`
-	:builder_option updater .astar.conf.ConfAStarTree$MPLPBuilder#updater:
-	:builder_option numIterations .astar.conf.ConfAStarTree$MPLPBuilder#numIterations:
-	:builder_option convergenceThreshold .astar.conf.ConfAStarTree$MPLPBuilder#convergenceThreshold:
-	:param useExternalMemory: set to True to use external memory.
+	# Arguments
+	${arg_field_javadoc(emat, .astar.conf.ConfAStarTree$Builder#emat)}
+	confSpaceOrPmat ${type_java(.confspace.SimpleConfSpace)} or ${type_java(.pruning.PruningMatrix)}:
+	                The conformation space containing the residue conformations to search,
+	                or the pruning matrix.
+	${args_fields_javadoc(.astar.conf.ConfAStarTree$MPLPBuilder,
+		[updater],
+		[numIterations],
+		[convergenceThreshold]
+	)}
+	useExternalMemory `bool`: set to `True` to use external memory.
+	                          ${method_javadoc(.astar.conf.ConfAStarTree$Builder#useExternalMemory)}
+	${arg_field_javadoc(maxNumNodes, .astar.conf.ConfAStarTree$Builder#maxNumNodes, type=int)}
 
-		:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#useExternalMemory`
-
-	:type useExternalMemory: boolean
-	:builder_option maxNumNodes .astar.conf.ConfAStarTree$Builder#maxNumNodes:
-	:builder_return .astar.conf.ConfAStarTree$Builder:
+	# Returns
+	${returns_method_java(.astar.conf.ConfAStarTree$Builder#build)}
 	'''
 	mplpBuilder = _get_builder(c.astar.conf.ConfAStarTree, 'MPLPBuilder')()
 
-	if updater is not None:
+	if updater is not useJavaDefault:
 		mplpBuilder.setUpdater(updater)
 
-	if numIterations is not None:
+	if numIterations is not useJavaDefault:
 		mplpBuilder.setNumIterations(numIterations)
 
-	if convergenceThreshold is not None:
+	if convergenceThreshold is not useJavaDefault:
 		mplpBuilder.setConvergenceThreshold(convergenceThreshold)
 
 	builder = _get_builder(c.astar.conf.ConfAStarTree)(emat, confSpaceOrPmat)
@@ -905,23 +972,24 @@ def AStarMPLP(emat, confSpaceOrPmat, updater=None, numIterations=None, convergen
 	return builder.build()
 
 
-def GMECFinder(astar, confEcalc, confLog=None, printIntermediateConfs=None, useExternalMemory=None, resumeLog=None, confDBFile=None):
+def GMECFinder(astar, confEcalc, confLog=None, printIntermediateConfs=useJavaDefault, useExternalMemory=False, confDBFile=useJavaDefault):
 	'''
-	:java:classdoc:`.gmec.SimpleGMECFinder`
+	${class_javadoc(.gmec.SimpleGMECFinder)}
 
-	:builder_option astar .gmec.SimpleGMECFinder$Builder#search:
+	# Arguments
+	${arg_field_javadoc(astar, .gmec.SimpleGMECFinder$Builder#search)}
+	   Use one of #AStarTraditional or #AStarMPLP to get an A* implementation.
+	${arg_field_javadoc(confEcalc, .gmec.SimpleGMECFinder$Builder#confEcalc)}
+	   Use #ConfEnergyCalculator to get a conformation energy calculator.
+	confLog `str`: Path to file where conformations found during conformation space search should be logged.
+	${args_fields_javadoc(.gmec.SimpleGMECFinder$Builder,
+		[printIntermediateConfs, printIntermediateConfsToConsole],
+		[useExternalMemory],
+		[confDBFile, confDB, type=str]
+	)}
 
-		Use one of :py:func:`AStarTraditional` or :py:func:`AStarMPLP` to get an A* implementation.
-
-	:builder_option confEcalc .gmec.SimpleGMECFinder$Builder#confEcalc:
-
-		Use :py:func:`ConfEnergyCalculator` to get a conformation energy calculator.
-
-	:param str confLog: Path to file where conformations found during conformation space search should be logged.
-	:builder_option printIntermediateConfs .gmec.SimpleGMECFinder$Builder#printIntermediateConfsToConsole:
-	:builder_option useExternalMemory .gmec.SimpleGMECFinder$Builder#useExternalMemory:
-	:param str resumeLog: Path to log file where resume info will be written or read, so designs can be resumed.
-	:builder_return .gmec.SimpleGMECFinder$Builder:
+	# Returns
+	${returns_method_java(.gmec.SimpleGMECFinder$Builder#build)}
 	'''
 
 	builder = _get_builder(c.gmec.SimpleGMECFinder)(astar, confEcalc)
@@ -930,37 +998,41 @@ def GMECFinder(astar, confEcalc, confLog=None, printIntermediateConfs=None, useE
 		logFile = jvm.toFile(confLog)
 		builder.setLogPrinter(c.gmec.LoggingConfPrinter(logFile))
 
-	if printIntermediateConfs is not None:
+	if printIntermediateConfs is not useJavaDefault:
 		builder.setPrintIntermediateConfsToConsole(printIntermediateConfs)
 
 	if useExternalMemory == True:
 		builder.useExternalMemory()
 
-	if resumeLog is not None:
-		builder.setResumeLog(jvm.toFile(resumeLog))
-
-	if confDBFile is not None:
+	if confDBFile is not useJavaDefault:
 		builder.setConfDB(jvm.toFile(confDBFile))
 
 	return builder.build()
 
 
-def DEEGMECFinder(emat, confSpace, ecalc, confEcalc, name, use_epic, use_lute, confLog=None, printIntermediateConfs=None, useExternalMemory=None):
+def DEEGMECFinder(emat, confSpace, ecalc, confEcalc, name, use_epic, use_lute, confLog=None, printIntermediateConfs=useJavaDefault, useExternalMemory=False):
 	'''
-	:java:classdoc:`.gmec.SimpleGMECFinder`
+	${class_javadoc(.gmec.DEEGMECFinder)}
 
-	:builder_option astar .gmec.SimpleGMECFinder$Builder#search:
+	# Arguments
+	${args_fields_javadoc(.gmec.DEEGMECFinder$Builder,
+		[emat],
+		[confSpace],
+		[ecalc]
+	)}
+	${arg_field_javadoc(confEcalc, .gmec.SimpleGMECFinder$Builder#confEcalc)}
+	   Use #ConfEnergyCalculator to get a conformation energy calculator.
+	${arg_field_javadoc(name, .gmec.DEEGMECFinder$Builder#name)}
+	use_epic `bool`: `True` to use EPIC
+	use_lute `bool`: `True` to use LUTE
+	confLog `str`: Path to file where conformations found during conformation space search should be logged.
+	${args_fields_javadoc(.gmec.SimpleGMECFinder$Builder,
+		[printIntermediateConfs, printIntermediateConfsToConsole],
+		[useExternalMemory]
+	)}
 
-			Use one of :py:func:`AStarTraditional` or :py:func:`AStarMPLP` to get an A* implementation.
-
-	:builder_option confEcalc .gmec.SimpleGMECFinder$Builder#confEcalc:
-
-			Use :py:func:`ConfEnergyCalculator` to get a conformation energy calculator.
-
-	:param str confLog: Path to file where conformations found during conformation space search should be logged.
-	:builder_option printIntermediateConfs .gmec.SimpleGMECFinder$Builder#printIntermediateConfsToConsole:
-	:builder_option useExternalMemory .gmec.SimpleGMECFinder$Builder#useExternalMemory:
-	:builder_return .gmec.SimpleGMECFinder$Builder:
+	# Returns
+	${returns_method_java(.gmec.DEEGMECFinder$Builder#build)}
 	'''
 
 	builder = _get_builder(c.gmec.DEEGMECFinder)(emat, confSpace, ecalc, confEcalc, name)
@@ -969,7 +1041,7 @@ def DEEGMECFinder(emat, confSpace, ecalc, confEcalc, name, use_epic, use_lute, c
 		logFile = jvm.toFile(confLog)
 		builder.setLogPrinter(c.gmec.LoggingConfPrinter(logFile))
 
-	if printIntermediateConfs is not None:
+	if printIntermediateConfs is not useJavaDefault:
 		builder.setPrintIntermediateConfsToConsole(printIntermediateConfs)
 
 	if useExternalMemory == True:
@@ -989,30 +1061,53 @@ def DEEGMECFinder(emat, confSpace, ecalc, confEcalc, name, use_epic, use_lute, c
 
 
 def DEEPerStrandFlex(strand, pert_file_name, flex_res_list, pdb_file):
+	'''
+	${class_javadoc(.confspace.DEEPerStrandFlex)}
+
+	# Arguments
+	${arg_java(strand, .confspace.DEEPerStrandFlex#<init>)}
+	pert_file_name `str`: Path to the perturbation file
+	flex_res_list `[str]`: Flexible residues
+	${arg_java(pdb_file, .dof.deeper.DEEPerSettings#<init>(boolean,String,boolean,String,boolean,double,double,boolean,ArrayList<String>,String,boolean,ResidueTemplateLibrary), PDBFile)}
+
+	# Returns
+	${type_java(.confspace.DEEPerStrandFlex)}
+	'''
 	deeper_settings = c.dof.deeper.DEEPerSettings(True, pert_file_name, True, 'None', False, 2.5, 2.5, False, jvm.toArrayList(flex_res_list), pdb_file, False, strand.templateLib)
 	bbflex = c.confspace.DEEPerStrandFlex(strand,deeper_settings)
 	return bbflex
 
-def Paste(complexConfSpace, numPDBs, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, useWindowCriterion=useJavaDefault, maxNumPfConfs=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault, mutFile=useJavaDefault):
+
+def Paste(
+	complexConfSpace, numPDBs, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault,
+	useWindowCriterion=useJavaDefault, maxNumPfConfs=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None,
+	useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault, mutFile=useJavaDefault
+):
 	'''
-	:java:classdoc:`.paste.Paste`
+	${class_javadoc(.paste.Paste)}
 
-	For examples using PAStE, see the examples/python.Paste directory in your Osprey distribution.
+	For examples using PAStE, see the `examples/python.Paste` directory in your Osprey distribution.
 
-	:param complexConfSpace: :java:fielddoc:`.paste.Paste#protein`
-	:type complexConfSpace: :java:ref:`.confspace.SimpleConfSpace`
-	:builder_option epsilon .paste.Paste$Settings$Builder#epsilon:
-	:builder_option stabilityThreshold .paste.Paste$Settings$Builder#stabilityThreshold:
-	:builder_option maxSimultaneousMutations .paste.Paste$Settings$Builder#maxSimultaneousMutations:
-	:builder_option maxNumPfConfs .paste.Paste$Settings$Builder#maxNumPfConfs:
-	:builder_option useExternalMemory .paste.Paste$Settings$Builder#useExternalMemory:
-	:builder_option showPfuncProgress .paste.Paste$Settings$Builder#showPfuncProgress:
-	:builder_option useWindowCriterion .paste.Paste$Settings$Builder#useWindowCriterion:
-	:param str addMutFile: Path to the file that has the mutant sequences of interest
-	:param bool writeSequencesToConsole: True to write sequences and scores to the console
-	:param str writeSequencesToFile: Path to the log file to write sequences scores (in TSV format), or None to skip logging
+	# Arguments
+	${arg_java(complexConfSpace, .paste.Paste#<init>, protein)}
+	${arg_java(numPDBs, .paste.Paste#<init>)}
+	${args_fields_javadoc(.paste.Paste$Settings$Builder,
+		[epsilon],
+		[stabilityThreshold, type=float],
+		[maxSimultaneousMutations],
+		[useWindowCriterion]
+		[maxNumPfConfs]
+	)}
+	writeSequencesToConsole `bool`: True to write sequences and scores to the console
+	writeSequencesToFile `str`: Path to the log file to write sequences scores (in TSV format), or None to skip logging
+	${args_fields_javadoc(.paste.Paste$Settings$Builder,
+		[useExternalMemory],
+		[showPfuncProgress],
+		[mutFile, type=str]
+	)}
 
-	:rtype: :java:ref:`.paste.Paste`
+	# Returns
+	${type_java(.paste.Paste)}
 	'''
 
 	# build settings
@@ -1052,27 +1147,34 @@ def _PasteConfSearchFactory(func):
 Paste.ConfSearchFactory = _PasteConfSearchFactory
 
 
-def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault):
+def KStar(
+	proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault,
+	maxSimultaneousMutations=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None,
+	useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault
+):
 	'''
-	:java:classdoc:`.kstar.KStar`
+	${class_javadoc(.kstar.KStar)}
 
 	For examples using K*, see the examples/python.KStar directory in your Osprey distribution.
 
-	:param proteinConfSpace: :java:fielddoc:`.kstar.KStar#protein`
-	:type proteinConfSpace: :java:ref:`.confspace.SimpleConfSpace`
-	:param ligandConfSpace: :java:fielddoc:`.kstar.KStar#ligand`
-	:type ligandConfSpace: :java:ref:`.confspace.SimpleConfSpace`
-	:param complexConfSpace: :java:fielddoc:`.kstar.KStar#complex`
-	:type complexConfSpace: :java:ref:`.confspace.SimpleConfSpace`
-	:builder_option epsilon .kstar.KStar$Settings$Builder#epsilon:
-	:builder_option stabilityThreshold .kstar.KStar$Settings$Builder#stabilityThreshold:
-	:builder_option maxSimultaneousMutations .kstar.KStar$Settings$Builder#maxSimultaneousMutations:
-	:builder_option useExternalMemory .kstar.KStar$Settings$Builder#useExternalMemory:
-	:builder_option showPfuncProgress .kstar.KStar$Settings$Builder#showPfuncProgress:
-	:param bool writeSequencesToConsole: True to write sequences and scores to the console
-	:param str writeSequencesToFile: Path to the log file to write sequences scores (in TSV format), or None to skip logging
+	# Arguments
+	${args_fields_javadoc(.kstar.KStar,
+		[proteinConfSpace, protein],
+		[ligandConfSpace, ligand],
+		[complexConfSpace, complex]
+	)}
+	${args_fields_javadoc(.kstar.KStar$Settings$Builder,
+		[epsilon],
+		[stabilityThreshold, type=float],
+		[maxSimultaneousMutations],
+		[useExternalMemory],
+		[showPfuncProgress]
+	)}
+	writeSequencesToConsole `bool`: True to write sequences and scores to the console
+	writeSequencesToFile `str`: Path to the log file to write sequences scores (in TSV format), or None to skip logging
 
-	:rtype: :java:ref:`.kstar.KStar`
+	# Returns
+	${type_java(.kstar.KStar)}
 	'''
 
 	# build settings
@@ -1109,9 +1211,18 @@ KStar.PfuncFactory = _KStarPfuncFactory
 
 def PartitionFunction(confEcalc, confSearchUpper, confSearchLower, rcs):
 	'''
-	:java:classdoc:`.kstar.pfunc.GradientDescentPfunc`
-	TODO: docme
-	:rtype: :java:ref:`.kstar.pfunc.GradientDescentPfunc`
+	${class_javadoc(.kstar.pfunc.GradientDescentPfunc)}
+
+	# Arguments
+	${args_java(.kstar.pfunc.GradientDescentPfunc#<init>(ConfEnergyCalculator,ConfSearch,ConfSearch,BigInteger),
+		[confEcalc, ecalc],
+		[confSearchUpper, upperBoundConfs],
+		[confSearchLower, lowerBoundConfs]
+	)}
+	rcs ${type_java(.astar.conf.RCs)}:
+
+	# Returns
+	${type_java(.kstar.pfunc.GradientDescentPfunc)}
 	'''
 
 	return c.kstar.pfunc.GradientDescentPfunc(
@@ -1124,7 +1235,22 @@ def PartitionFunction(confEcalc, confSearchUpper, confSearchLower, rcs):
 
 def MARKStarPfunc(confSpace, ematMinimized, confEcalcMinimized, ematRigid, confEcalcRigid, rcs, parallelism):
 	'''
-	TODO: docme
+	${class_javadoc(.markstar.framework.MARKStarBoundFastQueues)}
+
+	# Arguments
+	${args_java(.markstar.framework.MARKStarBoundFastQueues#<init>,
+		[confSpace],
+		[ematMinimized, minimizingEmat],
+		[confEcalcMinimized, minimizingConfEcalc],
+		[ematRigid, rigidEmat]
+	)}
+	confEcalcRigid ${type_java(.energy.ConfEnergyCalculator)}: ignored for now, reserved for future use
+	${args_java(.markstar.framework.MARKStarBoundFastQueues#<init>,
+		[rcs]
+	)}
+
+	# Returns
+	${type_java(.markstar.framework.MARKStarBoundFastQueues)}
 	'''
 
 	pfunc = c.markstar.framework.MARKStarBoundFastQueues(
@@ -1139,29 +1265,38 @@ def MARKStarPfunc(confSpace, ematMinimized, confEcalcMinimized, ematRigid, confE
 	return pfunc
 
 
-def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, energyMatrixCachePattern=useJavaDefault, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault, numBestSequences=useJavaDefault, numConfsPerBatch=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None):
+def BBKStar(
+	proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault,
+	maxSimultaneousMutations=useJavaDefault, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault,
+	numBestSequences=useJavaDefault, numConfsPerBatch=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None
+):
 	'''
-	:java:classdoc:`.kstar.BBKStar`
+	${class_javadoc(.kstar.BBKStar)}
 
 	For examples using BBK*, see the examples/python.KStar directory in your Osprey distribution.
 
-	:param proteinConfSpace: :java:fielddoc:`.kstar.BBKStar#protein`
-	:type proteinConfSpace: :java:ref:`.confspace.SimpleConfSpace`
-	:param ligandConfSpace: :java:fielddoc:`.kstar.BBKStar#ligand`
-	:type ligandConfSpace: :java:ref:`.confspace.SimpleConfSpace`
-	:param complexConfSpace: :java:fielddoc:`.kstar.BBKStar#complex`
-	:type complexConfSpace: :java:ref:`.confspace.SimpleConfSpace`
-	:builder_option epsilon .kstar.KStar$Settings$Builder#epsilon:
-	:builder_option stabilityThreshold .kstar.KStar$Settings$Builder#stabilityThreshold:
-	:builder_option maxSimultaneousMutations .kstar.KStar$Settings$Builder#maxSimultaneousMutations:
-	:builder_option useExternalMemory .kstar.KStar$Settings$Builder#useExternalMemory:
-	:builder_option showPfuncProgress .kstar.KStar$Settings$Builder#showPfuncProgress:
-	:builder_option numBestSequences .kstar.BBKStar$Settings$Builder#numBestSequences:
-	:builder_option numConfsPerBatch .kstar.BBKStar$Settings$Builder#numConfsPerBatch:
-	:param bool writeSequencesToConsole: True to write sequences and scores to the console
-	:param str writeSequencesToFile: Path to the log file to write sequences scores (in TSV format), or None to skip logging
+	# Arguments
+	${args_fields_javadoc(.kstar.BBKStar,
+		[proteinConfSpace, protein],
+		[ligandConfSpace, ligand],
+		[complexConfSpace, complex]
+	)}
+	${args_fields_javadoc(.kstar.KStar$Settings$Builder,
+		[epsilon],
+		[stabilityThreshold, type=float],
+		[maxSimultaneousMutations],
+		[useExternalMemory],
+		[showPfuncProgress]
+	)}
+	${args_fields_javadoc(.kstar.BBKStar$Settings$Builder,
+		[numBestSequences],
+		[numConfsPerBatch]
+	)}
+	writeSequencesToConsole `bool`: True to write sequences and scores to the console
+	writeSequencesToFile `str`: Path to the log file to write sequences scores (in TSV format), or None to skip logging
 
-	:rtype: :java:ref:`.kstar.BBKStar`
+	# Returns
+	${type_java(.kstar.BBKStar)}
 	'''
 
 	# build settings
@@ -1205,14 +1340,15 @@ BBKStar.ConfSearchFactory = _BBKStarConfSearchFactory
 
 def ConfAnalyzer(confEcalc):
 	'''
-	:java:classdoc:`.gmec.ConfAnalyzer`
+	${class_javadoc(.gmec.ConfAnalyzer)}
 
 	For examples using the conf analyzer, see examples/python.GMEC/analyzeConf.py in your Osprey distribution.
 
-	:param confEcalc: :java:fielddoc:`.gmec.SimpleGMECFinder$Builder#confEcalc`
-	:type confEcalc: :java:ref:`.energy.ConfEnergyCalculator`
+	# Arguments
+	${arg_java(confEcalc, .gmec.ConfAnalyzer#<init>)}
 
-	:rtype: :java:ref:`.gmec.ConfAnalyzer`
+	# Returns
+	${type_java(.gmec.ConfAnalyzer)}
 	'''
 
 	return c.gmec.ConfAnalyzer(confEcalc)
@@ -1220,14 +1356,15 @@ def ConfAnalyzer(confEcalc):
 
 def SequenceAnalyzer(kstar):
 	'''
-	:java:classdoc:`.kstar.SequenceAnalyzer`
+	${class_javadoc(.kstar.SequenceAnalyzer)}
 
 	For examples using the sequence analyzer, see examples/python.KStar/analyzeSequence.py in your Osprey distribution.
 
-	:param kstar: a configured instance of KStar
-	:type kstar: :java:ref:`.kstar.KStar`
+	# Arguments
+	${arg_java(kstar, .kstar.SequenceAnalyzer#<init>(KStar))} a configured instance of KStar
 
-	:rtype: :java:ref:`.kstar.SequenceAnalyzer`
+	# Returns
+	${type_java(.kstar.SequenceAnalyzer)}
 	'''
 
 	return c.kstar.SequenceAnalyzer(kstar)
@@ -1243,20 +1380,18 @@ def LUTE_train(confEcalc, emat, pmat, maxRMSE=0.1, maxOverfittingScore=1.5, rand
 
 	For examples using LUTE, see examples/python.GMEC/LUTE.*.py and examples/python.KStar/LUTE.*.py in your Osprey distribution.
 
-	:param confEcalc: The conformation energy calculator
-	:type confEcalc: :java:ref:`.energy.ConfEnergyCalculator`
-	:param emat: An energy matrix
-	:type emat: :java:ref:`.ematrix.EnergyMatrix`
-	:param pmat: A pruning matrix, resulting from DEE
-	:type pmat: :java:ref:`.pruning.PruningMatrix`
+	# Arguments
+	confEcalc ${type_java(.energy.ConfEnergyCalculator)}: The conformation energy calculator
+	emat: ${type_java(.ematrix.EnergyMatrix)}: An energy matrix
+	pmat: ${type_java(.pruning.PruningMatrix)}: A pruning matrix, resulting from DEE
+	maxRMSE `float`: The maximum tolerable fit RMS error
+	maxOverfittingScore `float`: The maximum tolerable amount of overfitting (score = training set RMSE / test set RMSE)
+	randomSeed `int`: Random seed to use for conformation sampling
+	confDBPath `str`: Path to write/read confDB file, or None to omit saving the confDB to disk
 
-	:param float maxRMSE: The maximum tolerable fit RMS error
-	:param float maxOverfittingScore: The maximum tolerable amount of overfitting (score = training set RMSE / test set RMSE)
-	:param int randomSeed: Random seed to use for conformation sampling
-	:param str confDBPath: Path to write/read confDB file, or None to omit saving the confDB to disk
-
-	:returns: The LUTE model if it meets the accuracy goals, or None otherwise
-	:rtype: :java:ref:`.lute.LUTEState`
+	# Returns
+	${type_java(.lute.LUTEState)}
+	The LUTE model if it meets the accuracy goals, or None otherwise
 	'''
 
 	confSpace = confEcalc.confSpace
@@ -1301,9 +1436,9 @@ def LUTE_write(model, path):
 	'''
 	Writes a LUTE model to a file
 
-	:param model: The LUTE model
-	:type model: :java:ref:`.lute.LUTEState`
-	:param str path: Path to the file
+	# Arguments
+	model ${type_java(.lute.LUTEState)}: The LUTE model
+	path `str`: Path to the file
 	'''
 
 	file = jvm.toFile(path)
@@ -1315,10 +1450,12 @@ def LUTE_read(path):
 	'''
 	Reads a LUTE model from a file
 
-	:param str path: Path to the file
+	# Arguments
+	path `str`: Path to the file
 
-	:returns: The LUTE model
-	:rtype: :java:ref:`.lute.LUTEState`
+	# Returns
+	${type_java(.lute.LUTEState)}
+	The LUTE model
 	'''
 
 	file = jvm.toFile(path)
@@ -1331,12 +1468,14 @@ def LUTE_ConfEnergyCalculator(confSpace, model):
 	'''
 	Creates a LUTE conformation energy calculator
 
-	:param confSpace: The conformation space
-	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
-	:param model: The LUTE model
-	:type model: :java:ref:`.lute.LUTEState`
+	# Arguments
+	${args_java(.lute.LUTEConfEnergyCalculator#<init>,
+		[confSpace],
+		[model, state]
+	)}
 
-	:rtype: :java:ref:`.lute.LUTEConfEnergyCalculator`
+	# Returns
+	${type_java(.lute.LUTEConfEnergyCalculator)}
 	'''
 
 	return c.lute.LUTEConfEnergyCalculator(confSpace, model)
@@ -1344,15 +1483,16 @@ def LUTE_ConfEnergyCalculator(confSpace, model):
 
 def LUTE_AStar(rcs, pmat, luteEcalc, showProgress=True):
 	'''
-	:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#setLUTE`
+	${method_javadoc(.astar.conf.ConfAStarTree$Builder#setLUTE)}
 
-	:builder_option rcs .astar.conf.ConfAStarTree$Builder#rcs:
-	:param pmat: The pruning matrix from the LUTE training calculation.
-	:type pmat: :java:ref:`.pruning.PruningMatrix`
-	:param luteEcalc: The LUTE conformation energy calculator
-	:type luteEcalc: :java:ref:`.lute.LUTEConfEnergyCalculator`
+	# Arguments
+	${arg_java(rcs, .astar.conf.RCs#<init>(RCs,PruningMatrix), other)}
+	${arg_java(pmat, .astar.conf.RCs#<init>(RCs,PruningMatrix))} The pruning matrix from the LUTE training calculation.
+	luteEcalc ${type_java(.lute.LUTEConfEnergyCalculator)}: The LUTE conformation energy calculator
+	showProgress `bool`: True to show progress of the A* calculation
 
-	:builder_return .astar.conf.ConfAStarTree$Builder:
+	# Returns
+	${returns_method_java(.astar.conf.ConfAStarTree$Builder#build)}
 	'''
 
 	# filter the rcs by the pmat
@@ -1367,32 +1507,37 @@ def LUTE_AStar(rcs, pmat, luteEcalc, showProgress=True):
 
 def LUTE_Pfunc(luteEcalc, astar, rcs):
 	'''
-	:java:classdoc:`.lute.LUTEPfunc`
-	TODO: docme
+	${class_javadoc(.lute.LUTEPfunc)}
+
+	# Arguments
+	${args_java(.lute.LUTEPfunc#<init>,
+		[luteEcalc, ecalc],
+		[astar]
+	)}
+	rcs ${type_java(.astar.conf.RCs)}
 	'''
 
 	return c.lute.LUTEPfunc(luteEcalc, astar, rcs.getNumConformations())
 
 
-def LUTE_GMECFinder(confSpace, model, pmat, confLog=useJavaDefault, printIntermediateConfs=useJavaDefault):
+def LUTE_GMECFinder(confSpace, model, pmat, confLog=None, printIntermediateConfs=useJavaDefault):
 	'''
-	:java:classdoc:`.lute.LUTEGMECFinder`
+	${class_javadoc(.lute.LUTEGMECFinder)}
 
-	:param confSpace: The conformation space
-	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
-	:param model: The LUTE model
-	:type model: :java:ref:`.lute.LUTEState`
-	:param pmat: The pruning matrix from the LUTE training calculation.
-	:type pmat: :java:ref:`.pruning.PruningMatrix`
-	:param str confLog: Path to file where conformations found during conformation space search should be logged.
-	:builder_option printIntermediateConfs .gmec.SimpleGMECFinder$Builder#printIntermediateConfsToConsole:
+	# Arguments
+	confSpace ${type_java(.confspace.SimpleConfSpace)}: The conformation space
+	model ${type_java(.lute.LUTEState)}: The LUTE model
+	pmat ${type_java(.pruning.PruningMatrix)}: The pruning matrix from the LUTE training calculation.
+	confLog `str`: Path to file where conformations found during conformation space search should be logged.
+	${arg_field_javadoc(printIntermediateConfs, .gmec.SimpleGMECFinder$Builder#printIntermediateConfsToConsole)}
 
-	:rtype: :java:ref:`.lute.LUTEGMECFinder`
+	# Returns
+	${type_java(.lute.LUTEGMECFinder)}
 	'''
 
 	builder = _get_builder(c.lute.LUTEGMECFinder)(pmat, LUTE_ConfEnergyCalculator(confSpace, model))
 
-	if confLog is not useJavaDefault:
+	if confLog is not None:
 		logFile = jvm.toFile(confLog)
 		builder.setLogPrinter(c.gmec.LoggingConfPrinter(logFile))
 
@@ -1404,19 +1549,27 @@ def LUTE_GMECFinder(confSpace, model, pmat, confLog=useJavaDefault, printInterme
 
 def COMETS_State(name, confSpace):
 	'''
-	:java:classdoc:`.gmec.Comets$State`
+	${class_javadoc(.gmec.Comets$State)}
 
-	:param str name: :java:fielddoc:`.gmec.Comets$State#name`
-	:param confSpace: :java:fielddoc:`.gmec.Comets$State#confSpace`
-	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
+	# Arguments
+	${args_java(.gmec.Comets$State#<init>,
+		[name],
+		[confSpace]
+	)}
 
-	:rtype: :java:ref:`.gmec.Comets$State`
+	# Returns
+	${type_java(.gmec.Comets$State)}
 	'''
 
 	return jvm.getInnerClass(c.gmec.Comets, 'State')(name, confSpace)
 
 
 def COMETS_ConfSearchFactory(func):
+	'''
+	A utility to convert function types.
+
+	See `examples/python.GMEC/comets.py` for an example of how to use this function.
+	'''
 
 	# convert the python lambda to a JVM interface implementation
 	return jpype.JProxy(
@@ -1427,14 +1580,15 @@ def COMETS_ConfSearchFactory(func):
 
 def COMETS_LME(weightsByState, offset=useJavaDefault, constrainLessThan=None):
 	'''
-	:java:classdoc:`.gmec.Comets$LME`
+	${class_javadoc(.gmec.Comets$LME)}
 
-	:param weightsByState: map from states to weights
-	:type weightsByState: map from :java:ref:`.gmec.Comets$State` to float
+	# Arguments
+	weightsByState `{`${type_java(.gmec.Comets$State)}`-> float}`: map from states to weights
+	${arg_field_javadoc(offset, .gmec.Comets$LME$Builder#offset)}
+	constrainLessThan `float`: ${method_javadoc(.gmec.Comets$LME$Builder#constrainLessThan)}
 
-	:builder_option offset .gmec.Comets$LME$Builder#offset:
-	:param float constrainLessThan: :java:methoddoc:`.gmec.Comets$LME$Builder#constrainLessThan`
-	:builder_return .gmec.Comets$LME$Builder:
+	# Returns
+	${returns_method_java(.gmec.Comets$LME$Builder#build)}
 	'''
 
 	builder = _get_builder(jvm.getInnerClass(c.gmec.Comets, 'LME'))()
@@ -1453,21 +1607,21 @@ def COMETS_LME(weightsByState, offset=useJavaDefault, constrainLessThan=None):
 
 def COMETS(objective, constraints=[], objectiveWindowSize=useJavaDefault, objectiveWindowMax=useJavaDefault, maxSimultaneousMutations=useJavaDefault, minNumConfTrees=useJavaDefault, logFile=None):
 	'''
-	:java:classdoc:`.gmec.Comets`
+	${class_javadoc(.gmec.Comets)}
 
-	:builder_option objective .gmec.Comets$Builder#objective:
+	# Arguments
+	${arg_field_javadoc(objective, .gmec.Comets$Builder#objective)}
+	constraints `[`${type_java(.gmec.Comets$LME)}`]`: List of LMEs to use as constraints
+	${args_fields_javadoc(.gmec.Comets$Builder,
+		[objectiveWindowSize],
+		[objectiveWindowMax],
+		[maxSimultaneousMutations],
+		[minNumConfTrees, type=int]
+	)}
+	logFile `str`: ${field_javadoc(.gmec.Comets$Builder#logFile)}
 
-	:param constraints: List of LMEs to use as constraints
-	:type constraints: list of :java:ref:`.gmec.Comets$LME`
-
-	:builder_option objectiveWindowSize .gmec.Comets$Builder#objectiveWindowSize:
-	:builder_option objectiveWindowMax .gmec.Comets$Builder#objectiveWindowMax:
-	:builder_option maxSimultaneousMutations .gmec.Comets$Builder#maxSimultaneousMutations:
-	:builder_option minNumConfTrees .gmec.Comets$Builder#minNumConfTrees:
-
-	:param str logFile: :java:fielddoc:`.gmec.Comets$Builder#logFile`
-
-	:builder_return .gmec.Comets$Builder:
+	# Returns
+	${returns_method_java(.gmec.Comets$Builder#build)}
 	'''
 
 	builder = _get_builder(c.gmec.Comets)(objective)
@@ -1491,15 +1645,16 @@ def COMETS(objective, constraints=[], objectiveWindowSize=useJavaDefault, object
 
 
 def MSKStar_State(name, confSpace):
-	'''
-	:java:classdoc:`.kstar.MSKStar$State`
-
-	:param str name: :java:fielddoc:`.kstar.MSKStar$State#name`
-	:param confSpace: :java:fielddoc:`.kstar.MSKStar$State#confSpace`
-	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
-
-	:rtype: :java:ref:`.kstar.MSKStar$State`
-	'''
+# MSK* implementation is unfinished! don't include this in the public API
+# 	'''
+# 	${class_javadoc(.kstar.MSKStar$State)}
+#
+# 	:param str name: :java:fielddoc:`.kstar.MSKStar$State#name`
+# 	:param confSpace: :java:fielddoc:`.kstar.MSKStar$State#confSpace`
+# 	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
+#
+# 	:rtype: :java:ref:`.kstar.MSKStar$State`
+# 	'''
 
 	return jvm.getInnerClass(c.kstar.MSKStar, 'State')(name, confSpace)
 
@@ -1514,16 +1669,17 @@ def MSKStar_ConfSearchFactory(func):
 
 
 def MSKStar_LMFE(weightsByState, offset=useJavaDefault, constrainLessThan=None):
-	'''
-	:java:classdoc:`.kstar.MSKStar$LMFE`
-
-	:param weightsByState: map from states to weights
-	:type weightsByState: map from :java:ref:`.kstar.MSKStar$State` to float
-
-	:builder_option offset .kstar.MSKStar$LMFE$Builder#offset:
-	:param float constrainLessThan: :java:methoddoc:`.kstar.MSKStar$LMFE$Builder#constrainLessThan`
-	:builder_return .kstar.MSKStar$LMFE$Builder:
-	'''
+# MSK* implementation is unfinished! don't include this in the public API
+# 	'''
+# 	${class_javadoc(.kstar.MSKStar$LMFE)}
+#
+# 	:param weightsByState: map from states to weights
+# 	:type weightsByState: map from :java:ref:`.kstar.MSKStar$State` to float
+#
+# 	:builder_option offset .kstar.MSKStar$LMFE$Builder#offset:
+# 	:param float constrainLessThan: ${method_javadoc(.kstar.MSKStar$LMFE$Builder#constrainLessThan)}
+# 	:builder_return .kstar.MSKStar$LMFE$Builder:
+# 	'''
 
 	builder = _get_builder(jvm.getInnerClass(c.kstar.MSKStar, 'LMFE'))()
 
@@ -1540,24 +1696,25 @@ def MSKStar_LMFE(weightsByState, offset=useJavaDefault, constrainLessThan=None):
 
 
 def MSKStar(objective, constraints=[], epsilon=useJavaDefault, objectiveWindowSize=useJavaDefault, objectiveWindowMax=useJavaDefault, maxSimultaneousMutations=useJavaDefault, minNumConfTrees=useJavaDefault, logFile=None):
-	'''
-	:java:classdoc:`.kstar.MSKStar`
-
-	:builder_option objective .kstar.MSKStar$Builder#objective:
-
-	:param constraints: List of LMFEs to use as constraints
-	:type constraints: list of :java:ref:`.kstar.MSKStar$LMFE`
-
-	:builder_option epsilon .kstar.MSKStar$Builder#epsilon:
-	:builder_option objectiveWindowSize .kstar.MSKStar$Builder#objectiveWindowSize:
-	:builder_option objectiveWindowMax .kstar.MSKStar$Builder#objectiveWindowMax:
-	:builder_option maxSimultaneousMutations .kstar.MSKStar$Builder#maxSimultaneousMutations:
-	:builder_option minNumConfTrees .kstar.MSKStar$Builder#minNumConfTrees:
-
-	:param str logFile: :java:fielddoc:`.kstar.MSKStar$Builder#logFile`
-
-	:builder_return .kstar.MSKStar$Builder:
-	'''
+# MSK* implementation is unfinished! don't include this in the public API
+# 	'''
+# 	${class_javadoc(.kstar.MSKStar)}
+#
+# 	:builder_option objective .kstar.MSKStar$Builder#objective:
+#
+# 	:param constraints: List of LMFEs to use as constraints
+# 	:type constraints: list of :java:ref:`.kstar.MSKStar$LMFE`
+#
+# 	:builder_option epsilon .kstar.MSKStar$Builder#epsilon:
+# 	:builder_option objectiveWindowSize .kstar.MSKStar$Builder#objectiveWindowSize:
+# 	:builder_option objectiveWindowMax .kstar.MSKStar$Builder#objectiveWindowMax:
+# 	:builder_option maxSimultaneousMutations .kstar.MSKStar$Builder#maxSimultaneousMutations:
+# 	:builder_option minNumConfTrees .kstar.MSKStar$Builder#minNumConfTrees:
+#
+# 	:param str logFile: :java:fielddoc:`.kstar.MSKStar$Builder#logFile`
+#
+# 	:builder_return .kstar.MSKStar$Builder:
+# 	'''
 
 	builder = _get_builder(c.kstar.MSKStar)(objective)
 
@@ -1635,41 +1792,54 @@ def EwakstarDoer(state, smaNodes, useSMA=useJavaDefault, printPDBs=useJavaDefaul
 
 def SOFEA_StateConfig(emat, confEcalc, confdbPath=None):
 	'''
-	:java:classdoc:`.sofea.Sofea$StateConfig`
+	${class_javadoc(.sofea.Sofea$StateConfig)}
 
-	:param emat: :java:fielddoc:`.sofea.Sofea$StateConfig#emat`
-	:param confEcalc: :java:fielddoc:`.sofea.Sofea$StateConfig#confEcalc`
-	:param confdbPath: :java:fielddoc:`.sofea.Sofea$StateConfig#confDBFile`
-	:rtype: :java:ref:`.sofea.Sofea$StateConfig`
+	# Arguments
+	${args_java(.sofea.Sofea$StateConfig#<init>,
+		[emat],
+		[confEcalc],
+		[confdbPath, confDBFile, type=str]
+	)}
+
+	# Returns
+	${type_java(.sofea.Sofea$StateConfig)}
 	'''
 	confdbFile = jvm.toFile(confdbPath) if confdbPath is not None else None
 	return jvm.getInnerClass(c.sofea.Sofea, 'StateConfig')(emat, confEcalc, confdbFile)
 
 
-def SOFEA(confSpace, configFunc, seqdbPath='sofea.seqdb', seqdbMathContext=useJavaDefault, fringedbLowerPath='sofea.lower.fringedb', fringedbLowerMiB=10, fringedbUpperPath='sofea.upper.fringedb', fringedbUpperMiB=10, rcdbPath=useJavaDefault, showProgress=useJavaDefault, performanceLogPath=useJavaDefault, sweepIncrement=useJavaDefault, maxNumMinimizations=useJavaDefault, negligableFreeEnergy=useJavaDefault):
+def SOFEA(
+	confSpace, configFunc, seqdbPath='sofea.seqdb', seqdbMathContext=useJavaDefault, fringedbLowerPath='sofea.lower.fringedb',
+	fringedbLowerMiB=10, fringedbUpperPath='sofea.upper.fringedb', fringedbUpperMiB=10, rcdbPath=useJavaDefault,
+	showProgress=useJavaDefault, performanceLogPath=useJavaDefault, sweepIncrement=useJavaDefault,
+	maxNumMinimizations=useJavaDefault, negligableFreeEnergy=useJavaDefault
+):
 	'''
-	:java:classdoc:`.sofea.Sofea`
+	${class_javadoc(.sofea.Sofea)}
 
-	:param confSpace: A multi-state configuration space
-	:type confSpace: :java:ref:`.confspace.MultiStateConfSpace`
+	See `examples/python.SOFEA/sofea.py` for an example of how to use SOFEA.
 
-	:param configFunc: a function that creates a :java:ref:`.sofea.Sofea$StateConfig` for a state
-	:type configFunc: function(:java:ref:`.confspace.MultiStateConfSpace$State`) returning :java:ref:`.sofea.Sofea$StateConfig`
+	# Arguments
+	confSpace ${type_java(.confspace.MultiStateConfSpace)}: A multi-state configuration space
+	configFunc: a function that accepts a ${type_java(.confspace.MultiStateConfSpace$State)}
+	            and returns a ${type_java(.sofea.Sofea$StateConfig)} for a state
+	seqdbPath `str`: Path to write the sequence database file
+	${arg_field_javadoc(seqdbMathContext, .sofea.Sofea$Builder#seqdbMathContext)}
+	fringedbLowerPath `str`: Path to write the lower fringe set
+	fringedbLowerMiB `int`: size of the lower fringe set in MiB
+	fringedbUpperPath `str`: Path to write the upper fringe set
+	fringedbUpperMiB `int`: size of the upper fringe set in MiB
+	${args_fields_javadoc(.sofea.Sofea$Builder,
+		[rcdbPath, rcdbFile, type=str],
+		[showProgress],
+		[performanceLogPath, performanceLogFile, type=str],
+		[sweepIncrement],
+		[maxNumMinimizations],
+		[negligableFreeEnergy]
+	)}
 
-	:param str seqdbPath: Path to write the sequence database file
-	:builder_option seqdbMathContext .sofea.Sofea$Builder#seqdbMathContext:
-	:param str fringedbLowerPath: Path to write the lower fringe set
-	:param int fringedbLowerMiB: size of the lower fringe set in MiB
-	:param str fringedbUpperPath: Path to write the upper fringe set
-	:param int fringedbUpperMiB: size of the upper fringe set in MiB
-	:param str rcdbPath: Path to write the upper fringe set
-	:builder_option showProgress .sofea.Sofea$Builder#showProgress:
-	:param str performanceLogPath: Path to write the performance log
-	:builder_option sweepIncrement .sofea.Sofea$Builder#sweepIncrement:
-	:builder_option maxNumMinimizations .sofea.Sofea$Builder#maxNumMinimizations:
-	:builder_option negligableFreeEnergy .sofea.Sofea$Builder#negligableFreeEnergy:
-
-	:builder_return .sofea.Sofea$Builder:
+	# Returns
+	${returns_method_java(.sofea.Sofea$Builder#build)}
 	'''
 
 	builder = _get_builder(c.sofea.Sofea)(confSpace)
@@ -1707,23 +1877,33 @@ def SOFEA(confSpace, configFunc, seqdbPath='sofea.seqdb', seqdbMathContext=useJa
 
 def SOFEA_MinLMFE(lmfe, numSequences, minFreeEnergyWidth):
 	'''
-	:java:classdoc:`.sofea.MinLMFE`
+	${class_javadoc(.sofea.MinLMFE)}
 
-	:param lmfe: :java:fielddoc:`.sofea.MinLMFE#objective`
-	:param numSequences: :java:fielddoc:`.sofea.MinLMFE#numSequences`
-	:param minFreeEnergyWidth: :java:fielddoc:`.sofea.MinLMFE#minFreeEnergyWidth`
-	:rtype: :java:ref:`.sofea.MinLMFE`
+	# Arguments
+	${args_java(.sofea.MinLMFE#<init>,
+		[lmfe, objective],
+		[numSequences],
+		[minFreeEnergyWidth]
+	)}
+
+	# Returns
+	${type_java(.sofea.MinLMFE)}
 	'''
 	return c.sofea.MinLMFE(lmfe, numSequences, minFreeEnergyWidth)
 
 
 def SOFEA_SequenceLMFE(sequence, lmfe, minFreeEnergyWidth):
 	'''
-	:java:classdoc:`.sofea.SequenceLMFE`
+	${class_javadoc(.sofea.SequenceLMFE)}
 
-	:param sequence: :java:fielddoc:`.sofea.SequenceLMFE#seq`
-	:param lmfe: :java:fielddoc:`.sofea.SequenceLMFE#lmfe`
-	:param minFreeEnergyWidth: :java:fielddoc:`.sofea.SequenceLMFE#minFreeEnergyWidth`
-	:rtype: :java:ref:`.sofea.SequenceLMFE`
+	# Arguments
+	${args_java(.sofea.SequenceLMFE#<init>,
+		[sequence, seq],
+		[lmfe],
+		[minFreeEnergyWidth]
+	)}
+
+	# Returns
+	${type_java(.sofea.SequenceLMFE)}
 	'''
 	return c.sofea.SequenceLMFE(sequence, lmfe, minFreeEnergyWidth)

@@ -17,10 +17,10 @@ public enum PosInterDist {
 	/**
 	 * Uses the traditional distribution introduced in the original DEE paper:
 	 *
-	 * The dead-end elimination theorem and its use in protein side-chain positioning
+	 * {@cite The dead-end elimination theorem and its use in protein side-chain positioning
 	 * J Desmet, M De Maeyer, B Hazes, I Lasters
 	 * Nature, 1992
-	 * https://doi.org/10.1038/356539a0
+	 * https://doi.org/10.1038/356539a0}
 	 *
 	 * Namely, pos-static and pos interactions are placed on "single" conf fragments.
 	 * And pos-pos interactions are placed on "pair" conf fragments.
@@ -119,6 +119,10 @@ public enum PosInterDist {
 		}
 	};
 
+	/**
+	 * Include interactions between static regions (unaffected by motions and mutations) in the input molecules.
+	 * Doesn't depend on the distribution.
+	 */
 	public static List<PosInter> staticStatic() {
 		List<PosInter> inters = new ArrayList<>();
 

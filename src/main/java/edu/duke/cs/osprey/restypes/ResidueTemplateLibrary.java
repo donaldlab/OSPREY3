@@ -104,7 +104,7 @@ public class ResidueTemplateLibrary implements Serializable {
 		}
 
 		/**
-		 * By default, templates for natual amino acids are added
+		 * By default, templates for natual amino acids are added.
 		 */
 		public Builder clearTemplates() {
 			templatesTexts.clear();
@@ -112,7 +112,7 @@ public class ResidueTemplateLibrary implements Serializable {
 		}
 
 		/**
-		 * Templates to add to the library
+		 * Templates to add to the library.
 		 */
 		public Builder addTemplates(String text) {
 			templatesTexts.add(text);
@@ -120,7 +120,7 @@ public class ResidueTemplateLibrary implements Serializable {
 		}
 
 		/**
-		 * By default, template coordinates for natual amino acids are added
+		 * By default, template coordinates for natual amino acids are added.
 		 */
 		public Builder clearTemplateCoords() {
 			templateCoordsTexts.clear();
@@ -128,7 +128,7 @@ public class ResidueTemplateLibrary implements Serializable {
 		}
 
 		/**
-		 * Template coordinates to add to the library
+		 * Template coordinates to add to the library.
 		 *
 		 * @todo explain template coord file format. anyone know about this?
 		 */
@@ -197,6 +197,9 @@ public class ResidueTemplateLibrary implements Serializable {
 			return this;
 		}
 
+		/**
+		 * True to make D amino acid templates, false otherwise.
+		 */
 		public Builder setMakeDAminoAcidTemplates(boolean val) {
 			makeDAminoAcidTemplates = val;
 			return this;

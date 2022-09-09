@@ -1,6 +1,7 @@
 
 # temp folders
 /build
+/buildSrc/build
 **/*.egg-info
 **/*.pyc
 
@@ -21,3 +22,8 @@ nbbuild.xml
 
 # Gradle things
 .gradle
+/gradle.properties
+
+# hugo things
+/doc/themes
+/doc/.hugo_build.lock

@@ -40,7 +40,10 @@ import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.*;
 import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
-import edu.duke.cs.osprey.tools.*;
+import edu.duke.cs.osprey.tools.AutoCloseableNoEx;
+import edu.duke.cs.osprey.tools.BigMath;
+import edu.duke.cs.osprey.tools.ExpFunction;
+import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
 import java.math.BigDecimal;
@@ -572,7 +575,7 @@ public class BBKStar {
 		ligandPfuncs = new HashMap<>();
 		complexPfuncs = new HashMap<>();
 
-		exp = new ExpFunction(new MathContext(512, RoundingMode.HALF_UP));
+		exp = new ExpFunction(ExpFunction.mc); // For now just use the default mathcontext
 
 	}
 

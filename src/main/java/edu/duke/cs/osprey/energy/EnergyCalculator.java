@@ -248,6 +248,7 @@ public class EnergyCalculator implements AutoCleanable {
 	 */
 	public static class SharedBuilder {
 
+		/** The existing energy calculator with which to share resources */
 		private EnergyCalculator parent;
 
 		private boolean isMinimizing = true;

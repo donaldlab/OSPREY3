@@ -28,7 +28,7 @@ object UserSettings {
 	// init settings with defaults
 
 	val serviceProviders = mutableListOf(
-		ServiceProvider("olympias.cs.duke.edu", https=true)
+		ServiceProvider("grisman-36.cs.duke.edu", https=true)
 	)
 	var serviceProvider: ServiceProvider = serviceProviders.first()
 		set(value) {

@@ -112,7 +112,7 @@ suspend fun Molecule.protonate(atom: Atom, protonation: Protonation) {
 		val atomNumber = atom.name.filter { it.isDigit() }
 		var hNumber = "$atomNumber${i + 1}".toInt()
 		if (hNumber in domainHydrogens.values) {
-			hNumber = (domainHydrogens.values.maxBy { it ?: 0 } ?: 0) + 1
+			hNumber = (domainHydrogens.values.maxByOrNull { it ?: 0 } ?: 0) + 1
 		}
 		val hName = "H$hNumber"
 		domainHydrogens[hName] = hNumber

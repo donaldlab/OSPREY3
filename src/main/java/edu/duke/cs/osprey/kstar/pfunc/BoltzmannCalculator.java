@@ -55,6 +55,9 @@ public class BoltzmannCalculator {
 	public static final double TBody = 310; // about 98.33 F
 	public static final double TClassic = TRoom;
 
+	/**
+	 * Environmental conditions, like temperature and the gas constant.
+	 */
 	public static class Conditions {
 
 		/** gas constant, in kcal/K/mol */
@@ -72,11 +75,16 @@ public class BoltzmannCalculator {
 			this(RPrecise, T);
 		}
 
-		/** The time-tested consitions used in Osprey versions of years past */
+		/** The time-tested consitions used in Osprey versions of years past, ie room temperature */
 		public static final Conditions Classic = new Conditions(RClassic, TClassic);
 
+		/** Almost frozen temperatures: 275 K, or about 35 F */
 		public static final Conditions AlmostFrozen = new Conditions(TAlmostFrozen);
+
+		/** Room temperature: 25 C, or about 298.15 K, or about 77 F */
 		public static final Conditions Room = new Conditions(TRoom);
+
+		/** Body temperature: 310 K, or about 98 F */
 		public static final Conditions Body = new Conditions(TBody);
 	}
 

@@ -11,6 +11,11 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import java.util.List;
 
 
+/**
+ * The energy calculator interface for molecules created from compiled conformation spaces.
+ *
+ * Some implementations support multiple floating point precisions, depending on available hardware.
+ */
 public interface ConfEnergyCalculator extends AutoCloseable {
 
 	class EnergiedCoords {
@@ -147,6 +152,10 @@ public interface ConfEnergyCalculator extends AutoCloseable {
 		return new NativeConfEnergyCalculator(confSpace, precision);
 	}
 
+	/**
+	 * Builds the best conformation energy calculator based on the given resources,
+	 * and using Float64 precision.
+	 */
 	static ConfEnergyCalculator makeBest(ConfSpace confSpace, Parallelism parallelism) {
 		return makeBest(confSpace, parallelism, Structs.Precision.Float64);
 	}

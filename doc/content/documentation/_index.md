@@ -6,6 +6,9 @@ chapter = true
 
 # Osprey Documentation
 
-This is the main location for all Osprey documentation.
+This is the main location for all OSPREY documentation.
 
-Choose your version of Osprey using the menu on the left.
+Choose the documentation that matches your version os OSPREY:
+
+ * [main branch](main)
+<span id="doc/versions"></span>
