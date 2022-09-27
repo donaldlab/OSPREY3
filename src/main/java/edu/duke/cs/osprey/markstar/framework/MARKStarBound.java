@@ -44,11 +44,14 @@ import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
 import edu.duke.cs.osprey.confspace.*;
+import edu.duke.cs.osprey.confspace.compiled.PosInter;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.ResidueForcefieldBreakdown;
+import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculatorAdapter;
 import edu.duke.cs.osprey.gmec.ConfAnalyzer;
 import edu.duke.cs.osprey.kstar.BBKStar;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
@@ -62,6 +65,7 @@ import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.ObjectPool;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tools.TimeTools;
+import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator.EnergiedCoords;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -903,20 +907,36 @@ public class MARKStarBound implements PartitionFunction.WithConfDB {
                 node.index(context.index);
 
                 ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.assignments, node.getConfLowerBound());
-                ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
-                
-                // record the conf energy in the ConfDB, if needed
-                ConfDB.ConfTable confTable = confTable();
-                if (confTable != null) {
-                	long timestamp = TimeTools.getTimestampNs();
-                	confTable.setLowerBound(conf.getAssignments(), conf.getScore(), timestamp);
-                    confTable.setUpperBound(conf.getAssignments(), analysis.epmol.energy, timestamp);
+
+                // I know I know, I'm sorry for doing this to you
+                double energy;
+                if (minimizingEcalc instanceof ConfEnergyCalculatorAdapter){
+                    var ccsEcalc = (ConfEnergyCalculatorAdapter) minimizingEcalc;
+                    var ccsConf = ccsEcalc.confEcalc.confSpace().assign(new RCTuple(conf.getAssignments()));
+                    List<PosInter> inters = ccsEcalc.posInterGen.all(ccsEcalc.confEcalc.confSpace(),
+                            ccsConf, ccsEcalc.includeStaticStatic);
+                    EnergiedCoords coords = ccsEcalc.confEcalc.minimize(ccsConf, inters);
+
+                    computeEnergyCorrectionsCCS(conf, ccsEcalc, ccsConf, coords);
+                    energy = coords.energy;
+                    //System.out.println(energy);
+                    //System.out.println(minimizingEcalc.calcEnergy(conf));
+                }else {
+                    ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
+
+                    // record the conf energy in the ConfDB, if needed
+                    ConfDB.ConfTable confTable = confTable();
+                    if (confTable != null) {
+                        long timestamp = TimeTools.getTimestampNs();
+                        confTable.setLowerBound(conf.getAssignments(), conf.getScore(), timestamp);
+                        confTable.setUpperBound(conf.getAssignments(), analysis.epmol.energy, timestamp);
+                    }
+
+                    computeEnergyCorrection(analysis, conf, context.ecalc);
+
+                    energy = analysis.epmol.energy;
                 }
                 
-                Stopwatch correctionTimer = new Stopwatch().start();
-                computeEnergyCorrection(analysis, conf, context.ecalc);
-
-                double energy = analysis.epmol.energy;
                 double newConfUpper = energy;
                 double newConfLower = energy;
                 // Record pre-minimization bounds so we can parse out how much minimization helped for upper and lower bounds
@@ -1000,20 +1020,16 @@ public class MARKStarBound implements PartitionFunction.WithConfDB {
         EnergyMatrix diff = energyAnalysis.diff(scoreAnalysis);
         //System.out.println("Difference Analysis " + diff);
         List<TupE> sortedPairwiseTerms2 = new ArrayList<>();
-        for (int pos = 0; pos < diff.getNumPos(); pos++)
-        {
-            for (int rc = 0; rc < diff.getNumConfAtPos(pos); rc++)
-            {
-                for (int pos2 = 0; pos2 < diff.getNumPos(); pos2++)
-                {
-                    for (int rc2 = 0; rc2 < diff.getNumConfAtPos(pos2); rc2++)
-                    {
-                        if(pos >= pos2)
+        for (int pos = 0; pos < diff.getNumPos(); pos++) {
+            for (int rc = 0; rc < diff.getNumConfAtPos(pos); rc++) {
+                for (int pos2 = 0; pos2 < diff.getNumPos(); pos2++) {
+                    for (int rc2 = 0; rc2 < diff.getNumConfAtPos(pos2); rc2++) {
+                        if (pos >= pos2)
                             continue;
                         double sum = 0;
-                        sum+=diff.getOneBody(pos, rc);
-                        sum+=diff.getPairwise(pos, rc, pos2, rc2);
-                        sum+=diff.getOneBody(pos2,rc2);
+                        sum += diff.getOneBody(pos, rc);
+                        sum += diff.getPairwise(pos, rc, pos2, rc2);
+                        sum += diff.getOneBody(pos2, rc2);
                         TupE tupe = new TupE(new RCTuple(pos, rc, pos2, rc2), sum);
                         sortedPairwiseTerms2.add(tupe);
                     }
@@ -1021,7 +1037,54 @@ public class MARKStarBound implements PartitionFunction.WithConfDB {
             }
         }
         Collections.sort(sortedPairwiseTerms2);
+        getSignificantCorrections(sortedPairwiseTerms2, conf, ecalc, correctionTime);
+    }
 
+    private void computeEnergyCorrectionsCCS(ConfSearch.ScoredConf conf, ConfEnergyCalculatorAdapter ecalc, int[] ccsConf, EnergiedCoords coords){
+        if (conf.getAssignments().length < 3)
+            return;
+
+        List<TupE> sortedPairwiseTerms2 = new ArrayList<>();
+        //System.out.printf("Conf: %s", Arrays.toString(conf.getAssignments()));
+        //System.out.printf("Conf(CCS): %s", Arrays.toString(ccsConf));
+        for (int pos = 0; pos < ccsConf.length; pos++) {
+            //for (int rc : Arrays.stream(ecalc.confEcalc.confSpace().positions[pos].confs)
+            //.mapToInt(c -> c.index)
+            //.toArray()){
+                for (int pos2 = 0; pos2 < ccsConf.length; pos2++) {
+                    //for (int rc2 : Arrays.stream(ecalc.confEcalc.confSpace().positions[pos2].confs)
+                            //.mapToInt(c -> c.index)
+                            //.toArray()){
+                        if (pos >= pos2)
+                            continue;
+
+                        // I'm pretty sure this only happens at full conf nodes anyway??
+                        int rc = ccsConf[pos];
+                        int rc2 = ccsConf[pos2];
+
+                        List<PosInter> inters = new ArrayList<>();
+                        inters.addAll(ecalc.posInterGen.single(ecalc.confEcalc.confSpace(), pos, rc));
+                        inters.addAll(ecalc.posInterGen.single(ecalc.confEcalc.confSpace(), pos2, rc2));
+                        // for some reason the second pos needs to come first
+                        inters.addAll(ecalc.posInterGen.pair(ecalc.confEcalc.confSpace(), pos2, rc2, pos, rc));
+                        double minimizedE = ((CPUConfEnergyCalculator)ecalc.confEcalc).calcEnergy(coords.coords, inters);
+                        double rigidE = ecalc.confEcalc.calcEnergy(ccsConf, inters);
+                        double correction = minimizedE - rigidE;
+                        //System.out.printf("Correction for %d=%d, %d=%d was %.3f (%.3f - %.3f) \n", pos, rc, pos2, rc2, correction, minimizedE, rigidE);
+                        //sum += diff.getOneBody(pos, rc);
+                        //sum += diff.getPairwise(pos, rc, pos2, rc2);
+                        //sum += diff.getOneBody(pos2, rc2);
+                        TupE tupe = new TupE(new RCTuple(pos, rc, pos2, rc2), correction);
+                        sortedPairwiseTerms2.add(tupe);
+                    }
+                //}
+            //}
+        }
+        Collections.sort(sortedPairwiseTerms2);
+
+    }
+
+    private void getSignificantCorrections(List<TupE> sortedPairwiseTerms2,  ConfSearch.ScoredConf conf, ConfEnergyCalculator ecalc, Stopwatch correctionTime){
         double threshhold = 0.1;
         double minDifference = 0.9;
         double triplethreshhold = 0.3;
@@ -1036,7 +1099,7 @@ public class MARKStarBound implements PartitionFunction.WithConfDB {
             int pos1 = tupe.tup.pos.get(0);
             int pos2 = tupe.tup.pos.get(1);
             int localMinimizations = 0;
-            for(int pos3 = 0; pos3 < diff.getNumPos(); pos3++) {
+            for(int pos3 = 0; pos3 < conf.getAssignments().length; pos3++) {
                 if (pos3 == pos2 || pos3 == pos1)
                     continue;
                 RCTuple tuple = makeTuple(conf, pos1, pos2, pos3);

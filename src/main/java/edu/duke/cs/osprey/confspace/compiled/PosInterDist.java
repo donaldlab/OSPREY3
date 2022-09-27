@@ -61,6 +61,19 @@ public enum PosInterDist {
 			inters.add(new PosInter(posi2, posi3, weight, 0.0));
 			return inters;
 		}
+
+		/**
+		 * A triad of pair interactions
+		 */
+		@Override
+		public List<PosInter> unweightedTripleCorrection(ConfSpace confSpace, SimpleReferenceEnergies eref, int posi1, int confi1, int posi2, int confi2, int posi3, int confi3) {
+			List<PosInter> inters = new ArrayList<>();
+			// no offsets needed, since the pairs have no offsets
+			inters.add(new PosInter(posi1, posi2, 1.0, 0.0));
+			inters.add(new PosInter(posi1, posi3, 1.0, 0.0));
+			inters.add(new PosInter(posi2, posi3, 1.0, 0.0));
+			return inters;
+		}
 	},
 
 	/**
@@ -115,6 +128,22 @@ public enum PosInterDist {
 			inters.add(new PosInter(posi1, posi2, pairWeight, 0.0));
 			inters.add(new PosInter(posi1, posi3, pairWeight, 0.0));
 			inters.add(new PosInter(posi2, posi3, pairWeight, 0.0));
+			return inters;
+		}
+
+		@Override
+		public List<PosInter> unweightedTripleCorrection(ConfSpace confSpace, SimpleReferenceEnergies eref, int posi1, int confi1, int posi2, int confi2, int posi3, int confi3) {
+
+			List<PosInter> inters = new ArrayList<>();
+			inters.add(new PosInter(posi1, posi1, 1.0, getErefOffset(confSpace, eref, posi1, confi1)));
+			inters.add(new PosInter(posi2, posi2, 1.0, getErefOffset(confSpace, eref, posi2, confi2)));
+			inters.add(new PosInter(posi3, posi3, 1.0, getErefOffset(confSpace, eref, posi2, confi2)));
+			inters.add(new PosInter(posi1, PosInter.StaticPos, 1.0, 0.0));
+			inters.add(new PosInter(posi2, PosInter.StaticPos, 1.0, 0.0));
+			inters.add(new PosInter(posi3, PosInter.StaticPos, 1.0, 0.0));
+			inters.add(new PosInter(posi1, posi2, 1.0, 0.0));
+			inters.add(new PosInter(posi1, posi3, 1.0, 0.0));
+			inters.add(new PosInter(posi2, posi3, 1.0, 0.0));
 			return inters;
 		}
 	};
@@ -223,4 +252,9 @@ public enum PosInterDist {
 	 * but weighted to prevent over-counting when all possible triples are used simultaneously.
 	 */
 	public abstract List<PosInter> tripleCorrection(ConfSpace confSpace, SimpleReferenceEnergies eref, int posi1, int confi1, int posi2, int confi2, int posi3, int confi3);
+
+	/**
+	 * Interactions of a tuple of three positions,
+	 */
+	public abstract List<PosInter> unweightedTripleCorrection(ConfSpace confSpace, SimpleReferenceEnergies eref, int posi1, int confi1, int posi2, int confi2, int posi3, int confi3);
 }
