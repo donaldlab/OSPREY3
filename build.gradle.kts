@@ -42,7 +42,7 @@ plugins {
 	kotlin("jvm") // no version here, already specified in buildSrc
 	kotlin("plugin.serialization") // no version here, already specified in buildSrc
 	id("org.openjfx.javafxplugin") version("0.0.7")
-	id("org.beryx.runtime") // no version here, already specified in buildSrc
+	id("org.beryx.runtime") // no version here, already specified in buildSrc. This implicitly applies the application plugin.
 }
 
 javafx {
@@ -191,6 +191,14 @@ tasks.withType<JavaExec> {
 			|	$executable
 			|	$jvmArgsStr -cp "$classpathStr" $main $argsStr
 		""".trimMargin())
+	}
+}
+
+distributions {
+	main {
+		contents {
+			from("src/main/julia") // add the resistor modules to the distribution
+		}
 	}
 }
 
