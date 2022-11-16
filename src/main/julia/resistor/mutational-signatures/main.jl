@@ -1,6 +1,4 @@
 using JSON
-using Printf
-
 using LightGraphs, SimpleWeightedGraphs
 using ArgParse
 using FASTX
@@ -9,9 +7,10 @@ using CSV
 using DataFrames
 using Statistics
 
-include("mut-sig-probs.jl")
-include("translation-tables.jl")
-using .MutSigProbs, .TranslationTables
+include("src/pareto.jl")
+include("src/mut-sig-probs.jl")
+include("src/translation-tables.jl")
+using .Pareto, .MutSigProbs, .TranslationTables
 
 DEBUG = false
 
@@ -24,7 +23,22 @@ WildTypeKStarNegCol = "wild-type K* (negative)"
 MutantKStarNegCol = "mutant K* (negative)"
 SigProbCol = "signature probability"
 CodonCol = "codon"
+HotspotCol = "hotspot count"
 RankCol = "rank"
+
+TYPES = [
+	String, 
+	Int, 
+	String, 
+	Float64, 
+	Float64, 
+	Float64, 
+	Float64, 
+	Union{Missing, Float64}, 
+	Union{Missing, String}, 
+	Union{Missing, Int}, 
+	Union{Missing, Int}
+]
 
 function parse_command_line()
 	s = ArgParseSettings(description="Outputs a CSV file with structure- and sequence-based resistance mutants.")
@@ -40,6 +54,9 @@ function parse_command_line()
 			required = true
 		"--csv-file"
 			help = "The path to the RESISTOR CSV file"
+			required = true
+		"--pareto-config"
+			help = "The config file for the Pareto optimization"
 			required = true
 		"--debug"
 			help = "Saves intermediary files for inspection"
@@ -100,21 +117,32 @@ function filterByCutoff(df, cutoff)
 	df[10 .^ df[!, MutantKStarPosCol] ./ 10 .^ df[!, MutantKStarNegCol] .> cutoff, :]
 end
 
+function addHotspotCount(df)
+	cpy = copy(df)
+	gb = groupby(cpy, ResidueNumCol)
+
+	for k in keys(gb)
+		gb[k][!, HotspotCol] .= nrow(gb[k])
+	end
+
+	cpy
+end
+
 function main()
 	args = parse_command_line()
 	DEBUG = args["debug"]
 	probs = parseJsonFile(args["mut-prob"])
-	sequence = readSequence(args["fasta"], args["identifier"])
+	c0 = args["c0"]
+	paretoConfig = args["pareto-config"]
+	fastaFile = args["fasta"]
+	fastaId = args["identifier"]
+	csvFile = args["csv-file"]
+
+	sequence = readSequence(fastaFile, fastaId)
 	init(probs)
 	mutation_prob_dict, fivemer_dict = calculateMutationalProbabilities(sequence)
 
-	if ! haskey(args, "csv-file")
-		exit()
-	end
-	file = CSV.File(open(args["csv-file"]))
-
-	df = CSV.read(args["csv-file"], DataFrame, types=[String, Int, String, Float64, Float64, Float64, Float64, Union{Missing, Float64}, Union{Missing, String}, Union{Missing, Int}])
-
+	df = CSV.read(csvFile, DataFrame, types=TYPES)
 	annotated = addCodonAndProbs(df, mutation_prob_dict, fivemer_dict)
 	if DEBUG
 		annotated |> CSV.write("sig-probs.csv")
@@ -125,13 +153,32 @@ function main()
 		filtered |> CSV.write("no-0s.csv")
 	end
 
-	c = computeCutoff(filtered, 1000)
+	c = computeCutoff(filtered, c0)
 	if DEBUG
 		println(stderr, "cutoff c is $c")
 	end
 
 	resistanceMutants = filterByCutoff(filtered, c)
-	resistanceMutants |> CSV.write(stdout)
+	if DEBUG
+		resistanceMutants |> CSV.write("without-hotspot-count.csv")
+	end
+
+	withHotspotCount = addHotspotCount(resistanceMutants)
+	if DEBUG
+		withHotspotCount |> CSV.write("with-hotspot-count.csv")
+	end
+
+	# The maximized columns are made negative in cpy
+	cpy, colnames = Pareto.preparedata(withHotspotCount, paretoConfig)
+	Pareto.calcranks(cpy, colnames)
+
+	if DEBUG
+		cpy |> CSV.write("pareto-ranks-minimization.csv")
+	end
+
+	# Copy the ranks back to the last DF without negative columns
+	withHotspotCount[!, RankCol] = cpy[!, RankCol]
+	withHotspotCount |> CSV.write(stdout)
 end
 
 main()

@@ -8,28 +8,27 @@ export preparedata, calcranks
 
 RankColumn = "Rank"
 
-"Reads the columns from the csv specified in the settings and turns all maximizes into minimizes"
-function preparedata(csv, config)
+"Reads the columns from the DataFrame and the JSON settings file and turns all maximizes into minimizes"
+function preparedata(df, config)
 
+    cpy = copy(df)
     settings = JSON.parsefile(config)
     cols = settings["columns"]
     colnames = map(spec -> spec["name"], cols)
-    df = CSV.read(csv, DataFrame, select=colnames)
-    
+
     for spec in cols
         (name, optimization) = spec["name"], spec["optimize"]
         if optimization == "maximize"
-            df[!, name] = -df[:, name]
+            cpy[!, name] = -cpy[:, name]
         end
     end
 
-    return df
+    return cpy, colnames
 end
 
 "Returns an (n, 1) dimensional DataFrame corresponding to the rank of each row in `df`"
-function calcranks(df)
+function calcranks(df, colNames)
     numrow = DataFrames.nrow(df)
-    numcol = DataFrames.ncol(df)
     endrank = zeros(Int, numrow)
     dominates = [Int[] for _ in 1:numrow]
     dominatedby = zeros(Int, numrow)
@@ -41,7 +40,7 @@ function calcranks(df)
             row2 = df[j, :]
             row1count = 0
             row2count = 0
-            for k in 1:numcol
+            for k in colNames
                 if row1[k] < row2[k]
                     row1count += 1
                 elseif row1[k] > row2[k]
@@ -85,8 +84,8 @@ function calcranks(df)
         frontier = nextFrontier
         rank += 1
     end
-    
-    DataFrame(RankColumn => endrank)
+
+    df[!, "rank"] = endrank
 end
 
 end

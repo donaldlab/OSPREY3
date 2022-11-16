@@ -1,0 +1,20 @@
+{
+        "columns": [
+                {
+                        "name": "signature probability",
+                        "optimize": "maximize"
+                },
+                {
+                        "name": "mutant K* (positive)",
+                        "optimize": "maximize"
+                },
+                {
+                        "name": "mutant K* (negative)",
+                        "optimize": "minimize"
+                },
+                {
+                        "name": "hotspot count",
+                        "optimize": "maximize"
+                }
+        ]
+}
