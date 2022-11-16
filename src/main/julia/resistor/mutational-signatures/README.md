@@ -3,9 +3,12 @@ Resistor - Mutational Signatures
 
 A program to calculate cancer-specific mutational signature probabilities.
 
-The [Resistor algorithm](http://textpla.in) uses Pareto optimization to predict resistance mutations. Resistor optimizes over positive and negative design, mutation counts per position, and the probability that one amino acid will mutate into another amino acid. These cancer type-specific probabilities are extrapolated from Alexandrov et al's "Signatures of mutational processes in human cancer" (Nature 2013, doi: 10.1038/nature12477), in a manner described in Kaserer & Blagg's _Combining Mutational Signatures, Clonal Fitness, and Drug Affinity to Define Drug-Specific Resistane Mutations in Cancer_ (Cell Chemical Biology 2018, doi: 10.1016/j.chembiol.2018.07.013).
+The [Resistor algorithm](https://doi.org/10.1016/j.cels.2022.09.003) uses Pareto optimization to predict resistance mutations. 
+Resistor optimizes over positive and negative design, mutation counts per position, and the probability that one amino acid will mutate into another amino acid. 
+These cancer type-specific probabilities are extrapolated from Alexandrov et al's "Signatures of mutational processes in human cancer" (Nature 2013, doi: 10.1038/nature12477), in a manner described in Kaserer & Blagg's _Combining Mutational Signatures, Clonal Fitness, and Drug Affinity to Define Drug-Specific Resistane Mutations in Cancer_ (Cell Chemical Biology 2018, doi: 10.1016/j.chembiol.2018.07.013).
 
-Once we determine the probability that a particular DNA codon will mutate to another DNA codon, we need to convert the DNA codon probabilities to amino acid probabilities.  The way to do this with this program is to run:
+Once we determine the probability that a particular DNA codon will mutate to another DNA codon, we need to convert the DNA codon probabilities to amino acid probabilities.  
+The way to do this with this program is to run:
 
 ```
 julia --project=. main.jl \
@@ -33,7 +36,7 @@ julia --project=. main.jl \
 	...
 ```
 
-- EXCEL-FILE is an Excel document.
+- CSV-FILE is a comma separated value file in the RESISTOR table format. A template file is available in the program distribution.
 
 - SHEET is the name of a sheet in EXCEL-FILE. Each sheet must have the following columns:
     * In column A, the residue number.
