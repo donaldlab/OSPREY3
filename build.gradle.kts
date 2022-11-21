@@ -59,7 +59,7 @@ group = "edu.duke.cs"
  * This version number is largely cosmetic, compared to the versioning scheme for the Osprey Service
  * But it does help users provide some information to developers when reporting issues.
  */
-version = "4.0.2"
+version = "3.3"
 
 repositories {
 	mavenCentral()
@@ -224,7 +224,8 @@ tasks.withType<Test> {
 	maxHeapSize = "2g"
 	useJUnit()
     failFast = true
-	Jvm.addModuleArgs(jvmArgs)
+	// method call appends additional arguments for the JVM
+	jvmArgs(Jvm.moduleArgs)
 
 	testLogging {
 		setExceptionFormat("full")
