@@ -106,7 +106,7 @@ public class CommandBindingAffinity extends RunnableCommand {
                 .build();
 
         var epsilon = delegate.epsilon > 0 ? delegate.epsilon : 0.999999;
-        var kstar = new KStar(paramsAndStrands.proteinConfSpace, paramsAndStrands.ligandConfSpace, paramsAndStrands.complexConfSpace, makeKStarSettings(epsilon));
+        var kstar = new KStar(paramsAndStrands.proteinConfSpace, paramsAndStrands.ligandConfSpace, paramsAndStrands.complexConfSpace, makeKStarSettings(epsilon, design.sequenceFilters));
 
         for (var info : kstar.confSpaceInfos()) {
             var referenceEnergies = new SimpleReferenceEnergies.Builder(((SimpleConfSpace) info.confSpace), minimizingECalc)
@@ -322,10 +322,11 @@ public class CommandBindingAffinity extends RunnableCommand {
         // nop
     }
 
-    private KStar.Settings makeKStarSettings(double epsilon) {
+    private KStar.Settings makeKStarSettings(double epsilon, List<String> sequenceFilters) {
         var builder = new KStar.Settings.Builder();
         builder.setEpsilon(epsilon);
         builder.addScoreConsoleWriter();
+        builder.setSequenceFilters(sequenceFilters);
         if (maxNumberConfs > 0) {
             builder.setMaxNumConf(maxNumberConfs);
         }
