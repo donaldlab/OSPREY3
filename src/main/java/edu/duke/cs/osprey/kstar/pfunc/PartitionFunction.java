@@ -202,11 +202,17 @@ public interface PartitionFunction {
 		public final Status status;
 		public final Values values;
 		public final int numConfs;
+		public final ConfListener confListener;
 
 		public Result(Status status, Values values, int numConfs) {
+			this(status, values, numConfs, null);
+		}
+
+		public Result(Status status, Values values, int numConfs, ConfListener listener) {
 			this.status = status;
 			this.values = values;
 			this.numConfs = numConfs;
+			this.confListener = listener;
 		}
 
 		@Override

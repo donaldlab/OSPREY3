@@ -10,7 +10,9 @@ import edu.duke.cs.osprey.tools.ExpFunction;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.google.auto.value.AutoValue;
@@ -23,20 +25,22 @@ public class ThermodynamicsConfListener implements CommandAnalysis {
     private BigDecimal pFuncLowerBound;
     private BigDecimal pFuncUpperBound;
     private static BoltzmannCalculator bCalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
+    private int maxNumConfs;
+
+    public ThermodynamicsConfListener() { this(-1); }
+
+    public ThermodynamicsConfListener(int maxConfs) {
+        maxNumConfs = maxConfs;
+    }
 
     @Override
     public void onConf(ConfSearch.ScoredConf conf) {
+        if (maxNumConfs > 0 && confs.size() > maxNumConfs) {
+            return; // don't save any further conformations
+        }
+
         confs.add((ConfSearch.EnergiedConf) conf);
     }
-
-    /*
-    @Override
-    public void finished(PartitionFunction pfunc) {
-        var values = pfunc.getValues();
-        pFuncUpperBound = values.calcUpperBound();
-        pFuncLowerBound = pfunc.getValues().calcLowerBound();
-    }
-     */
 
     private static BigMath makeBigMath() {
         return new BigMath(PartitionFunction.decimalPrecision);
@@ -103,8 +107,22 @@ public class ThermodynamicsConfListener implements CommandAnalysis {
 
     @Override
     public void printResults() {
-        System.out.println(String.format("Enthalpy[%.04f - %.04f]", getLowerBoundEnthalpy(), getUpperBoundEnthalpy()));
-        System.out.println(String.format("Entropy[%.04f - %.04f]", getLowerBoundEntropy(), getUpperBoundEntropy()));
+        // write out the conformations and energies of the ensemble (if we've got some limit)
+        if (maxNumConfs > 0) {
+
+            System.out.println("score,energy,conf");
+            for (ConfSearch.EnergiedConf conf : confs) {
+
+                var prettyRcs = Arrays.stream(conf.getAssignments())
+                                .mapToObj((int rc) -> String.format("%-5d", rc))
+                                .collect(Collectors.joining(" "));
+
+                System.out.printf("%f,%f,%s%n", conf.getScore(), conf.getEnergy(), prettyRcs);
+            }
+        }
+
+        System.out.printf("Enthalpy[%.04f - %.04f]%n", getLowerBoundEnthalpy(), getUpperBoundEnthalpy());
+        System.out.printf("Entropy[%.04f - %.04f]%n", getLowerBoundEntropy(), getUpperBoundEntropy());
     }
 }
 

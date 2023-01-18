@@ -34,6 +34,7 @@ package edu.duke.cs.osprey.kstar;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
+import edu.duke.cs.osprey.design.analysis.CommandAnalysis;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
@@ -521,6 +522,22 @@ public class KStar {
 						kstarScore,
 						this
 					));
+
+					// hack
+					if (complexResult.confListener instanceof CommandAnalysis listener) {
+						System.out.println("Complex Listener");
+						listener.printResults();
+					}
+
+					if (proteinResult.confListener instanceof CommandAnalysis listener) {
+						System.out.println("Protein Listener");
+						listener.printResults();
+					}
+
+					if (ligandResult.confListener instanceof CommandAnalysis listener) {
+						System.out.println("Ligand Listener");
+						listener.printResults();
+					}
 
 					return kstarScore;
 				};

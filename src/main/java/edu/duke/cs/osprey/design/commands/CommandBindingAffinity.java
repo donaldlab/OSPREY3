@@ -8,6 +8,7 @@ import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.confspace.StrandFlex;
 import edu.duke.cs.osprey.design.*;
+import edu.duke.cs.osprey.design.analysis.ThermodynamicsConfListener;
 import edu.duke.cs.osprey.design.models.AffinityDesign;
 import edu.duke.cs.osprey.design.models.MoleculeDto;
 import edu.duke.cs.osprey.design.models.ResidueModifier;
@@ -132,12 +133,18 @@ public class CommandBindingAffinity extends RunnableCommand {
                     return pfn;
                 };
             } else {
-                info.pfuncFactory = (rcs) -> new GradientDescentPfunc(
-                        info.confEcalc,
-                        new ConfAStarTree.Builder(minimizedEnergyMatrix, rcs).setTraditional().build(),
-                        new ConfAStarTree.Builder(minimizedEnergyMatrix, rcs).setTraditional().build(),
-                        rcs.getNumConformations()
-                );
+                info.pfuncFactory = (rcs) -> {
+                    var thermodynamicConfListener = new ThermodynamicsConfListener(maxNumberConfs);
+                    var pfn = new GradientDescentPfunc(
+                            info.confEcalc,
+                            new ConfAStarTree.Builder(minimizedEnergyMatrix, rcs).setTraditional().build(),
+                            new ConfAStarTree.Builder(minimizedEnergyMatrix, rcs).setTraditional().build(),
+                            rcs.getNumConformations()
+                    );
+                    pfn.setConfListener(thermodynamicConfListener);
+                    System.out.println("Setting conf listener");
+                    return pfn;
+                };
             }
         }
 
