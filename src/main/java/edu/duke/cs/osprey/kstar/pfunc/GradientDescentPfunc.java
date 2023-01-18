@@ -788,6 +788,6 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfDB, Parti
 		BigDecimal finalUpperBoundNoEnergies = state.getUpperBoundNoE();
 		BigDecimal upperConfLowerBound = startUpperBound.subtract(finalUpperBoundNoEnergies);
 
-		return new PartitionFunction.Result(getStatus(), getValues(), getNumConfsEvaluated());
+		return new PartitionFunction.Result(getStatus(), getValues(), getNumConfsEvaluated(), confListener);
 	}
 }

@@ -5,7 +5,6 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.tools.BigMath;
-import edu.duke.cs.osprey.tools.ExpFunction;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -40,6 +39,11 @@ public class ThermodynamicsConfListener implements CommandAnalysis {
         }
 
         confs.add((ConfSearch.EnergiedConf) conf);
+    }
+
+    public void setPFuncBounds(BigDecimal lowerBound, BigDecimal upperBound) {
+        this.pFuncLowerBound = lowerBound;
+        this.pFuncUpperBound = upperBound;
     }
 
     private static BigMath makeBigMath() {
@@ -110,15 +114,18 @@ public class ThermodynamicsConfListener implements CommandAnalysis {
         // write out the conformations and energies of the ensemble (if we've got some limit)
         if (maxNumConfs > 0) {
 
-            System.out.println("score,energy,conf");
-            for (ConfSearch.EnergiedConf conf : confs) {
+            System.out.println("energy,lprob,uprob,conf");
+            confPropStream().forEach(t -> {
+                var prettyRcs = Arrays.stream(t.conf().getAssignments())
+                        .mapToObj(String::valueOf)
+                        .collect(Collectors.joining(";"));
 
-                var prettyRcs = Arrays.stream(conf.getAssignments())
-                                .mapToObj((int rc) -> String.format("%-5d", rc))
-                                .collect(Collectors.joining(" "));
+                BigDecimal lProb = t.lowerBoundProbability();
+                BigDecimal uProb = t.upperBoundProbability();
+                BigDecimal energy = t.energy();
 
-                System.out.printf("%f,%f,%s%n", conf.getScore(), conf.getEnergy(), prettyRcs);
-            }
+                System.out.printf("%f,%f,%f,%s%n", energy, lProb, uProb, prettyRcs);
+            });
         }
 
         System.out.printf("Enthalpy[%.04f - %.04f]%n", getLowerBoundEnthalpy(), getUpperBoundEnthalpy());

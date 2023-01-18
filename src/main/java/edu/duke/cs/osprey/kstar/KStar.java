@@ -35,6 +35,7 @@ package edu.duke.cs.osprey.kstar;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.design.analysis.CommandAnalysis;
+import edu.duke.cs.osprey.design.analysis.ThermodynamicsConfListener;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
@@ -524,18 +525,21 @@ public class KStar {
 					));
 
 					// hack
-					if (complexResult.confListener instanceof CommandAnalysis listener) {
+					if (complexResult.confListener instanceof ThermodynamicsConfListener listener) {
 						System.out.println("Complex Listener");
+						listener.setPFuncBounds(kstarScore.complex.values.calcLowerBound(), kstarScore.complex.values.calcUpperBound());
 						listener.printResults();
 					}
 
-					if (proteinResult.confListener instanceof CommandAnalysis listener) {
+					if (proteinResult.confListener instanceof ThermodynamicsConfListener listener) {
 						System.out.println("Protein Listener");
+						listener.setPFuncBounds(kstarScore.protein.values.calcLowerBound(), kstarScore.protein.values.calcUpperBound());
 						listener.printResults();
 					}
 
-					if (ligandResult.confListener instanceof CommandAnalysis listener) {
+					if (ligandResult.confListener instanceof ThermodynamicsConfListener listener) {
 						System.out.println("Ligand Listener");
+						listener.setPFuncBounds(kstarScore.ligand.values.calcLowerBound(), kstarScore.ligand.values.calcUpperBound());
 						listener.printResults();
 					}
 

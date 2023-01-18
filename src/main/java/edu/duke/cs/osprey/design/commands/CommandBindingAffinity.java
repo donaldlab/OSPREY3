@@ -142,7 +142,6 @@ public class CommandBindingAffinity extends RunnableCommand {
                             rcs.getNumConformations()
                     );
                     pfn.setConfListener(thermodynamicConfListener);
-                    System.out.println("Setting conf listener");
                     return pfn;
                 };
             }
