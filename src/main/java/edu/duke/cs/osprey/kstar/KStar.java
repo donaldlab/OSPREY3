@@ -64,6 +64,7 @@ public class KStar {
 	public static class Settings {
 
 		private final int maxNumConfs;
+		private final List<String> filters;
 
 		public static class Builder {
 
@@ -132,6 +133,7 @@ public class KStar {
 			 * The maximum amount of time to spend on any one partition function calculation.
 			 */
 			private Duration pfuncTimeout = null;
+			private final List<String> filters = new ArrayList<>();
 
 			public Builder setEpsilon(double val) {
 				epsilon = val;
@@ -202,8 +204,14 @@ public class KStar {
 				return this;
 			}
 
+			public Builder setSequenceFilters(List<String> val) {
+				filters.addAll(val);
+				return this;
+			}
+
 			public Settings build() {
-				return new Settings(epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters, showPfuncProgress, useExternalMemory, confDBPattern, resume, maxNumberConfs, pfuncTimeout);
+				return new Settings(epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters, showPfuncProgress,
+						useExternalMemory, confDBPattern, resume, maxNumberConfs, pfuncTimeout, filters);
 			}
 		}
 
@@ -217,7 +225,7 @@ public class KStar {
 		public final boolean resume;
 		public final Duration pfuncTimeout;
 
-		public Settings(double epsilon, Double stabilityThreshold, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, boolean useExternalMemory, String confDBPattern, boolean resume, int maxNumberConfs, Duration pfuncTimeout) {
+		public Settings(double epsilon, Double stabilityThreshold, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, boolean useExternalMemory, String confDBPattern, boolean resume, int maxNumberConfs, Duration pfuncTimeout, List<String> filters) {
 			this.epsilon = epsilon;
 			this.stabilityThreshold = stabilityThreshold;
 			this.maxSimultaneousMutations = maxSimultaneousMutations;
@@ -228,6 +236,7 @@ public class KStar {
 			this.resume = resume;
 			this.maxNumConfs = maxNumberConfs;
 			this.pfuncTimeout = pfuncTimeout;
+			this.filters = filters;
 		}
 	}
 
@@ -503,6 +512,15 @@ public class KStar {
 				sequences.addAll(complex.confSpace.seqSpace().getMutants(settings.maxSimultaneousMutations, true));
 
 				// TODO: sequence filtering? do we need to reject some mutation combinations for some reason?
+				// HACK: come up with a better way of doing this
+				List<Sequence> toRemove = new ArrayList<>();
+				for (var sequence: sequences) {
+					if (settings.filters.size() < 1 || settings.filters.contains(sequence.toString())) {
+						continue;
+					}
+					toRemove.add(sequence);
+				}
+				sequences.removeAll(toRemove);
 
 				// now we know how many sequences there are in total
 				int n = sequences.size();

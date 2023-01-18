@@ -31,6 +31,9 @@ public class AffinityDesign {
     @JsonProperty("scan")
     public ScanDto scanSettings;
 
+    @JsonProperty("sequence_filters")
+    public List<String> sequenceFilters;
+
     private static final YAMLFactory factory = new YAMLFactory()
             .enable(YAMLGenerator.Feature.MINIMIZE_QUOTES)
             .enable(YAMLGenerator.Feature.LITERAL_BLOCK_STYLE);
