@@ -36,6 +36,7 @@ import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.design.analysis.ThermodynamicsConfListener;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.parallelism.Cluster;
@@ -788,6 +789,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfDB, Parti
 		BigDecimal finalUpperBoundNoEnergies = state.getUpperBoundNoE();
 		BigDecimal upperConfLowerBound = startUpperBound.subtract(finalUpperBoundNoEnergies);
 
+		((ThermodynamicsConfListener) confListener).setPFuncBounds(getValues().calcLowerBound(), getValues().calcUpperBound());
 		return new PartitionFunction.Result(getStatus(), getValues(), getNumConfsEvaluated(), confListener);
 	}
 }

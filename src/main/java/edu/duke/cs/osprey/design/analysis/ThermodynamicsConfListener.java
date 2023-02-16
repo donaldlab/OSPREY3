@@ -59,7 +59,7 @@ public class ThermodynamicsConfListener implements CommandAnalysis {
     }
 
     private Stream<ProbabilityEnergyTuple> confPropStream() {
-        return confs.stream().parallel().map(this::getConfProperties);
+        return confs.stream().map(this::getConfProperties);
     }
 
     private BigDecimal getUpperBoundProbability(ConfSearch.EnergiedConf conf) {
@@ -114,7 +114,7 @@ public class ThermodynamicsConfListener implements CommandAnalysis {
         // write out the conformations and energies of the ensemble (if we've got some limit)
         if (maxNumConfs > 0) {
 
-            System.out.println("energy,lprob,uprob,conf");
+            System.out.println("score,energy,lprob,uprob,conf");
             confPropStream().forEach(t -> {
                 var prettyRcs = Arrays.stream(t.conf().getAssignments())
                         .mapToObj(String::valueOf)
@@ -122,9 +122,10 @@ public class ThermodynamicsConfListener implements CommandAnalysis {
 
                 BigDecimal lProb = t.lowerBoundProbability();
                 BigDecimal uProb = t.upperBoundProbability();
+                double score = t.conf().getScore();
                 BigDecimal energy = t.energy();
 
-                System.out.printf("%f,%f,%f,%s%n", energy, lProb, uProb, prettyRcs);
+                System.out.printf("%f,%f,%f,%f,%s%n", score, energy, lProb, uProb, prettyRcs);
             });
         }
 

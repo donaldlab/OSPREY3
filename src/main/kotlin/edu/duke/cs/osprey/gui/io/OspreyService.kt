@@ -47,6 +47,8 @@ object OspreyService {
 					// EMAILADDRESS=osprey@cs.duke.edu, CN=osprey.service, O=Osprey
 					// NOTE: we don't actually verify the hostname here, since we're only using SSL
 					// for in-flight encryption, not host identity management
+
+					/*
 					setSSLHostnameVerifier { hostname, session ->
 
 						val distinguishedName = session.peerCertificates
@@ -72,6 +74,7 @@ object OspreyService {
 						// if we got here, all is well
 						true
 					}
+					*/
 				}
 			}
 		}

@@ -44,7 +44,7 @@ sealed class Anchor(val mol: Molecule) {
 	fun findResidue(): Polymer.Residue? =
 		(mol as? Polymer)?.findResidue(anchorAtoms.first())
 
-	// a few convenience functions for transforing a list of atoms
+	// a few convenience functions for transforming a list of atoms
 	protected fun Iterable<Atom>.makeLibraryAnchor(t: Vector3d) {
 		for (atom in this) {
 			atom.pos.add(t)
