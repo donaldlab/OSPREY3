@@ -1,15 +1,15 @@
 package edu.duke.cs.osprey.molscope.molecule
 
-import edu.duke.cs.osprey.SharedSpec
-import io.kotlintest.matchers.collections.shouldContainExactly
-import io.kotlintest.matchers.collections.shouldContainExactlyInAnyOrder
-import io.kotlintest.matchers.types.shouldBeSameInstanceAs
-import io.kotlintest.matchers.types.shouldNotBeSameInstanceAs
-import io.kotlintest.shouldBe
-import io.kotlintest.shouldThrow
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeSameInstanceAs
+import io.kotest.matchers.types.shouldNotBeSameInstanceAs
 
 
-class TestMoleculeCombine : SharedSpec({
+class TestMoleculeCombine : FunSpec({
 	
 	fun AtomMap.assert(a: Atom, b: Atom) {
 		getB(a) shouldBeSameInstanceAs b

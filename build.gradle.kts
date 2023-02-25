@@ -93,8 +93,8 @@ dependencies {
 
 	// test dependencies
 	testImplementation("org.hamcrest:hamcrest-all:1.3")
-	testImplementation("io.kotlintest:kotlintest-runner-junit5:3.4.0")
-	testImplementation("org.junit.jupiter:junit-jupiter:5.4.2")
+	testImplementation("io.kotest:kotest-runner-junit5:5.5.5")
+	testImplementation("org.junit.jupiter:junit-jupiter:5.9.2")
 	testImplementation("org.assertj:assertj-core:3.18.1")
 
 	// handle logging

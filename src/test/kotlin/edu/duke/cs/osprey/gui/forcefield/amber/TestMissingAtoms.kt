@@ -1,16 +1,16 @@
 package edu.duke.cs.osprey.gui.forcefield.amber
 
+import edu.duke.cs.osprey.gui.OspreyGui
+import edu.duke.cs.osprey.gui.io.fromPDB
+import edu.duke.cs.osprey.gui.io.withService
 import edu.duke.cs.osprey.molscope.molecule.Atom
 import edu.duke.cs.osprey.molscope.molecule.Molecule
 import edu.duke.cs.osprey.molscope.molecule.Polymer
-import edu.duke.cs.osprey.gui.OspreyGui
-import edu.duke.cs.osprey.SharedSpec
-import edu.duke.cs.osprey.gui.io.fromPDB
-import edu.duke.cs.osprey.gui.io.withService
-import io.kotlintest.shouldBe
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 
 
-class TestMissingAtoms : SharedSpec({
+class TestMissingAtoms : FunSpec({
 
 	fun List<MissingAtom>.shouldHave(expAtom: Atom, expRes: Polymer.Residue?) {
 		any { obs ->

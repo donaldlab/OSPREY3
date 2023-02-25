@@ -1,23 +1,23 @@
 package edu.duke.cs.osprey.gui.prep
 
-import edu.duke.cs.osprey.molscope.molecule.*
 import edu.duke.cs.osprey.gui.OspreyGui
-import edu.duke.cs.osprey.SharedSpec
 import edu.duke.cs.osprey.gui.forcefield.amber.MoleculeType
 import edu.duke.cs.osprey.gui.io.ConfLib
 import edu.duke.cs.osprey.gui.io.fromOMOL
 import edu.duke.cs.osprey.gui.motions.DihedralAngle
 import edu.duke.cs.osprey.gui.show
-import io.kotlintest.matchers.beLessThanOrEqualTo
-import io.kotlintest.matchers.collections.shouldContain
-import io.kotlintest.matchers.types.shouldBeSameInstanceAs
-import io.kotlintest.matchers.types.shouldBeTypeOf
-import io.kotlintest.should
-import io.kotlintest.shouldBe
+import edu.duke.cs.osprey.molscope.molecule.*
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.comparables.beLessThanOrEqualTo
+import io.kotest.matchers.should
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeSameInstanceAs
+import io.kotest.matchers.types.shouldBeTypeOf
 import org.joml.Vector3d
 
 
-class TestMutation : SharedSpec({
+class TestMutation : FunSpec({
 
 	fun Vector3d.shouldBeNear(p: Vector3d) =
 		distance(p) should beLessThanOrEqualTo(1e-3)
@@ -75,7 +75,7 @@ class TestMutation : SharedSpec({
 		atoms.associate { it.name to Vector3d(it.pos) }
 
 
-	group("protein") {
+	context("protein") {
 
 		val conflib = ConfLib.from(OspreyGui.getResourceAsString("conflib/lovell.conflib"))
 		val protein1cc8 = Molecule.fromOMOL(OspreyGui.getResourceAsString("1cc8.protein.omol"))[0] as Polymer

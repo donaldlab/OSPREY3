@@ -1,18 +1,18 @@
 package edu.duke.cs.osprey.gui.forcefield.amber
 
-import edu.duke.cs.osprey.molscope.molecule.Atom
-import edu.duke.cs.osprey.molscope.molecule.Molecule
-import edu.duke.cs.osprey.molscope.molecule.Polymer
 import edu.duke.cs.osprey.gui.OspreyGui
-import edu.duke.cs.osprey.SharedSpec
 import edu.duke.cs.osprey.gui.forcefield.AtomIndex
 import edu.duke.cs.osprey.gui.io.fromMol2
 import edu.duke.cs.osprey.gui.io.fromMol2WithMetadata
 import edu.duke.cs.osprey.gui.io.withService
-import io.kotlintest.shouldBe
+import edu.duke.cs.osprey.molscope.molecule.Atom
+import edu.duke.cs.osprey.molscope.molecule.Molecule
+import edu.duke.cs.osprey.molscope.molecule.Polymer
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 
 
-class TestParams : SharedSpec({
+class TestParams : FunSpec({
 
 	fun Polymer.findNonTerminalResidue(type: String): Polymer.Residue {
 		val residues = chains.first().residues
@@ -36,9 +36,9 @@ class TestParams : SharedSpec({
 		this.crd shouldBe crd
 	}
 
-	group("1cc8") {
+	context("1cc8") {
 
-		group("protein") {
+		context("protein") {
 
 			val mol = Molecule.fromMol2(OspreyGui.getResourceAsString("1cc8.protein.h.amber.mol2")) as Polymer
 
@@ -465,7 +465,7 @@ class TestParams : SharedSpec({
 			}
 		}
 
-		group("benzamidine") {
+		context("benzamidine") {
 
 			val (mol, metadata) = Molecule.fromMol2WithMetadata(OspreyGui.getResourceAsString("benzamidine.h.gaff2.mol2"))
 
@@ -521,7 +521,7 @@ class TestParams : SharedSpec({
 			}
 		}
 
-		group("protein and benzamidine") {
+		context("protein and benzamidine") {
 
 			val (molProtein, metadataProtein) = Molecule.fromMol2WithMetadata(OspreyGui.getResourceAsString("1cc8.protein.h.amber.mol2"))
 			val (molSmall, metadataSmall) = Molecule.fromMol2WithMetadata(OspreyGui.getResourceAsString("benzamidine.h.gaff2.mol2"))

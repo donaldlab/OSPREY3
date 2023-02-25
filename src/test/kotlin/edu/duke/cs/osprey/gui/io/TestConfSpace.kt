@@ -1,11 +1,6 @@
 package edu.duke.cs.osprey.gui.io
 
-import edu.duke.cs.osprey.molscope.molecule.Element
-import edu.duke.cs.osprey.molscope.molecule.Molecule
-import edu.duke.cs.osprey.molscope.molecule.Polymer
-import edu.duke.cs.osprey.molscope.tools.identityHashMapOf
 import edu.duke.cs.osprey.gui.OspreyGui
-import edu.duke.cs.osprey.SharedSpec
 import edu.duke.cs.osprey.gui.forcefield.amber.MoleculeType
 import edu.duke.cs.osprey.gui.motions.ConfMotion
 import edu.duke.cs.osprey.gui.motions.DihedralAngle
@@ -13,8 +8,13 @@ import edu.duke.cs.osprey.gui.motions.MolMotion
 import edu.duke.cs.osprey.gui.prep.ConfSpace
 import edu.duke.cs.osprey.gui.prep.DesignPosition
 import edu.duke.cs.osprey.gui.prep.Proteins
-import io.kotlintest.matchers.types.shouldNotBeSameInstanceAs
-import io.kotlintest.shouldBe
+import edu.duke.cs.osprey.molscope.molecule.Element
+import edu.duke.cs.osprey.molscope.molecule.Molecule
+import edu.duke.cs.osprey.molscope.molecule.Polymer
+import edu.duke.cs.osprey.molscope.tools.identityHashMapOf
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldNotBeSameInstanceAs
 import org.joml.Vector3d
 
 
@@ -216,7 +216,7 @@ fun makeTestConfSpace(): ConfSpace {
 	}
 }
 
-class TestConfSpace : SharedSpec({
+class TestConfSpace : FunSpec({
 
 	infix fun ConfMotion.Description.shouldBeMotion(other: ConfMotion.Description) {
 

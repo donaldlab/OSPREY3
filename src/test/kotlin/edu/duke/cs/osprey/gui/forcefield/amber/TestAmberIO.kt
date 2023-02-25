@@ -1,19 +1,19 @@
 package edu.duke.cs.osprey.gui.forcefield.amber
 
+
+import edu.duke.cs.osprey.gui.OspreyGui
+import edu.duke.cs.osprey.gui.io.fromPDB
 import edu.duke.cs.osprey.molscope.molecule.Element
 import edu.duke.cs.osprey.molscope.molecule.Molecule
 import edu.duke.cs.osprey.molscope.molecule.Polymer
 import edu.duke.cs.osprey.molscope.molecule.combine
-import edu.duke.cs.osprey.gui.OspreyGui
-import edu.duke.cs.osprey.SharedSpec
-import edu.duke.cs.osprey.gui.io.fromPDB
-import io.kotlintest.matchers.beGreaterThan
-import io.kotlintest.should
-import io.kotlintest.shouldBe
-import io.kotlintest.shouldNotBe
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.ints.beGreaterThan
+import io.kotest.matchers.should
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 
-
-class TestAmberIO : SharedSpec({
+class TestAmberIO : FunSpec({
 
 	test("1CC8") {
 

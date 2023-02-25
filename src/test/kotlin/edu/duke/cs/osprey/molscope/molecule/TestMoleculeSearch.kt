@@ -1,10 +1,10 @@
 package edu.duke.cs.osprey.molscope.molecule
 
-import edu.duke.cs.osprey.SharedSpec
-import io.kotlintest.shouldBe
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 
 
-class TestMoleculeSearch : SharedSpec({
+class TestMoleculeSearch : FunSpec({
 
 	val c1 = Atom(Element.Carbon, "C1", 6.778, 10.510, 20.665)
 	val c2 = Atom(Element.Carbon, "C2", 5.994, 9.710, 19.842)
@@ -40,7 +40,7 @@ class TestMoleculeSearch : SharedSpec({
 		hasNext() shouldBe false
 	}
 
-	group("dfs") {
+	context("dfs") {
 
 		test("full order") {
 
@@ -118,7 +118,7 @@ class TestMoleculeSearch : SharedSpec({
 		}
 	}
 
-	group("bfs") {
+	context("bfs") {
 
 		test("full order") {
 

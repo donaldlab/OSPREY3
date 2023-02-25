@@ -1,21 +1,21 @@
 package edu.duke.cs.osprey.gui.forcefield.amber
 
-import edu.duke.cs.osprey.molscope.molecule.Atom
-import edu.duke.cs.osprey.molscope.molecule.Molecule
 import edu.duke.cs.osprey.gui.OspreyGui
-import edu.duke.cs.osprey.SharedSpec
 import edu.duke.cs.osprey.gui.io.fromMol2
 import edu.duke.cs.osprey.gui.io.fromPDB
 import edu.duke.cs.osprey.gui.io.withService
-import io.kotlintest.matchers.types.shouldBeSameInstanceAs
-import io.kotlintest.shouldBe
+import edu.duke.cs.osprey.molscope.molecule.Atom
+import edu.duke.cs.osprey.molscope.molecule.Molecule
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeSameInstanceAs
 
 
-class TestBonds : SharedSpec({
+class TestBonds : FunSpec({
 
 	fun Molecule.Bonds.toContentSet() = toSet().map { it.toContent() }.toSet()
 
-	group("1cc8") {
+	context("1cc8") {
 
 		test("protein") {
 			withService {

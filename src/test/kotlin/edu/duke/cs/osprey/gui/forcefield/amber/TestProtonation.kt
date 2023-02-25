@@ -1,16 +1,16 @@
 package edu.duke.cs.osprey.gui.forcefield.amber
 
+import edu.duke.cs.osprey.gui.io.toMol2
+import edu.duke.cs.osprey.gui.io.withService
 import edu.duke.cs.osprey.molscope.molecule.Atom
 import edu.duke.cs.osprey.molscope.molecule.Element
 import edu.duke.cs.osprey.molscope.molecule.Molecule
-import edu.duke.cs.osprey.SharedSpec
-import edu.duke.cs.osprey.gui.io.toMol2
-import edu.duke.cs.osprey.gui.io.withService
-import io.kotlintest.matchers.withClue
-import io.kotlintest.shouldBe
+import io.kotest.assertions.withClue
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 
 
-class TestProtonation : SharedSpec({
+class TestProtonation : FunSpec({
 
 	fun Molecule.findProtonation(atom: Atom, filter: (Protonation) -> Boolean): Protonation {
 		val protonations = protonations(atom)
@@ -33,13 +33,13 @@ class TestProtonation : SharedSpec({
 
 	fun Molecule.numH(atom: Atom) = bonds.bondedAtoms(atom).count { it.element == Element.Hydrogen }
 
-	group("carbon") {
+	context("carbon") {
 
 		test("methylene") {
 			withService {
 
 				val c = Atom(Element.Carbon, "C", 0.0, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("methylene").apply {
 					atoms.add(c)
 				}
 
@@ -57,7 +57,7 @@ class TestProtonation : SharedSpec({
 			withService {
 
 				val c = Atom(Element.Carbon, "C", 0.0, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("methyl cation").apply {
 					atoms.add(c)
 				}
 
@@ -75,7 +75,7 @@ class TestProtonation : SharedSpec({
 			withService {
 
 				val c = Atom(Element.Carbon, "C", 0.0, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("methane").apply {
 					atoms.add(c)
 				}
 
@@ -94,7 +94,7 @@ class TestProtonation : SharedSpec({
 
 				val c1 = Atom(Element.Carbon, "C1", 0.0, 0.0, 0.0)
 				val c2 = Atom(Element.Carbon, "C2", 0.0, 0.0, 1.1983)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("ethyne").apply {
 					atoms.add(c1)
 					atoms.add(c2)
 					bonds.add(c1, c2)
@@ -117,7 +117,7 @@ class TestProtonation : SharedSpec({
 
 				val c1 = Atom(Element.Carbon, "C1", 0.0, 0.0, 0.0)
 				val c2 = Atom(Element.Carbon, "C2", 0.0, 0.0, 1.3343)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("ethene").apply {
 					atoms.add(c1)
 					atoms.add(c2)
 					bonds.add(c1, c2)
@@ -140,7 +140,7 @@ class TestProtonation : SharedSpec({
 
 				val c1 = Atom(Element.Carbon, "C1", 0.0, 0.0, 0.0)
 				val c2 = Atom(Element.Carbon, "C2", 0.0, 0.0, 1.5375)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("ethane").apply {
 					atoms.add(c1)
 					atoms.add(c2)
 					bonds.add(c1, c2)
@@ -168,7 +168,7 @@ class TestProtonation : SharedSpec({
 				val c4 = Atom(Element.Carbon, "C4", -1.550, 5.259, 1.337)
 				val c5 = Atom(Element.Carbon, "C5", -2.797, 5.495, 1.902)
 				val c6 = Atom(Element.Carbon, "C6", -3.296, 4.579, 2.847)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("benzene").apply {
 					atoms.add(c1)
 					atoms.add(c2)
 					bonds.add(c1, c2)
@@ -212,7 +212,7 @@ class TestProtonation : SharedSpec({
 				val c4 = Atom(Element.Carbon, "C4", 19.1520, -2.9786, -0.0612)
 				val c5 = Atom(Element.Carbon, "C5", 18.4174, -4.2435, -0.5289)
 				val c6 = Atom(Element.Carbon, "C6", 19.1407, -5.4908,  0.0000)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("cyclohexane").apply {
 					atoms.add(c1)
 					atoms.add(c2)
 					bonds.add(c1, c2)
@@ -254,7 +254,7 @@ class TestProtonation : SharedSpec({
 				val c1 = Atom(Element.Carbon, "C1", -0.6743,  1.2682, -0.3689)
 				val c2 = Atom(Element.Carbon, "C2", -0.6743, -0.9536,  0.9139)
 				val c3 = Atom(Element.Carbon, "C3", -0.1300, -0.1839, -0.3185)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("isobutane").apply {
 					atoms.add(c)
 					atoms.add(c1)
 					bonds.add(c, c1)
@@ -283,13 +283,13 @@ class TestProtonation : SharedSpec({
 		}
 	}
 
-	group("nitrogen") {
+	context("nitrogen") {
 
 		test("azanide anion") {
 			withService {
 
 				val n = Atom(Element.Nitrogen, "N", 0.0, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("nitrogen").apply {
 					atoms.add(n)
 				}
 
@@ -307,7 +307,7 @@ class TestProtonation : SharedSpec({
 			withService {
 
 				val n = Atom(Element.Nitrogen, "N", 0.0, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("ammonia").apply {
 					atoms.add(n)
 				}
 
@@ -325,7 +325,7 @@ class TestProtonation : SharedSpec({
 			withService {
 
 				val n = Atom(Element.Nitrogen, "N", 0.0, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("ammonium cation").apply {
 					atoms.add(n)
 				}
 
@@ -344,7 +344,7 @@ class TestProtonation : SharedSpec({
 
 				val n1 = Atom(Element.Nitrogen, "N1",  0.5510, 0.0, 0.0)
 				val n2 = Atom(Element.Nitrogen, "N2", -0.5510, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("diazynediium").apply {
 					atoms.add(n1)
 					atoms.add(n2)
 					bonds.add(n1, n2)
@@ -367,7 +367,7 @@ class TestProtonation : SharedSpec({
 
 				val n1 = Atom(Element.Nitrogen, "N1",  0.6100, 0.0, 0.0)
 				val n2 = Atom(Element.Nitrogen, "N2", -0.6100, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("diazene").apply {
 					atoms.add(n1)
 					atoms.add(n2)
 					bonds.add(n1, n2)
@@ -392,7 +392,7 @@ class TestProtonation : SharedSpec({
 				val n = Atom(Element.Nitrogen, "N", -0.3618, 0.5603, 0.0000)
 				val c = Atom(Element.Carbon, "C", 0.2763, -0.5443, -0.0000)
 				val o = Atom(Element.Oxygen, "O", 1.4963, -0.5453, 0.0000)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("formamide").apply {
 					atoms.add(n)
 					atoms.add(c)
 					bonds.add(n, c)
@@ -419,7 +419,7 @@ class TestProtonation : SharedSpec({
 
 				val n1 = Atom(Element.Nitrogen, "N1",  0.6334, 0.0, 0.0)
 				val n2 = Atom(Element.Nitrogen, "N2", -0.6334, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("hydrazine").apply {
 					atoms.add(n1)
 					atoms.add(n2)
 					bonds.add(n1, n2)
@@ -442,7 +442,7 @@ class TestProtonation : SharedSpec({
 
 				val n1 = Atom(Element.Nitrogen, "N1",  0.6334, 0.0, 0.0)
 				val n2 = Atom(Element.Nitrogen, "N2", -0.6334, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("diazanediium").apply {
 					atoms.add(n1)
 					atoms.add(n2)
 					bonds.add(n1, n2)
@@ -470,7 +470,7 @@ class TestProtonation : SharedSpec({
 				val c = Atom(Element.Carbon, "C", 1.0230, -0.3844, 0.0000)
 				val co = Atom(Element.Carbon, "CO", -1.0788, 0.7609, -0.0000)
 				val o = Atom(Element.Oxygen, "O", -2.2968, 0.6774, -0.0000)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("N-methylformamide").apply {
 					atoms.add(n)
 					atoms.add(c)
 					bonds.add(n, c)
@@ -504,7 +504,7 @@ class TestProtonation : SharedSpec({
 				val n = Atom(Element.Nitrogen, "N", -0.3924, -0.5549, -0.0984)
 				val c1 = Atom(Element.Carbon, "C1", 1.0787, -0.6370, -0.0828)
 				val c2 = Atom(Element.Carbon, "C2", -0.9601, 0.8047, -0.0828)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("dimethlamine").apply {
 					atoms.add(n)
 					atoms.add(c1)
 					bonds.add(n, c1)
@@ -534,7 +534,7 @@ class TestProtonation : SharedSpec({
 				val n = Atom(Element.Nitrogen, "N", 1.3000, 0.8151, -0.0008)
 				val c1 = Atom(Element.Carbon, "C1", 0.0997, -0.0335, 0.0000)
 				val c2 = Atom(Element.Carbon, "C2", 2.5006, -0.0331, 0.0002)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("dimethylammonium cation").apply {
 					atoms.add(n)
 					atoms.add(c1)
 					bonds.add(n, c1)
@@ -565,7 +565,7 @@ class TestProtonation : SharedSpec({
 				val c1 = Atom(Element.Carbon, "C1", 1.3719, -0.2072, -0.3588)
 				val c2 = Atom(Element.Carbon, "C2", -0.6526, 1.2244, -0.3588)
 				val c3 = Atom(Element.Carbon, "C3", -0.6526, -0.9229, 0.8809)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("trimethylammonium").apply {
 					atoms.add(n)
 					atoms.add(c1)
 					bonds.add(n, c1)
@@ -594,13 +594,13 @@ class TestProtonation : SharedSpec({
 		}
 	}
 
-	group("oxygen") {
+	context("oxygen") {
 
 		test("hydroxide anion") {
 			withService {
 
 				val o = Atom(Element.Oxygen, "O", 0.0, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("oxygen").apply {
 					atoms.add(o)
 				}
 
@@ -616,7 +616,7 @@ class TestProtonation : SharedSpec({
 			withService {
 
 				val o = Atom(Element.Oxygen, "O", 0.0, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("water").apply {
 					atoms.add(o)
 				}
 
@@ -634,7 +634,7 @@ class TestProtonation : SharedSpec({
 			withService {
 
 				val o = Atom(Element.Oxygen, "O", 0.0, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("hydronium").apply {
 					atoms.add(o)
 				}
 
@@ -653,7 +653,7 @@ class TestProtonation : SharedSpec({
 
 				val o1 = Atom(Element.Oxygen, "O1", 0.7345, 0.0, 0.0)
 				val o2 = Atom(Element.Oxygen, "O2", -0.7345, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("hydrogen peroxide").apply {
 					atoms.add(o1)
 					atoms.add(o2)
 					bonds.add(o1, o2)
@@ -676,7 +676,7 @@ class TestProtonation : SharedSpec({
 
 				val o = Atom(Element.Oxygen, "O", 0.7100, 0.0, 0.0)
 				val c = Atom(Element.Carbon, "C", -0.7100, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("methyloxonium cation").apply {
 					atoms.add(o)
 					atoms.add(c)
 					bonds.add(o, c)
@@ -697,13 +697,13 @@ class TestProtonation : SharedSpec({
 		}
 	}
 
-	group("phosphorus") {
+	context("phosphorus") {
 
 		test("phosphanide anion") {
 			withService {
 
 				val p = Atom(Element.Phosphorus, "P", 0.0, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("phosphorus").apply {
 					atoms.add(p)
 				}
 
@@ -721,7 +721,7 @@ class TestProtonation : SharedSpec({
 			withService {
 
 				val p = Atom(Element.Phosphorus, "P", 0.0, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("phosphine").apply {
 					atoms.add(p)
 				}
 
@@ -737,7 +737,7 @@ class TestProtonation : SharedSpec({
 			withService {
 
 				val p = Atom(Element.Phosphorus, "P", 0.0, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("phosphonium cation").apply {
 					atoms.add(p)
 				}
 
@@ -754,7 +754,7 @@ class TestProtonation : SharedSpec({
 
 				val p = Atom(Element.Phosphorus, "P", 0.9275, 0.0, 0.0)
 				val c = Atom(Element.Carbon, "C", -0.9275, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("methylenephosphine").apply {
 					atoms.add(p)
 					atoms.add(c)
 					bonds.add(p, c)
@@ -775,12 +775,12 @@ class TestProtonation : SharedSpec({
 		}
 
 		// TODO: can't find amber types that make PH2+ planar, so just disable this test for now
-		test("methylenephosphonium cation", enabled=false) {
+		xtest("methylenephosphonium cation") {
 			withService {
 
 				val p = Atom(Element.Phosphorus, "P", 0.7750, 0.0, 0.0)
 				val c = Atom(Element.Carbon, "C", -0.7750, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("methylenephosphonium cation").apply {
 					atoms.add(p)
 					atoms.add(c)
 					bonds.add(p, c)
@@ -801,12 +801,12 @@ class TestProtonation : SharedSpec({
 		}
 
 		// TODO: can't find amber types that make PH2+ planar, so just disable this test for now
-		test("oxophosphonium cation", enabled=false) {
+		xtest("oxophosphonium cation") {
 			withService {
 
 				val p = Atom(Element.Phosphorus, "P", 0.7200, 0.0, 0.0)
 				val o = Atom(Element.Oxygen, "O", -0.7200, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("oxophosphonium cation").apply {
 					atoms.add(p)
 					atoms.add(o)
 					bonds.add(p, o)
@@ -827,7 +827,7 @@ class TestProtonation : SharedSpec({
 
 				val p1 = Atom(Element.Phosphorus, "P1", 1.107, 0.0, 0.0)
 				val p2 = Atom(Element.Phosphorus, "P2", -1.107, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("diphosphane").apply {
 					atoms.add(p1)
 					atoms.add(p2)
 					bonds.add(p1, p2)
@@ -850,7 +850,7 @@ class TestProtonation : SharedSpec({
 
 				val p = Atom(Element.Phosphorus, "P", 0.8250, 0.0, 0.0)
 				val c = Atom(Element.Carbon, "C", -0.8250, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("methylphosphonium").apply {
 					atoms.add(p)
 					atoms.add(c)
 					bonds.add(p, c)
@@ -877,7 +877,7 @@ class TestProtonation : SharedSpec({
 				val p = Atom(Element.Phosphorus, "P", -0.5217, -0.7377, -0.2316)
 				val c1 = Atom(Element.Carbon, "C1", 1.1331, -0.6643, -0.0976)
 				val c2 = Atom(Element.Carbon, "C2", -1.0040, 0.8468, -0.0976)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("dimethylphosphine").apply {
 					atoms.add(p)
 					atoms.add(c1)
 					bonds.add(p, c1)
@@ -907,7 +907,7 @@ class TestProtonation : SharedSpec({
 				val p = Atom(Element.Phosphorus, "P", -0.5217, -0.7377, -0.2316)
 				val c1 = Atom(Element.Carbon, "C1", 1.1331, -0.6643, -0.0976)
 				val c2 = Atom(Element.Carbon, "C2", -1.0040, 0.8468, -0.0976)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("dimethylphosphonium").apply {
 					atoms.add(p)
 					atoms.add(c1)
 					bonds.add(p, c1)
@@ -938,7 +938,7 @@ class TestProtonation : SharedSpec({
 				val c1 = Atom(Element.Carbon, "C1", 1.6207, -0.0415, -0.0719)
 				val c2 = Atom(Element.Carbon, "C2", -0.5793, 1.5142, -0.0719)
 				val c3 = Atom(Element.Carbon, "C3", -0.5793, -0.8193, 1.2754)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("trimethylphosphonium").apply {
 					atoms.add(p)
 					atoms.add(c1)
 					bonds.add(p, c1)
@@ -967,13 +967,13 @@ class TestProtonation : SharedSpec({
 		}
 	}
 
-	group("sulfur") {
+	context("sulfur") {
 
 		test("bisulfide anion") {
 			withService {
 
 				val s = Atom(Element.Sulfur, "S", 0.0, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("sulfur").apply {
 					atoms.add(s)
 				}
 
@@ -989,7 +989,7 @@ class TestProtonation : SharedSpec({
 			withService {
 
 				val s = Atom(Element.Sulfur, "S", 0.0, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("hydrogen sulfide").apply {
 					atoms.add(s)
 				}
 
@@ -1007,7 +1007,7 @@ class TestProtonation : SharedSpec({
 			withService {
 
 				val s = Atom(Element.Sulfur, "S", 0.0, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("sulfonium cation").apply {
 					atoms.add(s)
 				}
 
@@ -1026,7 +1026,7 @@ class TestProtonation : SharedSpec({
 
 				val s1 = Atom(Element.Sulfur, "S1", 1.0290, 0.0, 0.0)
 				val s2 = Atom(Element.Sulfur, "S2", -1.0290, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("hydrogen disulfide").apply {
 					atoms.add(s1)
 					atoms.add(s2)
 					bonds.add(s1, s2)
@@ -1049,7 +1049,7 @@ class TestProtonation : SharedSpec({
 
 				val s = Atom(Element.Sulfur, "S", 0.92175, 0.0, 0.0)
 				val c = Atom(Element.Carbon, "C", -0.92175, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("methylsulfonium cation").apply {
 					atoms.add(s)
 					atoms.add(c)
 					bonds.add(s, c)

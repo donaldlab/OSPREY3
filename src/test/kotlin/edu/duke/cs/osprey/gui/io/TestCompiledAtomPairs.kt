@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.gui.io
 
-import edu.duke.cs.osprey.SharedSpec
 import edu.duke.cs.osprey.gui.OspreyGui
 import edu.duke.cs.osprey.gui.compiler.AtomPairs
 import edu.duke.cs.osprey.gui.compiler.CompiledConfSpace.AtomInfo
@@ -15,9 +14,13 @@ import edu.duke.cs.osprey.molscope.molecule.Molecule
 import edu.duke.cs.osprey.molscope.molecule.Polymer
 import edu.duke.cs.osprey.molscope.tools.identityHashMapOf
 import edu.duke.cs.osprey.tools.FileTools
-import io.kotlintest.*
-import io.kotlintest.matchers.collections.shouldContainExactly
-import io.kotlintest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.Matcher
+import io.kotest.matchers.MatcherResult
+import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.should
+import io.kotest.matchers.shouldBe
 import org.joml.Vector3d
 
 
@@ -26,7 +29,7 @@ import org.joml.Vector3d
  * to make sure none of them are missing, or no unexpected ones are there either
  */
 @Suppress("LocalVariableName")
-class TestCompiledAtomPairs : SharedSpec({
+class TestCompiledAtomPairs : FunSpec({
 
 	// load the amino acid conf lib
 	val conflib = ConfLib.from(OspreyGui.getResourceAsString("conflib/lovell.conflib"))
@@ -220,7 +223,7 @@ class TestCompiledAtomPairs : SharedSpec({
 	}
 
 
-	group("amber96") {
+	context("amber96") {
 
 		test("gly-glyala") {
 

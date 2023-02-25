@@ -1,8 +1,8 @@
 package edu.duke.cs.osprey.gui
 
 import cuchaz.kludge.tools.abs
-import io.kotlintest.Matcher
-import io.kotlintest.MatcherResult
+import io.kotest.matchers.Matcher
+import io.kotest.matchers.MatcherResult
 
 
 private fun testDoubles(obs: Double?, exp: Double?) =

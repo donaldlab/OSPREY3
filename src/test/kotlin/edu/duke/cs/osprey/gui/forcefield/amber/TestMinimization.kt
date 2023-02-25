@@ -1,19 +1,19 @@
 package edu.duke.cs.osprey.gui.forcefield.amber
 
-import edu.duke.cs.osprey.molscope.molecule.Element
-import edu.duke.cs.osprey.molscope.molecule.Molecule
-import edu.duke.cs.osprey.molscope.molecule.Polymer
 import edu.duke.cs.osprey.gui.OspreyGui
-import edu.duke.cs.osprey.SharedSpec
 import edu.duke.cs.osprey.gui.io.fromMol2
 import edu.duke.cs.osprey.gui.io.fromPDB
 import edu.duke.cs.osprey.gui.io.withService
-import io.kotlintest.shouldBe
+import edu.duke.cs.osprey.molscope.molecule.Element
+import edu.duke.cs.osprey.molscope.molecule.Molecule
+import edu.duke.cs.osprey.molscope.molecule.Polymer
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 
 
-class TestMinimization : SharedSpec({
+class TestMinimization : FunSpec({
 
-	group("1cc8") {
+	context("1cc8") {
 
 		test("protein") {
 			withService {
@@ -102,7 +102,7 @@ class TestMinimization : SharedSpec({
 			}
 		}
 	}
-	group("coord-parsing"){
+	context("coord-parsing"){
 		test("parse-negatives"){
 			val line = "207.4266747-244.7747434 207.2027093 -49.6475693  79.7673583-122.2447495"
 			val parts = line

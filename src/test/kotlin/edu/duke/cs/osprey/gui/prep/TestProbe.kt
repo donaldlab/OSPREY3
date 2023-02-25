@@ -1,19 +1,19 @@
 package edu.duke.cs.osprey.gui.prep
 
-import edu.duke.cs.osprey.molscope.molecule.Molecule
 import edu.duke.cs.osprey.gui.OspreyGui
-import edu.duke.cs.osprey.SharedSpec
 import edu.duke.cs.osprey.gui.io.OspreyService
 import edu.duke.cs.osprey.gui.io.fromPDB
 import edu.duke.cs.osprey.gui.io.toPDB
 import edu.duke.cs.osprey.gui.io.withService
+import edu.duke.cs.osprey.molscope.molecule.Molecule
 import edu.duke.cs.osprey.service.services.ClashesRequest
-import io.kotlintest.shouldBe
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 
 
-class TestProbe : SharedSpec({
+class TestProbe : FunSpec({
 
-	group("1cc8") {
+	context("1cc8") {
 
 		test("protein") {
 			withService {

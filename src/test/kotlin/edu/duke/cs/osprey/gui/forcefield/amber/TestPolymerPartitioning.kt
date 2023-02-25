@@ -1,21 +1,22 @@
 package edu.duke.cs.osprey.gui.forcefield.amber
 
+
+import edu.duke.cs.osprey.gui.OspreyGui
+import edu.duke.cs.osprey.gui.io.fromPDB
 import edu.duke.cs.osprey.molscope.molecule.Element
 import edu.duke.cs.osprey.molscope.molecule.Molecule
 import edu.duke.cs.osprey.molscope.molecule.Polymer
 import edu.duke.cs.osprey.molscope.molecule.combine
-import edu.duke.cs.osprey.gui.OspreyGui
-import edu.duke.cs.osprey.SharedSpec
-import edu.duke.cs.osprey.gui.io.fromPDB
-import io.kotlintest.matchers.maps.shouldNotContainKey
-import io.kotlintest.matchers.types.shouldBeTypeOf
-import io.kotlintest.shouldBe
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.maps.shouldNotContainKey
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeTypeOf
 import org.joml.Vector3d
 
 
-class TestPolymerPartitioning : SharedSpec({
+class TestPolymerPartitioning : FunSpec({
 
-	group("1CC8") {
+	context("1CC8") {
 
 		val mol = Molecule.fromPDB(OspreyGui.getResourceAsString("1cc8.pdb")) as Polymer
 

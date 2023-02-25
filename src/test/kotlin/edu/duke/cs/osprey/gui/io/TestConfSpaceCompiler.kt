@@ -3,37 +3,37 @@ package edu.duke.cs.osprey.gui.io
 import cuchaz.kludge.tools.abs
 import cuchaz.kludge.tools.toDegrees
 import cuchaz.kludge.tools.toRadians
-import edu.duke.cs.osprey.molscope.molecule.Molecule
-import edu.duke.cs.osprey.molscope.molecule.Polymer
-import edu.duke.cs.osprey.molscope.tools.toIdentitySet
+import edu.duke.cs.osprey.confspace.compiled.AssignedCoords
+import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator
+import edu.duke.cs.osprey.energy.compiled.PosInterGen
 import edu.duke.cs.osprey.gui.OspreyGui
-import edu.duke.cs.osprey.SharedSpec
 import edu.duke.cs.osprey.gui.absolutely
+import edu.duke.cs.osprey.gui.compiler.ConfSpaceCompiler
+import edu.duke.cs.osprey.gui.forcefield.*
 import edu.duke.cs.osprey.gui.forcefield.amber.Amber96Params
 import edu.duke.cs.osprey.gui.forcefield.amber.MoleculeType
 import edu.duke.cs.osprey.gui.forcefield.eef1.EEF1ForcefieldParams
-import edu.duke.cs.osprey.gui.relatively
-import edu.duke.cs.osprey.confspace.compiled.ConfSpace as CompiledConfSpace
-import edu.duke.cs.osprey.confspace.compiled.AssignedCoords
-import edu.duke.cs.osprey.confspace.compiled.motions.DihedralAngle as CompiledDihedralAngle
-import edu.duke.cs.osprey.confspace.compiled.motions.TranslationRotation as CompiledTranslationRotation
-import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator
-import edu.duke.cs.osprey.energy.compiled.PosInterGen
-import edu.duke.cs.osprey.gui.compiler.ConfSpaceCompiler
-import edu.duke.cs.osprey.gui.forcefield.*
 import edu.duke.cs.osprey.gui.motions.DihedralAngle
 import edu.duke.cs.osprey.gui.motions.TranslationRotation
 import edu.duke.cs.osprey.gui.prep.*
+import edu.duke.cs.osprey.gui.relatively
+import edu.duke.cs.osprey.molscope.molecule.Molecule
+import edu.duke.cs.osprey.molscope.molecule.Polymer
+import edu.duke.cs.osprey.molscope.tools.toIdentitySet
 import edu.duke.cs.osprey.tools.FileTools
-import io.kotlintest.matchers.collections.shouldContain
-import io.kotlintest.matchers.doubles.shouldBeLessThan
-import io.kotlintest.matchers.numerics.shouldBeGreaterThan
-import io.kotlintest.matchers.types.shouldBeTypeOf
-import io.kotlintest.shouldBe
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.comparables.shouldBeGreaterThan
+import io.kotest.matchers.comparables.shouldBeLessThan
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeTypeOf
 import kotlinx.coroutines.runBlocking
+import edu.duke.cs.osprey.confspace.compiled.ConfSpace as CompiledConfSpace
+import edu.duke.cs.osprey.confspace.compiled.motions.DihedralAngle as CompiledDihedralAngle
+import edu.duke.cs.osprey.confspace.compiled.motions.TranslationRotation as CompiledTranslationRotation
 
 
-class TestConfSpaceCompiler : SharedSpec({
+class TestConfSpaceCompiler : FunSpec({
 
 	// load some amino acid confs
 	val conflib = ConfLib.from(OspreyGui.getResourceAsString("conflib/lovell.conflib"))
@@ -173,14 +173,13 @@ class TestConfSpaceCompiler : SharedSpec({
 	fun AssignedCoords.calcEnergy() = CPUConfEnergyCalculator(confSpace).calcEnergy(assignments, allInters())
 	fun AssignedCoords.minimizeEnergy() = CPUConfEnergyCalculator(confSpace).minimizeEnergy(assignments, allInters())
 
-	fun Group.testConf(
-		compiledConfSpace: CompiledConfSpace,
-		vararg confIds: String,
-		focus: Boolean = false,
-		block: AssignedCoords.() -> Unit
+	fun testConf(
+			compiledConfSpace: edu.duke.cs.osprey.confspace.compiled.ConfSpace,
+			vararg confIds: String,
+			block: AssignedCoords.() -> Unit
 	) {
 		// define the test, and make the conformation coords
-		test("conf: " + confIds.joinToString(", "), focus = focus) {
+		test("conf: " + confIds.joinToString(", ")) {
 			compiledConfSpace.makeCoords(*confIds).run(block)
 		}
 	}
@@ -213,7 +212,7 @@ class TestConfSpaceCompiler : SharedSpec({
 		checkMolSizes(ConfSpace.fromToml(FileTools.readResource(resourcePath)))
 
 
-	group("2RL0 conf spaces") {
+	context("2RL0 conf spaces") {
 
 		test("G molecule sizes") {
 			checkMolSizes("/confSpaces/2RL0.G.confspace")
@@ -227,7 +226,7 @@ class TestConfSpaceCompiler : SharedSpec({
 	}
 
 	// this essentially tests the static energy calculation
-	group("1cc8 no positions") {
+	context("1cc8 no positions") {
 
 		val mol = Molecule.fromOMOL(OspreyGui.getResourceAsString("1cc8.protein.omol"))[0] as Polymer
 
@@ -251,12 +250,12 @@ class TestConfSpaceCompiler : SharedSpec({
 		}
 	}
 
-	group("glycine dipeptide") {
+	context("glycine dipeptide") {
 
 		fun loadMol() =
 			Molecule.fromOMOL(OspreyGui.getResourceAsString("preppedMols/gly-gly.omol"))[0] as Polymer
 
-		group("no positions") {
+		context("no positions") {
 
 			val mol = loadMol()
 
@@ -280,7 +279,7 @@ class TestConfSpaceCompiler : SharedSpec({
 			}
 		}
 
-		group("two discrete positions") {
+		context("two discrete positions") {
 
 			val mol = loadMol()
 			val res72 = mol.findChainOrThrow("A").findResidueOrThrow("72")
@@ -368,7 +367,7 @@ class TestConfSpaceCompiler : SharedSpec({
 			}
 		}
 
-		group("one continuous position") {
+		context("one continuous position") {
 
 			val mol = loadMol()
 			val res73 = mol.findChainOrThrow("A").findResidueOrThrow("73")
@@ -503,7 +502,7 @@ class TestConfSpaceCompiler : SharedSpec({
 			}
 		}
 
-		group("no positions, molecule dihedral") {
+		context("no positions, molecule dihedral") {
 
 			val mol = loadMol()
 			val res72 = mol.findChainOrThrow("A").findResidueOrThrow("72")
@@ -543,7 +542,7 @@ class TestConfSpaceCompiler : SharedSpec({
 			}
 		}
 
-		group("no positions, molecule trans/rot") {
+		context("no positions, molecule trans/rot") {
 
 			val mol = loadMol()
 
@@ -583,7 +582,7 @@ class TestConfSpaceCompiler : SharedSpec({
 			}
 		}
 
-		group("no positions, molecule dihedral and trans/rot") {
+		context("no positions, molecule dihedral and trans/rot") {
 
 			val mol = loadMol()
 			val res72 = mol.findChainOrThrow("A").findResidueOrThrow("72")
@@ -622,7 +621,7 @@ class TestConfSpaceCompiler : SharedSpec({
 			}
 		}
 
-		group("one continuous position, molecule trans/rot") {
+		context("one continuous position, molecule trans/rot") {
 
 			val mol = loadMol()
 			val res73 = mol.findChainOrThrow("A").findResidueOrThrow("73")
