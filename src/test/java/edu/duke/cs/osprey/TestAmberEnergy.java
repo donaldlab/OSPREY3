@@ -32,16 +32,15 @@
 
 package edu.duke.cs.osprey;
 
-import static org.junit.Assert.*;
-
-import org.junit.Test;
-
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield;
 import edu.duke.cs.osprey.structure.PDBIO;
+import org.junit.jupiter.api.Test;
+
+import static org.hamcrest.MatcherAssert.assertThat;
 
 public class TestAmberEnergy extends TestBase {
 	

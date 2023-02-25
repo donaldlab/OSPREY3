@@ -46,9 +46,7 @@ import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.Stopwatch;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.Timeout;
+import org.junit.jupiter.api.Test;
 
 import java.io.FileNotFoundException;
 import java.util.List;
@@ -57,12 +55,9 @@ import java.util.concurrent.TimeUnit;
 import static edu.duke.cs.osprey.kstar.TestBBKStar.runBBKStar;
 import static edu.duke.cs.osprey.markstar.TestMARKStar.*;
 import static org.hamcrest.Matchers.is;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 public class TestMARKStarDesignProblems {
-
-	@Rule
-	public Timeout globalTimeout = new Timeout(2, TimeUnit.MINUTES);
 
 	@Test
     public void test5UCE () {

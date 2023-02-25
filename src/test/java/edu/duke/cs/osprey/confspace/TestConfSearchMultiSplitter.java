@@ -33,10 +33,10 @@
 package edu.duke.cs.osprey.confspace;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
@@ -46,7 +46,7 @@ public class TestConfSearchMultiSplitter extends TestBase {
 	
 	private static SearchProblem search;
 	
-	@BeforeClass
+	@BeforeAll
 	public static void before() {
 		initDefaultEnvironment();
 		

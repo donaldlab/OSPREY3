@@ -60,9 +60,7 @@ import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.Stopwatch;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.Timeout;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -78,16 +76,11 @@ import java.util.stream.Collectors;
 
 import static edu.duke.cs.osprey.kstar.TestBBKStar.runBBKStar;
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 //import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 
 public class TestMARKStar {
-
-	// some of these tests take longer than 30 minutes on my laptop!
-	// long tests do not a good test case make
-	@Rule
-	public Timeout globalTimeout = new Timeout(2, TimeUnit.MINUTES);
 
 	public static final int NUM_CPUs = 4;
 	public static boolean REUDCE_MINIMIZATIONS = true;

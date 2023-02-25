@@ -33,10 +33,10 @@
 package edu.duke.cs.osprey.mplp;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
@@ -49,7 +49,7 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 
 public class TestMessageVars extends TestBase {
 	
-	@BeforeClass
+	@BeforeAll
 	public static void before() {
 		initDefaultEnvironment();
 	}

@@ -32,12 +32,12 @@
 
 package edu.duke.cs.osprey.ematrix;
 
-import static org.junit.Assert.*;
-import static org.junit.Assume.assumeTrue;
+import static org.hamcrest.MatcherAssert.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import edu.duke.cs.osprey.gpu.cuda.Gpus;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.confspace.SearchProblem;
@@ -66,7 +66,7 @@ public class TestSimpleEnergyMatrixCalculator extends TestBase {
 
 	private static ForcefieldParams ffparams;
 	
-	@BeforeClass
+	@BeforeAll
 	public static void before() {
 		initDefaultEnvironment();
 		ffparams = makeDefaultFFParams();

@@ -33,7 +33,7 @@
 package edu.duke.cs.osprey.python;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -42,7 +42,7 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestPythonScripts {
 	

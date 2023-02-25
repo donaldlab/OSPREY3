@@ -93,8 +93,9 @@ dependencies {
 
 	// test dependencies
 	testImplementation("org.hamcrest:hamcrest-all:1.3")
-	testImplementation("junit:junit:4.12")
 	testImplementation("io.kotlintest:kotlintest-runner-junit5:3.4.0")
+	testImplementation("org.junit.jupiter:junit-jupiter:5.4.2")
+	testImplementation("org.assertj:assertj-core:3.18.1")
 
 	// handle logging
 	implementation("ch.qos.logback:logback-classic:1.2.3")
@@ -137,8 +138,6 @@ dependencies {
 	implementation("org.sql2o:sql2o:1.6.0")
 	implementation("com.google.auto.value:auto-value-annotations:$autoValueVersion")
 	annotationProcessor("com.google.auto.value:auto-value:$autoValueVersion")
-	testImplementation("org.junit.jupiter:junit-jupiter:5.4.2")
-	testImplementation("org.assertj:assertj-core:3.18.1")
 
 
 	val ktorVersion = "1.5.4"
@@ -222,7 +221,7 @@ tasks.withType<KotlinCompile> {
 tasks.withType<Test> {
 	// the default 512m is too little memory to run test designs
 	maxHeapSize = "2g"
-	useJUnit()
+	useJUnitPlatform()
     failFast = true
 	// method call appends additional arguments for the JVM
 	jvmArgs(Jvm.moduleArgs)

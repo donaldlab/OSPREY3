@@ -33,9 +33,10 @@
 package edu.duke.cs.osprey.parallelism;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
+import static org.junit.jupiter.api.Assertions.fail;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskException;
 

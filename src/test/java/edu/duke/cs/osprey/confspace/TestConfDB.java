@@ -33,7 +33,7 @@
 package edu.duke.cs.osprey.confspace;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
 import com.google.common.collect.Lists;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
@@ -45,8 +45,8 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.TimeTools;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.util.Iterator;
@@ -62,7 +62,7 @@ public class TestConfDB {
 	private static SeqSpace.Position tyr7;
 	private static SeqSpace.Position phe9;
 
-	@BeforeClass
+	@BeforeAll
 	public static void beforeClass() {
 
 		Strand strand = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build();

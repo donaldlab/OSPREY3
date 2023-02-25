@@ -34,8 +34,8 @@ package edu.duke.cs.osprey;
 
 import java.util.ArrayList;
 
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.RC;
@@ -50,7 +50,7 @@ import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 public class TestConfSpace extends TestBase {
     
     
-    @BeforeClass
+    @BeforeAll
     public static void before() {
             initDefaultEnvironment();
     }

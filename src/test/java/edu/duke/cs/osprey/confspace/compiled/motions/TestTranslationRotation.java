@@ -1,7 +1,7 @@
 package edu.duke.cs.osprey.confspace.compiled.motions;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 import static edu.duke.cs.osprey.TestBase.isAbsolutely;
 import static edu.duke.cs.osprey.confspace.compiled.motions.Tools.*;
 
@@ -15,7 +15,7 @@ import edu.duke.cs.osprey.confspace.compiled.CoordsList;
 import edu.duke.cs.osprey.tools.FileTools;
 import org.joml.Quaterniond;
 import org.joml.Vector3d;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 
 // rotations are hard  =/

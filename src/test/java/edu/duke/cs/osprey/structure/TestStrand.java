@@ -33,10 +33,10 @@
 package edu.duke.cs.osprey.structure;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.confspace.Strand.ResidueFlex;
@@ -45,7 +45,7 @@ public class TestStrand {
 	
 	private static Molecule mol;
 	
-	@BeforeClass
+	@BeforeAll
 	public static void beforeClass() {
 		mol = PDBIO.readFile("examples/1CC8/1CC8.ss.pdb");
 	}

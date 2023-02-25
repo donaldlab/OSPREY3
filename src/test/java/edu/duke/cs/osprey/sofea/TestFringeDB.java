@@ -33,7 +33,7 @@
 package edu.duke.cs.osprey.sofea;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
 import edu.duke.cs.osprey.TestBase.TempFile;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
@@ -45,7 +45,7 @@ import edu.duke.cs.osprey.tools.BigExp;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 

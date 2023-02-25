@@ -16,7 +16,7 @@ import org.joml.Vector3d
 
 class TestConfLib : SharedSpec({
 
-	test("read Lovell") {
+	test("read Lovell", true) {
 
 		val conflib = ConfLib.from(OspreyGui.getResourceAsString("conflib/lovell.conflib"))
 

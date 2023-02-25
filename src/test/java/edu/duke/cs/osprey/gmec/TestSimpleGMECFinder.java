@@ -34,13 +34,14 @@ package edu.duke.cs.osprey.gmec;
 
 import static edu.duke.cs.osprey.TestBase.*;
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
@@ -129,7 +130,7 @@ public class TestSimpleGMECFinder {
 	private static Problem problemMultipleStrands;
 	private static Problem problemBigContinuous;
 	
-	@BeforeClass
+	@BeforeAll
 	public static void beforeClass() {
 		
 		Molecule mol = PDBIO.readFile("examples/python.GMEC/1CC8.ss.pdb");

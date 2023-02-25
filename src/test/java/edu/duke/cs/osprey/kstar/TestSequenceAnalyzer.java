@@ -33,7 +33,7 @@
 package edu.duke.cs.osprey.kstar;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 import static edu.duke.cs.osprey.TestBase.*;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
@@ -47,7 +47,7 @@ import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.parallelism.Parallelism;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.util.function.Function;
