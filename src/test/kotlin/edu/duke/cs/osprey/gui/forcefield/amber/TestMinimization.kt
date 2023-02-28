@@ -102,6 +102,7 @@ class TestMinimization : FunSpec({
 			}
 		}
 	}
+
 	context("coord-parsing"){
 		test("parse-negatives"){
 			val line = "207.4266747-244.7747434 207.2027093 -49.6475693  79.7673583-122.2447495"

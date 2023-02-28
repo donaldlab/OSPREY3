@@ -8,6 +8,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
 
+/* Test that Osprey Service can generate forcefield modification parameters for small molecules using parmchk2 */
 class TestForcefieldInfo : FunSpec({
 
 	context("benzamidine") {
