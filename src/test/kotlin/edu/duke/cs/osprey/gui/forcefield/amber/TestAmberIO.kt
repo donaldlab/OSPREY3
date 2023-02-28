@@ -13,6 +13,7 @@ import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 
+/* Test applying LEAP-generated topology (.TOP) and coordinate (.CRD) files to the originating structure */
 class TestAmberIO : FunSpec({
 
 	test("1CC8") {

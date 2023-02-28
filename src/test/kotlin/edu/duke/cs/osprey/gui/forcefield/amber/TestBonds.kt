@@ -11,6 +11,10 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeSameInstanceAs
 
 
+/**
+ * Test that the bond generation codes match expected bonds for proteins and small molecules.
+ *  Under the hood OSPREY uses LEaP or Antechamber to generate a MOL2 file, which has a list of bonds in it.
+ **/
 class TestBonds : FunSpec({
 
 	fun Molecule.Bonds.toContentSet() = toSet().map { it.toContent() }.toSet()

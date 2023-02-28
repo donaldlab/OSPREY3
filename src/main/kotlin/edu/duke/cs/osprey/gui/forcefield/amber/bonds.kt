@@ -49,7 +49,7 @@ suspend fun Molecule.inferBondsAmber(): List<AtomPair> {
 			OspreyService.bonds(request).mol2,
 			// HACKHACK: AmberTools19 LEaP won't return protein formatted mol2 files for single residue chains,
 			// so force the Mol2 code to build a polymer if we're expecting one
-			isPolymer = dst is Polymer
+			isPolymer = src is Polymer
 		)
 
 		// translate the bonds to the input mol
