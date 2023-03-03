@@ -55,7 +55,7 @@ fun Molecule.inferMissingAtomsAmberBlocking() =
 	runBlocking { inferMissingAtomsAmber() }
 
 /**
- * Uses Amber forecfields to infer missing heavy atoms and their positions.
+ * Uses Amber forcefields to infer missing heavy atoms and their positions.
  */
 suspend fun Molecule.inferMissingAtomsAmber(): List<MissingAtom> {
 
