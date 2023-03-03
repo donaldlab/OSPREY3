@@ -98,9 +98,9 @@ suspend fun Molecule.inferMissingAtomsAmber(): List<MissingAtom> {
 }
 
 
+// run LEaP to get a MOL2 and then infer all the missing atoms by diffing LEaP output with the input.
 private suspend fun runLeap(mol: Molecule, ffname: ForcefieldName): List<Pair<Atom,Polymer.Residue?>> {
 
-	// run LEaP to infer all the missing atoms
 	val response = OspreyService.missingAtoms(MissingAtomsRequest(mol.toPDB(), ffname.name))
 	val src = Molecule.fromMol2(
 		response.mol2,

@@ -10,6 +10,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
 
+/* Test our ability to detect missing atoms by using LEaP to generate molecules without missing atoms */
 class TestMissingAtoms : FunSpec({
 
 	fun List<MissingAtom>.shouldHave(expAtom: Atom, expRes: Polymer.Residue?) {

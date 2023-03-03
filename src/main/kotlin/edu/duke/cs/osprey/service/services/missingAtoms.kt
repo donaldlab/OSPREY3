@@ -8,6 +8,7 @@ import kotlinx.serialization.modules.PolymorphicModuleBuilder
 import kotlinx.serialization.modules.subclass
 
 
+/* Runs LEaP, returns a MOL2 that can be used to diff with the input molecule to determine which atoms are missing */
 object MissingAtomsService : OspreyService.Provider {
 
 	override fun registerResponses(responses: PolymorphicModuleBuilder<ResponseInfo>) {
