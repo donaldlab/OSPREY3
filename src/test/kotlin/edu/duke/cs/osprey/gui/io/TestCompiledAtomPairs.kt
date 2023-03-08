@@ -390,7 +390,7 @@ class TestCompiledAtomPairs : FunSpec({
 					)
 				}
 				fragments[1].apply {
-					name shouldBe "wt-A1_GLY"
+					name shouldBe "wt-Chain_A-A1_GLY"
 					atomNames shouldContainExactlyInAnyOrder dynamicFixedAtoms + listOf(
 						"HA2", "HA3" // sidechain atoms
 					)
@@ -411,13 +411,13 @@ class TestCompiledAtomPairs : FunSpec({
 					fragments.getOrNull(fragIndex)?.name shouldBe "ALAn"
 				}
 				confs[1].apply {
-					id shouldBe "wt-A1_GLY:conf1"
+					id shouldBe "wt-Chain_A-A1_GLY:conf1"
 					atoms should haveAtoms(
 						A1CA, A1C, A1O, A1OXT,
 						AtomInfo( "HA2", Vector3d( 5.846, -1.010, 8.928), 0, 0),
 						AtomInfo( "HA3", Vector3d( 6.149, -1.589, 7.273), 0, 0)
 					)
-					fragments.getOrNull(fragIndex)?.name shouldBe "wt-A1_GLY"
+					fragments.getOrNull(fragIndex)?.name shouldBe "wt-Chain_A-A1_GLY"
 				}
 			}
 			compiled.positions[1].apply {
@@ -438,7 +438,7 @@ class TestCompiledAtomPairs : FunSpec({
 					)
 				}
 				fragments[1].apply {
-					name shouldBe "wt-B2_GLY"
+					name shouldBe "wt-Chain_B-B2_GLY"
 					atomNames shouldContainExactlyInAnyOrder dynamicFixedAtoms + listOf(
 						"HA2", "HA3" // sidechain atoms
 					)
@@ -459,13 +459,13 @@ class TestCompiledAtomPairs : FunSpec({
 					fragments.getOrNull(fragIndex)?.name shouldBe "ALAn"
 				}
 				confs[1].apply {
-					id shouldBe "wt-B2_GLY:conf1"
+					id shouldBe "wt-Chain_B-B2_GLY:conf1"
 					atoms should haveAtoms(
 						B2N, B2CA, B2H1, B2H2, B2H3,
 						AtomInfo( "HA2", Vector3d( 6.407, 2.763, 12.319), 1, 1),
 						AtomInfo( "HA3", Vector3d( 6.663, 1.250, 11.417), 1, 1)
 					)
-					fragments.getOrNull(fragIndex)?.name shouldBe "wt-B2_GLY"
+					fragments.getOrNull(fragIndex)?.name shouldBe "wt-Chain_B-B2_GLY"
 				}
 			}
 			compiled.positions[2].apply {
@@ -486,7 +486,7 @@ class TestCompiledAtomPairs : FunSpec({
 					)
 				}
 				fragments[1].apply {
-					name shouldBe "wt-B3_ALA"
+					name shouldBe "wt-Chain_B-B3_ALA"
 					atomNames shouldContainExactlyInAnyOrder dynamicFixedAtoms + listOf(
 						"CB", "HA", "HB1", "HB2", "HB3" // sidechain atoms
 					)
@@ -507,7 +507,7 @@ class TestCompiledAtomPairs : FunSpec({
 					fragments.getOrNull(fragIndex)?.name shouldBe "ALA"
 				}
 				confs[1].apply {
-					id shouldBe "wt-B3_ALA:conf1"
+					id shouldBe "wt-Chain_B-B3_ALA:conf1"
 					atoms should haveAtoms(
 						AtomInfo( "CB", Vector3d(10.850, 2.513,  8.682), 1, 2),
 						B3H,
@@ -516,7 +516,7 @@ class TestCompiledAtomPairs : FunSpec({
 						AtomInfo("HB2", Vector3d(11.921, 2.698,  8.602), 1, 2),
 						AtomInfo("HB3", Vector3d(10.640, 1.476,  8.420), 1, 2)
 					)
-					fragments.getOrNull(fragIndex)?.name shouldBe "wt-B3_ALA"
+					fragments.getOrNull(fragIndex)?.name shouldBe "wt-Chain_B-B3_ALA"
 				}
 			}
 

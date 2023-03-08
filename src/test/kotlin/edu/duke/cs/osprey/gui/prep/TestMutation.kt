@@ -8,6 +8,7 @@ import edu.duke.cs.osprey.gui.motions.DihedralAngle
 import edu.duke.cs.osprey.gui.show
 import edu.duke.cs.osprey.molscope.molecule.*
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeSameSizeAs
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.comparables.beLessThanOrEqualTo
 import io.kotest.matchers.should
@@ -34,24 +35,20 @@ class TestMutation : FunSpec({
 	fun Molecule.shouldBeConsistent() {
 
 		val atomsLookup = atoms.toIdentitySet()
+		val residueAtoms = if (this is Polymer) {
+			chains.flatMap { chain -> chain.residues }
+				.flatMap { residue -> residue.atoms }
+				.toMutableSet()
+		} else {
+			mutableSetOf()
+		}.toIdentitySet()
 
 		// check that all residue atoms are also in the main atoms list
-		if (this is Polymer) {
-			for (chain in chains) {
-				for (res in chain.residues) {
-					for (atom in res.atoms) {
-						atomsLookup shouldContain atom
-					}
-				}
-			}
-		}
+		(residueAtoms - atomsLookup) shouldBeSameSizeAs emptySet<Atom>()
 
 		// check that all the bonds are to atoms also in the molecule
-		for (atom in atoms) {
-			for (bondedAtom in bonds.bondedAtoms(atom)) {
-				atomsLookup shouldContain bondedAtom
-			}
-		}
+		val bondedAtoms = atoms.flatMap { bonds.bondedAtoms(it) }.toIdentitySet()
+		(bondedAtoms - atomsLookup) shouldBeSameSizeAs emptySet<Atom>()
 	}
 
 	/**

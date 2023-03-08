@@ -173,17 +173,6 @@ class TestConfSpaceCompiler : FunSpec({
 	fun AssignedCoords.calcEnergy() = CPUConfEnergyCalculator(confSpace).calcEnergy(assignments, allInters())
 	fun AssignedCoords.minimizeEnergy() = CPUConfEnergyCalculator(confSpace).minimizeEnergy(assignments, allInters())
 
-	fun testConf(
-			compiledConfSpace: edu.duke.cs.osprey.confspace.compiled.ConfSpace,
-			vararg confIds: String,
-			block: AssignedCoords.() -> Unit
-	) {
-		// define the test, and make the conformation coords
-		test("conf: " + confIds.joinToString(", ")) {
-			compiledConfSpace.makeCoords(*confIds).run(block)
-		}
-	}
-
 	fun checkMolSizes(confSpace: ConfSpace) {
 
 		// calculate the expected values
@@ -205,7 +194,7 @@ class TestConfSpaceCompiler : FunSpec({
 		val confMol = compiledConfSpace.makeCoords(conf).toMol()
 
 		confMol.residues.size shouldBe numResidues
-		confMol.residues.sumBy { it.atoms.size } shouldBe numAtoms
+		confMol.residues.sumOf { it.atoms.size } shouldBe numAtoms
 	}
 
 	fun checkMolSizes(resourcePath: String) =
@@ -342,28 +331,37 @@ class TestConfSpaceCompiler : FunSpec({
 			}
 			val compiledConfSpace = confSpace.compile()
 
-			testConf(compiledConfSpace, "wt1:wt1", "wt2:wt2") {
-				calcAmber96().shouldBeEnergy(-2.9082532723206453)
-				calcEEF1().shouldBeEnergy(-47.75509989567506)
-				calcEnergy().shouldBeEnergy(-2.9082532723206453 + -47.75509989567506)
+			// define the test, and make the conformation coords
+			test("A conf: wt1:wt1, wt2:wt2") {
+				compiledConfSpace.makeCoords("wt1:wt1", "wt2:wt2").run {
+					calcAmber96().shouldBeEnergy(-2.9082532723206453)
+					calcEEF1().shouldBeEnergy(-47.75509989567506)
+					calcEnergy().shouldBeEnergy(-2.9082532723206453 + -47.75509989567506)
+				}
 			}
 
-			testConf(compiledConfSpace, "ASPn:p30", "LEU:tt") {
-				calcAmber96().shouldBeEnergy(31.328372547103974)
-				calcEEF1().shouldBeEnergy(-57.897054356496625)
-				calcEnergy().shouldBeEnergy(31.328372547103974 + -57.897054356496625)
+			test("A conf: ASPn:p30, LEU:tt") {
+				compiledConfSpace.makeCoords("ASPn:p30", "LEU:tt").run {
+					calcAmber96().shouldBeEnergy(31.328372547103974)
+					calcEEF1().shouldBeEnergy(-57.897054356496625)
+					calcEnergy().shouldBeEnergy(31.328372547103974 + -57.897054356496625)
+				}
 			}
 
-			testConf(compiledConfSpace, "ASPn:m-20", "LEU:tp") {
-				calcAmber96().shouldBeEnergy(-2.4030562287427513)
-				calcEEF1().shouldBeEnergy(-59.597396462270645)
-				calcEnergy().shouldBeEnergy(-2.4030562287427513 + -59.597396462270645)
+			test("A conf: ASPn:m-20, LEU:tp") {
+				compiledConfSpace.makeCoords("ASPn:m-20", "LEU:tp").run {
+					calcAmber96().shouldBeEnergy(-2.4030562287427513)
+					calcEEF1().shouldBeEnergy(-59.597396462270645)
+					calcEnergy().shouldBeEnergy(-2.4030562287427513 + -59.597396462270645)
+				}
 			}
 
-			testConf(compiledConfSpace, "SERn:t_0", "PRO:up") {
-				calcAmber96().shouldBeEnergy(3681646.881490728)
-				calcEEF1().shouldBeEnergy(-41.52398320030191)
-				calcEnergy().shouldBeEnergy(3681646.881490728 + -41.52398320030191)
+			test("A conf: SERn:t_0, PRO:up") {
+				compiledConfSpace.makeCoords("SERn:t_0", "PRO:up").run {
+					calcAmber96().shouldBeEnergy(3681646.881490728)
+					calcEEF1().shouldBeEnergy(-41.52398320030191)
+					calcEnergy().shouldBeEnergy(3681646.881490728 + -41.52398320030191)
+				}
 			}
 		}
 
@@ -419,85 +417,93 @@ class TestConfSpaceCompiler : FunSpec({
 			}
 			val compiledConfSpace = confSpace.compile()
 
-			testConf(compiledConfSpace, "ALA:ALA") {
 
-				// make sure we got the right dofs
-				dofs.size shouldBe 1
-				dofs[0].shouldBeTypeOf<CompiledDihedralAngle.Dof> { angle ->
-					(angle.max() - angle.min()).toDegrees() shouldBe 10.0.absolutely(1e-9)
-				}
+			// define the test, and make the conformation coords
+			test("conf: ALA:ALA") {
+				compiledConfSpace.makeCoords("ALA:ALA").run {
 
-				// we shouldn't have static atom pairs
-				getIndices(0).size() shouldBe 0
+					// make sure we got the right dofs
+					dofs.size shouldBe 1
+					dofs[0].shouldBeTypeOf<CompiledDihedralAngle.Dof> { angle ->
+						(angle.max() - angle.min()).toDegrees() shouldBe 10.0.absolutely(1e-9)
+					}
 
-				// check minimized energy
-				(-48.01726089618421).let {
-					(calcAmber96() + calcEEF1()).shouldBeEnergy(it)
-					calcEnergy().shouldBeEnergy(it)
-					minimizeEnergy() shouldBeLessThan it
+					// we shouldn't have static atom pairs
+					getIndices(0).size() shouldBe 0
+
+					// check minimized energy
+					(-48.01726089618421).let {
+						(calcAmber96() + calcEEF1()).shouldBeEnergy(it)
+						calcEnergy().shouldBeEnergy(it)
+						minimizeEnergy() shouldBeLessThan it
+					}
 				}
 			}
 
-			testConf(compiledConfSpace, "LEU:pp") {
-
-				// make sure we got the right dofs
-				dofs.size shouldBe 2
-				for (i in 0 until 2) {
-					dofs[i].shouldBeTypeOf<CompiledDihedralAngle.Dof> { angle ->
-						(angle.max() - angle.min()).toDegrees() shouldBe 18.0.absolutely(1e-9)
+			test("conf: LEU:pp") {
+				compiledConfSpace.makeCoords("LEU:pp").run {
+					// make sure we got the right dofs
+					dofs.size shouldBe 2
+					for (i in 0 until 2) {
+						dofs[i].shouldBeTypeOf<CompiledDihedralAngle.Dof> { angle ->
+							(angle.max() - angle.min()).toDegrees() shouldBe 18.0.absolutely(1e-9)
+						}
 					}
-				}
 
-				// we shouldn't have static atom pairs
-				getIndices(0).size() shouldBe 0
+					// we shouldn't have static atom pairs
+					getIndices(0).size() shouldBe 0
 
-				// check minimized energy
-				(-44.76305148873534).let {
-					(calcAmber96() + calcEEF1()).shouldBeEnergy(it)
-					calcEnergy().shouldBeEnergy(it)
-					minimizeEnergy() shouldBeLessThan it
+					// check minimized energy
+					(-44.76305148873534).let {
+						(calcAmber96() + calcEEF1()).shouldBeEnergy(it)
+						calcEnergy().shouldBeEnergy(it)
+						minimizeEnergy() shouldBeLessThan it
+					}
+
 				}
 			}
 
-			testConf(compiledConfSpace, "LEU:tt") {
-
-				// make sure we got the right dofs
-				dofs.size shouldBe 2
-				for (i in 0 until 2) {
-					dofs[i].shouldBeTypeOf<CompiledDihedralAngle.Dof> { angle ->
-						(angle.max() - angle.min()).toDegrees() shouldBe 18.0.absolutely(1e-9)
+			test("Conf: LEU:tt") {
+				compiledConfSpace.makeCoords("LEU:tt").run {
+					// make sure we got the right dofs
+					dofs.size shouldBe 2
+					for (i in 0 until 2) {
+						dofs[i].shouldBeTypeOf<CompiledDihedralAngle.Dof> { angle ->
+							(angle.max() - angle.min()).toDegrees() shouldBe 18.0.absolutely(1e-9)
+						}
 					}
-				}
 
-				// we shouldn't have static atom pairs
-				getIndices(0).size() shouldBe 0
+					// we shouldn't have static atom pairs
+					getIndices(0).size() shouldBe 0
 
-				// check minimized energy
-				(-24.801305933011164).let {
-					(calcAmber96() + calcEEF1()).shouldBeEnergy(it)
-					calcEnergy().shouldBeEnergy(it)
-					minimizeEnergy() shouldBeLessThan it
+					// check minimized energy
+					(-24.801305933011164).let {
+						(calcAmber96() + calcEEF1()).shouldBeEnergy(it)
+						calcEnergy().shouldBeEnergy(it)
+						minimizeEnergy() shouldBeLessThan it
+					}
 				}
 			}
 
-			testConf(compiledConfSpace, "LYS:ptpt") {
-
-				// make sure we got the right dofs
-				dofs.size shouldBe 4
-				for (i in 0 until 4) {
-					dofs[i].shouldBeTypeOf<CompiledDihedralAngle.Dof> { angle ->
-						(angle.max() - angle.min()).toDegrees() shouldBe 18.0.absolutely(1e-9)
+			test("Conf: LYS:ptpt") {
+				compiledConfSpace.makeCoords("LYS:ptpt").run {
+					// make sure we got the right dofs
+					dofs.size shouldBe 4
+					for (i in 0 until 4) {
+						dofs[i].shouldBeTypeOf<CompiledDihedralAngle.Dof> { angle ->
+							(angle.max() - angle.min()).toDegrees() shouldBe 18.0.absolutely(1e-9)
+						}
 					}
-				}
 
-				// we shouldn't have static atom pairs
-				getIndices(0).size() shouldBe 0
+					// we shouldn't have static atom pairs
+					getIndices(0).size() shouldBe 0
 
-				// check minimized energy
-				(-64.30395031713154).let {
-					(calcAmber96() + calcEEF1()).shouldBeEnergy(it)
-					calcEnergy().shouldBeEnergy(it)
-					minimizeEnergy() shouldBeLessThan it
+					// check minimized energy
+					(-64.30395031713154).let {
+						(calcAmber96() + calcEEF1()).shouldBeEnergy(it)
+						calcEnergy().shouldBeEnergy(it)
+						minimizeEnergy() shouldBeLessThan it
+					}
 				}
 			}
 		}
@@ -522,22 +528,23 @@ class TestConfSpaceCompiler : FunSpec({
 			}
 			val compiledConfSpace = confSpace.compile()
 
-			testConf(compiledConfSpace) {
+			test("N-terminal cap dihedral") {
+				compiledConfSpace.makeCoords().run {
+					// make sure we got the right dofs
+					dofs.size shouldBe 1
+					dofs[0].shouldBeTypeOf<CompiledDihedralAngle.Dof> { angle ->
+						(angle.max() - angle.min()).toDegrees() shouldBe 18.0.absolutely(1e-9)
+					}
 
-				// make sure we got the right dofs
-				dofs.size shouldBe 1
-				dofs[0].shouldBeTypeOf<CompiledDihedralAngle.Dof> { angle ->
-					(angle.max() - angle.min()).toDegrees() shouldBe 18.0.absolutely(1e-9)
-				}
+					// we should have static atom pairs too
+					getIndices(0).size() shouldBeGreaterThan 0
 
-				// we should have static atom pairs too
-				getIndices(0).size() shouldBeGreaterThan 0
-
-				// check minimized energy
-				(-50.6633531679957).let {
-					(calcAmber96() + calcEEF1()).shouldBeEnergy(it)
-					calcEnergy().shouldBeEnergy(it)
-					minimizeEnergy() shouldBeLessThan it
+					// check minimized energy
+					(-50.6633531679957).let {
+						(calcAmber96() + calcEEF1()).shouldBeEnergy(it)
+						calcEnergy().shouldBeEnergy(it)
+						minimizeEnergy() shouldBeLessThan it
+					}
 				}
 			}
 		}
@@ -558,26 +565,27 @@ class TestConfSpaceCompiler : FunSpec({
 			}
 			val compiledConfSpace = confSpace.compile()
 
-			testConf(compiledConfSpace) {
-
-				// make sure we got the right dofs
-				dofs.size shouldBe 6
-				for (i in 0 until 6) {
-					dofs[i].shouldBeTypeOf<CompiledTranslationRotation.Dof> { dof ->
-						listOf(2.0, 5.0.toRadians()).shouldContain(dof.max)
-						listOf(-2.0, (-5.0).toRadians()).shouldContain(dof.min)
+			test("compiled conf space correctly sets degrees of freedom") {
+				compiledConfSpace.makeCoords().run {
+					// make sure we got the right dofs
+					dofs.size shouldBe 6
+					for (i in 0 until 6) {
+						dofs[i].shouldBeTypeOf<CompiledTranslationRotation.Dof> { dof ->
+							listOf(2.0, 5.0.toRadians()).shouldContain(dof.max)
+							listOf(-2.0, (-5.0).toRadians()).shouldContain(dof.min)
+						}
 					}
-				}
 
-				// we should have static atom pairs too
-				getIndices(0).size() shouldBeGreaterThan 0
+					// we should have static atom pairs too
+					getIndices(0).size() shouldBeGreaterThan 0
 
-				// check rigid/minimized energy
-				// (they're the same, rigid motions won't affect the energy of a single molecule)
-				(-2.908253272320646 + -47.75509989567506).let {
-					(calcAmber96() + calcEEF1()).shouldBeEnergy(it)
-					calcEnergy().shouldBeEnergy(it)
-					minimizeEnergy().shouldBeEnergy(it)
+					// check rigid/minimized energy
+					// (they're the same, rigid motions won't affect the energy of a single molecule)
+					(-2.908253272320646 + -47.75509989567506).let {
+						(calcAmber96() + calcEEF1()).shouldBeEnergy(it)
+						calcEnergy().shouldBeEnergy(it)
+						minimizeEnergy().shouldBeEnergy(it)
+					}
 				}
 			}
 		}
@@ -610,13 +618,14 @@ class TestConfSpaceCompiler : FunSpec({
 			}
 			val compiledConfSpace = confSpace.compile()
 
-			testConf(compiledConfSpace) {
-
-				// check minimized energy
-				(-50.6633531679957).let {
-					(calcAmber96() + calcEEF1()).shouldBeEnergy(it)
-					calcEnergy().shouldBeEnergy(it)
-					minimizeEnergy() shouldBeLessThan it
+			test("minimized energy correct with dihedral motion and molecule translation and rotation") {
+				compiledConfSpace.makeCoords().run {
+					// check minimized energy
+					(-50.6633531679957).let {
+						(calcAmber96() + calcEEF1()).shouldBeEnergy(it)
+						calcEnergy().shouldBeEnergy(it)
+						minimizeEnergy() shouldBeLessThan it
+					}
 				}
 			}
 		}
@@ -663,16 +672,17 @@ class TestConfSpaceCompiler : FunSpec({
 			}
 			val compiledConfSpace = confSpace.compile()
 
-			testConf(compiledConfSpace, "ALA:ALA") {
+			test("Conf: ALA:ALA") {
+				compiledConfSpace.makeCoords("ALA:ALA").run {
+					// make sure we got the right dofs
+					dofs.size shouldBe 7
 
-				// make sure we got the right dofs
-				dofs.size shouldBe 7
-
-				// check minimized energy
-				(-48.01726089618421).let {
-					(calcAmber96() + calcEEF1()).shouldBeEnergy(it)
-					calcEnergy().shouldBeEnergy(it)
-					minimizeEnergy() shouldBeLessThan it
+					// check minimized energy
+					(-48.01726089618421).let {
+						(calcAmber96() + calcEEF1()).shouldBeEnergy(it)
+						calcEnergy().shouldBeEnergy(it)
+						minimizeEnergy() shouldBeLessThan it
+					}
 				}
 			}
 		}
