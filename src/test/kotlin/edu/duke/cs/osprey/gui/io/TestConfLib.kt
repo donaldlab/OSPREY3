@@ -8,11 +8,14 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.collections.shouldExist
+import io.kotest.matchers.doubles.shouldBeZero
+import io.kotest.matchers.equality.shouldNotBeEqualToComparingFields
 import io.kotest.matchers.maps.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeTypeOf
 import org.joml.Vector3d
+import kotlin.io.path.writeText
 
 
 class TestConfLib : FunSpec({
@@ -228,6 +231,29 @@ class TestConfLib : FunSpec({
 		idsByFrag[frag2] shouldBe "foo2"
 		idsByFrag[frag3] shouldBe "foo3"
 	}
+
+	test("D-conflib can be constructed from L-conflib") {
+		val lConfLib = ConfLib.from(OspreyGui.getResourceAsString("conflib/lovell.conflib"))
+		val dConfLib = lConfLib.invertChirality()
+		dConfLib.name shouldBe "D-" + lConfLib.name
+		dConfLib.id shouldBe "D-" + lConfLib.id
+
+		for ((lFragId, lFrag) in lConfLib.fragments) {
+			val dFrag = dConfLib.getFragmentOrThrow(lFragId)
+			dFrag.name shouldBe lFrag.name
+
+			for ((lConfId, lConf) in lFrag.confs) {
+				val dConfs = dFrag.getConfs(lConfId)
+				dConfs.size shouldBe 1
+				val dConf = dConfs.first()
+				dConf.name shouldBe lConf.name
+				dConf coordsShouldMirror lConf
+			}
+		}
+
+		val tempFile = kotlin.io.path.createTempFile()
+		tempFile.writeText(dConfLib.toToml())
+	}
 })
 
 infix fun ConfLib.Fragment?.shouldBeFrag(exp: ConfLib.Fragment?) {
@@ -256,6 +282,17 @@ infix fun ConfLib.Fragment?.shouldBeFrag(exp: ConfLib.Fragment?) {
 		}
 
 		obsFrag.motions shouldContainExactly expFrag.motions
+	}
+}
+
+infix fun ConfLib.Conf.coordsShouldMirror(exp: ConfLib.Conf) {
+
+	for ((atom, coord) in coords) {
+		(coord[2] + exp.coords[atom]!![2]).shouldBeZero()
+	}
+
+	for ((anchor, anchorCoords) in anchorCoords) {
+		anchorCoords shouldBe exp.anchorCoords[anchor]?.invertChirality()
 	}
 }
 

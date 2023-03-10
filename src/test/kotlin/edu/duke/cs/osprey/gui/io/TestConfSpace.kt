@@ -378,4 +378,8 @@ class TestConfSpace : FunSpec({
 			}
 		}
 	}
+
+	test("can make conf space with D-lovell conflib") {
+
+	}
 })

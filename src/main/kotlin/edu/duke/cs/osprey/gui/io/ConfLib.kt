@@ -3,6 +3,8 @@ package edu.duke.cs.osprey.gui.io
 import cuchaz.kludge.tools.x
 import cuchaz.kludge.tools.y
 import cuchaz.kludge.tools.z
+import edu.duke.cs.osprey.gui.io.ConfLib.*
+import edu.duke.cs.osprey.gui.io.ConfLib.AnchorCoords.*
 import edu.duke.cs.osprey.molscope.molecule.Atom
 import edu.duke.cs.osprey.molscope.molecule.Element
 import edu.duke.cs.osprey.molscope.tools.identityHashSet
@@ -163,6 +165,8 @@ class ConfLib(
 
 		abstract fun getCoords(index: Int): Vector3d?
 
+		abstract fun invertChirality(): AnchorCoords
+
 		data class Single(
 			val a: Vector3d,
 			val b: Vector3d,
@@ -176,6 +180,10 @@ class ConfLib(
 					2 -> c
 					else -> null
 				}
+
+			override fun invertChirality(): AnchorCoords {
+				return Single(Vector3d(a.x, a.y, -a.z), Vector3d(b.x, b.y, -b.z), Vector3d(c.x, c.y, -c.z))
+			}
 		}
 
 		data class Double(
@@ -193,6 +201,10 @@ class ConfLib(
 					3 -> d
 					else -> null
 				}
+
+			override fun invertChirality(): AnchorCoords {
+				return Double(Vector3d(a.x, a.y, -a.z), Vector3d(b.x, b.y, -b.z), Vector3d(c.x, c.y, -c.z), Vector3d(d.x, d.y, -d.z))
+			}
 		}
 	}
 
@@ -550,12 +562,12 @@ class ConfLib(
 
 						val anchor = getAnchor(coordTable.getIntOrThrow("id", pos))
 						anchorCoords[anchor] = when (anchor) {
-							is Anchor.Single -> AnchorCoords.Single(
+							is Anchor.Single -> Single(
 								a = coordTable.getArrayOrThrow("a", pos).toVector3d(),
 								b = coordTable.getArrayOrThrow("b", pos).toVector3d(),
 								c = coordTable.getArrayOrThrow("c", pos).toVector3d()
 							)
-							is Anchor.Double -> AnchorCoords.Double(
+							is Anchor.Double -> Double(
 								a = coordTable.getArrayOrThrow("a", pos).toVector3d(),
 								b = coordTable.getArrayOrThrow("b", pos).toVector3d(),
 								c = coordTable.getArrayOrThrow("c", pos).toVector3d(),
@@ -654,16 +666,47 @@ fun ConfLib.toToml(table: String? = null): String {
 	return buf.toString()
 }
 
+fun ConfLib.invertChirality(): ConfLib {
+
+	val invertedFrags = fragments.map { (fragId, frag) ->
+		val invertedConfs = frag.confs.map { (confId, conf) ->
+			val invertedCoords = conf.coords.map { (atomInfo, vector) ->
+				atomInfo to Vector3d(vector.x, vector.y, -vector.z)
+			}.toMap()
+
+			val invertedAnchorCoords = conf.anchorCoords.map { (anchor, anchorCoords) ->
+				anchor to anchorCoords.invertChirality()
+			}.toMap()
+
+			confId to Conf(conf.id, conf.name, conf.description, invertedCoords, invertedAnchorCoords)
+		}.toMap()
+
+		val dFrag = Fragment(
+			frag.id,
+			frag.name,
+			frag.type,
+			frag.atoms,
+			frag.bonds,
+			frag.anchors,
+			invertedConfs,
+			frag.motions
+		)
+		fragId to dFrag
+	}.toMap()
+
+	return ConfLib("D-$id", "D-$name", invertedFrags, description, citation)
+}
+
 
 data class FragmentsTOML(
 	val toml: String,
-	val idsByFrag: Map<ConfLib.Fragment,String>
+	val idsByFrag: Map<Fragment,String>
 )
 
 /**
  * Writes out a list of fragments to TOML
  */
-fun List<ConfLib.Fragment>.toToml(
+fun List<Fragment>.toToml(
 	/**
 	 * If true, appends sequence numbers to fragment ids to avoid collisions.
 	 * If false, throws an exception when an id collision is found.
@@ -679,7 +722,7 @@ fun List<ConfLib.Fragment>.toToml(
 	fun write(str: String, vararg args: Any) = buf.append(String.format(str, *args))
 
 	val fragIds = HashSet<String>()
-	val idsByFrag = IdentityHashMap<ConfLib.Fragment,String>()
+	val idsByFrag = IdentityHashMap<Fragment,String>()
 
 	for (frag in this) {
 
@@ -742,7 +785,7 @@ fun List<ConfLib.Fragment>.toToml(
 		write("anchors = [\n")
 		for (anchor in frag.anchors) {
 			when (anchor) {
-				is ConfLib.Anchor.Single -> {
+				is Anchor.Single -> {
 					write("\t{ id = %2d, type = %s, bonds = [ %s ] }, # %s\n",
 						anchor.id,
 						"single".quote(),
@@ -750,7 +793,7 @@ fun List<ConfLib.Fragment>.toToml(
 						anchor.bonds.joinToString(", ") { it.name }
 					)
 				}
-				is ConfLib.Anchor.Double -> {
+				is Anchor.Double -> {
 					write("\t{ id = %2d, type = %s, bondsa=[ %s ], bondsb=[ %s ] }, # %s; %s\n",
 						anchor.id,
 						"double".quote(),
@@ -765,10 +808,10 @@ fun List<ConfLib.Fragment>.toToml(
 		}
 		write("]\n")
 
-		fun ConfLib.AtomPointer.name() =
+		fun AtomPointer.name() =
 			when (this) {
-				is ConfLib.AtomInfo -> name
-				is ConfLib.AnchorAtomPointer -> "A$index"
+				is AtomInfo -> name
+				is AnchorAtomPointer -> "A$index"
 				else -> "?"
 			}
 
@@ -776,7 +819,7 @@ fun List<ConfLib.Fragment>.toToml(
 		write("motions = [\n")
 		for (motion in frag.motions) {
 			when (motion) {
-				is ConfLib.ContinuousMotion.DihedralAngle ->
+				is ContinuousMotion.DihedralAngle ->
 					write("\t{ id = %2d, type = %s, a = %s, b = %s, c = %s, d = %s }, # %s, %s, %s, %s\n",
 						motion.id,
 						"dihedral".quote(),
@@ -813,14 +856,14 @@ fun List<ConfLib.Fragment>.toToml(
 			write("anchorCoords = [\n")
 			for ((anchor, coords) in conf.anchorCoords.entries.sortedBy { (anchor, _) -> anchor.id }) {
 				when (coords) {
-					is ConfLib.AnchorCoords.Single ->
+					is Single ->
 						write("\t{ id = %2d, a = %s, b = %s, c = %s },\n",
 							anchor.id,
 							coords.a.toToml(),
 							coords.b.toToml(),
 							coords.c.toToml()
 						)
-					is ConfLib.AnchorCoords.Double ->
+					is AnchorCoords.Double ->
 						write("\t{ id = %2d, a = %s, b = %s, c = %s, d = %s },\n",
 							anchor.id,
 							coords.a.toToml(),
@@ -847,9 +890,9 @@ private fun String.multilineQuote() = "'''\n$this'''"
 private fun Vector3dc.toToml() =
 	"[ %12.6f, %12.6f, %12.6f ]".format(x, y, z)
 
-private fun ConfLib.AtomPointer.toToml() =
+private fun AtomPointer.toToml() =
 	when (this) {
-		is ConfLib.AtomInfo -> id.toString()
-		is ConfLib.AnchorAtomPointer -> "[ %d, %d ]".format(anchor.id, index + 1)
+		is AtomInfo -> id.toString()
+		is AnchorAtomPointer -> "[ %d, %d ]".format(anchor.id, index + 1)
 		else -> throw IllegalArgumentException("unkown atom pointer: $this")
 	}

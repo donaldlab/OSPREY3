@@ -5,10 +5,10 @@ import cuchaz.kludge.window.FileDialog
 import cuchaz.kludge.window.FilterList
 import edu.duke.cs.osprey.molscope.gui.Alert
 import edu.duke.cs.osprey.gui.OspreyGui
-import edu.duke.cs.osprey.gui.io.ConfLib
-import edu.duke.cs.osprey.gui.io.UserSettings
-import edu.duke.cs.osprey.gui.io.read
+import edu.duke.cs.osprey.gui.io.*
 import edu.duke.cs.osprey.gui.prep.ConfSpace
+import kotlin.io.path.pathString
+import kotlin.io.path.writeText
 
 
 /**
@@ -17,7 +17,8 @@ import edu.duke.cs.osprey.gui.prep.ConfSpace
 object ConfLibs {
 
 	private val builtInConflibPaths = listOf(
-		"conflib/lovell.conflib"
+		"conflib/lovell.conflib",
+		"conflib/D-lovell.conflib"
 	)
 
 	data class ConfLibInfo(
