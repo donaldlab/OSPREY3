@@ -6,6 +6,7 @@ import edu.duke.cs.osprey.gui.io.withService
 import edu.duke.cs.osprey.molscope.molecule.Molecule
 import edu.duke.cs.osprey.molscope.molecule.Polymer
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.equality.shouldBeEqualToComparingFields
@@ -14,7 +15,7 @@ import io.kotest.matchers.shouldNotBe
 import org.joml.Vector3d
 
 /* Tests of the preparation of molecules that are dextrorotatory. */
-class TestDexDesign : FunSpec({
+class TestChirality : FunSpec({
 
     fun invertOverZAxis(pos: Vector3d) = Vector3d(pos.x, pos.y, -pos.z)
 
@@ -117,5 +118,82 @@ class TestDexDesign : FunSpec({
                 dBonds.map { it.toString() } shouldContainExactly lBonds.map { it.toString() }
             }
         }
+    }
+
+    context("protonation") {
+
+        fun List<ProtonatedAtom>.isSameAs(reference: List<ProtonatedAtom>) {
+            for ((testAtom, referenceAtom) in zip(reference)) {
+                testAtom.heavy shouldBeEqualToComparingFields referenceAtom.heavy
+                testAtom.light shouldBeEqualToComparingFields referenceAtom.light
+            }
+        }
+
+        fun List<ProtonatedAtom>.allAtomsAreMirroredFrom(reference: List<ProtonatedAtom>) {
+
+            this.size shouldBe reference.size
+
+            for ((testAtom, referenceAtom) in zip(reference)) {
+                testAtom.location shouldBe referenceAtom.location // refers to location in chain/residue
+                testAtom.heavy shouldBeEqualToComparingFields referenceAtom.heavy
+                testAtom.light shouldBeEqualToComparingFields referenceAtom.light
+            }
+        }
+
+        fun List<ProtonatedAtom>.atomPositionsAreNotMirroredFrom(reference: List<ProtonatedAtom>) {
+            this.size shouldBe reference.size
+
+            zip(reference)
+                .any { (testAtom, referenceAtom) ->
+                    val mirroredLight = testAtom.light.copy { invertOverZAxis(it) }
+                    mirroredLight.pos != referenceAtom.light.pos
+                }
+                .shouldBeTrue()
+        }
+
+        test("protonating a molecule the second time returns the same results as the first time") {
+            val lThanatin = Molecule.fromPDB(OspreyGui.getResourceAsString("dexDesign/thanatin-chain-b.pdb"))
+
+            withService {
+                val firstGo = lThanatin.inferProtonation()
+                val secondGo = lThanatin.inferProtonation()
+
+                secondGo.size shouldBe firstGo.size
+                firstGo.isSameAs(secondGo)
+            }
+        }
+
+        /* demonstrate that we need to flip into L space to correctly protonate D polymer */
+        test("LEaP does not protonate D-proteins in the mirror image of their L-counterparts") {
+            val lThanatin = Molecule.fromPDB(OspreyGui.getResourceAsString("dexDesign/thanatin-chain-b.pdb"))
+            val dThanatin = Molecule.fromPDB(OspreyGui.getResourceAsString("dexDesign/d-thanatin-chain-b.pdb"))
+            lThanatin.deprotonate()
+            dThanatin.deprotonate()
+
+            withService {
+                val lProtonation = lThanatin.inferProtonation()
+                val dProtonation = dThanatin.inferProtonation()
+
+                dProtonation.atomPositionsAreNotMirroredFrom(lProtonation) // unfortunately...
+            }
+        }
+
+        test("Flipping D-polymer into L-space, protonating, then flipping back correctly adds protons") {
+            val lThanatin = Molecule.fromPDB(OspreyGui.getResourceAsString("dexDesign/thanatin-chain-b.pdb"))
+            val dThanatin = Molecule.fromPDB(OspreyGui.getResourceAsString("dexDesign/d-thanatin-chain-b.pdb"))
+            lThanatin.deprotonate()
+            dThanatin.deprotonate()
+
+            val invertedD = dThanatin.transformCopy { invertOverZAxis(it) }.first
+            invertedD.inferProtonation().allAtomsAreMirroredFrom(lThanatin.inferProtonation())
+        }
+    }
+
+    context("net charges") {
+
+    }
+
+    context("minimization") {
+
     }
 })

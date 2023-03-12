@@ -13,9 +13,11 @@ import edu.duke.cs.osprey.gui.io.toOspreyMol
 import edu.duke.cs.osprey.gui.io.withService
 import edu.duke.cs.osprey.molscope.molecule.Molecule
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.doubles.plusOrMinus
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.runBlocking
+import org.joml.Vector3d
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams as OldFFParams
 
 
@@ -46,16 +48,16 @@ class TestEnergy : FunSpec({
 	fun readMol(name: String) =
 		Molecule.fromOMOL(OspreyGui.getResourceAsString("preppedMols/$name.omol"))[0]
 
-	context("compared to templated ecalc") {
+	/**
+	 * The parameters from the newer code are a bit more precise than the older code,
+	 * so the new energy values don't exactly match the old ones.
+	 * A tolerance of 0.1 seems to cover the gap though.
+	 */
+	fun Double.shouldBeEnergy(expected: Double, epsilon: Double = 0.1) {
+		this shouldBe expected.plusOrMinus(epsilon)
+	}
 
-		/**
-		 * The parameters from the newer code are a bit more precise than the older code,
-		 * so the new energy values don't exactly match the old ones.
-		 * A tolerance of 0.1 seems to cover the gap though.
-		 */
-		fun Double.shouldBeEnergy(expected: Double, epsilon: Double = 0.1) {
-			this shouldBe expected.plusOrMinus(epsilon)
-		}
+	context("compared to templated ecalc") {
 
 		/**
 		 * Calculate the molecule energy using osprey's current template-based energy calculator
@@ -102,6 +104,24 @@ class TestEnergy : FunSpec({
 		test("1cc8") {
 			val mol = Molecule.fromOMOL(OspreyGui.getResourceAsString("1cc8.protein.omol"))[0]
 			mol.calcEnergyParameterized().shouldBeEnergy(mol.calcEnergyTemplated())
+		}
+
+	}
+
+	context("chirality") {
+		fun invert(pos: Vector3d) =  Vector3d(pos.x, pos.y, -pos.z)
+
+		test("inverting chirality does not affect energy calculations") {
+
+			val atx1Protein = Molecule.fromOMOL(OspreyGui.getResourceAsString("1cc8.protein.omol"))[0]
+
+			val mols = listOf("gly-gly", "trp-trp", "ser-met")
+				.map { readMol(it) } + atx1Protein
+
+			for (mol in mols) {
+				val molInverted = mol.transformCopy {invert(it)}.first
+				mol.calcEnergyParameterized().shouldBeEnergy(molInverted.calcEnergyParameterized())
+			}
 		}
 	}
 
