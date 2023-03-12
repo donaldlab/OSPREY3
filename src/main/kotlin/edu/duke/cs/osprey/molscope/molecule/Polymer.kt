@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.molscope.molecule
 
 import edu.duke.cs.osprey.molscope.tools.Bijection
+import org.joml.Vector3d
 
 
 /**
@@ -56,10 +57,17 @@ class Polymer(
 		return dst to maps
 	}
 
-	fun copyTo(dst: Polymer): PolymerMaps {
+	override fun transformCopy(transform: (Vector3d) -> Vector3d): Pair<Polymer, PolymerMaps> {
+		val src = this
+		val dst = Polymer(name)
+		val maps = src.copyTo(dst, transform)
+		return dst to maps
+	}
+
+	fun copyTo(dst: Polymer, transform: (Vector3d) -> Vector3d = { it }): PolymerMaps {
 		val src = this
 
-		val maps = src.copyTo(dst as Molecule)
+		val maps = src.copyTo(dst as Molecule, transform)
 
 		// copy all the chains
 		val chainMap = ChainMap()

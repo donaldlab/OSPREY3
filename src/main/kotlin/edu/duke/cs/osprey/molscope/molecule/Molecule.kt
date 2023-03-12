@@ -44,7 +44,7 @@ open class Molecule(
 		return dst to maps
 	}
 
-	fun copyTo(dst: Molecule): MoleculeMaps {
+	fun copyTo(dst: Molecule, transform: (Vector3d) -> Vector3d = { it }): MoleculeMaps {
 		val src = this
 
 		// copy the metadata
@@ -56,7 +56,7 @@ open class Molecule(
 		// copy the atoms
 		val atomMap = AtomMap()
 		for (srcAtom in src.atoms) {
-			val dstAtom = srcAtom.copy()
+			val dstAtom = srcAtom.copy(transform)
 			atomMap.add(srcAtom, dstAtom)
 			dst.atoms.add(dstAtom)
 		}
@@ -71,6 +71,13 @@ open class Molecule(
 		}
 
 		return MoleculeMaps(molMap, atomMap)
+	}
+
+	open fun transformCopy(transform: (Vector3d) -> Vector3d = { it }): Pair<Molecule,MoleculeMaps> {
+		val src = this
+		val dst = Molecule(name, type)
+		val maps = src.copyTo(dst, transform)
+		return dst to maps
 	}
 
 
@@ -437,12 +444,23 @@ data class Atom(
 			}
 	}
 
-	fun copy() =
+	fun copy(transform: (Vector3d) -> Vector3d = { Vector3d(it) }) = // make sure to deep copy the position!!
 		copy(
 			element = element,
 			name = name,
-			pos = Vector3d(pos) // make sure to deep copy the position!!
+			pos = transform.invoke(pos)
 		)
+
+	private fun invert(axis: Int) = copy(
+		element = element,
+		name = name,
+		pos = when (axis) {
+			0 -> Vector3d(-pos.x, pos.y, pos.z)
+			1 -> Vector3d(pos.x, -pos.y, pos.z)
+			2 -> Vector3d(pos.x, pos.y, -pos.z)
+			else -> throw IllegalArgumentException("There are only three axes to choose from (x, y, z), corresponding to 0, 1, 2. Was asked to invert over axis $axis.")
+		}
+	)
 
 	/** Make a human-readable label for the atom using information from the molecule */
 	fun label(mol: Molecule): String =

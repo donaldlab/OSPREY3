@@ -7,6 +7,8 @@ import edu.duke.cs.osprey.molscope.molecule.Atom
 import edu.duke.cs.osprey.molscope.molecule.Molecule
 import edu.duke.cs.osprey.molscope.molecule.Polymer
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeSameSizeAs
+import io.kotest.matchers.equality.shouldBeEqualToComparingFields
 import io.kotest.matchers.shouldBe
 
 
@@ -43,6 +45,13 @@ class TestMissingAtoms : FunSpec({
 			missingAtoms.shouldHave(A23N, A23)
 			missingAtoms.shouldHave(A45CA, A45)
 			missingAtoms.size shouldBe 2
+
+			// a second invocation should return the same list with the same coordinates
+			val missingAtoms2 = mol.inferMissingAtomsAmber()
+			missingAtoms2 shouldBeSameSizeAs missingAtoms
+			missingAtoms.zip(missingAtoms2).forEach { (first, second) ->
+				first.atom.pos shouldBeEqualToComparingFields second.atom.pos
+			}
 		}
 	}
 })
