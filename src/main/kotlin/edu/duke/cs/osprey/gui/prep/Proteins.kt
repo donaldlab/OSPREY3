@@ -52,7 +52,7 @@ object Proteins {
 		val prevC = mol.bonds.bondedAtoms(resN)
 			.firstOrNull { it !in res.atoms && it.name == "C" }
 
-		fun Atom.getConnectedAtoms(bbAtoms: Set<Atom>) =
+		fun Atom.getConnectedAtomsExcept(bbAtoms: Set<Atom>) =
 			mol.bfs(
 				source = this,
 				visitSource = false,
@@ -72,8 +72,8 @@ object Proteins {
 			sourceAtoms.apply {
 
 				// add all the non-backbone atoms connected to the anchor atoms
-				addAll(resCA.getConnectedAtoms(bbAtoms))
-				addAll(resN.getConnectedAtoms(bbAtoms))
+				addAll(resCA.getConnectedAtomsExcept(bbAtoms))
+				addAll(resN.getConnectedAtomsExcept(bbAtoms))
 			}
 
 			anchorGroups.apply {
@@ -111,7 +111,7 @@ object Proteins {
 			sourceAtoms.apply {
 
 				// add all the non-backbone atoms connected to the anchor atoms
-				addAll(resCA.getConnectedAtoms(bbAtoms))
+				addAll(resCA.getConnectedAtomsExcept(bbAtoms))
 			}
 
 			anchorGroups.apply {

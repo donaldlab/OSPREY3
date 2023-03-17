@@ -12,7 +12,10 @@ import edu.duke.cs.osprey.molscope.molecule.Element
 import edu.duke.cs.osprey.molscope.molecule.Molecule
 import edu.duke.cs.osprey.molscope.molecule.Polymer
 import edu.duke.cs.osprey.molscope.tools.identityHashMapOf
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeSameSizeAs
+import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldNotBeSameInstanceAs
 import org.joml.Vector3d
@@ -379,7 +382,70 @@ class TestConfSpace : FunSpec({
 		}
 	}
 
-	test("can make conf space with D-lovell conflib") {
+	test("can add per-molecule conflibs in a confspace") {
+		val emptyConfLib = ConfLib("empty-conflib", "empty-conflib", mapOf())
+		val lConflib = ConfLib.from(OspreyGui.getResourceAsString("conflib/lovell.conflib"))
+		val dConflib = lConflib.invertChirality()
+		val protein = Molecule.fromOMOL(OspreyGui.getResourceAsString("1cc8.protein.omol"))[0] as Polymer
+		val leu26 = protein.findChainOrThrow("A").findResidueOrThrow("26")
+		val pos1 = Proteins.makeDesignPosition(protein, leu26, "Pos1")
 
+		ConfSpace(listOf(MoleculeType.Protein to protein)).apply {
+			name = "confspace with invalid conflib"
+			conflibs.add(emptyConfLib)
+			designPositionsByMol[protein] = mutableListOf(pos1)
+			positionConfSpaces.getOrMake(pos1).apply {
+				shouldThrow<IllegalArgumentException> { // this should fail when there's no GLY fragments in the conflibs
+					addConformationsFromLibraries(pos1, "GLY")
+				}
+			}
+		}
+
+		ConfSpace(listOf(MoleculeType.Protein to protein)).apply {
+			name = "invalid conflib for protein specified so should fail"
+			conflibs.addAll(listOf(emptyConfLib, lConflib))
+			designPositionsByMol[protein] = mutableListOf(pos1)
+			conflibsByMol[protein] = mutableListOf(emptyConfLib)
+			positionConfSpaces.getOrMake(pos1).apply {
+				shouldThrow<IllegalArgumentException> { // this should fail when there's no GLY fragments in the conflibs
+					addConformationsFromLibraries(pos1, "GLY")
+				}
+			}
+		}
+
+		ConfSpace(listOf(MoleculeType.Protein to protein)).apply {
+			name = "Conflibs with fragments with same ids but per-molecule conflib specified"
+			conflibs.addAll(listOf(dConflib, lConflib))
+			designPositionsByMol[protein] = mutableListOf(pos1)
+			conflibsByMol[protein] = mutableListOf(lConflib)
+			positionConfSpaces.getOrMake(pos1).apply {
+				addConformationsFromLibraries(pos1, "ALA")
+				confs.shouldNotBeEmpty()
+				confs.size shouldBe lConflib.fragments["ALA"]?.confs?.size
+			}
+		}
+
+		ConfSpace(listOf(MoleculeType.Protein to protein)).apply {
+			name = "Conflibs with fragments with same ids but per-molecule conflib specified"
+			conflibs.addAll(listOf(dConflib, lConflib))
+			designPositionsByMol[protein] = mutableListOf(pos1)
+			conflibsByMol[protein] = mutableListOf(lConflib)
+			positionConfSpaces.getOrMake(pos1).apply {
+				addConformationsFromLibraries(pos1, "ALA")
+				confs.shouldNotBeEmpty()
+				confs.size shouldBe lConflib.fragments["ALA"]?.confs?.size
+			}
+		}
+
+		ConfSpace(listOf(MoleculeType.Protein to protein)).apply {
+			name = "Conflibs with fragments with same types shoudl be picked up (even if they're from different conflibs) unless conflibsByMol specified."
+			conflibs.addAll(listOf(dConflib, lConflib))
+			designPositionsByMol[protein] = mutableListOf(pos1)
+			positionConfSpaces.getOrMake(pos1).apply {
+				addConformationsFromLibraries(pos1, "VAL")
+				val expectedConfs = (lConflib.fragments["VAL"]?.confs?.size ?: -1) + (lConflib.fragments["VAL"]?.confs?.size ?: -1)
+				confs.size shouldBe expectedConfs
+			}
+		}
 	}
 })

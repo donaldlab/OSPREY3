@@ -55,6 +55,36 @@ class ConfLib(
 
 	override fun toString() = "$name ($runtimeId)"
 
+	open fun invertChirality(): ConfLib {
+		val invertedFrags = fragments.map { (fragId, frag) ->
+			val invertedConfs = frag.confs.map { (confId, conf) ->
+				val invertedCoords = conf.coords.map { (atomInfo, vector) ->
+					atomInfo to Vector3d(vector.x, vector.y, -vector.z)
+				}.toMap()
+
+				val invertedAnchorCoords = conf.anchorCoords.map { (anchor, anchorCoords) ->
+					anchor to anchorCoords.invertChirality()
+				}.toMap()
+
+				confId to Conf(conf.id, conf.name, conf.description, invertedCoords, invertedAnchorCoords)
+			}.toMap()
+
+			val dFrag = Fragment(
+				frag.id,
+				frag.name,
+				frag.type,
+				frag.atoms,
+				frag.bonds,
+				frag.anchors,
+				invertedConfs,
+				frag.motions
+			)
+			fragId to dFrag
+		}.toMap()
+
+		return ConfLib("D-$id", "D-$name", invertedFrags, description, citation)
+	}
+
 	data class AtomInfo(
 		val id: Int,
 		val name: String,
@@ -666,6 +696,7 @@ fun ConfLib.toToml(table: String? = null): String {
 	return buf.toString()
 }
 
+/*
 fun ConfLib.invertChirality(): ConfLib {
 
 	val invertedFrags = fragments.map { (fragId, frag) ->
@@ -696,6 +727,7 @@ fun ConfLib.invertChirality(): ConfLib {
 
 	return ConfLib("D-$id", "D-$name", invertedFrags, description, citation)
 }
+ */
 
 
 data class FragmentsTOML(

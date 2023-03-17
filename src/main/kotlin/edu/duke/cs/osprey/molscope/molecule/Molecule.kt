@@ -80,6 +80,9 @@ open class Molecule(
 		return dst to maps
 	}
 
+	open fun invertChirality() : Molecule {
+		return this.transformCopy() { Vector3d(it.x, it.y, -it.z) }.first
+	}
 
 	inner class Atoms internal constructor(internal val list: MutableList<Atom> = ArrayList()) : List<Atom> by list {
 

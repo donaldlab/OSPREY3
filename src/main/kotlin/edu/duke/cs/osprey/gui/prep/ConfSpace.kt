@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.gui.motions.ConfMotion
 import edu.duke.cs.osprey.gui.motions.MolMotion
 import java.math.BigInteger
 import java.util.*
+import kotlin.collections.ArrayList
 
 
 class ConfSpace(val mols: List<Pair<MoleculeType,Molecule>>) {
@@ -27,6 +28,19 @@ class ConfSpace(val mols: List<Pair<MoleculeType,Molecule>>) {
 	fun findMol(name: String): Molecule? =
 		mols.map { (_, mol) -> mol }
 			.find { it.name == name }
+
+	// within a single conformation space, you might want to have a set of conflibs with the same ids for the fragments
+	// and conformations but different coordinates (e.g., an alanine is an alanine whether it's in its D or L conformation,
+	// but we don't want to apply the L confs to a D-alanine). If this field is specified, then it's used, otherwise all
+	// conflibs are used for determining fragments for a conformation.
+	val conflibsByMol: MutableMap<Molecule, MutableList<ConfLib>> = IdentityHashMap()
+
+	fun addConflibByMol(mol: Molecule, conflib: ConfLib) {
+		conflibsByMol
+			.getOrPut(mol) { ArrayList() }
+			.add(conflib)
+	}
+
 
 	val designPositionsByMol: MutableMap<Molecule,MutableList<DesignPosition>> = IdentityHashMap()
 
@@ -59,7 +73,7 @@ class ConfSpace(val mols: List<Pair<MoleculeType,Molecule>>) {
 
 	class DuplicateConfLibException(val conflib: ConfLib) : RuntimeException("Conformation library already loaded: ${conflib.name}")
 
-	class ConfLibs : Iterable<ConfLib> {
+	inner class ConfLibs : Iterable<ConfLib> {
 
 		private val conflibs = HashMap<String,ConfLib>()
 
@@ -100,18 +114,25 @@ class ConfSpace(val mols: List<Pair<MoleculeType,Molecule>>) {
 				conflib.fragments.values.any { it.type == mutation }
 			}
 
-		fun findMatchingFragments(type: String): List<ConfLib.Fragment> =
-			conflibs.values.flatMap { conflib ->
-				conflib.fragments.values
-					.filter { frag -> frag.type == type }
-			}
+		fun findMatchingFragments(mol: Molecule, type: String): List<ConfLib.Fragment> {
+			fun ConfLib.fragByType (type: String) =  fragments.values.filter { frag -> frag.type == type }
+
+			// if conflibs have been set for a particular molecule, use those
+			// other look in all of them
+			return conflibsByMol[mol]?.flatMap { it.fragByType(type) }
+				?: conflibs.map { it.value }.flatMap { it.fragByType(type) }
+		}
+
+
+
+
 
 		fun findMatchingFragments(pos: DesignPosition, frags: List<ConfLib.Fragment>): List<ConfLib.Fragment> =
 			// math the fragment to the design position
 			frags.filter { frag -> pos.isFragmentCompatible(frag) }
 
 		fun findMatchingFragments(pos: DesignPosition, type: String = pos.type): List<ConfLib.Fragment> =
-			findMatchingFragments(pos, findMatchingFragments(type))
+			findMatchingFragments(pos, findMatchingFragments(pos.mol, type))
 	}
 	val conflibs = ConfLibs()
 
@@ -272,7 +293,7 @@ class ConfSpace(val mols: List<Pair<MoleculeType,Molecule>>) {
 		if (conflibs.isEmpty()) {
 			throw IllegalArgumentException("no conformation libaries have been attached to this conformation space")
 		}
-		val typeFrags = conflibs.findMatchingFragments(type)
+		val typeFrags = conflibs.findMatchingFragments(pos.mol, type)
 		if (typeFrags.isEmpty()) {
 			throw IllegalArgumentException("no fragments match the given type: $type")
 		}

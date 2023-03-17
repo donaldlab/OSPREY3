@@ -28,6 +28,7 @@ import io.kotest.matchers.comparables.shouldBeLessThan
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeTypeOf
 import kotlinx.coroutines.runBlocking
+import org.joml.Vector3d
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace as CompiledConfSpace
 import edu.duke.cs.osprey.confspace.compiled.motions.DihedralAngle as CompiledDihedralAngle
 import edu.duke.cs.osprey.confspace.compiled.motions.TranslationRotation as CompiledTranslationRotation
@@ -224,6 +225,11 @@ class TestConfSpaceCompiler : FunSpec({
 			.compile()
 			.makeCoords()
 
+		// The identical conformation flipped over the Z-axis
+		val invertedConf = ConfSpace(listOf(MoleculeType.Protein to mol.transformCopy { Vector3d(it.x, it.y, -it.z) }.first))
+			.compile()
+			.makeCoords()
+
 		test("molecule sizes") {
 			val confMol = conf.toMol()
 			confMol.residues.size shouldBe mol.chains.sumBy { it.residues.size }
@@ -236,6 +242,31 @@ class TestConfSpaceCompiler : FunSpec({
 
 		test("eef1") {
 			conf.calcEEF1().shouldBeEnergy(-691.5469503851598)
+		}
+
+		test("chirality does not affect assigned coordinates") {
+			val confMol = conf.toMol()
+			val dConfMol = invertedConf.toMol()
+			dConfMol.residues.size shouldBe confMol.residues.size
+			dConfMol.residues.sumOf { it.atoms.size } shouldBe confMol.residues.sumOf { it.atoms.size }
+		}
+
+		test("inverted conf amber") {
+			invertedConf.calcAmber96().shouldBeEnergy(conf.calcAmber96())
+		}
+
+		test("inverted conf eff1") {
+			invertedConf.calcEEF1().shouldBeEnergy(conf.calcEEF1())
+		}
+
+		test("assigned coords") {
+			invertedConf.coords.size shouldBe conf.coords.size
+
+			for (i in 0 until conf.coords.size) {
+				invertedConf.coords.x(i) shouldBe conf.coords.x(i)
+				invertedConf.coords.y(i) shouldBe conf.coords.y(i)
+				invertedConf.coords.z(i) shouldBe -conf.coords.z(i)
+			}
 		}
 	}
 
