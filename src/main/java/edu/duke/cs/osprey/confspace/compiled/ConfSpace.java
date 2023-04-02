@@ -3,6 +3,7 @@ package edu.duke.cs.osprey.confspace.compiled;
 import edu.duke.cs.osprey.confspace.ConfSpaceIteration;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SeqSpace;
+import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.compiled.motions.DihedralAngle;
 import edu.duke.cs.osprey.confspace.compiled.motions.TranslationRotation;
 import edu.duke.cs.osprey.energy.compiled.AmberEnergyCalculator;

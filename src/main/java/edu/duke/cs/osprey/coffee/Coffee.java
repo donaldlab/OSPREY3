@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
 import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
+import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.NativeConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
@@ -466,7 +467,7 @@ public class Coffee {
 			try (var cpuTasks = new ThreadPoolTaskExecutor()) {
 				cpuTasks.start(parallelism.numThreads);
 
-				try (var ecalc = new NativeConfEnergyCalculator(stateInfo.config.confSpace, precision)) {
+				try (var ecalc = new CPUConfEnergyCalculator(stateInfo.config.confSpace)) {
 
 					var zmat = new ClusterZMatrix(stateInfo.config.confSpace, stateInfo.config.posInterGen, bcalc);
 					zmat.compute(member, cpuTasks, includeStaticStatic, tripleCorrectionThreshold, ecalc);

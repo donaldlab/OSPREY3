@@ -11,6 +11,7 @@ import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
+import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.CudaConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.NativeConfEnergyCalculator;
@@ -516,7 +517,7 @@ public class NodeProcessor implements AutoCloseable {
 
 		// make the energy calculators
 		cpuEcalcs = Arrays.stream(stateInfos)
-			.map(stateInfo -> new NativeConfEnergyCalculator(stateInfo.config.confSpace, precision))
+			.map(stateInfo -> new CPUConfEnergyCalculator(stateInfo.config.confSpace))
 			.toArray(ConfEnergyCalculator[]::new);
 		if (parallelism.numGpus > 0) {
 			gpuEcalcs = Arrays.stream(stateInfos)
