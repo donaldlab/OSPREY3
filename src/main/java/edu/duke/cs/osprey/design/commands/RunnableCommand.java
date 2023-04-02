@@ -32,11 +32,6 @@ public abstract class RunnableCommand {
             return Optional.of(Main.Success);
         }
 
-        if (delegate.design == null) {
-            printMissingDesignFile(commander);
-            return Optional.of(Main.Failure);
-        }
-
         return Optional.empty();
     }
 

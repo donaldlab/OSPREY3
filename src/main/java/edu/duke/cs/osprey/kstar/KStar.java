@@ -299,9 +299,11 @@ public class KStar {
 
 		private AutoCloseableNoEx openConfDB() {
 			if (confDBFile != null) {
+				/*
 				if (!settings.resume) {
 					confDBFile.delete();
 				}
+				 */
 				confDB = new ConfDB(confSpace, confDBFile);
 			}
 			return () -> {

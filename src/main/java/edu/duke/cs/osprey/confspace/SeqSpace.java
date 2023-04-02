@@ -280,13 +280,13 @@ public class SeqSpace implements Serializable {
 
 	public SeqSpace(ConfSpace confSpace) {
 		for (ConfSpace.Pos pos : confSpace.positions) {
-			if (pos.hasMutations) {
+//			if (pos.hasMutations) {
 				List<String> types = Arrays.stream(pos.confs)
 					.map(conf -> conf.type)
 					.distinct()
 					.collect(Collectors.toList());
 				makePos(pos.name, pos.wildType, types);
-			}
+//			}
 		}
 	}
 

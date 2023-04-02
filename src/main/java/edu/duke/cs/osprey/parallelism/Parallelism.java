@@ -145,7 +145,7 @@ public class Parallelism {
 		}
 	}
 	
-	/** get the maximum number of tasks to be be executed in parallel, on a single node */
+	/** get the maximum number of tasks to be executed in parallel, on a single node */
 	public int getParallelism() {
 		return type.getParallelism(this);
 	}
@@ -170,5 +170,12 @@ public class Parallelism {
 		} else {
 			return new TaskExecutor();
 		}
+	}
+
+	@Override
+	public String toString() {
+		return String.format("Parallelism(threads=%d, gpus=%d, streams/gpu=%d)",
+			numThreads, numGpus, numStreamsPerGpu
+		);
 	}
 }
