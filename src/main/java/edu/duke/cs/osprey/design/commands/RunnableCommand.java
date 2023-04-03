@@ -7,9 +7,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import edu.duke.cs.osprey.design.Main;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
+
+import static jogamp.common.os.elf.SectionArmAttributes.Tag.File;
 
 public abstract class RunnableCommand {
 
@@ -33,6 +41,22 @@ public abstract class RunnableCommand {
         }
 
         return Optional.empty();
+    }
+
+    void cleanupStuffFromPreviousRuns() {
+        // Reading only files in the directory
+        try {
+            List<java.io.File> filesInPwd = Files.list(Paths.get(""))
+                    .map(Path::toFile)
+                    .filter(java.io.File::isFile)
+                    .filter(f -> f.toString().contains(".confdb"))
+                    .toList();
+
+            filesInPwd.forEach(java.io.File::delete);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     void printHelp(JCommander commander) {

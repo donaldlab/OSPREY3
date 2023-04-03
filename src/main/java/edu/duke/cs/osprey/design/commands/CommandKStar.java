@@ -19,6 +19,7 @@ import edu.duke.cs.osprey.energy.compiled.PosInterGen;
 import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.SequenceAnalyzer;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
+import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.tools.FileTools;
 
 import java.io.File;
@@ -57,17 +58,23 @@ public class CommandKStar extends RunnableCommand {
     @Override
     public int run(JCommander commander, String[] args) {
         this.args = args;
+
+        cleanupStuffFromPreviousRuns();
+
+        var numConfs = 200;
+
         var complex = ConfSpace.fromBytes(FileTools.readFileBytes(complexConfSpacePath));
         var design = ConfSpace.fromBytes(FileTools.readFileBytes(designConfSpacePath));
         var target = ConfSpace.fromBytes(FileTools.readFileBytes(targetConfSpacePath));
         var parallelism = delegate.getParallelism();
+//        var parallelism = new Parallelism(1, 0, 0);
         var taskExecutor = parallelism.makeTaskExecutor();
 
         var settings = new KStar.Settings.Builder()
-                .setEpsilon(delegate.epsilon)
                 .setStabilityThreshold(stabilityThreshold)
                 .setExternalMemory(false)
-                .setMaxNumConf(1000)
+                .setMaxNumConf(numConfs)
+                .addScoreFileWriter(Paths.get("sequences.tsv").toFile())
                 .build();
 
         KStar kstar = new KStar(target, design, complex, settings);
@@ -100,15 +107,16 @@ public class CommandKStar extends RunnableCommand {
 
         List<KStar.ScoredSequence> sequences = kstar.run(taskExecutor);
         SequenceAnalyzer analyzer = new SequenceAnalyzer(kstar);
+        var seq = 1;
         for (KStar.ScoredSequence sequence : sequences) {
             System.out.println("result:");
             System.out.println("\tsequence: " + sequence.sequence);
             System.out.println("\tscore: " + sequence.score);
 
-            SequenceAnalyzer.Analysis analysis = analyzer.analyze(sequence.sequence, 10);
+            SequenceAnalyzer.Analysis analysis = analyzer.analyze(sequence.sequence, numConfs);
             System.out.println(analysis);
 
-            analysis.writePdb(String.format("seq.%s.pdb", sequence.sequence), String.format("Top %d conformations for sequence %s", 10, sequence.sequence));
+            analysis.writePdb(String.format("ensemble-%d.pdb", seq++), String.format("Top %d conformations for sequence %s", numConfs, sequence.sequence));
         }
 
         return Main.Success;

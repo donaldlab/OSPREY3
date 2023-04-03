@@ -176,6 +176,9 @@ public class AssignedCoords {
 
 		// then get the res infos from conf atoms
 		Map<String,Integer> assignedResInfos = new HashMap<>();
+		// a position can have multiple residue types, as denoted by its conformations.
+		// Only looking at the confSpace.resInfos isn't sufficient to determine the type used in the conf.
+		Map<Integer, String> assignedResTypes = new HashMap<>();
 		for (int posi=0; posi<confSpace.numPos(); posi++) {
 
 			// get the conf
@@ -203,6 +206,7 @@ public class AssignedCoords {
 
 				// no collisions, make the assignment
 				assignedResInfos.put(resKey, resInfoIndex);
+				assignedResTypes.put(resInfoIndex, conf.type);
 			}
 		}
 
@@ -338,8 +342,10 @@ public class AssignedCoords {
 
 						// make the residue
 						ConfSpace.ResInfo resInfo = confSpace.resInfos[resInfoIndex];
+						String resType = assignedResTypes.getOrDefault(resInfoIndex, resInfo.resType);
+
 						String name = String.format("%3s%2s%4s",
-							resInfo.resType,
+							resType,
 							resInfo.chainId,
 							resInfo.resId
 						);

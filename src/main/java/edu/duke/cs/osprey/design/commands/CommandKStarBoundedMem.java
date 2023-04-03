@@ -7,6 +7,7 @@ import edu.duke.cs.osprey.coffee.Coffee;
 import edu.duke.cs.osprey.coffee.directors.KStarDirector;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
+import edu.duke.cs.osprey.design.Main;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
 import edu.duke.cs.osprey.tools.FileTools;
 
@@ -86,7 +87,7 @@ public class CommandKStarBoundedMem extends RunnableCommand {
         Coffee coffee = coffeeBuilder.build();
         coffee.run(director);
 
-        return 0;
+        return Main.Success;
     }
 
     @Override
