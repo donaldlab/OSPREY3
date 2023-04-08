@@ -35,7 +35,8 @@ public class Main {
                 CommandGMEC.CommandName, new CommandGMEC(),
                 CommandMakeFlexShell.CommandName, new CommandMakeFlexShell(),
                 CommandKStarBoundedMem.CommandName, new CommandKStarBoundedMem(),
-                CommandKStar.CommandName, new CommandKStar()
+                CommandKStar.CommandName, new CommandKStar(),
+                CommandCKStar.CommandName, new CommandCKStar()
         );
 
         var builder = JCommander.newBuilder()

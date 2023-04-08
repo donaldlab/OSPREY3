@@ -82,9 +82,9 @@ class FixedAtoms(
 		}
 
 	/**
-	 * Remove all dyanmic atoms from the fixed atoms.
+	 * Remove all dynamic atoms from the fixed atoms.
 	 * Moves any remaining fixed atoms into the static atoms list.
-	 * The fixed atoms list will be empty afterwards.
+	 * The fixed atoms list will be empty afterward.
 	 */
 	fun updateStatic() {
 		for ((moli, atoms) in fixedAtomsByMol.withIndex()) {

@@ -93,7 +93,7 @@ public interface ConfEnergyCalculator extends AutoCloseable {
 	}
 
 	/**
-	 * Calculate the minimized enegries of a batch of conformations and interactions.
+	 * Calculate the minimized energies of a batch of conformations and interactions.
 	 * This will be the fastest minimization option by far on some implementations.
 	 */
 	default void minimizeEnergies(List<MinimizationJob> jobs) {
@@ -141,9 +141,7 @@ public interface ConfEnergyCalculator extends AutoCloseable {
 		}
 
 		// TODO: prefer intel if the hardware suitably matched?
-
-		// prefer the native ecalc, over the Java one
-		return new NativeConfEnergyCalculator(confSpace, precision);
+		return new CPUConfEnergyCalculator(confSpace);
 	}
 
 	/**
