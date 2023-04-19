@@ -1,8 +1,0 @@
-
-# use an allow-list approach
-# first ignore everything
-*
-
-# then stop ignoring the paths we want to allow
-!buildSrc/src/main/docker/service
-!build/docker
