@@ -118,7 +118,6 @@ dependencies {
 	implementation("ch.obermuhlner:big-math:2.3.0")
 	implementation("org.joml:joml:1.9.19")
 	implementation("org.tukaani:xz:1.8")
-	implementation("com.hazelcast:hazelcast:4.0")
 	implementation("net.java.dev.jna:jna:5.10.0")
 	implementation("com.google.guava:guava:29.0-jre")
 	implementation("org.apache.commons:commons-lang3:3.4")

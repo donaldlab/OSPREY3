@@ -34,7 +34,6 @@ public class Main {
                 CommandTopNConfs.CommandName, new CommandTopNConfs(),
                 CommandGMEC.CommandName, new CommandGMEC(),
                 CommandMakeFlexShell.CommandName, new CommandMakeFlexShell(),
-                CommandKStarBoundedMem.CommandName, new CommandKStarBoundedMem(),
                 CommandKStar.CommandName, new CommandKStar(),
                 CommandCKStar.CommandName, new CommandCKStar()
         );
