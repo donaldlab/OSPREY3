@@ -1,5 +1,0 @@
-
-// cmake inputs
-#define IntelConfEcalc_VERSION_MAJOR @IntelConfEcalc_VERSION_MAJOR@
-#define IntelConfEcalc_VERSION_MINOR @IntelConfEcalc_VERSION_MINOR@
-
