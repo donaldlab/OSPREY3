@@ -17,7 +17,7 @@ object BuildService : Build {
 	override val name = "osprey-service"
 
 	override fun isBuild(filename: String): Boolean =
-		filename.startsWith(name) && !filename.startsWith(BuildServiceDocker.name)
+		filename.startsWith(name)
 		// have to check both prefixes, since they share a common prefix themselves
 
 	override fun getRelease(filename: String): Release? {

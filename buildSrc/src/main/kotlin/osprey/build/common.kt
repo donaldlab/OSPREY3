@@ -48,11 +48,9 @@ interface Build {
 object Builds {
 
 	val desktop = BuildDesktop
-	val server = BuildServer
 	val service = BuildService
-	val serviceDocker = BuildServiceDocker
 
-	val all = listOf(desktop, server, service, serviceDocker)
+	val all = listOf(desktop, service)
 
 	operator fun get(filename: String): Build? =
 		all.find { it.isBuild(filename) }
@@ -87,50 +85,6 @@ fun Project.makeBuildTasks() {
 			"jdk.zipfs", // needed to provide jar:// file system
 			"jdk.incubator.foreign" // needed for foreign memory access API
 		)
-	}
-
-	@Suppress("UNUSED_VARIABLE")
-	val archiveReleases by tasks.creating {
-		group = "release"
-		description = "Upload release builds to the dlab archive, where they are downloadable by the public"
-		doLast {
-			ssh {
-
-				val uploadedPaths = ArrayList<Path>()
-
-				sftp {
-
-					// get the current releases
-					val archivedReleases = ls(releaseArchiveDir.toString())
-						.filter { !it.attrs.isDir }
-						.map { it.filename }
-
-					// diff against the local releases
-					val missingReleases = releasesDir.listFiles()
-						.filter { it.fileName.toString() !in archivedReleases }
-						.toList()
-
-					if (missingReleases.isNotEmpty()) {
-						for (release in missingReleases) {
-							val path = releaseArchiveDir / release.fileName
-							put(
-								release.toString(),
-								path.toString(),
-								SftpProgressLogger()
-							)
-							uploadedPaths.add(path)
-						}
-					} else {
-						println("No new releases to upload")
-					}
-				}
-
-				// set group write perms explicitly, since users have umask 0022 by default
-				for (path in uploadedPaths) {
-					exec("chmod --quiet g+w \"$path\"", throwErrors=false)
-				}
-			}
-		}
 	}
 }
 
@@ -199,26 +153,4 @@ data class Version(
 				append(patch)
 			}
 		}.toString()
-}
-
-fun Project.analyzeReleases(): List<Release> {
-
-	// first, collect the releases that are currently available for public download
-	val archivedReleases = ssh {
-		sftp {
-			ls(releaseArchiveDir.toString())
-				.filter { !it.attrs.isDir }
-				.map { it.filename }
-		}
-	}
-
-	/* DEBUG: to get local filenames for testing instead of remote filenames from SSH
-	val archivedReleases = releasesDir.listFiles()
-		.map { it.fileName.toString() }
-		.toList()
-	*/
-
-	return archivedReleases.mapNotNull {
-		Builds.getRelease(it)
-	}
 }
