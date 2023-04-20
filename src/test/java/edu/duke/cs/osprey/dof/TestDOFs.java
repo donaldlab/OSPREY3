@@ -52,7 +52,7 @@ public class TestDOFs extends TestBase {
     @Test
     public void testMutation() {
         
-        Strand strand = new Strand.Builder(PDBIO.readFile("examples/1CC8/1CC8.ss.pdb")).build();
+        Strand strand = new Strand.Builder(PDBIO.readFile("src/test/resources/1CC8.ss.pdb")).build();
         Residue res = strand.mol.residues.get(37); // Ser 39 originally
         
         res.pucker = new ProlinePucker(strand.templateLib, res);
@@ -80,7 +80,7 @@ public class TestDOFs extends TestBase {
     @Test
     public void testDihedral(){
         
-        Molecule m = new Strand.Builder(PDBIO.readFile("examples/1CC8/1CC8.ss.pdb")).build().mol;
+        Molecule m = new Strand.Builder(PDBIO.readFile("src/test/resources/1CC8.ss.pdb")).build().mol;
         Residue res = m.residues.get(37);
         
         FreeDihedral chi1 = new FreeDihedral(res,0);//Ser 39

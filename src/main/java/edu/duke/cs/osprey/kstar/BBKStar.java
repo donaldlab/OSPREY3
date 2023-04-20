@@ -36,7 +36,6 @@ import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.*;
-import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.AutoCloseableNoEx;
 import edu.duke.cs.osprey.tools.BigMath;
@@ -606,12 +605,6 @@ public class BBKStar {
 						.filter(info.confSpace.seqSpace());
 					PartitionFunction pfunc = info.makePfunc(seq);
 					pfunc.putTaskContexts(ctxGroup);
-				}
-
-				// skip the calculation on member nodes
-				if (complex.confEcalcMinimized.tasks instanceof Cluster.Member) {
-					// TODO: try to get the sequences from the client?
-					return null;
 				}
 
 				protein.check();

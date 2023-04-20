@@ -83,7 +83,7 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 	public static void beforeClass() {
 		
 		// get a conf space
-		Strand strand = new Strand.Builder(PDBIO.readFile("examples/python.GMEC/1CC8.ss.pdb")).build();
+		Strand strand = new Strand.Builder(PDBIO.readFile("src/test/resources/1CC8.ss.pdb")).build();
 		strand.flexibility.get("A39").setLibraryRotamers("ALA").setContinuous();
 		strand.flexibility.get("A43").setLibraryRotamers("ALA").setContinuous();
 		strand.flexibility.get("A40").setLibraryRotamers(Strand.WildType).setContinuous();

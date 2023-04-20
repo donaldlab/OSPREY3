@@ -67,7 +67,7 @@ public class TestForcefieldEnergy extends TestBase {
 	
 	@BeforeAll
 	public static void before() {
-		strand = new Strand.Builder(PDBIO.readFile("examples/DAGK/2KDC.P.forOsprey.pdb"))
+		strand = new Strand.Builder(PDBIO.readFile("src/test/resources/2KDC.P.forOsprey.pdb"))
 			.setErrorOnNonTemplateResidues(true)
 			.build();
 	}

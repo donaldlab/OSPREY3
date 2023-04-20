@@ -221,7 +221,7 @@ tasks.withType<Test> {
 	// the default 512m is too little memory to run test designs
 	maxHeapSize = "2g"
 	useJUnitPlatform()
-    failFast = true
+//    failFast = true
 	// method call appends additional arguments for the JVM
 	jvmArgs(Jvm.moduleArgs)
 

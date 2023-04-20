@@ -47,7 +47,7 @@ public class TestPDBIO {
 	@Test
 	public void read1CC8() {
 		
-		Molecule mol = PDBIO.readFile("examples/1CC8/1CC8.ss.pdb");
+		Molecule mol = PDBIO.readFile("src/test/resources/1CC8.ss.pdb");
 		
 		assertThat(mol.residues.size(), is(72));
 		
@@ -89,7 +89,7 @@ public class TestPDBIO {
 	@Test
 	public void read4NPD() {
 		
-		Molecule mol = PDBIO.readFile("examples/4NPD/4NPD.pdb");
+		Molecule mol = PDBIO.readFile("src/test/resources/4NPD.pdb");
 		
 		assertThat(mol.residues.size(), is(195));
 		
@@ -177,7 +177,7 @@ public class TestPDBIO {
 	
 	@Test
 	public void readWrite1CC8() {
-		assertReadWrite(FileTools.readFile("examples/1CC8/1CC8.copy.pdb"));
+		assertReadWrite(FileTools.readFile("src/test/resources/1CC8.copy.pdb"));
 	}
 	
 	private void assertRes(Residue res, String name, int index, String resNum) {

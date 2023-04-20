@@ -822,7 +822,7 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 	
 	private SimpleConfSpace makeConfSpace(boolean doMinimize, int firstResNum, String ... aminoAcids) {
 		
-		Molecule mol = PDBIO.readFile("examples/python.GMEC/1CC8.ss.pdb");
+		Molecule mol = PDBIO.readFile("src/test/resources/1CC8.ss.pdb");
 		Strand strand = new Strand.Builder(mol)
 			// explicitly choose Lovell rotamers
 			.setTemplateLibrary(new ResidueTemplateLibrary.Builder()
@@ -1060,7 +1060,7 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 		ArrayList<String[]> moveableStrands = new ArrayList<String[]>();
 		ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
 		return new SearchProblem(
-			"test", "examples/1CC8/1CC8.ss.pdb", 
+			"test", "src/test/resources/1CC8.ss.pdb", 
 			resFlex.flexResList, resFlex.allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
 			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null,
 			false, new ArrayList<>()

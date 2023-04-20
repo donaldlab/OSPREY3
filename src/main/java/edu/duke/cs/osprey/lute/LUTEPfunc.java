@@ -36,7 +36,6 @@ package edu.duke.cs.osprey.lute;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.tools.*;
@@ -172,14 +171,13 @@ public class LUTEPfunc implements PartitionFunction.WithConfDB {
 			}
 
 			if (reportProgress) {
-				System.out.println(String.format("conf:%4d, score:%12.6f, bounds:[%12e,%12e], delta:%.6f, time:%10s, heapMem:%s, extMem:%s",
+				System.out.println(String.format("conf:%4d, score:%12.6f, bounds:[%12e,%12e], delta:%.6f, time:%10s, heapMem:%s",
 					numConfsEvaluated,
 					conf.getScore(),
 					values.calcLowerBound().doubleValue(), values.calcUpperBound().doubleValue(),
 					values.getEffectiveEpsilon(),
 					stopwatch.getTime(2),
-					JvmMem.getOldPool(),
-					ExternalMemory.getUsageReport()
+					JvmMem.getOldPool()
 				));
 			}
 

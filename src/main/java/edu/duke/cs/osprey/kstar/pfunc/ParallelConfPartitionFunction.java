@@ -39,7 +39,6 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.gmec.GMECConfEnergyCalculator;
 import edu.duke.cs.osprey.gmec.ConfSearchFactory;
 import edu.duke.cs.osprey.pruning.InvertedPruningMatrix;
@@ -261,11 +260,10 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 					
 					// report progress if needed
 					if (isReportingProgress) {
-						System.out.println(String.format("conf:%4d, score:%06f, energy:%.6f, q*:%12e, q':%12e, epsilon:%.6f, time:%10s, heapMem:%s, extMem:%s",
+						System.out.println(String.format("conf:%4d, score:%06f, energy:%.6f, q*:%12e, q':%12e, epsilon:%.6f, time:%10s, heapMem:%s",
 							numConfsEvaluated, econf.getScore(), econf.getEnergy(), values.qstar, values.qprime, values.getEffectiveEpsilon(),
 							stopwatch.getTime(2),
-							JvmMem.getOldPool(),
-							ExternalMemory.getUsageReport()
+							JvmMem.getOldPool()
 						));
 					}
 					

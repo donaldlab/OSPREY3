@@ -52,7 +52,7 @@ public class BenchmarkGMECFinder {
 
 	public static void main(String[] args) {
 
-		Molecule mol = PDBIO.readFile("examples/python.GMEC/1CC8.ss.pdb");
+		Molecule mol = PDBIO.readFile("src/test/resources/1CC8.ss.pdb");
 
 		// make a conf space
 		Strand strand = new Strand.Builder(mol).build();

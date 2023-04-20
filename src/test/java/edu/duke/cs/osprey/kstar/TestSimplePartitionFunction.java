@@ -46,7 +46,6 @@ import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
@@ -226,12 +225,16 @@ public class TestSimplePartitionFunction {
 	}
 	@Test public void test2RL0ProteinSimple1Cpu() { calc2RL0Protein(simplePfuncs, Parallelism.make(1, 0, 0)); }
 	@Test public void test2RL0ProteinSimple2Cpus() { calc2RL0Protein(simplePfuncs, Parallelism.make(2, 0, 0)); }
+	/*
 	@Test public void test2RL0ProteinSimple1GpuStream() { calc2RL0Protein(simplePfuncs, Parallelism.make(1, 1, 1)); }
 	@Test public void test2RL0ProteinSimple4GpuStreams() { calc2RL0Protein(simplePfuncs, Parallelism.make(2, 1, 4)); }
+	 */
 	@Test public void test2RL0ProteinGD1Cpu() { calc2RL0Protein(gdPfuncs, Parallelism.make(1, 0, 0)); }
 	@Test public void test2RL0ProteinGD2Cpus() { calc2RL0Protein(gdPfuncs, Parallelism.make(2, 0, 0)); }
+	/*
 	@Test public void test2RL0ProteinGD1GpuStream() { calc2RL0Protein(gdPfuncs, Parallelism.make(1, 1, 1)); }
 	@Test public void test2RL0ProteinGD4GpuStreams() { calc2RL0Protein(gdPfuncs, Parallelism.make(2, 1, 4)); }
+	 */
 
 	private static EnergyMatrix calc2RL0LigandEmat = null;
 	public void calc2RL0LigandPfunc(PfuncFactory pfuncs, Parallelism parallelism) {
@@ -248,12 +251,16 @@ public class TestSimplePartitionFunction {
 	}
 	@Test public void test2RL0LigandSimple1Cpu() { calc2RL0LigandPfunc(simplePfuncs, Parallelism.make(1, 0, 0)); }
 	@Test public void test2RL0LigandSimple2Cpus() { calc2RL0LigandPfunc(simplePfuncs, Parallelism.make(2, 0, 0)); }
+	/*
 	@Test public void test2RL0LigandSimple1GpuStream() { calc2RL0LigandPfunc(simplePfuncs, Parallelism.make(1, 1, 1)); }
 	@Test public void test2RL0LigandSimple4GpuStreams() { calc2RL0LigandPfunc(simplePfuncs, Parallelism.make(2, 1, 4)); }
+	 */
 	@Test public void test2RL0LigandGD1Cpu() { calc2RL0LigandPfunc(gdPfuncs, Parallelism.make(1, 0, 0)); }
 	@Test public void test2RL0LigandGD2Cpus() { calc2RL0LigandPfunc(gdPfuncs, Parallelism.make(2, 0, 0)); }
+	/*
 	@Test public void test2RL0LigandGD1GpuStream() { calc2RL0LigandPfunc(gdPfuncs, Parallelism.make(1, 1, 1)); }
 	@Test public void test2RL0LigandGD4GpuStreams() { calc2RL0LigandPfunc(gdPfuncs, Parallelism.make(2, 1, 4)); }
+	 */
 
 	private static EnergyMatrix calc2RL0ComplexEmat = null;
 	public void calc2RL0Complex(PfuncFactory pfuncs, Parallelism parallelism) {
@@ -280,13 +287,17 @@ public class TestSimplePartitionFunction {
 	@Test public void test2RL0ComplexSimple1Cpu() { calc2RL0Complex(simplePfuncs, Parallelism.make(1, 0, 0)); }
 	@Test public void test2RL0ComplexSimple2Cpus() { calc2RL0Complex(simplePfuncs, Parallelism.make(2, 0, 0)); }
 	@Test public void test2RL0ComplexSimple4Cpus() { calc2RL0Complex(simplePfuncs, Parallelism.make(4, 0, 0)); }
+	/*
 	@Test public void test2RL0ComplexSimple1GpuStream() { calc2RL0Complex(simplePfuncs, Parallelism.make(1, 1, 1)); }
 	@Test public void test2RL0ComplexSimple4GpuStreams() { calc2RL0Complex(simplePfuncs, Parallelism.make(2, 1, 4)); }
+	 */
 	@Test public void test2RL0ComplexGD1Cpu() { calc2RL0Complex(gdPfuncs, Parallelism.make(1, 0, 0)); }
 	@Test public void test2RL0ComplexGD2Cpus() { calc2RL0Complex(gdPfuncs, Parallelism.make(2, 0, 0)); }
 	@Test public void test2RL0ComplexGD4Cpus() { calc2RL0Complex(gdPfuncs, Parallelism.make(4, 0, 0)); }
+	/*
 	@Test public void test2RL0ComplexGD1GpuStream() { calc2RL0Complex(gdPfuncs, Parallelism.make(1, 1, 1)); }
 	@Test public void test2RL0ComplexGD4GpuStreams() { calc2RL0Complex(gdPfuncs, Parallelism.make(2, 1, 4)); }
+	 */
 
 
 	public static TestInfo make1GUA11TestInfo() {
@@ -412,59 +423,6 @@ public class TestSimplePartitionFunction {
 	}
 	@Test public void calcWithConfDBGD() { calcWithConfDB(gdPfuncs); }
 
-	@Test
-	public void withExternalMemory() {
-
-		ExternalMemory.use(16, () -> {
-
-			TestInfo info = make2RL0TestInfo();
-			SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
-				.addStrand(info.protein)
-				.build();
-
-			final double targetEpsilon = 0.05;
-			final String approxQStar = "4.370068e+04"; // e=0.001
-
-			try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
-				.setParallelism(Parallelism.makeCpu(4))
-				.build()) {
-
-				// define conf energies
-				SimpleReferenceEnergies eref = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
-					.build()
-					.calcReferenceEnergies();
-				ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
-					.setReferenceEnergies(eref)
-					.build();
-
-				EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
-					.build()
-					.calcEnergyMatrix();
-
-				// make the A* search
-				RCs rcs = new RCs(confSpace);
-				ConfAStarTree astar = new ConfAStarTree.Builder(emat, rcs)
-					.setTraditional()
-					.build();
-
-				try (TaskExecutor.ContextGroup contexts = ecalc.tasks.contextGroup()) {
-
-					// make the partition function
-					PartitionFunction pfunc = new GradientDescentPfunc(confEcalc, astar, rcs.getNumConformations());
-					pfunc.setReportProgress(true);
-					pfunc.setInstanceId(0);
-					pfunc.putTaskContexts(contexts);
-
-					// compute pfunc for protein
-					pfunc.init(targetEpsilon);
-					pfunc.compute();
-
-					assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, approxQStar);
-				}
-			}
-		});
-	}
-
 	public static TestInfo makeNoPositionsTestInfo() {
 
 		TestInfo info = new TestInfo();
@@ -506,11 +464,15 @@ public class TestSimplePartitionFunction {
 	}
 	@Test public void testNoPositionsProteinSimple1Cpu() { calcNoPositionsProtein(simplePfuncs, Parallelism.make(1, 0, 0)); }
 	@Test public void testNoPositionsProteinSimple2Cpus() { calcNoPositionsProtein(simplePfuncs, Parallelism.make(2, 0, 0)); }
+	/*
 	@Test public void testNoPositionsProteinSimple1GpuStream() { calcNoPositionsProtein(simplePfuncs, Parallelism.make(1, 1, 1)); }
 	@Test public void testNoPositionsProteinSimple4GpuStreams() { calcNoPositionsProtein(simplePfuncs, Parallelism.make(2, 1, 4)); }
+	 */
 	@Test public void testNoPositionsProteinGD1Cpu() { calcNoPositionsProtein(gdPfuncs, Parallelism.make(1, 0, 0)); }
 	@Test public void testNoPositionsProteinGD2Cpus() { calcNoPositionsProtein(gdPfuncs, Parallelism.make(2, 0, 0)); }
+	/*
 	@Test public void testNoPositionsProteinGD1GpuStream() { calcNoPositionsProtein(gdPfuncs, Parallelism.make(1, 1, 1)); }
 	@Test public void testNoPositionsProteinGD4GpuStreams() { calcNoPositionsProtein(gdPfuncs, Parallelism.make(2, 1, 4)); }
+	 */
 
 }

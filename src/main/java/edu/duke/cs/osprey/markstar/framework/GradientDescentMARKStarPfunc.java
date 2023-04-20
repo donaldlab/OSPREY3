@@ -50,7 +50,6 @@ import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
-import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PfuncSurface;
@@ -821,14 +820,13 @@ public class GradientDescentMARKStarPfunc implements PartitionFunction.WithConfD
 			// report progress if needed
 			if (isReportingProgress) {
 				int[] x = econf.getAssignments();
-				System.out.println("["+SimpleConfSpace.formatConfRCs(econf)+"] "+String.format("conf:%4d, score:%12.6f, energy:%12.6f, bounds:[%12e,%12e], delta:%.6f, time:%10s, heapMem:%s, extMem:%s",
+				System.out.println("["+SimpleConfSpace.formatConfRCs(econf)+"] "+String.format("conf:%4d, score:%12.6f, energy:%12.6f, bounds:[%12e,%12e], delta:%.6f, time:%10s, heapMem:%s",
 					state.numEnergiedConfs,
 					econf.getScore(), econf.getEnergy(),
 					state.getLowerBound().doubleValue(), state.getUpperBound().doubleValue(),
 					state.calcDelta(),
 					stopwatch.getTime(2),
-					JvmMem.getOldPool(),
-					ExternalMemory.getUsageReport()
+					JvmMem.getOldPool()
 				));
 			}
 

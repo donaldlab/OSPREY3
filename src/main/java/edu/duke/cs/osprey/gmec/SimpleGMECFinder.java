@@ -39,11 +39,7 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
-import edu.duke.cs.osprey.externalMemory.EnergiedConfFIFOSerializer;
-import edu.duke.cs.osprey.externalMemory.EnergiedConfPrioritySerializer;
-import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.externalMemory.Queue;
-import edu.duke.cs.osprey.externalMemory.ScoredConfFIFOSerializer;
 import edu.duke.cs.osprey.gmec.GMECFinder.ConfPruner;
 import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskListener;
 import edu.duke.cs.osprey.tools.*;
@@ -87,15 +83,6 @@ public class SimpleGMECFinder {
 		protected boolean printToConsole = true;
 		
 		/**
-		 * True to use external memory (eg, disk, SSD, NAS) for when large data
-		 * structures cannot fit in internal memory (eg, RAM).
-		 * 
-		 * Use {@link ExternalMemory#setInternalLimit} to set the amount of fixed internal memory
-		 * and {@link ExternalMemory#setTempDir} to set the file path for external memory.
-		 */
-		protected boolean useExternalMemory = false;
-
-		/**
 		 * If a design experiences an unexpected abort, the conformation database can allow you to restore the
 		 * design state and resume the calculation close to where it was aborted. Set a file to turn on the conf DB.
 		 */
@@ -136,12 +123,6 @@ public class SimpleGMECFinder {
 			return this;
 		}
 		
-		public Builder useExternalMemory() {
-			ExternalMemory.checkInternalLimitSet();
-			useExternalMemory = true;
-			return this;
-		}
-
 		public Builder setConfDB(File val) {
 			confDB = val;
 			return this;
@@ -156,7 +137,6 @@ public class SimpleGMECFinder {
 				consolePrinter,
 				printIntermediateConfsToConsole,
 				printToConsole,
-				useExternalMemory,
 				confDB
 			);
 		}
@@ -175,7 +155,7 @@ public class SimpleGMECFinder {
 	private final Queue.Factory<EnergiedConf> energiedPriorityFactory;
 	private final File confDBFile;
 
-	protected SimpleGMECFinder(ConfSearch search, ConfEnergyCalculator confEcalc, ConfPruner pruner, ConfPrinter logPrinter, ConfPrinter consolePrinter, boolean printIntermediateConfsToConsole, boolean printToConsole, boolean useExternalMemory, File confDBFile) {
+	protected SimpleGMECFinder(ConfSearch search, ConfEnergyCalculator confEcalc, ConfPruner pruner, ConfPrinter logPrinter, ConfPrinter consolePrinter, boolean printIntermediateConfsToConsole, boolean printToConsole, File confDBFile) {
 		this.search = search;
 		this.confEcalc = confEcalc;
 		this.pruner = pruner;
@@ -185,16 +165,9 @@ public class SimpleGMECFinder {
 		this.printToConsole = printToConsole;
 		this.confDBFile = confDBFile;
 		
-		if (useExternalMemory) {
-			RCs rcs = new RCs(confEcalc.confSpace);
-			scoredFifoFactory = new Queue.ExternalFIFOFactory<>(new ScoredConfFIFOSerializer(rcs));
-			energiedFifoFactory = new Queue.ExternalFIFOFactory<>(new EnergiedConfFIFOSerializer(rcs));
-			energiedPriorityFactory = new Queue.ExternalPriorityFactory<>(new EnergiedConfPrioritySerializer(rcs));
-		} else {
-			scoredFifoFactory = new Queue.FIFOFactory<>();
-			energiedFifoFactory = new Queue.FIFOFactory<>();
-			energiedPriorityFactory = new Queue.PriorityFactory<>((a, b) -> Double.compare(a.getEnergy(), b.getEnergy()));
-		}
+		scoredFifoFactory = new Queue.FIFOFactory<>();
+		energiedFifoFactory = new Queue.FIFOFactory<>();
+		energiedPriorityFactory = new Queue.PriorityFactory<>((a, b) -> Double.compare(a.getEnergy(), b.getEnergy()));
 	}
 
 	private void log(String msg, Object ... args) {

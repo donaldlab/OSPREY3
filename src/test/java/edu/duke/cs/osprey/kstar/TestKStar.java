@@ -42,7 +42,6 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.*;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Parallelism;
@@ -79,7 +78,7 @@ public class TestKStar {
 		public List<KStar.ScoredSequence> scores;
 	}
 
-	public static Result runKStar(ConfSpaces confSpaces, double epsilon, String confDBPattern, boolean useExternalMemory, int maxSimultaneousMutations) {
+	public static Result runKStar(ConfSpaces confSpaces, double epsilon, String confDBPattern, int maxSimultaneousMutations) {
 
 		Parallelism parallelism = Parallelism.makeCpu(4);
 
@@ -115,7 +114,6 @@ public class TestKStar {
 				.setEpsilon(epsilon)
 				.setStabilityThreshold(null)
 				.addScoreConsoleWriter(testFormatter)
-				.setExternalMemory(useExternalMemory)
 				.setMaxSimultaneousMutations(maxSimultaneousMutations)
 				//.setShowPfuncProgress(true)
 				.build();
@@ -143,37 +141,20 @@ public class TestKStar {
 				// the extra precision makes it much harder to trip the no-low-energies short circuit inside the pfunc calc
 				Consumer<GradientDescentPfunc> imprecisePfunc = pfunc -> pfunc.setPreciseBcalc(false);
 
-				// how should we score a sequence?
-				if (useExternalMemory) {
-					info.pfuncFactory = (rcs) -> {
-						GradientDescentPfunc pfunc = new GradientDescentPfunc(
-							info.confEcalc,
-							new ConfAStarTree.Builder(emat, rcs)
-								.useExternalMemory()
-								.setTraditional()
-								.build(),
-							rcs.getNumConformations()
-						);
-						pfunc.setUseExternalMemory(true, rcs);
-						imprecisePfunc.accept(pfunc);
-						return pfunc;
-					};
-				} else {
-					info.pfuncFactory = (rcs) -> {
-						var pfunc = new GradientDescentPfunc(
-							info.confEcalc,
-							new ConfAStarTree.Builder(emat, rcs)
-								.setTraditional()
-								.build(),
-							new ConfAStarTree.Builder(emat, rcs)
-								.setTraditional()
-								.build(),
-							rcs.getNumConformations()
-						);
-						imprecisePfunc.accept(pfunc);
-						return pfunc;
-					};
-				}
+				info.pfuncFactory = (rcs) -> {
+					var pfunc = new GradientDescentPfunc(
+						info.confEcalc,
+						new ConfAStarTree.Builder(emat, rcs)
+							.setTraditional()
+							.build(),
+						new ConfAStarTree.Builder(emat, rcs)
+							.setTraditional()
+							.build(),
+						rcs.getNumConformations()
+					);
+					imprecisePfunc.accept(pfunc);
+					return pfunc;
+				};
 
 				// set ConfDB if needed
 				if (confDBPattern != null) {
@@ -395,18 +376,8 @@ public class TestKStar {
 	public void test2RL0() {
 
 		double epsilon = 0.95;
-		Result result = runKStar(make2RL0(), epsilon, null, false, 1);
+		Result result = runKStar(make2RL0(), epsilon, null, 1);
 		assert2RL0(result, epsilon);
-	}
-
-	@Test
-	public void test2RL0WithExternalMemory() {
-
-		ExternalMemory.use(512, () -> {
-			double epsilon = 0.95;
-			Result result = runKStar(make2RL0(), epsilon, null, true, 1);
-			assert2RL0(result, epsilon);
-		});
 	}
 
 	private static void assert2RL0(Result result, double epsilon) {
@@ -490,7 +461,7 @@ public class TestKStar {
 	public void test1GUA11() {
 
 		double epsilon = 0.999999;
-		Result result = runKStar(make1GUA11(), epsilon, null, false, 1);
+		Result result = runKStar(make1GUA11(), epsilon, null, 1);
 
 		// check the results (values collected with e = 0.1 and 64 digits precision)
 		assertSequence(result,   0, "HIE VAL", 1.194026e+42, 2.932628e+07, 1.121625e+66, epsilon); // protein [42.077014,42.077014] (log10)                    ligand [7.467257 , 7.467257] (log10)                    complex [66.049848,66.051195] (log10)                    K* = 16.505577 in [16.505576,16.506925] (log10)
@@ -513,7 +484,7 @@ public class TestKStar {
 				try (TempFile complexDBFile = new TempFile("kstar.complex.conf.db")) {
 					// run with empty dbs
 					Stopwatch sw = new Stopwatch().start();
-					Result result = runKStar(confSpaces, epsilon, confdbPattern, false, 1);
+					Result result = runKStar(confSpaces, epsilon, confdbPattern, 1);
 					assert2RL0(result, epsilon);
 					System.out.println(sw.getTime(2));
 
@@ -546,7 +517,7 @@ public class TestKStar {
 
 					// run again with full dbs
 					sw = new Stopwatch().start();
-					Result result2 = runKStar(confSpaces, epsilon, confdbPattern, false, 1);
+					Result result2 = runKStar(confSpaces, epsilon, confdbPattern, 1);
 					assert2RL0(result2, epsilon);
 					System.out.println(sw.getTime(2));
 				}
@@ -598,7 +569,7 @@ public class TestKStar {
 	public void test2RL0OnlyOneMutant() {
 
 		double epsilon = 0.99;
-		Result result = runKStar(make2RL0OnlyOneMutant(), epsilon, null, false, 1);
+		Result result = runKStar(make2RL0OnlyOneMutant(), epsilon, null, 1);
 
 		assertThat(result.scores.size(), is(1));
 		assertThat(result.scores.get(0).sequence.toString(Sequence.Renderer.AssignmentMutations), is("A193=VAL"));
@@ -648,7 +619,7 @@ public class TestKStar {
 	public void test2RL0SpaceWithoutWildType() {
 
 		double epsilon = 0.99;
-		Result result = runKStar(make2RL0SpaceWithoutWildType(), epsilon, null, false, 2);
+		Result result = runKStar(make2RL0SpaceWithoutWildType(), epsilon, null, 2);
 
 		assertThat(result.scores.size(), is(2));
 		assertThat(result.scores.get(0).sequence.toString(Sequence.Renderer.AssignmentMutations), is("G654=VAL A193=VAL"));

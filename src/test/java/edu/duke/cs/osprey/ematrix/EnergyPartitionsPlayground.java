@@ -42,7 +42,6 @@ import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyPartition;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.gmec.SimpleGMECFinder;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -52,7 +51,7 @@ public class EnergyPartitionsPlayground {
 	public static void main(String[] args) {
 		
 		// read a protein
-		Strand strand = new Strand.Builder(PDBIO.readFile("examples/python.GMEC/1CC8.ss.pdb")).build();
+		Strand strand = new Strand.Builder(PDBIO.readFile("src/test/resources/1CC8.ss.pdb")).build();
 		
 		// configure flexibility
 		for (int i=2; i<=6; i++) {
@@ -98,15 +97,10 @@ public class EnergyPartitionsPlayground {
 			.build()
 			.calcEnergyMatrix();
 		
-		// config TPIE
-		ExternalMemory.setInternalLimit(128);
-		ExternalMemory.setTempDir(System.getProperty("user.home"), "tpie-epart");
-		
 		// how should confs be ordered?
 		ConfSearch confSearch = new ConfAStarTree.Builder(emat, confSpace)
 			//.setTraditional()
 			.setMPLP(new ConfAStarTree.MPLPBuilder().setUpdater(new EdgeUpdater()).setNumIterations(5))
-			.useExternalMemory()
 			.setShowProgress(true)
 			.build();
 	
@@ -114,7 +108,6 @@ public class EnergyPartitionsPlayground {
 		System.out.println("Finding GMEC...");
 		EnergiedConf gmec = new SimpleGMECFinder.Builder(confSearch, confEcalc)
 			.setPrintIntermediateConfsToConsole(false)
-			.useExternalMemory()
 			.build()
 			.find();
 		

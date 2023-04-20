@@ -115,7 +115,7 @@ public class TestSimpleEnergyMatrixCalculator extends TestBase {
 	private void test(boolean doMinimize, Type type, int parallelism) {
 		
 		EnergyMatrixConfig emConfig = new EnergyMatrixConfig();
-		emConfig.pdbPath = "examples/DAGK/2KDC.P.forOsprey.pdb";
+		emConfig.pdbPath = "src/test/resources/2KDC.P.forOsprey.pdb";
 		emConfig.numFlexible = 3;
 		emConfig.addWtRots = true;
 		emConfig.doMinimize = doMinimize;

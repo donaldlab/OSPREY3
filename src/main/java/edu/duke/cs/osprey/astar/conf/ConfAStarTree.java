@@ -54,8 +54,6 @@ import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.externalMemory.EMConfAStarFactory;
-import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.externalMemory.Queue;
 import edu.duke.cs.osprey.lute.LUTEConfEnergyCalculator;
 import edu.duke.cs.osprey.lute.LUTEGScorer;
@@ -181,25 +179,6 @@ public class ConfAStarTree implements ConfSearch {
 			return this;
 		}
 		
-		/**
-		 * Use external memory (eg, disk, SSD, NAS) when large A* searches
-		 * cannot fit in internal memory (eg, RAM).
-		 * 
-		 * Use {@link ExternalMemory#setInternalLimit} to set the amount of fixed internal memory
-		 * and {@link ExternalMemory#setTempDir} to set the file path for external memory.
-		 */
-		public Builder useExternalMemory() {
-
-			// just in case...
-			if (maxNumNodes != null) {
-				throw new IllegalArgumentException("external memory is incompatible with bounded memory");
-			}
-
-			ExternalMemory.checkInternalLimitSet();
-			factory = new EMConfAStarFactory();
-			return this;
-		}
-		
 		public Builder setShowProgress(boolean val) {
 			showProgress = val;
 			return this;
@@ -211,12 +190,6 @@ public class ConfAStarTree implements ConfSearch {
 		}
 
 		public Builder setMaxNumNodes(Long val) {
-
-			// just in case...
-			if (val != null && factory instanceof EMConfAStarFactory) {
-				throw new IllegalArgumentException("bounded memory is incompatible with external memory");
-			}
-
 			maxNumNodes = val;
 			return this;
 		}

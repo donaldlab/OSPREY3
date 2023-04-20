@@ -39,8 +39,6 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
-import edu.duke.cs.osprey.externalMemory.ExternalMemory;
-import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.*;
 
@@ -288,13 +286,6 @@ public class NewGradientDescentPfunc implements PartitionFunction.WithConfDB, Pa
 	}
 
 	@Override
-	public void putTaskContexts(TaskExecutor.ContextGroup contexts) {
-		// TODO: how to support conf tables correctly, when the energies are distributed across the cluster?
-		contexts.putContext(instanceIdOrThrow(), EnergyTask.class, new EnergyTask.Context(ecalc, bcalc, usePreciseBcalc, confDB, posInterGen));
-		contexts.putContext(instanceIdOrThrow(), ScoreTask.class, new ScoreTask.Context(bcalc, usePreciseBcalc));
-	}
-
-	@Override
 	public void setReportProgress(boolean val) {
 		isReportingProgress = val;
 	}
@@ -376,6 +367,19 @@ public class NewGradientDescentPfunc implements PartitionFunction.WithConfDB, Pa
 		this.stabilityThreshold = val;
 	}
 
+	static class EnergyResult {
+		public ConfSearch.EnergiedConf econf;
+		public BigDecimal scoreWeight;
+		public BigDecimal energyWeight;
+		public Stopwatch stopwatch = new Stopwatch();
+	}
+
+	static class ScoreResult {
+		public List<Double> scores = new ArrayList<>();
+		public List<BigDecimal> scoreWeights = new ArrayList<>();
+		public Stopwatch stopwatch = new Stopwatch();
+	}
+
 	@Override
 	public void compute(int maxNumConfs) {
 
@@ -450,7 +454,21 @@ public class NewGradientDescentPfunc implements PartitionFunction.WithConfDB, Pa
 						numConfsEnergied++;
 
 						te.submit(
-								new EnergyTask(instanceIdOrThrow(), conf, new Stopwatch().start(), confDBKey),
+								() -> {
+									// compute one energy and weights (and time it)
+									EnergyResult result = new EnergyResult();
+
+									var confSpace = ecalc.confSpace();
+									var assignments = conf.getAssignments();
+									var inters = posInterGen.all(confSpace, assignments);
+
+									result.stopwatch = stopwatch;
+									result.econf = ecalc.minimizeEnergy(conf, inters);
+									result.scoreWeight = usePreciseBcalc ? bcalc.calcPrecise(result.econf.getScore()) : bcalc.calc(result.econf.getScore());
+									result.energyWeight = usePreciseBcalc ? bcalc.calcPrecise(result.econf.getEnergy()) : bcalc.calc(result.econf.getEnergy());
+
+									return result;
+								},
 								(result) -> onEnergy(result.econf, result.scoreWeight, result.energyWeight, result.stopwatch.getTimeS())
 						);
 
@@ -460,7 +478,7 @@ public class NewGradientDescentPfunc implements PartitionFunction.WithConfDB, Pa
 					case Score: {
 
 						// gather the scores
-						List<Double> confs = new ArrayList<>();
+						List<ConfSearch.ScoredConf> confs = new ArrayList<>();
 						for (int i=0; i<numScores; i++) {
 
 							// get the next score conf, if any
@@ -473,12 +491,22 @@ public class NewGradientDescentPfunc implements PartitionFunction.WithConfDB, Pa
 								break;
 							}
 
-							confs.add(conf.getScore());
+							confs.add(conf);
 						}
 
 						if (!confs.isEmpty()) {
 							te.submit(
-									new ScoreTask(instanceIdOrThrow(), confs, new Stopwatch().start()),
+									() -> {
+										// compute the weights (and time it)
+										ScoreResult result = new ScoreResult();
+										result.stopwatch.start();
+										for (ConfSearch.ScoredConf conf : confs) {
+											result.scoreWeights.add(usePreciseBcalc ? bcalc.calcPrecise(conf.getScore()) : bcalc.calc(conf.getScore()));
+											result.scores.add(conf.getScore());
+										}
+										result.stopwatch.stop();
+										return result;
+									},
 									(result) -> onScores(result.scoreWeights, result.stopwatch.getTimeS())
 							);
 						}
@@ -532,127 +560,6 @@ public class NewGradientDescentPfunc implements PartitionFunction.WithConfDB, Pa
 		}
 	}
 
-	private static class EnergyTask extends Cluster.Task<EnergyTask.Result,EnergyTask.Context> {
-
-		static class Result implements Serializable {
-			ConfSearch.EnergiedConf econf;
-			BigDecimal scoreWeight;
-			BigDecimal energyWeight;
-			Stopwatch stopwatch = new Stopwatch();
-		}
-
-		static class Context {
-
-			ConfEnergyCalculator confEcalc;
-			BoltzmannCalculator bcalc;
-			boolean usePreciseBcalc;
-			ConfDB confDB;
-			PosInterGen posInterGen;
-
-			public Context(ConfEnergyCalculator confEcalc, BoltzmannCalculator bcalc, boolean usePreciseBcalc, ConfDB confDB, PosInterGen posInterGen) {
-				this.confEcalc = confEcalc;
-				this.bcalc = bcalc;
-				this.usePreciseBcalc = usePreciseBcalc;
-				this.confDB = confDB;
-				this.posInterGen = posInterGen;
-			}
-
-			public ConfDB.ConfTable confTable(ConfDB.Key key) {
-				if (confDB == null) {
-					return null;
-				}
-				return confDB.get(key);
-			}
-
-			public BigDecimal bcalc(double e) {
-				if (usePreciseBcalc) {
-					return bcalc.calcPrecise(e);
-				} else {
-					return bcalc.calc(e);
-				}
-			}
-		}
-
-		public final ConfSearch.ScoredConf conf;
-		public final Stopwatch stopwatch;
-		public final ConfDB.Key confDBKey;
-
-		public EnergyTask(int instanceId, ConfSearch.ScoredConf conf, Stopwatch stopwatch, ConfDB.Key confDBKey) {
-			super(instanceId);
-			this.conf = conf;
-			this.stopwatch = stopwatch;
-			this.confDBKey = confDBKey;
-		}
-
-		@Override
-		public Result run(Context ctx) {
-			// compute one energy and weights (and time it)
-			Result result = new Result();
-
-			var confSpace = ctx.confEcalc.confSpace();
-			var assignments = conf.getAssignments();
-			var inters = ctx.posInterGen.all(confSpace, assignments);
-
-			result.stopwatch = stopwatch;
-			result.econf = ctx.confEcalc.minimizeEnergy(conf, inters);
-			result.scoreWeight = ctx.bcalc(result.econf.getScore());
-			result.energyWeight = ctx.bcalc(result.econf.getEnergy());
-
-			return result;
-		}
-	}
-
-	private static class ScoreTask extends Cluster.Task<ScoreTask.Result,ScoreTask.Context> {
-
-		static class Result implements Serializable {
-			List<Double> scores = new ArrayList<>();
-			List<BigDecimal> scoreWeights = new ArrayList<>();
-			Stopwatch stopwatch = new Stopwatch();
-		}
-
-		static class Context {
-
-			BoltzmannCalculator bcalc;
-			boolean usePreciseBcalc;
-
-			public Context(BoltzmannCalculator bcalc, boolean usePreciseBcalc) {
-				this.bcalc = bcalc;
-				this.usePreciseBcalc = usePreciseBcalc;
-			}
-
-			public BigDecimal bcalc(double e) {
-				if (usePreciseBcalc) {
-					return bcalc.calcPrecise(e);
-				} else {
-					return bcalc.calc(e);
-				}
-			}
-		}
-
-		public final List<Double> scores;
-		public final Stopwatch stopwatch;
-
-		public ScoreTask(int instanceId, List<Double> scores, Stopwatch stopwatch) {
-			super(instanceId);
-			this.scores = scores;
-			this.stopwatch = stopwatch;
-		}
-
-		@Override
-		public Result run(Context ctx) {
-
-			// compute the weights (and time it)
-			Result result = new Result();
-			result.stopwatch = stopwatch;
-			for (double score : scores) {
-				result.scoreWeights.add(ctx.bcalc(score));
-				result.scores.add(score);
-			}
-
-			return result;
-		}
-	}
-
 	private void onEnergy(ConfSearch.EnergiedConf econf, BigDecimal scoreWeight, BigDecimal energyWeight, double seconds) {
 
 		synchronized (this) { // don't race the main thread
@@ -695,7 +602,7 @@ public class NewGradientDescentPfunc implements PartitionFunction.WithConfDB, Pa
 
 			// report progress if needed
 			if (isReportingProgress) {
-				log("[%s] scores:%8d, confs:%4d, score:%12.6f, energy:%12.6f, bounds:[%12f,%12f] (log10p1), delta:%.6f, time:%10s, heapMem:%s, extMem:%s",
+				log("[%s] scores:%8d, confs:%4d, score:%12.6f, energy:%12.6f, bounds:[%12f,%12f] (log10p1), delta:%.6f, time:%10s, heapMem:%s",
 						SimpleConfSpace.formatConfRCs(econf),
 						state.numScoredConfs,
 						state.numEnergiedConfs,
@@ -703,8 +610,7 @@ public class NewGradientDescentPfunc implements PartitionFunction.WithConfDB, Pa
 						MathTools.log10p1(state.getLowerBound()), MathTools.log10p1(state.getUpperBound()),
 						state.calcDelta(),
 						stopwatch.getTime(2),
-						JvmMem.getOldPool(),
-						ExternalMemory.getUsageReport()
+						JvmMem.getOldPool()
 				);
 				state.lastReportNs = System.nanoTime();
 			}
@@ -763,8 +669,7 @@ public class NewGradientDescentPfunc implements PartitionFunction.WithConfDB, Pa
 							MathTools.log10p1(state.getLowerBound()), MathTools.log10p1(state.getUpperBound()),
 							state.calcDelta(),
 							stopwatch.getTime(2),
-							JvmMem.getOldPool(),
-							ExternalMemory.getUsageReport()
+							JvmMem.getOldPool()
 					);
 					state.lastReportNs = nowNs;
 				}

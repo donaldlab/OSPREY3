@@ -82,7 +82,7 @@ public class TestSimpleDEE extends TestBase {
 		ArrayList<String[]> moveableStrands = new ArrayList<String[]>();
 		ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
 		SearchProblem search = new SearchProblem(
-			"test", "examples/1CC8/1CC8.ss.pdb",
+			"test", "src/test/resources/1CC8.ss.pdb",
 			resFlex.flexResList, resFlex.allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
 			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null,
 			false, new ArrayList<>()
@@ -190,7 +190,7 @@ public class TestSimpleDEE extends TestBase {
 	}
 
 	public static SimpleConfSpace make1CC8_3Pos() {
-		Strand strand = new Strand.Builder(PDBIO.readFile("examples/1CC8/1CC8.ss.pdb")).build();
+		Strand strand = new Strand.Builder(PDBIO.readFile("src/test/resources/1CC8.ss.pdb")).build();
 		strand.flexibility.get("A3").setLibraryRotamers(Strand.WildType);
 		strand.flexibility.get("A4").setLibraryRotamers(Strand.WildType);
 		strand.flexibility.get("A6").setLibraryRotamers(Strand.WildType);

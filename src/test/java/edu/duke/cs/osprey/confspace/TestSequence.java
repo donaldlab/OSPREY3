@@ -53,7 +53,7 @@ public class TestSequence {
 	@BeforeAll
 	public static void beforeClass() {
 
-		mol = PDBIO.readFile("examples/1CC8/1CC8.ss.pdb");
+		mol = PDBIO.readFile("src/test/resources/1CC8.ss.pdb");
 		confSpace = makeConfSpace("A5", "A6");
 
 		assertThat(confSpace.positions.get(0).resNum, is("A5"));

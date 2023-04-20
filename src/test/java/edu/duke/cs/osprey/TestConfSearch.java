@@ -182,7 +182,7 @@ public class TestConfSearch extends TestBase {
             allowedAAs.add(AAatPos);
         }
         
-        SearchProblem ans = new SearchProblem( "examples/1CC8/testResults/CONFSEARCHTEST"+numPos, "examples/1CC8/1CC8.ss.pdb", 
+        SearchProblem ans = new SearchProblem( "examples/1CC8/testResults/CONFSEARCHTEST"+numPos, "src/test/resources/1CC8.ss.pdb", 
                 flexRes, allowedAAs,false, false, false, null, 
                 false, new LUTESettings(), new DEEPerSettings(), new ArrayList<>(), new ArrayList<>(), 
                 useEllipses, false, false, false, null, false, new ArrayList<>());

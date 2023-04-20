@@ -100,7 +100,7 @@ public class BenchmarkMinimization extends TestBase {
 		ArrayList<String[]> moveableStrands = new ArrayList<String[]>();
 		ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
 		SearchProblem search = new SearchProblem(
-			"test", "examples/1CC8/1CC8.ss.pdb", 
+			"test", "src/test/resources/1CC8.ss.pdb", 
 			resFlex.flexResList, resFlex.allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
 			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null,
 			false, new ArrayList<>()
@@ -116,7 +116,7 @@ public class BenchmarkMinimization extends TestBase {
 		}
 		
 		// also make a simple conf space
-		Strand strand = new Strand.Builder(PDBIO.readFile("examples/1CC8/1CC8.ss.pdb")).build();
+		Strand strand = new Strand.Builder(PDBIO.readFile("src/test/resources/1CC8.ss.pdb")).build();
 		strand.flexibility.get("A39").setLibraryRotamers("ALA").setContinuous();
 		strand.flexibility.get("A43").setLibraryRotamers("ALA").setContinuous();
 		strand.flexibility.get("A40").setLibraryRotamers(Strand.WildType).setContinuous();

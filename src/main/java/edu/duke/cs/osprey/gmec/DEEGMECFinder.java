@@ -82,7 +82,6 @@ public class DEEGMECFinder extends SimpleGMECFinder {
                     logPrinter,
                     consolePrinter,
                     printIntermediateConfsToConsole,
-                    useExternalMemory,
                     name
             );
 	}
@@ -105,9 +104,9 @@ public class DEEGMECFinder extends SimpleGMECFinder {
     private PrecomputedMatrices precompMat = null;//maybe toss in emat with these actually
 
     private DEEGMECFinder(EnergyMatrix emat, SimpleConfSpace confSpace, EnergyCalculator ecalc, ConfEnergyCalculator confEcalc, GMECFinder.ConfPruner pruner, 
-                ConfPrinter logPrinter, ConfPrinter consolePrinter, boolean printIntermediateConfsToConsole, boolean useExternalMemory,
+                ConfPrinter logPrinter, ConfPrinter consolePrinter, boolean printIntermediateConfsToConsole,
                 String name){
-            super(null,confEcalc,pruner,logPrinter,consolePrinter,printIntermediateConfsToConsole,true,useExternalMemory,null);
+            super(null,confEcalc,pruner,logPrinter,consolePrinter,printIntermediateConfsToConsole,true,null);
             this.emat = emat;
             this.confSpace = confSpace;
             this.ecalc = ecalc;

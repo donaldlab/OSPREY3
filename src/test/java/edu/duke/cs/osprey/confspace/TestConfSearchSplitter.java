@@ -38,7 +38,6 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.PDBIO;
 import org.junit.jupiter.api.Assertions;
@@ -170,45 +169,6 @@ public class TestConfSearchSplitter {
 			Checker second = new Checker(splitter.second);
 			second.assertConfs(10);
 			second.assertConfs(1);
-		});
-	}
-
-	@Test
-	public void externalMemory() {
-		ExternalMemory.use(16, () -> {
-
-			ConfSearch.Splitter splitter = new ConfSearch.Splitter(
-				makeSearch(),
-				true,
-				new RCs(confSpace)
-			);
-
-			Checker first = new Checker(splitter.first);
-			first.assertConfs(10);
-
-			Checker second = new Checker(splitter.second);
-			second.assertConfs(10);
-		});
-	}
-
-	@Test
-	public void externalMemoryExhaust() {
-		ExternalMemory.use(16, () -> {
-
-			ConfSearch.Splitter splitter = new ConfSearch.Splitter(
-				makeSearch(),
-				true,
-				new RCs(confSpace)
-			);
-
-			Checker first = new Checker(splitter.first);
-			first.assertConfs(27);
-
-			Checker second = new Checker(splitter.second);
-			second.assertConfs(27);
-
-			assertThat(splitter.first.nextConf(), is(nullValue()));
-			assertThat(splitter.second.nextConf(), is(nullValue()));
 		});
 	}
 }

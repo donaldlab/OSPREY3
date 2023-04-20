@@ -156,7 +156,7 @@ public class TestResidueForcefieldBreakdown {
 	public void checkByPosition1CC8(ConfEcalcFactory confEcalcFactory) {
 
 		// get a conf space
-		Strand strand = new Strand.Builder(PDBIO.readFile("examples/python.GMEC/1CC8.ss.pdb")).build();
+		Strand strand = new Strand.Builder(PDBIO.readFile("src/test/resources/1CC8.ss.pdb")).build();
 		strand.flexibility.get("A40").setLibraryRotamers(Strand.WildType).setContinuous();
 		strand.flexibility.get("A41").setLibraryRotamers(Strand.WildType).setContinuous();
 		strand.flexibility.get("A42").setLibraryRotamers(Strand.WildType).setContinuous();

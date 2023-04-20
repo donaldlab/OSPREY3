@@ -40,7 +40,6 @@ import java.util.List;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.externalMemory.Queue;
-import edu.duke.cs.osprey.externalMemory.ScoredConfFIFOSerializer;
 import org.apache.commons.collections4.queue.CircularFifoQueue;
 
 import edu.duke.cs.osprey.gmec.ConsoleConfPrinter;
@@ -422,11 +421,7 @@ public interface ConfSearch {
 
 			this.confs = confs;
 
-			if (useExternalMemory) {
-				buf = Queue.ExternalFIFOFactory.of(new ScoredConfFIFOSerializer(rcs));
-			} else {
-				buf = Queue.FIFOFactory.of();
-			}
+			buf = Queue.FIFOFactory.of();
 
 			AtomicBoolean exhausted = new AtomicBoolean(false);
 

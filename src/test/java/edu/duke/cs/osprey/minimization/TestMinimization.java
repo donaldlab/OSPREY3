@@ -117,7 +117,7 @@ public class TestMinimization extends TestBase {
 			ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
 			
 			search = new SearchProblem(
-				"test", "examples/1CC8/1CC8.ss.pdb", 
+				"test", "src/test/resources/1CC8.ss.pdb", 
 				resFlex.flexResList, resFlex.allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
 				new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null,
 				false, new ArrayList<>()
@@ -131,7 +131,7 @@ public class TestMinimization extends TestBase {
 			search.pruneMat = new PruningMatrix(search.confSpace, 1000);
 			
 			// prep new-style emat calculation
-			Strand strand = new Strand.Builder(PDBIO.readFile("examples/python.GMEC/1CC8.ss.pdb")).build();
+			Strand strand = new Strand.Builder(PDBIO.readFile("src/test/resources/1CC8.ss.pdb")).build();
 			strand.flexibility.get("A39").setLibraryRotamers("ALA").setContinuous();
 			strand.flexibility.get("A43").setLibraryRotamers("ALA").setContinuous();
 			strand.flexibility.get("A40").setLibraryRotamers(Strand.WildType).setContinuous();

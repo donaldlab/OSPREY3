@@ -32,7 +32,6 @@
 
 package edu.duke.cs.osprey.tools;
 
-import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryUsage;
@@ -260,10 +259,9 @@ public class Progress {
 				TimeFormatter.format(etaMs*NSpMS, 1)
 			));
 			if (reportMemory) {
-				System.out.print(String.format("   heapMem:%s, extMem:%s",
-					JvmMem.getOldPool(),
-					ExternalMemory.getUsageReport()
-				));
+				System.out.printf("   heapMem:%s",
+					JvmMem.getOldPool()
+				);
 			}
 			System.out.println();
 			lastReportMs = elapsedMs;

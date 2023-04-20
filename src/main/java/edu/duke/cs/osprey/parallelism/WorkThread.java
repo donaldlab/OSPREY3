@@ -32,9 +32,9 @@
 
 package edu.duke.cs.osprey.parallelism;
 
-import edu.duke.cs.tpie.Cleaner.Cleanable;
+import edu.duke.cs.osprey.Cleaner;
 
-public abstract class WorkThread extends Thread implements Cleanable {
+public abstract class WorkThread extends Thread implements Cleaner.Cleanable {
 	
 	// this flag is hit from multiple threads concurrently, so make it volatile
 	private volatile boolean isRunning;

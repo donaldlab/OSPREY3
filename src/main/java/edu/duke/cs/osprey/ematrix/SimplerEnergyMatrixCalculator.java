@@ -42,7 +42,6 @@ import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
-import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Progress;
@@ -152,31 +151,19 @@ public class SimplerEnergyMatrixCalculator {
 	 * Computes a matrix of energies between pairs of residue conformations to be used by A* search.
 	 */
 	public EnergyMatrix calcEnergyMatrix() {
-
-		// make a context group for the task executor
-		try (TaskExecutor.ContextGroup ctxGroup = confEcalc.tasks.contextGroup()) {
-			ctxGroup.putContext(0, BatchTask.class, new BatchTask.Context(confEcalc));
-
-			// skip the calculation on member nodes
-			if (confEcalc.tasks instanceof Cluster.Member) {
-				// TODO: try to get the energy matrix from the client?
-				return null;
-			}
-
-			if (cacheFile != null) {
-				return ObjectIO.readOrMake(
-					cacheFile,
-					EnergyMatrix.class,
-					"energy matrix",
-					(emat) -> emat.matches(confEcalc.confSpace),
-					(context) -> reallyCalcEnergyMatrix()
-				);
-			} else {
-				return reallyCalcEnergyMatrix();
-			}
+		if (cacheFile != null) {
+			return ObjectIO.readOrMake(
+				cacheFile,
+				EnergyMatrix.class,
+				"energy matrix",
+				(emat) -> emat.matches(confEcalc.confSpace),
+				(context) -> reallyCalcEnergyMatrix()
+			);
+		} else {
+			return reallyCalcEnergyMatrix();
 		}
 	}
-	
+
 	private EnergyMatrix reallyCalcEnergyMatrix() {
 
 		// allocate the new matrix
@@ -226,7 +213,43 @@ public class SimplerEnergyMatrixCalculator {
 
 			void submitTask() {
 				confEcalc.tasks.submit(
-					new BatchTask(fragments),
+						() -> {
+							// calculate all the fragment energies
+							List<Double> energies = new ArrayList<>();
+							for (RCTuple frag : fragments) {
+
+								double energy;
+
+								// are there any RCs are from two different backbone states that can't connect?
+								if (isParametricallyIncompatible(confEcalc, frag)) {
+
+									// yup, give this frag an infinite energy so we never choose it
+									energy = Double.POSITIVE_INFINITY;
+
+								} else {
+
+									// nope, calculate the usual fragment energy
+									switch (frag.size()) {
+										case 0: {
+											energy = confEcalc.calcShellEnergy(frag).energy;
+										} break;
+										case 1: {
+											energy = confEcalc.calcSingleEnergy(frag).energy;
+										} break;
+										case 2: {
+											energy = confEcalc.calcPairEnergy(frag).energy;
+										} break;
+										default: {
+											energy = confEcalc.calcEnergy(frag).energy;
+										}
+									}
+								}
+
+								energies.add(energy);
+							}
+
+							return energies;
+						},
 					(List<Double> energies) -> {
 						
 						// update the energy matrix
@@ -312,65 +335,6 @@ public class SimplerEnergyMatrixCalculator {
 		}
 
 		return emat;
-	}
-
-	private static class BatchTask extends Cluster.Task<List<Double>,BatchTask.Context> {
-
-		static class Context {
-
-			ConfEnergyCalculator confEcalc;
-
-			public Context(ConfEnergyCalculator confEcalc) {
-				this.confEcalc = confEcalc;
-			}
-		}
-
-		List<RCTuple> fragments;
-
-		BatchTask(List<RCTuple> fragments) {
-			super(0);
-			this.fragments = fragments;
-		}
-
-		@Override
-		public List<Double> run(Context ctx) {
-
-			// calculate all the fragment energies
-			List<Double> energies = new ArrayList<>();
-			for (RCTuple frag : fragments) {
-
-				double energy;
-
-				// are there any RCs are from two different backbone states that can't connect?
-				if (isParametricallyIncompatible(ctx.confEcalc, frag)) {
-
-					// yup, give this frag an infinite energy so we never choose it
-					energy = Double.POSITIVE_INFINITY;
-
-				} else {
-
-					// nope, calculate the usual fragment energy
-					switch (frag.size()) {
-						case 0: {
-							energy = ctx.confEcalc.calcShellEnergy(frag).energy;
-						} break;
-						case 1: {
-							energy = ctx.confEcalc.calcSingleEnergy(frag).energy;
-						} break;
-						case 2: {
-							energy = ctx.confEcalc.calcPairEnergy(frag).energy;
-						} break;
-						default: {
-							energy = ctx.confEcalc.calcEnergy(frag).energy;
-						}
-					}
-				}
-
-				energies.add(energy);
-			}
-
-			return energies;
-		}
 	}
 
 	// TODO: improve progress bar performance by pre-counting the tuples that pass the threshold

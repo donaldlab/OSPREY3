@@ -51,7 +51,6 @@ import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.externalMemory.Queue;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -92,7 +91,7 @@ public class TestDEEGMECFinder {
 	@BeforeAll
 	public static void beforeClass() {
 		
-		Molecule mol = PDBIO.readFile("examples/python.GMEC/1CC8.ss.pdb");
+		Molecule mol = PDBIO.readFile("src/test/resources/1CC8.ss.pdb");
 		
 		Strand strand1 = new Strand.Builder(mol).build();
 		strand1.flexibility.get("A2").setLibraryRotamers("ALA", "GLY");
@@ -193,33 +192,6 @@ public class TestDEEGMECFinder {
 		assertThat(conf.getAssignments(), is(new int[] { 1, 29, 0 }));
 		assertThat(conf.getEnergy(), isAbsolutely(-38.166219, EnergyEpsilon));
 		assertThat(conf.getScore(), isAbsolutely(-38.254643, EnergyEpsilon));
-	}
-	
-	@Test
-	public void findContinuousWindowExternal() {
-		ExternalMemory.use(64, () -> {
-                        DEEGMECFinder gf = ((DEEGMECFinder.Builder)problemContinuous.makeBuilder()
-				.useExternalMemory())
-				.build();
-                        gf.Ew = 0.3;
-			Queue<EnergiedConf> confs = gf.calcGMEC(0);
-			assertThat(confs.size(), is(3L));
-			
-			EnergiedConf conf = confs.poll();
-			assertThat(conf.getAssignments(), is(new int[] { 1, 26, 0 }));
-			assertThat(conf.getEnergy(), isAbsolutely(-38.465807, EnergyEpsilon));
-			assertThat(conf.getScore(), isAbsolutely(-38.566297, EnergyEpsilon));
-			
-			conf = confs.poll();
-			assertThat(conf.getAssignments(), is(new int[] { 1, 25, 0 }));
-			assertThat(conf.getEnergy(), isAbsolutely(-38.243730, EnergyEpsilon));
-			assertThat(conf.getScore(), isAbsolutely(-38.391590, EnergyEpsilon));
-			
-			conf = confs.poll();
-			assertThat(conf.getAssignments(), is(new int[] { 1, 29, 0 }));
-			assertThat(conf.getEnergy(), isAbsolutely(-38.166219, EnergyEpsilon));
-			assertThat(conf.getScore(), isAbsolutely(-38.254643, EnergyEpsilon));
-		});
 	}
 	
 	@Test

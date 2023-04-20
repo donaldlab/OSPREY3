@@ -35,7 +35,6 @@ package edu.duke.cs.osprey.kstar.pfunc;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
-import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.tools.JvmMem;
 import edu.duke.cs.osprey.tools.MathTools;
@@ -217,11 +216,10 @@ public class SimplePartitionFunction implements PartitionFunction {
 
 				// report progress if needed
 				if (isReportingProgress) {
-					System.out.println(String.format("conf:%4d, score:%12.6f, energy:%12.6f, q*:%12e, q':%12e, epsilon:%.6f, time:%10s, heapMem:%s, extMem:%s",
+					System.out.println(String.format("conf:%4d, score:%12.6f, energy:%12.6f, q*:%12e, q':%12e, epsilon:%.6f, time:%10s, heapMem:%s",
 						lowerBound.numConfsEnergied, econf.getScore(), econf.getEnergy(), values.qstar, values.qprime, values.getEffectiveEpsilon(),
 						stopwatch.getTime(2),
-						JvmMem.getOldPool(),
-						ExternalMemory.getUsageReport()
+						JvmMem.getOldPool()
 					));
 				}
 

@@ -85,7 +85,7 @@ public class TestMinimizationStability extends TestBase {
 		ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
 		
 		search = new SearchProblem(
-			"test", "examples/1CC8/1CC8.ss.pdb", 
+			"test", "src/test/resources/1CC8.ss.pdb", 
 			resFlex.flexResList, resFlex.allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
 			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null,
 			false, new ArrayList<>()

@@ -35,9 +35,6 @@ package edu.duke.cs.osprey.externalMemory;
 import java.util.*;
 import java.util.function.Predicate;
 
-import edu.duke.cs.tpie.serialization.SerializingDoublePriorityQueue;
-import edu.duke.cs.tpie.serialization.SerializingFIFOQueue;
-
 /**
  * A queue that can only be iterated once.
  */
@@ -270,115 +267,6 @@ public interface Queue<T> {
 		@Override
 		public Queue<T> make() {
 			return of(comparator);
-		}
-	}
-	
-	public static class ExternalFIFOFactory<T> implements Factory.FIFO<T> {
-		
-		@SafeVarargs
-		public static <T> Queue.FIFO<T> of(SerializingFIFOQueue.Serializer<T> serializer, T ... vals) {
-			return new Queue.FIFO<T>() {
-				
-				private SerializingFIFOQueue<T> q;
-				{
-					q = new SerializingFIFOQueue<>(serializer);
-					for (T val : vals) {
-						q.push(val);
-					}
-				}
-
-				@Override
-				public void push(T val) {
-					q.push(val);
-				}
-
-				@Override
-				public T peek() {
-					if (q.empty()) {
-						return null;
-					}
-					return q.front();
-				}
-
-				@Override
-				public void pop() {
-					q.pop();
-				}
-
-				@Override
-				public long size() {
-					return q.size();
-				}
-
-				@Override
-				public boolean isEmpty() {
-					return q.empty();
-				}
-			};
-		}
-		
-		private SerializingFIFOQueue.Serializer<T> serializer;
-		
-		public ExternalFIFOFactory(SerializingFIFOQueue.Serializer<T> serializer) {
-			this.serializer = serializer;
-		}
-		
-		@Override
-		public Queue.FIFO<T> make() {
-			return of(serializer);
-		}
-	}
-	
-	public static class ExternalPriorityFactory<T> implements Factory<T> {
-		
-		@SafeVarargs
-		public static <T> Queue<T> of(SerializingDoublePriorityQueue.Serializer<T> serializer, T ... vals) {
-			return new Queue<T>() {
-				
-				private SerializingDoublePriorityQueue<T> q;
-				{
-					q = new SerializingDoublePriorityQueue<>(serializer);
-					for (T val : vals) {
-						q.push(val);
-					}
-				}
-
-				@Override
-				public void push(T val) {
-					q.push(val);
-				}
-
-				@Override
-				public T peek() {
-					return q.top();
-				}
-
-				@Override
-				public void pop() {
-					q.pop();
-				}
-
-				@Override
-				public long size() {
-					return q.size();
-				}
-
-				@Override
-				public boolean isEmpty() {
-					return q.empty();
-				}
-			};
-		}
-		
-		private SerializingDoublePriorityQueue.Serializer<T> serializer;
-		
-		public ExternalPriorityFactory(SerializingDoublePriorityQueue.Serializer<T> serializer) {
-			this.serializer = serializer;
-		}
-		
-		@Override
-		public Queue<T> make() {
-			return of(serializer);
 		}
 	}
 }

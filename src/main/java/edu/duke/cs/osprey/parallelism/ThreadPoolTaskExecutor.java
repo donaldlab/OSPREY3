@@ -32,13 +32,11 @@
 
 package edu.duke.cs.osprey.parallelism;
 
+import edu.duke.cs.osprey.Cleaner;
+
 import java.util.concurrent.TimeUnit;
 
-import edu.duke.cs.tpie.Cleaner;
-import edu.duke.cs.tpie.Cleaner.GarbageDetectable;
-
-
-public class ThreadPoolTaskExecutor extends ConcurrentTaskExecutor implements GarbageDetectable {
+public class ThreadPoolTaskExecutor extends ConcurrentTaskExecutor implements Cleaner.GarbageDetectable {
 	
 	/**
 	 * Controls task queue size.

@@ -35,7 +35,6 @@ package edu.duke.cs.osprey.markstar;
 import java.io.Serializable;
 
 import edu.duke.cs.osprey.astar.AStarProgress;
-import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.tools.JvmMem;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
@@ -116,14 +115,13 @@ public class MARKStarProgress extends AStarProgress {
 
         }
         return String.format("MARK* expanded:%10d,"
-                +" queued:%10d, scored/sec:%5d, partial minimizations:%5d, time:%s, delta:%12.11f heapMem:%s, extMem:%s",
+                +" queued:%10d, scored/sec:%5d, partial minimizations:%5d, time:%s, delta:%12.11f heapMem:%s",
                 numNodesExpanded, numNodesInQueue,
                 (int)(numNodesQueuedThisReport*1000/diffMs),
                 numPartialMinimizations,
                 stopwatch.getTime(2),
                 curEpsilon,
-                oldPool,
-                ExternalMemory.getUsageReport()
+                oldPool
         );
     }
 
@@ -139,15 +137,14 @@ public class MARKStarProgress extends AStarProgress {
     protected String makeLeafProgressReport() {
         double diffMs = stopwatch.getTimeMs() - this.msRunning;
         return String.format("A* leaf nodes:%10d, score:%14.8f, remaining:%14.8f, expanded:%10d, queued:%10d,"
-                +" scored/sec:%5d, time:%s, delta:%10.4f, heapMem:%s, extMem:%s",
+                +" scored/sec:%5d, time:%s, delta:%10.4f, heapMem:%s",
                 numLeafNodes,
                 gscore, goalScore - gscore,
                 numNodesExpanded, numNodesInQueue,
                 (int)(numNodesQueuedThisReport*1000/diffMs),
                 stopwatch.getTime(2),
                 curEpsilon,
-                JvmMem.getOldPool(),
-                ExternalMemory.getUsageReport()
+                JvmMem.getOldPool()
         );
     }
 

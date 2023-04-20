@@ -56,12 +56,12 @@ public class TestAmberEnergy extends TestBase {
 	
 	@Test
 	public void test1CC8WithSolv() {
-		test("examples/1CC8/1CC8.ss.pdb", SolvationForcefield.EEF1, -986.6491862981836);
+		test("src/test/resources/1CC8.ss.pdb", SolvationForcefield.EEF1, -986.6491862981836);
 	}
 
 	@Test
 	public void test1CC8NoSolv() {
-		test("examples/1CC8/1CC8.ss.pdb", null, -639.7025085949941);
+		test("src/test/resources/1CC8.ss.pdb", null, -639.7025085949941);
 	}
 
 	private void test(String pdbPath, SolvationForcefield solvff, double energy) {

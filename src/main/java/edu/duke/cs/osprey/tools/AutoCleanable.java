@@ -32,15 +32,15 @@
 
 package edu.duke.cs.osprey.tools;
 
-import edu.duke.cs.tpie.Cleaner.Cleanable;
+import edu.duke.cs.osprey.Cleaner;
 
-public interface AutoCleanable extends Cleanable, AutoCloseable {
+public interface AutoCleanable extends AutoCloseable, Cleaner.Cleanable {
 	
 	@Override
 	default void close() {
 		cleanWithoutCrashing();
 	}
-	
+
 	default void cleanWithoutCrashing() {
 		try {
 			clean();

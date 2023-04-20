@@ -36,7 +36,6 @@ import edu.duke.cs.osprey.confspace.ConfSpaceIteration;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
-import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.AutoCloseableNoEx;
 
@@ -323,12 +322,6 @@ public class NewKStar {
 						ligand.clear();
 						complex.clear();
 
-						// skip the calculation on member nodes
-						if (tasks instanceof Cluster.Member) {
-							// TODO: try to get the scored sequence from the client?
-							return null;
-						}
-
 						return new ScoredSequence(seq, new KStarScore(
 								protein.calcPfunc(ctxGroup, seq, BigDecimal.ZERO),
 								ligand.calcPfunc(ctxGroup, seq, BigDecimal.ZERO),
@@ -348,12 +341,6 @@ public class NewKStar {
 
 		// make a context group for the task executor
 		try(var ctxGroup = tasks.contextGroup()) {
-
-			// skip the calculation on member nodes
-			if (tasks instanceof Cluster.Member) {
-				// TODO: try to get the scored sequences from the client?
-				return null;
-			}
 
 			// check the conf space infos to make sure we have all the inputs
 			protein.check();
