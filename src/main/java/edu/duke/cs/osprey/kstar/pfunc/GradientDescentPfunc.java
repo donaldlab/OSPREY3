@@ -37,10 +37,8 @@ import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
-import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.*;
 
-import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -214,7 +212,6 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfDB, Parti
 
 	private static BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
 	private boolean usePreciseBcalc = true;
-
 	private Status status = null;
 	private Values values = null;
 	private State state = null;
@@ -259,6 +256,22 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfDB, Parti
 			throw new IllegalStateException("no instance ID set, task doesn't know what context to use");
 		}
 		return instanceId;
+	}
+
+	ConfDB.ConfTable getConfTable() {
+		if (confDB == null) {
+			return null;
+		}
+
+		return confDB.get(confDBKey);
+	}
+
+	BigDecimal bcalc(double val) {
+		if (usePreciseBcalc) {
+			return bcalc.calcPrecise(val);
+		}
+
+		return bcalc.calc(val);
 	}
 
 	/**
@@ -443,9 +456,9 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfDB, Parti
 								// compute one energy and weights (and time it)
 								EnergyResult result = new EnergyResult();
 								result.stopwatch.start();
-								result.econf = ecalc.calcEnergy(conf);
-								result.scoreWeight = usePreciseBcalc ? bcalc.calcPrecise(result.econf.getScore()) : bcalc.calc(result.econf.getScore());
-								result.energyWeight = usePreciseBcalc ? bcalc.calcPrecise(result.econf.getEnergy()) : bcalc.calc(result.econf.getEnergy());
+								result.econf = ecalc.calcEnergy(conf, getConfTable());
+								result.scoreWeight = bcalc(result.econf.getScore());
+								result.energyWeight = bcalc(result.econf.getEnergy());
 								result.stopwatch.stop();
 								return result;
 							},
@@ -480,7 +493,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfDB, Parti
 							ScoreResult result = new ScoreResult();
 							result.stopwatch.start();
 							for (ConfSearch.ScoredConf conf : confs) {
-								result.scoreWeights.add(usePreciseBcalc ? bcalc.calcPrecise(conf.getScore()) : bcalc.calc(conf.getScore()));
+								result.scoreWeights.add(bcalc(conf.getScore()) );
 								result.scores.add(conf.getScore());
 							}
 							result.stopwatch.stop();
