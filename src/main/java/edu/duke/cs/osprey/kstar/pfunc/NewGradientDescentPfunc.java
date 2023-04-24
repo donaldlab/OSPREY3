@@ -35,6 +35,7 @@ package edu.duke.cs.osprey.kstar.pfunc;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
@@ -517,13 +518,6 @@ public class NewGradientDescentPfunc implements PartitionFunction.WithConfDB, Pa
 						ConfSearch.ScoredConf conf = scoreConfs.nextConf();
 						if (conf != null) {
 							numScoreConfsEnumerated++;
-							/*
-							if (numScoreConfsEnumerated > 10)
-							{
-								hasScoreConfs = false;
-								break;
-							}
-							 */
 						}
 						if (conf == null || conf.getScore() == Double.POSITIVE_INFINITY) {
 							hasScoreConfs = false;
@@ -573,6 +567,7 @@ public class NewGradientDescentPfunc implements PartitionFunction.WithConfDB, Pa
 		if (!hasEnergyConfs) {
 			status = Status.OutOfConformations;
 		}
+
 
 		// did we hit the epsilon target?
 		if (state.epsilonReached(targetEpsilon)) {
