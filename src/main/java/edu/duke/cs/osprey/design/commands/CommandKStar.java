@@ -50,7 +50,7 @@ public class CommandKStar extends RunnableCommand {
     public int run(JCommander commander, String[] args) {
         this.args = args;
 
-//        cleanupStuffFromPreviousRuns();
+        cleanupStuffFromPreviousRuns();
 
         var start = System.currentTimeMillis();
         var numConfs = 200;
@@ -64,10 +64,7 @@ public class CommandKStar extends RunnableCommand {
 
         var settings = new KStar.Settings.Builder()
                 .setStabilityThreshold(stabilityThreshold)
-                .setExternalMemory(false)
                 .setMaxNumConf(numConfs)
-                .resume(true)
-                .addScoreFileWriter(Paths.get("sequences.tsv").toFile())
                 .build();
 
         KStar kstar = new KStar(target, design, complex, settings);

@@ -49,7 +49,7 @@ public abstract class RunnableCommand {
             List<java.io.File> filesInPwd = Files.list(Paths.get(""))
                     .map(Path::toFile)
                     .filter(java.io.File::isFile)
-                    .filter(f -> f.toString().contains(".confdb"))
+                    .filter(f -> f.toString().contains(".confdb") || f.toString().contains(".wal"))
                     .toList();
 
             filesInPwd.forEach(java.io.File::delete);

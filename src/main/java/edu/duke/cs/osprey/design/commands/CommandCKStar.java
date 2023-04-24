@@ -3,7 +3,6 @@ package edu.duke.cs.osprey.design.commands;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
-import com.google.common.collect.Lists;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
@@ -14,7 +13,6 @@ import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
 import edu.duke.cs.osprey.kstar.*;
 import edu.duke.cs.osprey.kstar.pfunc.NewGradientDescentPfunc;
-import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.tools.FileTools;
 
 import java.io.File;
@@ -56,7 +54,7 @@ public class CommandCKStar extends RunnableCommand {
 
         var start = System.currentTimeMillis();
 
-//        cleanupStuffFromPreviousRuns();
+        cleanupStuffFromPreviousRuns();
 
         var numConfs = 200;
 
@@ -69,10 +67,7 @@ public class CommandCKStar extends RunnableCommand {
 
         var settings = new NewKStar.Settings.Builder()
                 .setStabilityThreshold(stabilityThreshold)
-                .setExternalMemory(false)
                 .setMaxNumConf(numConfs)
-                .resume(true)
-                .addScoreFileWriter(Paths.get("sequences.tsv").toFile())
                 .build();
 
         var kstar = new NewKStar(target, design, complex, settings);
@@ -87,21 +82,20 @@ public class CommandCKStar extends RunnableCommand {
 
             var energyMatrix = new EmatCalculator.Builder(energyCalculator)
                     .setReferenceEnergies(referenceEnergies)
-                    .setCacheFile(new File(String.format("emat.%s.dat", confSpaceInfo.id)))
+//                    .setCacheFile(new File(String.format("emat.%s.dat", confSpaceInfo.id)))
                     .build()
                     .calc(taskExecutor);
 
             PosInterGen posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, referenceEnergies);
 
             confSpaceInfo.pfuncFactory =
-                    (rcs, ctxGroup) -> new NewGradientDescentPfunc(
+                    (rcs) -> new NewGradientDescentPfunc(
                             energyCalculator,
                             new ConfAStarTree.Builder(energyMatrix, rcs).setTraditional().build(),
                             new ConfAStarTree.Builder(energyMatrix, rcs).setTraditional().build(),
                             rcs.getNumConformations(),
                             posInterGen,
-                            taskExecutor,
-                            ctxGroup
+                            taskExecutor
                     );
         }
 

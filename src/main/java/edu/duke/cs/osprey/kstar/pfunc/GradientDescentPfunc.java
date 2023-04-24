@@ -488,17 +488,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfDB, Parti
 					}
 
 					if (!confs.isEmpty()) {
-						ecalc.tasks.submit(() -> {
-							// compute the weights (and time it)
-							ScoreResult result = new ScoreResult();
-							result.stopwatch.start();
-							for (ConfSearch.ScoredConf conf : confs) {
-								result.scoreWeights.add(bcalc(conf.getScore()) );
-								result.scores.add(conf.getScore());
-							}
-							result.stopwatch.stop();
-							return result;
-						},
+						ecalc.tasks.submit(() -> computeScoreConfs(confs),
 								(result) -> onScores(result.scoreWeights, result.stopwatch.getTimeS())
 						);
 					}
@@ -651,10 +641,11 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfDB, Parti
 			state.dEnergy *= 2.0;
 
 			// report progress if needed (but not more than once every second)
+
 			if (isReportingProgress) {
 				long nowNs = System.nanoTime();
 				if (nowNs - state.lastReportNs > 1_000_000_000L) {
-					log("[%s] scores:%8d, confs:%4d, score:%12s, energy:%12s, bounds:[%12f,%12f] (log10p1), delta:%.6f, time:%10s, heapMem:%s",
+					log("[%s] scores:%8d, confs:%4d, score:%12s, energy:%12s, bounds:[%12f,%12f] (log10p1), delta:%.6f, time:%10s, heapMem:%s, energyOps:%.6f, scoreOps:%.6f",
 						String.format("%" + (ecalc.confSpaceIteration().numPos()*6 - 1) + "s", ""),
 						state.numScoredConfs,
 						state.numEnergiedConfs,
@@ -662,7 +653,9 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfDB, Parti
 						MathTools.log10p1(state.getLowerBound()), MathTools.log10p1(state.getUpperBound()),
 						state.calcDelta(),
 						stopwatch.getTime(2),
-						JvmMem.getOldPool()
+						JvmMem.getOldPool(),
+						state.energyOps,
+						state.scoreOps
 					);
 					state.lastReportNs = nowNs;
 				}
@@ -710,5 +703,17 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfDB, Parti
 		BigDecimal upperConfLowerBound = startUpperBound.subtract(finalUpperBoundNoEnergies);
 
 		return new PartitionFunction.Result(getStatus(), getValues(), getNumConfsEvaluated());
+	}
+
+	private GradientDescentPfunc.ScoreResult computeScoreConfs(Iterable<ConfSearch.ScoredConf> confs) {
+		// compute the weights (and time it)
+		ScoreResult result = new ScoreResult();
+		result.stopwatch.start();
+		for (ConfSearch.ScoredConf conf : confs) {
+			result.scoreWeights.add(bcalc(conf.getScore()) );
+			result.scores.add(conf.getScore());
+		}
+		result.stopwatch.stop();
+		return result;
 	}
 }

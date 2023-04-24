@@ -32,17 +32,14 @@
 
 package edu.duke.cs.osprey.kstar.pfunc;
 
-import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.*;
 
-import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -71,8 +68,6 @@ import static edu.duke.cs.osprey.tools.Log.log;
  * energies out of a cache).
  */
 public class NewGradientDescentPfunc implements PartitionFunction.WithConfDB, PartitionFunction.WithExternalMemory {
-
-	private final TaskExecutor.ContextGroup contextGroup;
 
 	private static BigMath bigMath() {
 		return new BigMath(PartitionFunction.decimalPrecision);
@@ -213,8 +208,8 @@ public class NewGradientDescentPfunc implements PartitionFunction.WithConfDB, Pa
 	private ConfListener confListener = null;
 	private boolean isReportingProgress = false;
 	private Stopwatch stopwatch = new Stopwatch().start();
-	private ConfSearch scoreConfs = null;
-	private ConfSearch energyConfs = null;
+	private ConfSearch scoreConfs;
+	private ConfSearch energyConfs;
 
 	private static BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
 	private boolean usePreciseBcalc = true;
@@ -238,26 +233,15 @@ public class NewGradientDescentPfunc implements PartitionFunction.WithConfDB, Pa
 	private PfuncSurface.Trace trace = null;
 
 	private final TaskExecutor te;
-	private PosInterGen posInterGen = null;
+	private PosInterGen posInterGen;
 
-	public NewGradientDescentPfunc(ConfEnergyCalculator ecalc, ConfSearch confSearch, ConfAStarTree build, BigInteger numConfsBeforePruning, PosInterGen posInterGen, TaskExecutor te, TaskExecutor.ContextGroup ctxGroup) {
-		this.ecalc = ecalc;
-		this.scoreConfs = confSearch;
-		this.energyConfs = null;
-		this.numConfsBeforePruning = numConfsBeforePruning;
-		this.posInterGen = posInterGen;
-		this.te = te;
-		this.contextGroup = ctxGroup;
-	}
-
-	public NewGradientDescentPfunc(ConfEnergyCalculator ecalc, ConfSearch upperBoundConfs, ConfSearch lowerBoundConfs, BigInteger numConfsBeforePruning, PosInterGen posInterGen, TaskExecutor te, TaskExecutor.ContextGroup contextGroup) {
+	public NewGradientDescentPfunc(ConfEnergyCalculator ecalc, ConfSearch upperBoundConfs, ConfSearch lowerBoundConfs, BigInteger numConfsBeforePruning, PosInterGen posInterGen, TaskExecutor te) {
 		this.ecalc = ecalc;
 		this.scoreConfs = upperBoundConfs;
 		this.energyConfs = lowerBoundConfs;
 		this.numConfsBeforePruning = numConfsBeforePruning;
 		this.posInterGen = posInterGen;
 		this.te = te;
-		this.contextGroup = contextGroup;
 	}
 
 	private Integer instanceId = null;
@@ -283,6 +267,29 @@ public class NewGradientDescentPfunc implements PartitionFunction.WithConfDB, Pa
 	public NewGradientDescentPfunc setPreciseBcalc(boolean val) {
 		usePreciseBcalc = val;
 		return this;
+	}
+
+	ConfDB.ConfTable getConfTable() {
+		if (confDB == null) {
+			return null;
+		}
+
+		return confDB.get(confDBKey);
+	}
+
+	BigDecimal bcalc(double val) {
+		if (usePreciseBcalc) {
+			return bcalc.calcPrecise(val);
+		}
+
+		return bcalc.calc(val);
+	}
+
+	private void saveToConfDb(ConfSearch.EnergiedConf econf) {
+		var confTable = getConfTable();
+		if (confTable != null) {
+			confTable.setBounds(econf, TimeTools.getTimestampNs());
+		}
 	}
 
 	@Override
@@ -319,7 +326,6 @@ public class NewGradientDescentPfunc implements PartitionFunction.WithConfDB, Pa
 
 	@Override
 	public void setConfDB(ConfDB confDB, ConfDB.Key key) {
-		System.out.printf("Setting confdb %s%n", confDB);
 		this.confDB = confDB;
 		this.confDBKey = key;
 	}
@@ -380,146 +386,169 @@ public class NewGradientDescentPfunc implements PartitionFunction.WithConfDB, Pa
 		public Stopwatch stopwatch = new Stopwatch();
 	}
 
+	private EnergyResult computeEnergyResult(ConfSearch.ScoredConf conf) {
+		EnergyResult result = new EnergyResult();
+		result.stopwatch.start();
+
+		// check if it's already been computed:
+
+		var confSpace = ecalc.confSpace();
+		var assignments = conf.getAssignments();
+
+		/*
+		var putative = getConfTable().getEnergied(assignments);
+		if (putative != null) {
+			result.econf = putative;
+			result.scoreWeight = bcalc(putative.getScore());
+			result.energyWeight = bcalc(putative.getEnergy());
+
+			return result;
+		}
+		 */
+
+		var inters = posInterGen.all(confSpace, assignments);
+		result.econf = ecalc.minimizeEnergy(conf, inters);
+		result.scoreWeight = bcalc(result.econf.getScore());
+		result.energyWeight = bcalc(result.econf.getEnergy());
+		saveToConfDb(result.econf);
+		result.stopwatch.stop();
+
+		return result;
+	}
+
+	private ScoreResult computeScoreConfs(Iterable<ConfSearch.ScoredConf> confs) {
+		// compute the weights (and time it)
+		ScoreResult result = new ScoreResult();
+		result.stopwatch.start();
+		for (ConfSearch.ScoredConf conf : confs) {
+			result.scoreWeights.add(bcalc(conf.getScore()));
+			result.scores.add(conf.getScore());
+		}
+		result.stopwatch.stop();
+		return result;
+	}
+
 	@Override
 	public void compute(int maxNumConfs) {
 
 		if (status == null) {
 			throw new IllegalStateException("pfunc was not initialized. Call init() before compute()");
 		}
-			if (!status.canContinue()) {
-				return;
-			}
+		if (!status.canContinue()) {
+			return;
+		}
 
-			// start a trace if needed
-			if (surf != null) {
-				trace = surf.new Trace();
-			}
+		// start a trace if needed
+		if (surf != null) {
+			trace = surf.new Trace();
+		}
 
-			boolean keepStepping = true;
-			for (int numConfsEnergied=0; numConfsEnergied<maxNumConfs; /* don't increment here */) {
+		boolean keepStepping = true;
+		for (int numConfsEnergied=0; numConfsEnergied<maxNumConfs; /* don't increment here */) {
 
-				// which way should we step, and how far?
-				Step step = Step.None;
-				int numScores = 0;
-				synchronized (this) { // don't race the listener thread
+			// which way should we step, and how far?
+			Step step = Step.None;
+			int numScores = 0;
+			synchronized (this) { // don't race the listener thread
 
-					// should we even keep stepping?
-					keepStepping = keepStepping
-							&& !state.epsilonReached(targetEpsilon)
-							&& state.isStable(stabilityThreshold)
-							&& state.hasLowEnergies();
-					if (!keepStepping) {
-						break;
-					}
-
-					// just in case...
-					if (Double.isNaN(state.dEnergy) || Double.isNaN(state.dScore)) {
-						throw new Error("Can't determine gradient of delta surface. This is a bug.");
-					}
-
-					boolean scoreAheadOfEnergy = numEnergyConfsEnumerated < numScoreConfsEnumerated;
-					boolean energySteeperThanScore = state.dEnergy <= state.dScore;
-
-					if (hasEnergyConfs && ((scoreAheadOfEnergy && energySteeperThanScore) || !hasScoreConfs)) {
-
-						step = Step.Energy;
-
-					} else if (hasScoreConfs) {
-
-						step = Step.Score;
-
-						// how many scores should we weight?
-						// (target a similar amount of time as energy calculation, but at least 10 ms)
-						double scoringSeconds = Math.max(0.1/state.energyOps, 0.01);
-						numScores = Math.max((int)(scoringSeconds*state.scoreOps), 10);
-					}
+				// should we even keep stepping?
+				keepStepping = keepStepping
+						&& !state.epsilonReached(targetEpsilon)
+						&& state.isStable(stabilityThreshold)
+						&& state.hasLowEnergies();
+				if (!keepStepping) {
+					break;
 				}
 
-				// take the next step
-				switch (step) {
+				// just in case...
+				if (Double.isNaN(state.dEnergy) || Double.isNaN(state.dScore)) {
+					throw new Error("Can't determine gradient of delta surface. This is a bug.");
+				}
 
-					case Energy: {
+				boolean scoreAheadOfEnergy = numEnergyConfsEnumerated < numScoreConfsEnumerated;
+				boolean energySteeperThanScore = state.dEnergy <= state.dScore;
 
-						// get the next energy conf, if any
-						ConfSearch.ScoredConf conf = energyConfs.nextConf();
-						if (conf != null) {
-							numEnergyConfsEnumerated++;
-						}
-						if (conf == null || conf.getScore() == Double.POSITIVE_INFINITY) {
-							hasEnergyConfs = false;
-							keepStepping = false;
-							break;
-						}
+				if (hasEnergyConfs && ((scoreAheadOfEnergy && energySteeperThanScore) || !hasScoreConfs)) {
 
-						numConfsEnergied++;
+					step = Step.Energy;
 
-						te.submit(
-								() -> {
-									// compute one energy and weights (and time it)
-									EnergyResult result = new EnergyResult();
+				} else if (hasScoreConfs) {
 
-									var confSpace = ecalc.confSpace();
-									var assignments = conf.getAssignments();
-									var inters = posInterGen.all(confSpace, assignments);
+					step = Step.Score;
 
-									result.stopwatch = stopwatch;
-									result.econf = ecalc.minimizeEnergy(conf, inters);
-									result.scoreWeight = usePreciseBcalc ? bcalc.calcPrecise(result.econf.getScore()) : bcalc.calc(result.econf.getScore());
-									result.energyWeight = usePreciseBcalc ? bcalc.calcPrecise(result.econf.getEnergy()) : bcalc.calc(result.econf.getEnergy());
+					// how many scores should we weight?
+					// (target a similar amount of time as energy calculation, but at least 10 ms)
+					double scoringSeconds = Math.max(0.1/state.energyOps, 0.01);
+					numScores = Math.max((int)(scoringSeconds*state.scoreOps), 10);
+				}
+			}
 
-									return result;
-								},
-								(result) -> onEnergy(result.econf, result.scoreWeight, result.energyWeight, result.stopwatch.getTimeS())
-						);
+			// take the next step
+			switch (step) {
 
+				case Energy: {
+
+					// get the next energy conf, if any
+					ConfSearch.ScoredConf conf = energyConfs.nextConf();
+					if (conf != null) {
+						numEnergyConfsEnumerated++;
+					}
+					if (conf == null || conf.getScore() == Double.POSITIVE_INFINITY) {
+						hasEnergyConfs = false;
+						keepStepping = false;
 						break;
 					}
 
-					case Score: {
+					numConfsEnergied++;
+					te.submit(() -> computeEnergyResult(conf),
+							(result) -> onEnergy(result.econf, result.scoreWeight, result.energyWeight, result.stopwatch.getTimeS())
+					);
 
-						// gather the scores
-						List<ConfSearch.ScoredConf> confs = new ArrayList<>();
-						for (int i=0; i<numScores; i++) {
+					break;
+				}
 
-							// get the next score conf, if any
-							ConfSearch.ScoredConf conf = scoreConfs.nextConf();
-							if (conf != null) {
-								numScoreConfsEnumerated++;
-							}
-							if (conf == null || conf.getScore() == Double.POSITIVE_INFINITY) {
+				case Score: {
+
+					// gather the scores
+					List<ConfSearch.ScoredConf> confs = new ArrayList<>();
+					for (int i=0; i<numScores; i++) {
+
+						// get the next score conf, if any
+						ConfSearch.ScoredConf conf = scoreConfs.nextConf();
+						if (conf != null) {
+							numScoreConfsEnumerated++;
+							/*
+							if (numScoreConfsEnumerated > 10)
+							{
 								hasScoreConfs = false;
 								break;
 							}
-
-							confs.add(conf);
+							 */
+						}
+						if (conf == null || conf.getScore() == Double.POSITIVE_INFINITY) {
+							hasScoreConfs = false;
+							break;
 						}
 
-						if (!confs.isEmpty()) {
-							te.submit(
-									() -> {
-										// compute the weights (and time it)
-										ScoreResult result = new ScoreResult();
-										result.stopwatch.start();
-										for (ConfSearch.ScoredConf conf : confs) {
-											result.scoreWeights.add(usePreciseBcalc ? bcalc.calcPrecise(conf.getScore()) : bcalc.calc(conf.getScore()));
-											result.scores.add(conf.getScore());
-										}
-										result.stopwatch.stop();
-										return result;
-									},
-									(result) -> onScores(result.scoreWeights, result.stopwatch.getTimeS())
-							);
-						}
-
-						break;
+						confs.add(conf);
 					}
 
-					case None:
-						// out of energy confs and score confs
-						// theoretically, this shouldn't happen without hitting our epsilon target, right?
-						keepStepping = false;
+					if (!confs.isEmpty()) {
+						te.submit(
+							() -> computeScoreConfs(confs),
+							(result) -> onScores(result.scoreWeights, result.stopwatch.getTimeS())
+						);
+					}
+
+					break;
 				}
+
+				case None:
+					// out of energy confs and score confs
+					// theoretically, this shouldn't happen without hitting our epsilon target, right?
+					keepStepping = false;
 			}
+		}
 
 		// wait for all the scores and energies to come in
 		te.waitForFinish();
@@ -661,7 +690,7 @@ public class NewGradientDescentPfunc implements PartitionFunction.WithConfDB, Pa
 			if (isReportingProgress) {
 				long nowNs = System.nanoTime();
 				if (nowNs - state.lastReportNs > 1_000_000_000L) {
-					log("[%s] scores:%8d, confs:%4d, score:%12s, energy:%12s, bounds:[%12f,%12f] (log10p1), delta:%.6f, time:%10s, heapMem:%s, extMem:%s",
+					log("[%s] scores:%8d, confs:%4d, score:%12s, energy:%12s, bounds:[%12f,%12f] (log10p1), delta:%.6f, time:%10s, heapMem:%s, energyOps:%.6f, scoreOps:%.6f",
 							String.format("%" + (ecalc.confSpace().numPos()*6 - 1) + "s", ""),
 							state.numScoredConfs,
 							state.numEnergiedConfs,
@@ -669,7 +698,9 @@ public class NewGradientDescentPfunc implements PartitionFunction.WithConfDB, Pa
 							MathTools.log10p1(state.getLowerBound()), MathTools.log10p1(state.getUpperBound()),
 							state.calcDelta(),
 							stopwatch.getTime(2),
-							JvmMem.getOldPool()
+							JvmMem.getOldPool(),
+							state.energyOps,
+							state.scoreOps
 					);
 					state.lastReportNs = nowNs;
 				}

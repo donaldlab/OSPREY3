@@ -28,7 +28,7 @@ public class ConfSpaceInfo {
     public PfuncFactory pfuncFactory = null;
 
     public interface PfuncFactory {
-        PartitionFunction make(RCs rcs, TaskExecutor.ContextGroup ctxGroup);
+        PartitionFunction make(RCs rcs);
     }
     private ConfDB confDB = null;
 
@@ -121,7 +121,7 @@ public class ConfSpaceInfo {
 
         RCs rcs = seq.makeRCs(confSpace);
 
-        PartitionFunction pfunc = pfuncFactory.make(rcs, ctxGroup);
+        PartitionFunction pfunc = pfuncFactory.make(rcs);
 
         pfunc.setReportProgress(newKStar.settings.showPfuncProgress);
         if (newKStar.settings.useExternalMemory) {
