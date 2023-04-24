@@ -66,10 +66,6 @@ public abstract class RunnableCommand {
         commander.usage();
     }
 
-    void printMissingDesignFile(JCommander commander) {
-        System.out.println("Error: Missing a design file.");
-    }
-
     public <T> Optional<T> parseDesignSpec(Class<T> t) {
         try {
             var mapper = new ObjectMapper(new YAMLFactory());

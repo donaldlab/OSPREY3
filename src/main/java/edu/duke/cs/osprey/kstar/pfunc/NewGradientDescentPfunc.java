@@ -203,6 +203,7 @@ public class NewGradientDescentPfunc implements PartitionFunction.WithConfDB, Pa
 
     public final ConfEnergyCalculator ecalc;
 	public final BigInteger numConfsBeforePruning;
+	public final PosInterGen posInterGen;
 
 	private double targetEpsilon = Double.NaN;
 	private BigDecimal stabilityThreshold = BigDecimal.ZERO;
@@ -234,7 +235,6 @@ public class NewGradientDescentPfunc implements PartitionFunction.WithConfDB, Pa
 	private PfuncSurface.Trace trace = null;
 
 	private final TaskExecutor te;
-	private PosInterGen posInterGen;
 
 	public NewGradientDescentPfunc(ConfEnergyCalculator ecalc, ConfSearch upperBoundConfs, ConfSearch lowerBoundConfs, BigInteger numConfsBeforePruning, PosInterGen posInterGen, TaskExecutor te) {
 		this.ecalc = ecalc;

@@ -73,8 +73,8 @@ public class CommandGMEC extends RunnableCommand {
 
         var structure = confSpace.makeMolecule(gmec.getAssignments());
 
-        if (delegate.saveDir != null) {
-            var outFile = Paths.get(delegate.saveDir, "gmec.pdb").toFile();
+        if (delegate.ensembleDir != null) {
+            var outFile = Paths.get(delegate.ensembleDir, "gmec.pdb").toFile();
             PDBIO.writeFile(structure.mol, "GMEC structure", gmec.getEnergy(), outFile);
         }
 

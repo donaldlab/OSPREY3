@@ -37,11 +37,14 @@ public class DesignFileDelegate {
     @Parameter(names = {"--cuda", "-c"}, description = "Enable CUDA GPU acceleration. By default uses all available GPUs at max number of streams.")
     boolean useCuda;
 
-    @Parameter(names = {"--save-confs"}, description = "Number of lowest energy conformations to save. Off by default.")
-    public int numConfs = -1;
+    @Parameter(names = {"--max-confs"}, description = "Number of lowest energy conformations to save. Off by default.")
+    public int maxConfs = -1;
 
-    @Parameter(names = {"--ensemble-dir"}, description = "Directory in which to write saved structures. Use in conjunction with --save-confs to specify a non-default location to save PDBs to.")
-    public String saveDir = "ensemble";
+    @Parameter(names = "--ensemble-dir", description = "Directory to save each sequence's structural ensemble in. Defaults to current working directory.")
+    public String ensembleDir = ".";
+
+    @Parameter(names = "--write-n-confs", description = "The number (n) of best conformations to write in each sequence's ensemble. Defaults to 10.")
+    public int writeNConfs = 10;
 
     @Parameter(names = {"--properties-file", "-p"}, converter = FileConverter.class, validateWith = FileExistsValidation.class,
             description = "Path to the properties file storing application-specific settings")

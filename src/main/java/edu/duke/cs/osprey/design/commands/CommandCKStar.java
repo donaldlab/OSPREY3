@@ -4,22 +4,25 @@ import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.confspace.ConfDB;
+import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
 import edu.duke.cs.osprey.design.Main;
 import edu.duke.cs.osprey.ematrix.compiled.EmatCalculator;
 import edu.duke.cs.osprey.ematrix.compiled.ErefCalculator;
 import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
 import edu.duke.cs.osprey.kstar.*;
 import edu.duke.cs.osprey.kstar.pfunc.NewGradientDescentPfunc;
+import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.FileTools;
 
 import java.io.File;
 import java.nio.file.Paths;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Parameters(commandDescription = CommandCKStar.CommandDescription)
 public class CommandCKStar extends RunnableCommand {
@@ -39,95 +42,6 @@ public class CommandCKStar extends RunnableCommand {
     @Parameter(names = "--stability-threshold", description = "Pruning criteria to remove sequences with unstable unbound states relative to the wild type sequence. Set to a negative number to disable.")
     public double stabilityThreshold = 5.0;
 
-    private String[] args;
-
-    private Map<String, String> dbSettings = new HashMap<>();
-    private static final String dbHostnameKey = "dbHostname";
-    private static final String dbPortKey = "dbPort";
-    private static final String dbNameKey = "dbName";
-    private static final String dbUserNameKey = "dbUserName";
-    private static final String dbPasswordKey = "dbPassword";
-
-    @Override
-    public int run(JCommander commander, String[] args) {
-        this.args = args;
-
-        var start = System.currentTimeMillis();
-
-        cleanupStuffFromPreviousRuns();
-
-        var numConfs = 200;
-
-        var complex = ConfSpace.fromBytes(FileTools.readFileBytes(complexConfSpacePath));
-        var design = ConfSpace.fromBytes(FileTools.readFileBytes(designConfSpacePath));
-        var target = ConfSpace.fromBytes(FileTools.readFileBytes(targetConfSpacePath));
-        var parallelism = delegate.getParallelism();
-//        var parallelism = new Parallelism(16, 0, 0);
-        var taskExecutor = parallelism.makeTaskExecutor();
-
-        var settings = new NewKStar.Settings.Builder()
-                .setStabilityThreshold(stabilityThreshold)
-                .setMaxNumConf(numConfs)
-                .build();
-
-        var kstar = new NewKStar(target, design, complex, settings);
-
-        for (var confSpaceInfo : kstar.confSpaceInfos()) {
-            var energyCalculator = new CPUConfEnergyCalculator((ConfSpace) confSpaceInfo.confSpace);
-            confSpaceInfo.confEcalc = energyCalculator;
-
-            var referenceEnergies = new ErefCalculator.Builder(energyCalculator)
-                    .build()
-                    .calc(taskExecutor);
-
-            var energyMatrix = new EmatCalculator.Builder(energyCalculator)
-                    .setReferenceEnergies(referenceEnergies)
-//                    .setCacheFile(new File(String.format("emat.%s.dat", confSpaceInfo.id)))
-                    .build()
-                    .calc(taskExecutor);
-
-            PosInterGen posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, referenceEnergies);
-
-            confSpaceInfo.pfuncFactory =
-                    (rcs) -> new NewGradientDescentPfunc(
-                            energyCalculator,
-                            new ConfAStarTree.Builder(energyMatrix, rcs).setTraditional().build(),
-                            new ConfAStarTree.Builder(energyMatrix, rcs).setTraditional().build(),
-                            rcs.getNumConformations(),
-                            posInterGen,
-                            taskExecutor
-                    );
-        }
-
-        List<NewKStar.ScoredSequence> sequences = kstar.run(taskExecutor);
-
-        int i = 0;
-        for (var sequence : sequences) {
-            System.out.println(sequence);
-        }
-
-        var stop = System.currentTimeMillis();
-        System.out.printf("Took %f seconds to run%n", (stop - start) / 1000.);
-
-        /*
-        SequenceAnalyzer analyzer = new SequenceAnalyzer(Lists.newArrayList(kstar.confSpaceInfos()));
-
-        var seq = 1;
-        for (KStar.ScoredSequence sequence : sequences) {
-            System.out.println("result:");
-            System.out.println("\tsequence: " + sequence.sequence);
-            System.out.println("\tscore: " + sequence.score);
-
-            SequenceAnalyzer.Analysis analysis = analyzer.analyze(sequence.sequence, numConfs);
-            System.out.println(analysis);
-
-            analysis.writePdb(String.format("ensemble-%d.pdb", seq++), String.format("Top %d conformations for sequence %s", numConfs, sequence.sequence));
-        }
-         */
-
-        return Main.Success;
-    }
-
     @Override
     public String getCommandName() {
         return CommandName;
@@ -136,5 +50,123 @@ public class CommandCKStar extends RunnableCommand {
     @Override
     public String getCommandDescription() {
         return CommandDescription;
+    }
+
+    @Override
+    public int run(JCommander commander, String[] args) {
+
+        cleanupStuffFromPreviousRuns();
+        var start = System.currentTimeMillis();
+
+        var complex = ConfSpace.fromBytes(FileTools.readFileBytes(complexConfSpacePath));
+        var design = ConfSpace.fromBytes(FileTools.readFileBytes(designConfSpacePath));
+        var target = ConfSpace.fromBytes(FileTools.readFileBytes(targetConfSpacePath));
+        var parallelism = delegate.getParallelism();
+        var taskExecutor = parallelism.makeTaskExecutor();
+
+        var complexConfCalc = new CPUConfEnergyCalculator(complex);
+        var targetConfCalc = new CPUConfEnergyCalculator(target);
+        var designConfCalf = new CPUConfEnergyCalculator(design);
+
+        var complexRefEnergies = new ErefCalculator.Builder(complexConfCalc)
+                .build()
+                .calc(taskExecutor);
+        var targetRefEnergies = new ErefCalculator.Builder(targetConfCalc)
+                .build()
+                .calc(taskExecutor);
+        var designRefEnergies = new ErefCalculator.Builder(designConfCalf)
+                .build()
+                .calc(taskExecutor);
+
+        var complexEnergyMatrix = new EmatCalculator.Builder(complexConfCalc)
+                .setReferenceEnergies(complexRefEnergies)
+                .build()
+                .calc(taskExecutor);
+        var targetEnergyMatrix = new EmatCalculator.Builder(targetConfCalc)
+                .setReferenceEnergies(targetRefEnergies)
+                .build()
+                .calc(taskExecutor);
+        var designEnergyMatrix = new EmatCalculator.Builder(designConfCalf)
+                .setReferenceEnergies(designRefEnergies)
+                .build()
+                .calc(taskExecutor);
+
+        var complexPosInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, complexRefEnergies);
+        var targetPosInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, targetRefEnergies);
+        var designPosInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, designRefEnergies);
+
+        var settings = new NewKStar.Settings.Builder()
+                .setStabilityThreshold(stabilityThreshold)
+                .setMaxNumConf(delegate.maxConfs > 0 ? delegate.maxConfs : Integer.MAX_VALUE)
+                .build();
+
+        var kstar = new NewKStar(target, design, complex, settings);
+        kstar.protein.pfuncFactory = (rcs) -> new NewGradientDescentPfunc(
+                targetConfCalc,
+                new ConfAStarTree.Builder(targetEnergyMatrix, rcs).setTraditional().build(),
+                new ConfAStarTree.Builder(targetEnergyMatrix, rcs).setTraditional().build(),
+                rcs.getNumConformations(),
+                targetPosInterGen,
+                taskExecutor
+        );
+        kstar.protein.confEcalc = targetConfCalc;
+
+        kstar.ligand.pfuncFactory = (rcs) -> new NewGradientDescentPfunc(
+                designConfCalf,
+                new ConfAStarTree.Builder(designEnergyMatrix, rcs).setTraditional().build(),
+                new ConfAStarTree.Builder(designEnergyMatrix, rcs).setTraditional().build(),
+                rcs.getNumConformations(),
+                designPosInterGen,
+                taskExecutor
+        );
+        kstar.ligand.confEcalc = designConfCalf;
+
+        kstar.complex.pfuncFactory = (rcs) -> new NewGradientDescentPfunc(
+                complexConfCalc,
+                new ConfAStarTree.Builder(complexEnergyMatrix, rcs).setTraditional().build(),
+                new ConfAStarTree.Builder(complexEnergyMatrix, rcs).setTraditional().build(),
+                rcs.getNumConformations(),
+                complexPosInterGen,
+                taskExecutor
+        );
+        kstar.complex.confEcalc = complexConfCalc;
+
+        List<NewKStar.ScoredSequence> sequences = kstar.run(taskExecutor);
+        for (var scoredSequence : sequences) {
+            try (var confDb = new ConfDB(kstar.complex.confSpace, kstar.complex.confDBFile)) {
+                var iterator = confDb.getSequence(scoredSequence.sequence)
+                        .energiedConfs(ConfDB.SortOrder.Energy)
+                        .iterator();
+
+                int i = 0;
+                ArrayList<ConfEnergyCalculator.EnergiedCoords> coords = new ArrayList<>();
+
+                while (i < delegate.writeNConfs && iterator.hasNext()) {
+                    var energiedConf = iterator.next();
+                    var assignments = energiedConf.getAssignments();
+                    var posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, complexRefEnergies);
+                    var energiedCoords = complexConfCalc.minimize(assignments, posInterGen.all(complex, assignments));
+                    coords.add(energiedCoords);
+                    i++;
+                }
+
+                // write the PDB file
+                String comment = String.format("Ensemble of %d conformations for:\n\t   State  %s\n\tSequence  [%s]",
+                        coords.size(), complex.name, scoredSequence.sequence.toString(Sequence.Renderer.AssignmentMutations)
+                );
+
+                // pick a name for the ensemble file
+                String seqstr = scoredSequence.sequence.toString(Sequence.Renderer.ResTypeMutations)
+                        .replace(' ', '-');
+                File ensembleFile = new File(delegate.ensembleDir, String.format("seq.%s.pdb", seqstr));
+                PDBIO.writeFileEcoords(coords, ensembleFile, comment);
+            }
+
+            System.out.println(scoredSequence);
+        }
+
+        var stop = System.currentTimeMillis();
+        System.out.printf("Took %f seconds to run%n", (stop - start) / 1000.);
+        return Main.Success;
     }
 }

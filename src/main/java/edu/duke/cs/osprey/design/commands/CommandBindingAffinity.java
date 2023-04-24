@@ -345,12 +345,12 @@ public class CommandBindingAffinity extends RunnableCommand {
             var connectionString = String.format("jdbc:postgresql://%s:%s/%s", dbSettings.get(dbHostnameKey), dbSettings.get(dbPortKey), dbSettings.get(dbNameKey));
             var pgsqlConnInfo = new PostgresConnectionInfo(dbSettings.get(dbUserNameKey), dbSettings.get(dbPasswordKey), connectionString);
             var s3ConnInfo = new S3Settings("us-east-1", "duke-osprey"); // TODO: get this from config
-            var dbScoreWriter = new PostgresScoreWriter(pgsqlConnInfo, s3ConnInfo, delegate.design.getName(), List.of(designFile, commandLineArgs), delegate.numConfs);
+            var dbScoreWriter = new PostgresScoreWriter(pgsqlConnInfo, s3ConnInfo, delegate.design.getName(), List.of(designFile, commandLineArgs), delegate.writeNConfs);
 
             builder.addScoreWriter(dbScoreWriter);
-        } else if (delegate.numConfs > 0) {
-            var saveDir = delegate.saveDir;
-            var scoreWriter = new StructureFileScoreWriter(saveDir, delegate.numConfs);
+        } else if (delegate.writeNConfs > 0) {
+            var saveDir = delegate.ensembleDir;
+            var scoreWriter = new StructureFileScoreWriter(saveDir, delegate.writeNConfs);
             builder.addScoreWriter(scoreWriter);
         }
 

@@ -54,14 +54,6 @@ public interface ConfEnergyCalculator extends AutoCloseable {
 	 */
 	EnergiedCoords minimize(int[] conf, List<PosInter> inters);
 
-	default EnergiedCoords calcOrMinimize(int[] conf, List<PosInter> inters, boolean minimize) {
-		if (minimize) {
-			return minimize(conf, inters);
-		} else {
-			return calc(conf, inters);
-		}
-	}
-
 	/**
 	 * Calculate the rigid (ie unminimized) energy of the conformation, using the provided interactions.
 	 */
@@ -120,14 +112,6 @@ public interface ConfEnergyCalculator extends AutoCloseable {
 
 	default ConfSearch.EnergiedConf minimizeEnergy(ConfSearch.ScoredConf conf, List<PosInter> inters) {
 		return new ConfSearch.EnergiedConf(conf, minimizeEnergy(conf.getAssignments(), inters));
-	}
-
-	default ConfSearch.EnergiedConf calcOrMinimizeEnergy(ConfSearch.ScoredConf conf, List<PosInter> inters, boolean minimize) {
-		if (minimize) {
-			return minimizeEnergy(conf, inters);
-		} else {
-			return calcEnergy(conf, inters);
-		}
 	}
 
 	/**

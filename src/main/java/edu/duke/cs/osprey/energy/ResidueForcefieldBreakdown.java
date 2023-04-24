@@ -197,6 +197,7 @@ public class ResidueForcefieldBreakdown {
 						int rc2 = assignments[pos2.index];
 
 						double energy = emat.getPairwise(pos1.index, rc1, pos2.index, rc2);
+						// TODO: is the below correct?
 						breakdown.setPairwise(pos1.index, 0, pos2.index, 0, energy);
 					}
 				}
