@@ -16,16 +16,13 @@ repositories {
 
 dependencies {
 
-	val kotlinVersion = "1.6.10"
+	val kotlinVersion = "1.8.21"
 
 	// kotlin("jvm")
 	implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
 
 	// kotlin("plugin.serialization")
 	implementation("org.jetbrains.kotlin:kotlin-serialization:$kotlinVersion")
-
-	// id("org.jetbrains.dokka")
-	implementation("org.jetbrains.dokka:dokka-gradle-plugin:$kotlinVersion")
 
 	// id("org.beryx.runtime") version "1.12.5"
 	// https://badass-runtime-plugin.beryx.org
@@ -36,10 +33,6 @@ dependencies {
 
 	// JSON library, The JSON License: https://json.org/license.html
 	implementation("org.json:json:20210307")
-
-	// used by the kotlin dokka plugin
-	implementation("org.jetbrains.dokka:dokka-base:$kotlinVersion")
-	implementation("org.jetbrains.dokka:dokka-core:$kotlinVersion")
 
 	// test dependencies
 	testImplementation("org.hamcrest:hamcrest-all:1.3")

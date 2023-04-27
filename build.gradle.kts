@@ -73,7 +73,7 @@ java {
 }
 
 application {
-	mainClassName = "edu.duke.cs.osprey.design.Main"
+	mainClass.set("edu.duke.cs.osprey.design.Main")
 }
 
 dependencies {
@@ -146,12 +146,6 @@ dependencies {
 }
 
 
-/* NOTE: the IDE thinks `jvmArgs` and `args` are not nullable and shows warnings
-	(and the Kotlin language rules agree with that, as far as I can tell),
-	but for some reason, the Kotlin compiler thinks they are nullable
-	so we need the not null assertions (ie !!). Maybe a compiler bug?
-*/
-@Suppress("UNNECESSARY_NOT_NULL_ASSERTION")
 tasks.withType<JavaExec> {
 	Jvm.addModuleArgs(jvmArgs)
 	doFirst {
@@ -165,7 +159,7 @@ tasks.withType<JavaExec> {
 			|Java:
 			|	$workingDir
 			|	$executable
-			|	$jvmArgsStr -cp "$classpathStr" $main $argsStr
+			|	$jvmArgsStr -cp "$classpathStr" $mainClass $argsStr
 		""".trimMargin())
 	}
 }
@@ -189,8 +183,6 @@ tasks.withType<KotlinCompile> {
 
 		jvmTarget = Jvm.javaLangVersion.toString()
 
-		// enable experimental features so we can use the fancy ktor stuff
-		freeCompilerArgs += "-Xuse-experimental=kotlin.Experimental"
 		freeCompilerArgs += "-XXLanguage:+InlineClasses"
 	}
 }

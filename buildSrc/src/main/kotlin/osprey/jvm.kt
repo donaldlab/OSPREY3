@@ -18,6 +18,6 @@ object Jvm {
 		args ?: throw Error("args is null")
 
 		// add the module args, if not already there
-		args.addAll(moduleArgs.filter { it !in args })
+		listOf(args, moduleArgs.filter { it !in args }).flatten();
 	}
 }

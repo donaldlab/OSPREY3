@@ -27,3 +27,6 @@ nbbuild.xml
 # hugo things
 /doc/themes
 /doc/.hugo_build.lock
+
+# confdbs
+*.confdb
