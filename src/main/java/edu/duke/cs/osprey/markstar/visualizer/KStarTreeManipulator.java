@@ -32,8 +32,6 @@
 
 package edu.duke.cs.osprey.markstar.visualizer;
 
-import org.ojalgo.matrix.transformation.Rotation;
-
 import java.math.BigDecimal;
 import java.util.*;
 

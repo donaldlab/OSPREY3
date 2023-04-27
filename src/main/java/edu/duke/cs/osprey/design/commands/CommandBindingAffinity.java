@@ -332,23 +332,7 @@ public class CommandBindingAffinity extends RunnableCommand {
         builder.setMaxSimultaneousMutations(delegate.maxSimultaneousMutations);
         builder.setStabilityThreshold(stabilityThreshold < 0 ? null : stabilityThreshold);
 
-        if (delegate.saveResultsToDb) { // assuming the validation has already been done at this point.
-            String designFile = "";
-            try {
-                designFile = Files.readString(delegate.design.toPath());
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-
-            var commandLineArgs = String.join(" ", args);
-
-            var connectionString = String.format("jdbc:postgresql://%s:%s/%s", dbSettings.get(dbHostnameKey), dbSettings.get(dbPortKey), dbSettings.get(dbNameKey));
-            var pgsqlConnInfo = new PostgresConnectionInfo(dbSettings.get(dbUserNameKey), dbSettings.get(dbPasswordKey), connectionString);
-            var s3ConnInfo = new S3Settings("us-east-1", "duke-osprey"); // TODO: get this from config
-            var dbScoreWriter = new PostgresScoreWriter(pgsqlConnInfo, s3ConnInfo, delegate.design.getName(), List.of(designFile, commandLineArgs), delegate.writeNConfs);
-
-            builder.addScoreWriter(dbScoreWriter);
-        } else if (delegate.writeNConfs > 0) {
+        if (delegate.writeNConfs > 0) {
             var saveDir = delegate.ensembleDir;
             var scoreWriter = new StructureFileScoreWriter(saveDir, delegate.writeNConfs);
             builder.addScoreWriter(scoreWriter);
@@ -358,35 +342,6 @@ public class CommandBindingAffinity extends RunnableCommand {
     }
 
     private Optional<AffinityDesign> parseAndValidate(File designSpec) {
-
-        if (delegate.saveResultsToDb && delegate.propertiesFile == null) {
-            System.err.println("You requested to save the design to a database, but a properties file containing the database settings was not specified. Exiting.");
-            return Optional.empty();
-        }
-
-        if (delegate.saveResultsToDb) {
-            try(var is = new FileInputStream(delegate.propertiesFile)) {
-                var props = new Properties();
-                props.load(is);
-
-                var expecting = List.of(dbHostnameKey, dbPortKey, dbNameKey, dbUserNameKey, dbPasswordKey);
-
-                expecting.stream()
-                        .filter(key -> !props.containsKey(key))
-                        .forEach(key -> System.out.printf("The properties file must have a key `%s` for configuring the database but does not.%n", key));
-
-                if (expecting.stream().anyMatch(key -> !props.containsKey(key))) {
-                    System.err.println("Properties file does not have all required properties, exiting.");
-                    return Optional.empty();
-                }
-
-                dbSettings = expecting.stream().collect(Collectors.toMap(key -> key, props::getProperty));
-
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
         return getAffinityDesignFromFile(designSpec);
     }
 

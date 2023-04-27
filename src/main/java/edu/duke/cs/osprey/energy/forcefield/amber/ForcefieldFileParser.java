@@ -33,7 +33,6 @@
 package edu.duke.cs.osprey.energy.forcefield.amber;
 
 import com.beust.jcommander.internal.Lists;
-import com.google.common.collect.Streams;
 import one.util.streamex.StreamEx;
 
 import java.io.BufferedReader;
@@ -308,14 +307,12 @@ public class ForcefieldFileParser {
     }
 
     private <T> List<T> concatWithReplacement(List<T> head, List<T> tail, AreSame<T> determiner) {
-        return Streams.concat(
+        return StreamEx.of(
                 head.stream()
                      .filter(headEl -> tail
                         .stream()
-                        .noneMatch(tailEl -> determiner.check(headEl, tailEl))),
-                tail.stream())
-            .collect(Collectors.toList());
-
+                        .noneMatch(tailEl -> determiner.check(headEl, tailEl))))
+                .append(tail.stream()).toList();
     }
 
     private <T> boolean pairwiseEquals(List<T> a, List<T> b) {

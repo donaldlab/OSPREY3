@@ -72,15 +72,6 @@ java {
 	}
 }
 
-idea {
-	module {
-		// use the same output folders as gradle, so the pythonDevelop task works correctly
-		outputDir = sourceSets.main.output.classesDirs.files.first()
-		testOutputDir = sourceSets.test.output.classesDirs.files.first()
-		inheritOutputDirs = false
-	}
-}
-
 application {
 	mainClassName = "edu.duke.cs.osprey.design.Main"
 }
@@ -103,10 +94,8 @@ dependencies {
 
 	// internal osprey libs
 	implementation("colt:colt:1.2.0")
-	implementation("org.apache.commons:commons-math3:3.6.1")
 	implementation("org.apache.commons:commons-collections4:4.1")
 	implementation("com.joptimizer:joptimizer:3.5.1")
-	implementation("org.ojalgo:ojalgo:41.0.0")
 	implementation("org.jogamp.gluegen:gluegen-rt:2.3.2")
 	implementation("org.jogamp.jocl:jocl:2.3.2")
 	implementation("org.mapdb:mapdb:3.0.5")
@@ -119,25 +108,14 @@ dependencies {
 	implementation("org.joml:joml:1.9.19")
 	implementation("org.tukaani:xz:1.8")
 	implementation("net.java.dev.jna:jna:5.10.0")
-	implementation("com.google.guava:guava:29.0-jre")
-	implementation("org.apache.commons:commons-lang3:3.4")
 	implementation("commons-io:commons-io:2.5")
 	implementation("org.tomlj:tomlj:1.0.0")
 	implementation(fileTree("lib"))
 
-	val autoValueVersion = 1.7
-	implementation("ch.obermuhlner:big-math:2.3.0")
 	implementation("com.fasterxml.jackson.core:jackson-databind:2.9.9")
 	implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.9")
 	implementation("com.beust:jcommander:1.72")
-	implementation("one.util:streamex:0.7.3")
-	implementation(platform("software.amazon.awssdk:bom:2.15.48"))
-	implementation("software.amazon.awssdk:s3")
-	implementation("org.postgresql:postgresql:42.2.16")
-	implementation("org.sql2o:sql2o:1.6.0")
-	implementation("com.google.auto.value:auto-value-annotations:$autoValueVersion")
-	annotationProcessor("com.google.auto.value:auto-value:$autoValueVersion")
-
+	implementation("one.util:streamex:0.8.0")
 
 	val ktorVersion = "1.5.4"
 

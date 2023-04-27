@@ -5,15 +5,12 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.tools.BigMath;
-import edu.duke.cs.osprey.tools.ExpFunction;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
-
-import com.google.auto.value.AutoValue;
 
 import static ch.obermuhlner.math.big.DefaultBigDecimalMath.log;
 
@@ -47,7 +44,7 @@ public class ThermodynamicsConfListener implements CommandAnalysis {
     }
 
     private ProbabilityEnergyTuple getConfProperties(ConfSearch.EnergiedConf conf) {
-        return ProbabilityEnergyTuple.create(conf, getLowerBoundProbability(conf), getUpperBoundProbability(conf));
+        return new ProbabilityEnergyTuple(conf, getLowerBoundProbability(conf), getUpperBoundProbability(conf), BigDecimal.valueOf(conf.getEnergy()));
     }
 
     private Stream<ProbabilityEnergyTuple> confPropStream() {
@@ -108,15 +105,5 @@ public class ThermodynamicsConfListener implements CommandAnalysis {
     }
 }
 
-@AutoValue
-abstract class ProbabilityEnergyTuple {
-
-    static ProbabilityEnergyTuple create(ConfSearch.EnergiedConf conf, BigDecimal lowerBoundProbability, BigDecimal upperBoundProbability) {
-        return new AutoValue_ProbabilityEnergyTuple(conf, lowerBoundProbability, upperBoundProbability, BigDecimal.valueOf(conf.getEnergy()));
-    }
-
-    abstract ConfSearch.EnergiedConf conf();
-    abstract BigDecimal lowerBoundProbability();
-    abstract BigDecimal upperBoundProbability();
-    abstract BigDecimal energy();
+record ProbabilityEnergyTuple(ConfSearch.EnergiedConf conf, BigDecimal lowerBoundProbability, BigDecimal upperBoundProbability, BigDecimal energy) {
 }

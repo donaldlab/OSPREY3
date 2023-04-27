@@ -34,14 +34,10 @@ package edu.duke.cs.osprey.ematrix.epic;
 
 import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
-import cern.jet.math.Functions;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction;
-import java.util.ArrayList;
-import java.util.BitSet;
-import java.util.Random;
 import org.apache.commons.math3.special.Erf;
-import org.ojalgo.random.RandomUtils;
-import static org.ojalgo.random.RandomUtils.erf;
+
+import java.util.Random;
 
 /**
  *

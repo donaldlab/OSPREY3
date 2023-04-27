@@ -46,14 +46,6 @@ public class DesignFileDelegate {
     @Parameter(names = "--write-n-confs", description = "The number (n) of best conformations to write in each sequence's ensemble. Defaults to 10.")
     public int writeNConfs = 10;
 
-    @Parameter(names = {"--properties-file", "-p"}, converter = FileConverter.class, validateWith = FileExistsValidation.class,
-            description = "Path to the properties file storing application-specific settings")
-    public File propertiesFile;
-
-    @Parameter(names = {"--save-to-db"}, description = "Flag indicating whether design results should be saved to a DB. " +
-            "You must have a PostgreSQL DB setup to use this, and the properties 'dbHostname', 'dbPort', 'dbName', 'dbUsername' and 'dbPassword' must be set in your properties file, in KEY=VALUE format.")
-    public boolean saveResultsToDb;
-
     @Parameter(names = {"--max-simultaneous-mutations"}, description = "When multiple positions are mutable, the number of simultaneously mutable positions.")
     public int maxSimultaneousMutations = 1;
 
