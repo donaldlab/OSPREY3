@@ -30,6 +30,7 @@
 ** Bruce Donald, Professor of Computer Science
 */
 
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 import osprey.*
@@ -68,7 +69,7 @@ repositories {
 
 java {
 	toolchain {
-		languageVersion.set(JavaLanguageVersion.of(Jvm.javaLangVersion))
+		languageVersion.set(JavaLanguageVersion.of(19))
 	}
 }
 
@@ -178,13 +179,7 @@ tasks.withType<JavaCompile> {
 }
 
 tasks.withType<KotlinCompile> {
-
-	kotlinOptions {
-
-		jvmTarget = Jvm.javaLangVersion.toString()
-
-		freeCompilerArgs += "-XXLanguage:+InlineClasses"
-	}
+	compilerOptions.jvmTarget.set(JvmTarget.JVM_19)
 }
 
 tasks.withType<Test> {
@@ -209,7 +204,6 @@ if (gradle.startParameter.taskNames.any { it.endsWith(":classes") }) {
 val isDev = object {
 	override fun toString() = System.getProperty("isDev") ?: false.toString()
 }
-
 
 tasks {
 

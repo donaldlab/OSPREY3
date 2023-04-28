@@ -5,7 +5,7 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.compiled.AssignedCoords;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
-import edu.duke.cs.osprey.gpu.Structs;
+import edu.duke.cs.osprey.gpu.Precision;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 
 import java.util.List;
@@ -42,7 +42,7 @@ public interface ConfEnergyCalculator extends AutoCloseable {
 
 
 	ConfSpace confSpace();
-	Structs.Precision precision();
+	Precision precision();
 
 	/**
 	 * Build the conformation and calculate its rigid (ie unminimized) energy, using the provided interactions.
@@ -117,12 +117,14 @@ public interface ConfEnergyCalculator extends AutoCloseable {
 	/**
 	 * Builds the best conformation energy calculator based on the given resources.
 	 */
-	static ConfEnergyCalculator makeBest(ConfSpace confSpace, Parallelism parallelism, Structs.Precision precision) {
+	static ConfEnergyCalculator makeBest(ConfSpace confSpace, Parallelism parallelism, Precision precision) {
 
 		// try GPUs first
+		/*
 		if (parallelism.numGpus > 0) {
 			return new CudaConfEnergyCalculator(confSpace, precision, parallelism);
 		}
+		 */
 
 		// TODO: prefer intel if the hardware suitably matched?
 		return new CPUConfEnergyCalculator(confSpace);
@@ -133,6 +135,6 @@ public interface ConfEnergyCalculator extends AutoCloseable {
 	 * and using Float64 precision.
 	 */
 	static ConfEnergyCalculator makeBest(ConfSpace confSpace, Parallelism parallelism) {
-		return makeBest(confSpace, parallelism, Structs.Precision.Float64);
+		return makeBest(confSpace, parallelism, Precision.Float64);
 	}
 }
