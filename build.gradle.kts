@@ -66,11 +66,8 @@ repositories {
 	mavenCentral()
 }
 
-
-java {
-	toolchain {
-		languageVersion.set(JavaLanguageVersion.of(19))
-	}
+kotlin {
+	jvmToolchain(19)
 }
 
 application {
@@ -176,10 +173,6 @@ distributions {
 
 tasks.withType<JavaCompile> {
 	options.compilerArgs.addAll(Jvm.moduleArgs)
-}
-
-tasks.withType<KotlinCompile> {
-	compilerOptions.jvmTarget.set(JvmTarget.JVM_19)
 }
 
 tasks.withType<Test> {
