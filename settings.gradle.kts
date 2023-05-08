@@ -2,5 +2,5 @@
 rootProject.name = "osprey3"
 
 plugins {
-    id("org.gradle.toolchains.foojay-resolver-convention") version("0.4.0")
+    id("org.gradle.toolchains.foojay-resolver-convention") version("0.5.0")
 }
