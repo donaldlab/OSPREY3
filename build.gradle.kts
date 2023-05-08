@@ -66,6 +66,12 @@ repositories {
 	mavenCentral()
 }
 
+java {
+	toolchain {
+		languageVersion.set(JavaLanguageVersion.of(19))
+	}
+}
+
 kotlin {
 	jvmToolchain(19)
 }
