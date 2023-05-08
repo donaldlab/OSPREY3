@@ -115,7 +115,7 @@ dependencies {
 	implementation("com.beust:jcommander:1.72")
 	implementation("one.util:streamex:0.8.0")
 
-	val ktorVersion = "1.5.4"
+	val ktorVersion = "1.6.8"
 
 	// used by the gui
 	implementation("com.cuchazinteractive:kludge:0.2")
