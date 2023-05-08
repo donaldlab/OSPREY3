@@ -5,7 +5,6 @@ import com.beust.jcommander.Parameters;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.design.Main;
 import edu.duke.cs.osprey.design.models.MoleculeDesign;
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
@@ -16,7 +15,7 @@ import edu.duke.cs.osprey.structure.PDBIO;
 import java.nio.file.Paths;
 
 @Parameters(commandDescription = CommandGMEC.CommandDescription)
-public class CommandGMEC extends RunnableCommand {
+public class CommandGMEC extends DelegatingCommand {
 
     public static final String CommandName = "gmec";
     static final String CommandDescription = "Find the GMEC of the conformation space";

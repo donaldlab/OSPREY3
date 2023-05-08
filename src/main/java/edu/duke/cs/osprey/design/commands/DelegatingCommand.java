@@ -7,7 +7,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import edu.duke.cs.osprey.design.Main;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -15,16 +14,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
-import static jogamp.common.os.elf.SectionArmAttributes.Tag.File;
-
-public abstract class RunnableCommand {
-
-    public abstract int run(JCommander commander, String[] args);
-
-    public abstract String getCommandName();
-    public abstract String getCommandDescription();
+public abstract class DelegatingCommand implements CliCommand {
 
     @ParametersDelegate
     protected DesignFileDelegate delegate = new DesignFileDelegate();
@@ -57,13 +48,6 @@ public abstract class RunnableCommand {
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
-
-    void printHelp(JCommander commander) {
-        var msg = String.format("%s: %s", getCommandName(), getCommandDescription());
-        System.out.println(msg);
-        System.out.println();
-        commander.usage();
     }
 
     public <T> Optional<T> parseDesignSpec(Class<T> t) {

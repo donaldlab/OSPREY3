@@ -3,10 +3,8 @@ package edu.duke.cs.osprey.design.commands;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
-import com.beust.jcommander.internal.Lists;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 import edu.duke.cs.osprey.design.Main;
 import edu.duke.cs.osprey.design.models.AffinityDesign;
 import edu.duke.cs.osprey.design.models.ResidueModifier;
@@ -16,7 +14,6 @@ import edu.duke.cs.osprey.structure.Residue;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -24,7 +21,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Parameters(commandDescription = CommandMakeFlexShell.CommandDescription)
-public class CommandMakeFlexShell extends RunnableCommand {
+public class CommandMakeFlexShell extends DelegatingCommand {
     public static final String CommandName = "add-flexible-shell";
     public static final String CommandDescription = "Adds a flexible shell around mutable residues";
 

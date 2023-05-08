@@ -5,7 +5,6 @@ import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.ConfDB;
-import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
@@ -21,11 +20,10 @@ import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.FileTools;
 
 import java.io.File;
-import java.nio.file.Paths;
 import java.util.*;
 
 @Parameters(commandDescription = CommandCKStar.CommandDescription)
-public class CommandCKStar extends RunnableCommand {
+public class CommandCKStar extends DelegatingCommand {
 
     public static final String CommandName = "ckstar";
     public static final String CommandDescription = "Run K* using compiled conformation spaces.";

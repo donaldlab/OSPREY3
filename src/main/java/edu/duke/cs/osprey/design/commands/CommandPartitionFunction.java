@@ -11,7 +11,6 @@ import edu.duke.cs.osprey.design.analysis.CommandAnalysis;
 import edu.duke.cs.osprey.design.analysis.EnergyAnalysisConfListener;
 import edu.duke.cs.osprey.design.analysis.ThermodynamicsConfListener;
 import edu.duke.cs.osprey.design.models.MoleculeDesign;
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
@@ -27,7 +26,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Parameters(commandDescription = CommandPartitionFunction.CommandDescription)
-public class CommandPartitionFunction extends RunnableCommand {
+public class CommandPartitionFunction extends DelegatingCommand {
 
     public static final String CommandName = "stability";
     static final String CommandDescription = "Estimate the partition function value(s) of different conformations";

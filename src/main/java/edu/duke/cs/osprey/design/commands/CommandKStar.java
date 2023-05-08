@@ -17,13 +17,10 @@ import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.tools.FileTools;
 
 import java.io.File;
-import java.nio.file.Paths;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Parameters(commandDescription = CommandKStar.CommandDescription)
-public class CommandKStar extends RunnableCommand {
+public class CommandKStar extends DelegatingCommand {
 
     public static final String CommandName = "kstar";
     public static final String CommandDescription = "Run K* using compiled conformation spaces.";

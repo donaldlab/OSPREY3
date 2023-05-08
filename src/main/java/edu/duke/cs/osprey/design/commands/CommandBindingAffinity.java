@@ -28,17 +28,15 @@ import one.util.streamex.StreamEx;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Parameters(commandDescription = CommandBindingAffinity.CommandDescription)
-public class CommandBindingAffinity extends RunnableCommand {
+public class CommandBindingAffinity extends DelegatingCommand {
 
     public static final String CommandName = "affinity";
     public static final String CommandDescription = "Compute an epsilon approximation to binding affinity (K*).";
