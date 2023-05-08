@@ -74,13 +74,17 @@ class TestCompiledAtomPairs : FunSpec({
 
 			return MatcherResult(
 				passed,
-				"""
-					|List should contain:
-					|	${expected.toList().format()}
-					|but was:
-					|	${value.format()}
-				""".trimMargin(),
-				"nope"
+				{
+					"""
+						|List should contain:
+						|	${expected.toList().format()}
+						|but was:
+						|	${value.format()}
+					""".trimMargin()
+				},
+				{
+					"nope"
+				}
 			)
 		}
 	}
@@ -194,15 +198,17 @@ class TestCompiledAtomPairs : FunSpec({
 
 			return MatcherResult(
 				missing.isEmpty() && unexpected.isEmpty(),
-				"""
-					|List should contain:
-					|	${expectedAtoms.format()}
-					|but these pairs were missing:
-					|	${missing.format()}
-					|and these pairs weren't expected:
-					|	${unexpected.format()}
-				""".trimMargin(),
-				"nope"
+				{
+					"""
+						|List should contain:
+						|	${expectedAtoms.format()}
+						|but these pairs were missing:
+						|	${missing.format()}
+						|and these pairs weren't expected:
+						|	${unexpected.format()}
+					""".trimMargin()
+				},
+				{ "nope" }
 			)
 		}
 	}
@@ -216,8 +222,8 @@ class TestCompiledAtomPairs : FunSpec({
 
 			return MatcherResult(
 				uncachedPairs.isEmpty(),
-				"Atom pairs list has ${uncachedPairs.size} entries without any forcefield params",
-				"nope"
+				{ "Atom pairs list has ${uncachedPairs.size} entries without any forcefield params" },
+				{ "nope" }
 			)
 		}
 	}

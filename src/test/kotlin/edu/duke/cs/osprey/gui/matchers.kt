@@ -10,14 +10,18 @@ private fun testDoubles(obs: Double?, exp: Double?) =
 
 		MatcherResult(
 			obs == exp,
-			"$obs should be equal to $exp",
-			"$obs should not be equal to $exp"
+			{ "$obs should be equal to $exp" },
+			{ "$obs should not be equal to $exp" }
 		)
 
 	} else if (exp.isNaN() || obs.isNaN()) {
 
 		val msg = "NaN values can pass no tests, since by design NaN != NaN"
-		MatcherResult(false, msg, msg)
+		MatcherResult(
+			false,
+			{ msg },
+			{ msg }
+		)
 
 	} else {
 		null
@@ -39,8 +43,8 @@ class AbsoluteMatcher(private val exp: Double?, private val epsilon: Double) : M
 			val abserr = (value - exp).abs()
 			MatcherResult(
 				abserr <= epsilon,
-				"$value should be equal to $exp, but absolute error $abserr is more than epsilon $epsilon",
-				"$value should not be equal to $exp, but absolute error $abserr is within epsilon $epsilon"
+				{ "$value should be equal to $exp, but absolute error $abserr is more than epsilon $epsilon" },
+				{ "$value should not be equal to $exp, but absolute error $abserr is within epsilon $epsilon" }
 			)
 		}
 }
@@ -62,8 +66,8 @@ class RelativeMatcher(private val exp: Double?, private val epsilon: Double) : M
 			val relerr = (value - exp).abs()/exp.abs()
 			MatcherResult(
 				relerr <= epsilon,
-				"$value should be equal to $exp, but relative error $relerr is more than epsilon $epsilon",
-				"$value should not be equal to $exp, but relative error $relerr is within epsilon $epsilon"
+				{ "$value should be equal to $exp, but relative error $relerr is more than epsilon $epsilon" },
+				{ "$value should not be equal to $exp, but relative error $relerr is within epsilon $epsilon" }
 			)
 		}
 }

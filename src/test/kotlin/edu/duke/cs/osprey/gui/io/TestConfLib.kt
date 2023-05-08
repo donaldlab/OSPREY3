@@ -9,7 +9,6 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.collections.shouldExist
 import io.kotest.matchers.doubles.shouldBeZero
-import io.kotest.matchers.equality.shouldNotBeEqualToComparingFields
 import io.kotest.matchers.maps.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -61,23 +60,18 @@ class TestConfLib : FunSpec({
 			}
 
 			motions.size shouldBe 1
-			motions[0].shouldBeTypeOf<ConfLib.ContinuousMotion.DihedralAngle> { motion ->
-				motion.id shouldBe 1
-				motion.a.shouldBeTypeOf<ConfLib.AnchorAtomPointer> { a ->
-					a.anchor.id shouldBe 1
-					a.index shouldBe 1
-				}
-				motion.b.shouldBeTypeOf<ConfLib.AnchorAtomPointer> { b ->
-					b.anchor.id shouldBe 1
-					b.index shouldBe 0
-				}
-				motion.c.shouldBeTypeOf<ConfLib.AtomInfo> { c ->
-					c.name shouldBe "CB"
-				}
-				motion.d.shouldBeTypeOf<ConfLib.AtomInfo> { d ->
-					d.name shouldBe "HB1"
-				}
-			}
+			val motion = motions[0].shouldBeTypeOf<ConfLib.ContinuousMotion.DihedralAngle>()
+			motion.id shouldBe 1
+			val pointerA = motion.a.shouldBeTypeOf<ConfLib.AnchorAtomPointer>()
+			pointerA.anchor.id shouldBe 1
+			pointerA.index shouldBe 1
+			val pointerB = motion.b.shouldBeTypeOf<ConfLib.AnchorAtomPointer>()
+			pointerB.anchor.id shouldBe 1
+			pointerB.index shouldBe 0
+			val atomInfoC = motion.c.shouldBeTypeOf<ConfLib.AtomInfo>()
+			atomInfoC.name shouldBe "CB"
+			val atomInfoD = motion.d.shouldBeTypeOf<ConfLib.AtomInfo>()
+			atomInfoD.name shouldBe "HB1"
 
 			confs.size shouldBe 1
 			confs.getValue("ALA").run {
@@ -86,12 +80,10 @@ class TestConfLib : FunSpec({
 				coords[cb] shouldBe Vector3d(19.617, 5.198, 24.407)
 
 				anchorCoords.size shouldBe 2
-				anchorCoords.getValue(anchorCA).shouldBeTypeOf<ConfLib.AnchorCoords.Single> {
-					it.b shouldBe Vector3d(20.267, 6.768, 22.647)
-				}
-				anchorCoords.getValue(anchorN).shouldBeTypeOf<ConfLib.AnchorCoords.Single> {
-					it.c shouldBe Vector3d(10.668, 14.875, 20.325)
-				}
+				val singleB = anchorCoords.getValue(anchorCA).shouldBeTypeOf<ConfLib.AnchorCoords.Single>()
+				singleB.b shouldBe Vector3d(20.267, 6.768, 22.647)
+				val singleC = anchorCoords.getValue(anchorN).shouldBeTypeOf<ConfLib.AnchorCoords.Single>()
+				singleC.c shouldBe Vector3d(10.668, 14.875, 20.325)
 			}
 		}
 
@@ -143,9 +135,8 @@ class TestConfLib : FunSpec({
 				coords.size shouldBe 10
 				coords[atoms.find { it.name == "HG3" }] shouldBe Vector3d(21.152899, 20.472575, 35.499174)
 
-				anchorCoords.getValue(anchor).shouldBeTypeOf<ConfLib.AnchorCoords.Double> {
-					it.d shouldBe Vector3d(21.102527, 24.472094, 37.053483)
-				}
+				val vector = anchorCoords.getValue(anchor).shouldBeTypeOf<ConfLib.AnchorCoords.Double>()
+				vector.d shouldBe Vector3d(21.102527, 24.472094, 37.053483)
 			}
 		}
 
@@ -224,7 +215,7 @@ class TestConfLib : FunSpec({
 		val frag2 = emptyFrag("foo")
 		val frag3 = emptyFrag("foo")
 
-		val (toml, idsByFrag) = listOf(frag1, frag2, frag3)
+		val (_, idsByFrag) = listOf(frag1, frag2, frag3)
 			.toToml(resolveIdCollisions = true)
 
 		idsByFrag[frag1] shouldBe "foo"

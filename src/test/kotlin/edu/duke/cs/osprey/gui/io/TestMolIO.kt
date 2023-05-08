@@ -278,14 +278,10 @@ class TestMolIO : FunSpec({
 	context("PDB export") {
 
 		test("1cc8") {
-			Molecule.fromPDB(OspreyGui.getResourceAsString("1cc8.pdb"))
-				.shouldBeInstanceOf<Polymer> { mol ->
-
-					// the raw PDB file has just one chain
-					mol.chains.size shouldBe 1
-
-					mol.toPDB(throwOnNonChainPolymerAtoms = true)
-				}
+			val polymer = Molecule.fromPDB(OspreyGui.getResourceAsString("1cc8.pdb")).shouldBeInstanceOf<Polymer>()
+			// the raw PDB file has just one chain
+			polymer.chains.size shouldBe 1
+			polymer.toPDB(throwOnNonChainPolymerAtoms = true)
 		}
 
 		test("1cc8, partitioned, combined") {
@@ -314,14 +310,10 @@ class TestMolIO : FunSpec({
 
 			val chainIdGen = ChainIdGeneratorAZ()
 			val chainGen = ChainGeneratorByMolType(chainIdGen)
-			mols.combine("combined", chainIdGen, chainGen).first
-				.shouldBeInstanceOf<Polymer> { mol ->
-
-					mol.chains.size shouldBe 5
-					mol.chains.map { it.residues.size }.sorted() shouldBe listOf(1, 1, 1, 72, 117)
-
-					mol.toPDB(throwOnNonChainPolymerAtoms = true)
-				}
+			val polymer = mols.combine("combined", chainIdGen, chainGen).first.shouldBeInstanceOf<Polymer>()
+			polymer.chains.size shouldBe 5
+			polymer.chains.map { it.residues.size }.sorted() shouldBe listOf(1, 1, 1, 72, 117)
+			polymer.toPDB(throwOnNonChainPolymerAtoms = true)
 		}
 	}
 })

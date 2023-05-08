@@ -455,9 +455,8 @@ class TestConfSpaceCompiler : FunSpec({
 
 					// make sure we got the right dofs
 					dofs.size shouldBe 1
-					dofs[0].shouldBeTypeOf<CompiledDihedralAngle.Dof> { angle ->
-						(angle.max() - angle.min()).toDegrees() shouldBe 10.0.absolutely(1e-9)
-					}
+					val angle = dofs[0].shouldBeTypeOf<CompiledDihedralAngle.Dof>()
+					(angle.max() - angle.min()).toDegrees() shouldBe 10.0.absolutely(1e-9)
 
 					// we shouldn't have static atom pairs
 					getIndices(0).size() shouldBe 0
@@ -476,9 +475,8 @@ class TestConfSpaceCompiler : FunSpec({
 					// make sure we got the right dofs
 					dofs.size shouldBe 2
 					for (i in 0 until 2) {
-						dofs[i].shouldBeTypeOf<CompiledDihedralAngle.Dof> { angle ->
-							(angle.max() - angle.min()).toDegrees() shouldBe 18.0.absolutely(1e-9)
-						}
+						val angle = dofs[i].shouldBeTypeOf<CompiledDihedralAngle.Dof>()
+						(angle.max() - angle.min()).toDegrees() shouldBe 18.0.absolutely(1e-9)
 					}
 
 					// we shouldn't have static atom pairs
@@ -499,9 +497,8 @@ class TestConfSpaceCompiler : FunSpec({
 					// make sure we got the right dofs
 					dofs.size shouldBe 2
 					for (i in 0 until 2) {
-						dofs[i].shouldBeTypeOf<CompiledDihedralAngle.Dof> { angle ->
-							(angle.max() - angle.min()).toDegrees() shouldBe 18.0.absolutely(1e-9)
-						}
+						val angle = dofs[i].shouldBeTypeOf<CompiledDihedralAngle.Dof>()
+						(angle.max() - angle.min()).toDegrees() shouldBe 18.0.absolutely(1e-9)
 					}
 
 					// we shouldn't have static atom pairs
@@ -521,9 +518,8 @@ class TestConfSpaceCompiler : FunSpec({
 					// make sure we got the right dofs
 					dofs.size shouldBe 4
 					for (i in 0 until 4) {
-						dofs[i].shouldBeTypeOf<CompiledDihedralAngle.Dof> { angle ->
-							(angle.max() - angle.min()).toDegrees() shouldBe 18.0.absolutely(1e-9)
-						}
+						val angle = dofs[i].shouldBeTypeOf<CompiledDihedralAngle.Dof>()
+						(angle.max() - angle.min()).toDegrees() shouldBe 18.0.absolutely(1e-9)
 					}
 
 					// we shouldn't have static atom pairs
@@ -563,9 +559,8 @@ class TestConfSpaceCompiler : FunSpec({
 				compiledConfSpace.makeCoords().run {
 					// make sure we got the right dofs
 					dofs.size shouldBe 1
-					dofs[0].shouldBeTypeOf<CompiledDihedralAngle.Dof> { angle ->
-						(angle.max() - angle.min()).toDegrees() shouldBe 18.0.absolutely(1e-9)
-					}
+					val angle = dofs[0].shouldBeTypeOf<CompiledDihedralAngle.Dof>()
+					(angle.max() - angle.min()).toDegrees() shouldBe 18.0.absolutely(1e-9)
 
 					// we should have static atom pairs too
 					getIndices(0).size() shouldBeGreaterThan 0
@@ -601,10 +596,9 @@ class TestConfSpaceCompiler : FunSpec({
 					// make sure we got the right dofs
 					dofs.size shouldBe 6
 					for (i in 0 until 6) {
-						dofs[i].shouldBeTypeOf<CompiledTranslationRotation.Dof> { dof ->
-							listOf(2.0, 5.0.toRadians()).shouldContain(dof.max)
-							listOf(-2.0, (-5.0).toRadians()).shouldContain(dof.min)
-						}
+						val dof = dofs[i].shouldBeTypeOf<CompiledTranslationRotation.Dof>()
+						listOf(2.0, 5.0.toRadians()).shouldContain(dof.max)
+						listOf(-2.0, (-5.0).toRadians()).shouldContain(dof.min)
 					}
 
 					// we should have static atom pairs too

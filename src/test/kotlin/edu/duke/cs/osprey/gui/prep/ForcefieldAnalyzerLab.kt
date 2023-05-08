@@ -12,7 +12,7 @@ import edu.duke.cs.osprey.tools.FileTools
 fun main() {
 
 	val mols = Molecule.fromOMOL(FileTools.readFile("/home/jeff/dlab/osprey3/src/test/resources/1dg9.min.omol"))
-	val bptpase = mols.find { it.findTypeOrThrow() == MoleculeType.Protein }!!
+	mols.find { it.findTypeOrThrow() == MoleculeType.Protein }!!
 	val hepes = mols.find { it.findTypeOrThrow() == MoleculeType.SmallMolecule }!!
 
 	val ffa = ForcefieldAnalyzer(mols)
