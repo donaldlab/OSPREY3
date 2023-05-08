@@ -2,7 +2,6 @@
 image: fedora/latest
 environment:
     LC_ALL: en_US.utf8
-    JAVA_HOME: ~/software/jdk
 packages:
   - wget
   - tar
@@ -17,6 +16,7 @@ tasks:
       tar xf OpenJDK19U-jdk_x64_linux_hotspot_19.0.2_7.tar.gz
       mv jdk-19.0.2+7 jdk
   - gradlew-assemble: |
+      export JAVA_HOME=$HOME/software/jdk
       cd osprey
       ./gradlew assembleDist
       ln build/distributions/osprey*.tar build/distributions/osprey-srht.tar
