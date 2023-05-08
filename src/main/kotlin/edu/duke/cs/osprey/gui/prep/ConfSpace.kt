@@ -33,14 +33,21 @@ class ConfSpace(val mols: List<Pair<MoleculeType,Molecule>>) {
 	// and conformations but different coordinates (e.g., an alanine is an alanine whether it's in its D or L conformation,
 	// but we don't want to apply the L confs to a D-alanine). If this field is specified, then it's used, otherwise all
 	// conflibs are used for determining fragments for a conformation.
-	val conflibsByMol: MutableMap<Molecule, MutableList<ConfLib>> = IdentityHashMap()
+	private val conflibsByMol: MutableMap<Molecule, MutableList<ConfLib>> = IdentityHashMap()
 
 	fun addConflibByMol(mol: Molecule, conflib: ConfLib) {
 		conflibsByMol
 			.getOrPut(mol) { ArrayList() }
 			.add(conflib)
+
+		if (!conflibs.contains(conflib)) {
+			conflibs.add(conflib)
+		}
 	}
 
+	fun getConflibsByMol(mol: Molecule) : MutableList<ConfLib> {
+		return conflibsByMol.getOrDefault(mol, mutableListOf())
+	}
 
 	val designPositionsByMol: MutableMap<Molecule,MutableList<DesignPosition>> = IdentityHashMap()
 

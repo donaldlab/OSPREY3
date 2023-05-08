@@ -80,8 +80,26 @@ open class Molecule(
 		return dst to maps
 	}
 
-	open fun invertChirality() : Molecule {
-		return this.transformCopy() { Vector3d(it.x, it.y, -it.z) }.first
+	open fun invertedCopy() : Molecule {
+		return this.transformCopy { Vector3d(it.x, it.y, -it.z) }.first
+	}
+
+	// negate the Z coordinate of all the atoms in-place
+	open fun invertedInPlace() : Molecule {
+		for (atom in atoms) {
+			atom.invertInPlace()
+		}
+
+		return this
+	}
+
+	// apply the transform to all the atoms in-place
+	open fun transformInPlace(transform: (Vector3d) -> Vector3d = { it }) : Molecule {
+		for (atom in atoms) {
+			atom.transformInPlace(transform)
+		}
+
+		return this
 	}
 
 	inner class Atoms internal constructor(internal val list: MutableList<Atom> = ArrayList()) : List<Atom> by list {
@@ -454,16 +472,14 @@ data class Atom(
 			pos = transform.invoke(pos)
 		)
 
-	private fun invert(axis: Int) = copy(
-		element = element,
-		name = name,
-		pos = when (axis) {
-			0 -> Vector3d(-pos.x, pos.y, pos.z)
-			1 -> Vector3d(pos.x, -pos.y, pos.z)
-			2 -> Vector3d(pos.x, pos.y, -pos.z)
-			else -> throw IllegalArgumentException("There are only three axes to choose from (x, y, z), corresponding to 0, 1, 2. Was asked to invert over axis $axis.")
-		}
-	)
+	fun transformInPlace(transform: (Vector3d) -> Vector3d = { Vector3d(it) }) {
+		val newPos = transform.invoke(pos)
+		assignCoords(pos, newPos)
+	}
+
+	fun invertInPlace() {
+		return transformInPlace { Vector3d(it.x, it.y, -it.z) }
+	}
 
 	/** Make a human-readable label for the atom using information from the molecule */
 	fun label(mol: Molecule): String =
@@ -680,4 +696,10 @@ fun Collection<Molecule>.combine(
 	}
 
 	return dstMol to atomMap
+}
+
+fun assignCoords(to: Vector3d, from: Vector3d) {
+	to.x = from.x
+	to.y = from.y
+	to.z = from.z
 }

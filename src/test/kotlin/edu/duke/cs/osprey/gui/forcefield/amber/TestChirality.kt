@@ -9,15 +9,42 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.comparables.shouldBeEqualComparingTo
 import io.kotest.matchers.equality.shouldBeEqualToComparingFields
+import io.kotest.matchers.equality.shouldNotBeEqualToComparingFields
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.types.shouldBeSameInstanceAs
+import io.kotest.matchers.types.shouldNotBeSameInstanceAs
 import org.joml.Vector3d
 
 /* Tests of the preparation of molecules that are dextrorotatory. */
 class TestChirality : FunSpec({
 
     fun invertOverZAxis(pos: Vector3d) = Vector3d(pos.x, pos.y, -pos.z)
+
+    context("in-place versus copying inversions") {
+        val lThanatin = Molecule.fromPDB(OspreyGui.getResourceAsString("dexDesign/thanatin-chain-b.pdb"))
+        val dThanatin = lThanatin.invertedCopy()
+
+        lThanatin shouldNotBeSameInstanceAs dThanatin
+
+        dThanatin.atoms.zip(lThanatin.atoms).forEach { (cpyAtom, originalAtom) ->
+            cpyAtom.pos shouldNotBeEqualToComparingFields originalAtom.pos
+        }
+
+        // flip it once and back
+        dThanatin.atoms[0].invertInPlace()
+        dThanatin.atoms[0].pos.z shouldBeEqualComparingTo lThanatin.atoms[0].pos.z
+        dThanatin.atoms[0].invertInPlace()
+
+        val inPlaceInversion = lThanatin.invertedInPlace()
+        lThanatin shouldBeSameInstanceAs inPlaceInversion
+
+        dThanatin.atoms.zip(inPlaceInversion.atoms).forEach { (cpyAtom, inPlaceAtom) ->
+            cpyAtom.pos shouldBeEqualToComparingFields inPlaceAtom.pos
+        }
+    }
 
     context("missing atoms") {
         val lThanatin = Molecule.fromPDB(OspreyGui.getResourceAsString("dexDesign/thanatin-chain-b.pdb"))
@@ -190,10 +217,10 @@ class TestChirality : FunSpec({
     }
 
     context("net charges") {
-
+        // empty
     }
 
     context("minimization") {
-
+        // empty
     }
 })

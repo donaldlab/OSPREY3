@@ -405,7 +405,7 @@ class TestConfSpace : FunSpec({
 			name = "invalid conflib for protein specified so should fail"
 			conflibs.addAll(listOf(emptyConfLib, lConflib))
 			designPositionsByMol[protein] = mutableListOf(pos1)
-			conflibsByMol[protein] = mutableListOf(emptyConfLib)
+			addConflibByMol(protein, emptyConfLib)
 			positionConfSpaces.getOrMake(pos1).apply {
 				shouldThrow<IllegalArgumentException> { // this should fail when there's no GLY fragments in the conflibs
 					addConformationsFromLibraries(pos1, "GLY")
@@ -417,7 +417,7 @@ class TestConfSpace : FunSpec({
 			name = "Conflibs with fragments with same ids but per-molecule conflib specified"
 			conflibs.addAll(listOf(dConflib, lConflib))
 			designPositionsByMol[protein] = mutableListOf(pos1)
-			conflibsByMol[protein] = mutableListOf(lConflib)
+			addConflibByMol(protein, lConflib)
 			positionConfSpaces.getOrMake(pos1).apply {
 				addConformationsFromLibraries(pos1, "ALA")
 				confs.shouldNotBeEmpty()
@@ -429,7 +429,7 @@ class TestConfSpace : FunSpec({
 			name = "Conflibs with fragments with same ids but per-molecule conflib specified"
 			conflibs.addAll(listOf(dConflib, lConflib))
 			designPositionsByMol[protein] = mutableListOf(pos1)
-			conflibsByMol[protein] = mutableListOf(lConflib)
+			addConflibByMol(protein, lConflib)
 			positionConfSpaces.getOrMake(pos1).apply {
 				addConformationsFromLibraries(pos1, "ALA")
 				confs.shouldNotBeEmpty()
@@ -438,7 +438,7 @@ class TestConfSpace : FunSpec({
 		}
 
 		ConfSpace(listOf(MoleculeType.Protein to protein)).apply {
-			name = "Conflibs with fragments with same types shoudl be picked up (even if they're from different conflibs) unless conflibsByMol specified."
+			name = "Conflibs with fragments with same types should be picked up (even if they're from different conflibs) unless conflibsByMol specified."
 			conflibs.addAll(listOf(dConflib, lConflib))
 			designPositionsByMol[protein] = mutableListOf(pos1)
 			positionConfSpaces.getOrMake(pos1).apply {
