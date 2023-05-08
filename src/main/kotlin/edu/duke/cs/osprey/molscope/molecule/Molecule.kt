@@ -117,89 +117,89 @@ open class Molecule(
 
 	inner class Bonds internal constructor() {
 
-		// represent the bonds as a doubly-linked adjacency list
-		internal val adjacency = IdentityHashMap<Atom,MutableSet<Atom>>()
+        // represent the bonds as a doubly-linked adjacency list
+        internal val adjacency = IdentityHashMap<Atom, MutableSet<Atom>>()
 
-		fun bondedAtoms(atom: Atom): MutableSet<Atom> =
-			adjacency.getOrPut(atom) { Atom.identitySet() }
+        fun bondedAtoms(atom: Atom): MutableSet<Atom> =
+            adjacency.getOrPut(atom) { Atom.identitySet() }
 
-		fun bondedAtomsSorted(atom: Atom): List<Atom> =
-			bondedAtoms(atom).sortedBy { it.name }
+        fun bondedAtomsSorted(atom: Atom): List<Atom> =
+            bondedAtoms(atom).sortedBy { it.name }
 
-		fun add(a1: Atom, a2: Atom): Boolean {
+        fun add(a1: Atom, a2: Atom): Boolean {
 
-			if (a1 === a2) {
-				throw IllegalArgumentException("no self bonds allowed")
-			}
+            if (a1 === a2) {
+                throw IllegalArgumentException("no self bonds allowed")
+            }
 
-			// just in case...
-			assert { atoms.any { it === a1 } }
-			assert { atoms.any { it === a2 } }
+            // just in case...
+            assert { atoms.any { it === a1 } }
+            assert { atoms.any { it === a2 } }
 
-			val wasAdded1 = bondedAtoms(a1).add(a2)
-			val wasAdded2 = bondedAtoms(a2).add(a1)
-			assert(wasAdded1 == wasAdded2) { "bond adjacency table mismatch" }
-			return wasAdded1
-		}
+            val wasAdded1 = bondedAtoms(a1).add(a2)
+            val wasAdded2 = bondedAtoms(a2).add(a1)
+            assert(wasAdded1 == wasAdded2) { "bond adjacency table mismatch" }
+            return wasAdded1
+        }
 
-		fun add(pair: AtomPair) = add(pair.a, pair.b)
+        fun add(pair: AtomPair) = add(pair.a, pair.b)
 
-		fun remove(a1: Atom, a2: Atom): Boolean {
-			val wasRemoved1 = bondedAtoms(a1).remove(a2)
-			val wasRemoved2 = bondedAtoms(a2).remove(a1)
-			assert(wasRemoved1 == wasRemoved2) { "bond adjacency table mismatch" }
-			return wasRemoved1
-		}
+        fun remove(a1: Atom, a2: Atom): Boolean {
+            val wasRemoved1 = bondedAtoms(a1).remove(a2)
+            val wasRemoved2 = bondedAtoms(a2).remove(a1)
+            assert(wasRemoved1 == wasRemoved2) { "bond adjacency table mismatch" }
+            return wasRemoved1
+        }
 
-		fun remove(pair: AtomPair) = remove(pair.a, pair.b)
+        fun remove(pair: AtomPair) = remove(pair.a, pair.b)
 
-		fun isBonded(a1: Atom, a2: Atom) =
-			bondedAtoms(a1).find { it === a2 } != null
+        fun isBonded(a1: Atom, a2: Atom) =
+            bondedAtoms(a1).find { it === a2 } != null
 
-		fun isBonded(pair: AtomPair) = isBonded(pair.a, pair.b)
+        fun isBonded(pair: AtomPair) = isBonded(pair.a, pair.b)
 
-		fun clear() {
-			adjacency.values.forEach { it.clear() }
-		}
+        fun clear() {
+            adjacency.values.forEach { it.clear() }
+        }
 
-		fun count() = adjacency.values.sumBy { it.size }/2
+        fun count() = adjacency.values.sumOf { it.size } / 2
 
-		fun toSet(): Set<AtomPair> =
-			LinkedHashSet<AtomPair>().apply {
-				for (a1 in atoms) {
-					// sort the bonded atoms, so the bond list is deterministic
-					for (a2 in bondedAtomsSorted(a1)) {
-						add(AtomPair(a1, a2))
-					}
-				}
-			}
+        fun toSet(): Set<AtomPair> =
+            LinkedHashSet<AtomPair>().apply {
+                for (a1 in atoms) {
+                    // sort the bonded atoms, so the bond list is deterministic
+                    for (a2 in bondedAtomsSorted(a1)) {
+                        add(AtomPair(a1, a2))
+                    }
+                }
+            }
 
-		fun connectedComponents(amongAtoms: Collection<Atom> = atoms): List<Set<Atom>> {
+        fun connectedComponents(amongAtoms: Collection<Atom> = atoms): List<Set<Atom>> {
 
-			val out = ArrayList<Set<Atom>>()
+            val out = ArrayList<Set<Atom>>()
 
-			val atomQueue = amongAtoms.toIdentitySet()
-			while (atomQueue.isNotEmpty()) {
+            val atomQueue = amongAtoms.toIdentitySet()
+            while (atomQueue.isNotEmpty()) {
 
-				// get an arbitrary atom we haven't seen yet
-				val atom = atomQueue.first()
+                // get an arbitrary atom we haven't seen yet
+                val atom = atomQueue.first()
 
-				// gather its connected component
-				val component = dfs(
-					source = atom,
-					visitSource = true,
-					shouldVisit = { _, to, _ -> to in atomQueue }
-				)
-				.map { it.atom }
-				.toIdentitySet()
+                // gather its connected component
+                val component = dfs(
+                    source = atom,
+                    visitSource = true,
+                    shouldVisit = { _, to, _ -> to in atomQueue }
+                )
+                    .map { it.atom }
+                    .toIdentitySet()
 
-				atomQueue.removeAll(component)
-				out.add(component)
-			}
+                atomQueue.removeAll(component)
+                out.add(component)
+            }
 
-			return out
-		}
-	}
+            return out
+        }
+    }
 	val bonds = Bonds()
 
 	/**

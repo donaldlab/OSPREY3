@@ -174,29 +174,29 @@ class TestConfSpaceCompiler : FunSpec({
 	fun AssignedCoords.calcEnergy() = CPUConfEnergyCalculator(confSpace).calcEnergy(assignments, allInters())
 	fun AssignedCoords.minimizeEnergy() = CPUConfEnergyCalculator(confSpace).minimizeEnergy(assignments, allInters())
 
-	fun checkMolSizes(confSpace: ConfSpace) {
+    fun checkMolSizes(confSpace: ConfSpace) {
 
-		// calculate the expected values
-		val mols = confSpace.mols.map { it.second }
-		val numResidues = mols
-			.filterIsInstance<Polymer>()
-			.sumBy { mol ->
-				mol.chains.sumBy { it.residues.size }
-			}
-		val numAtoms = mols.sumBy { it.atoms.size }
+        // calculate the expected values
+        val mols = confSpace.mols.map { it.second }
+        val numResidues = mols
+            .filterIsInstance<Polymer>()
+            .sumOf { mol ->
+                mol.chains.sumOf { it.residues.size }
+            }
+        val numAtoms = mols.sumOf { it.atoms.size }
 
-		// get the compiled wild-type molecule
-		val compiledConfSpace = confSpace.compile()
-		val conf = compiledConfSpace
-			.positions.map { pos ->
-				pos.confs.first { it.id.startsWith("wt-") }!!.index
-			}
-			.toIntArray()
-		val confMol = compiledConfSpace.makeCoords(conf).toMol()
+        // get the compiled wild-type molecule
+        val compiledConfSpace = confSpace.compile()
+        val conf = compiledConfSpace
+            .positions.map { pos ->
+                pos.confs.first { it.id.startsWith("wt-") }!!.index
+            }
+            .toIntArray()
+        val confMol = compiledConfSpace.makeCoords(conf).toMol()
 
-		confMol.residues.size shouldBe numResidues
-		confMol.residues.sumOf { it.atoms.size } shouldBe numAtoms
-	}
+        confMol.residues.size shouldBe numResidues
+        confMol.residues.sumOf { it.atoms.size } shouldBe numAtoms
+    }
 
 	fun checkMolSizes(resourcePath: String) =
 		checkMolSizes(ConfSpace.fromToml(FileTools.readResource(resourcePath)))
@@ -231,10 +231,10 @@ class TestConfSpaceCompiler : FunSpec({
 			.makeCoords()
 
 		test("molecule sizes") {
-			val confMol = conf.toMol()
-			confMol.residues.size shouldBe mol.chains.sumBy { it.residues.size }
-			confMol.residues.sumBy { it.atoms.size } shouldBe mol.atoms.size
-		}
+            val confMol = conf.toMol()
+            confMol.residues.size shouldBe mol.chains.sumOf { it.residues.size }
+            confMol.residues.sumOf { it.atoms.size } shouldBe mol.atoms.size
+        }
 
 		test("amber") {
 			conf.calcAmber96().shouldBeEnergy(-489.08432295295387)
@@ -285,10 +285,10 @@ class TestConfSpaceCompiler : FunSpec({
 				.makeCoords()
 
 			test("molecule sizes") {
-				val confMol = conf.toMol()
-				confMol.residues.size shouldBe mol.chains.sumBy { it.residues.size }
-				confMol.residues.sumBy { it.atoms.size } shouldBe mol.atoms.size
-			}
+                val confMol = conf.toMol()
+                confMol.residues.size shouldBe mol.chains.sumOf { it.residues.size }
+                confMol.residues.sumOf { it.atoms.size } shouldBe mol.atoms.size
+            }
 
 			test("amber") {
 				conf.calcAmber96().shouldBeEnergy(-2.908253272320646)

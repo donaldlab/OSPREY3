@@ -110,12 +110,12 @@ enum class Element(val number: Int, val symbol: String) {
 		private val bySymbol =
 			HashMap<String,Element>().apply {
 				for (element in values()) {
-					put(element.symbol.toLowerCase(), element)
+					put(element.symbol.lowercase(), element)
 				}
 			}
 
 		fun getOrNull(symbol: String): Element? =
-			bySymbol[symbol.toLowerCase()]
+			bySymbol[symbol.lowercase()]
 
 		operator fun get(symbol: String) =
 			getOrNull(symbol)

@@ -66,94 +66,96 @@ class ProbeView : RenderView {
 	// render the "dots" as spheres
 	override val spheres = object : SphereRenderable {
 
-		override val numVertices get() = visibleGroups
-			.sumBy { group -> group.dots.values.sumBy { it.size*4 } }
+        override val numVertices
+            get() = visibleGroups
+                .sumOf { group -> group.dots.values.sumOf { it.size * 4 } }
 
-		override val verticesSequence get() = sequence
+        override val verticesSequence get() = sequence
 
-		override fun fillVertexBuffer(buf: ByteBuffer, colorsMode: ColorsMode) {
+        override fun fillVertexBuffer(buf: ByteBuffer, colorsMode: ColorsMode) {
 
-			val radius = dotRadius.toFloat()
+            val radius = dotRadius.toFloat()
 
-			for (group in visibleGroups) {
-				for ((colorName, dots) in group.dots) {
+            for (group in visibleGroups) {
+                for ((colorName, dots) in group.dots) {
 
-					val color = getColor(colorName)[colorsMode]
+                    val color = getColor(colorName)[colorsMode]
 
-					for (dot in dots) {
+                    for (dot in dots) {
 
-						// copy the vertices 4 times
-						for (i in 0 until 4) {
+                        // copy the vertices 4 times
+                        for (i in 0 until 4) {
 
-							// downgrade pos to floats for rendering
-							buf.putFloat(dot.x.toFloat())
-							buf.putFloat(dot.y.toFloat())
-							buf.putFloat(dot.z.toFloat())
+                            // downgrade pos to floats for rendering
+                            buf.putFloat(dot.x.toFloat())
+                            buf.putFloat(dot.y.toFloat())
+                            buf.putFloat(dot.z.toFloat())
 
-							buf.putFloat(radius)
-							buf.putColor4Bytes(color)
+                            buf.putFloat(radius)
+                            buf.putColor4Bytes(color)
 
-							// no effects needed (yet?)
-							buf.putInt(0)
-							buf.put(null as RenderEffect?)
-						}
-					}
-				}
-			}
-		}
-	}
+                            // no effects needed (yet?)
+                            buf.putInt(0)
+                            buf.put(null as RenderEffect?)
+                        }
+                    }
+                }
+            }
+        }
+    }
 
 	// render the "vectors" as cylinders
 	override val cylinders = object : CylinderRenderable {
 
-		override val numVertices get() = visibleGroups
-			.sumBy { group -> group.vectors.values.sumBy { it.size*4 } }
+        override val numVertices
+            get() = visibleGroups
+                .sumOf { group -> group.vectors.values.sumOf { it.size * 4 } }
 
-		override val verticesSequence get() = sequence
+        override val verticesSequence get() = sequence
 
-		override fun fillVertexBuffer(buf: ByteBuffer, colorsMode: ColorsMode) {
+        override fun fillVertexBuffer(buf: ByteBuffer, colorsMode: ColorsMode) {
 
-			val radius = vectorRadius.toFloat()
+            val radius = vectorRadius.toFloat()
 
-			for (group in visibleGroups) {
-				for ((colorName, vectors) in group.vectors) {
-					val color = getColor(colorName)[colorsMode]
+            for (group in visibleGroups) {
+                for ((colorName, vectors) in group.vectors) {
+                    val color = getColor(colorName)[colorsMode]
 
-					for ((a, b) in vectors) {
-						val points = listOf(a, b)
+                    for ((a, b) in vectors) {
+                        val points = listOf(a, b)
 
-						// write each cylinder 4 times
-						for (i in 0 until 4) {
+                        // write each cylinder 4 times
+                        for (i in 0 until 4) {
 
-							for (p in points) {
-								// downgrade pos to floats for rendering
-								buf.putFloat(p.x.toFloat())
-								buf.putFloat(p.y.toFloat())
-								buf.putFloat(p.z.toFloat())
-							}
+                            for (p in points) {
+                                // downgrade pos to floats for rendering
+                                buf.putFloat(p.x.toFloat())
+                                buf.putFloat(p.y.toFloat())
+                                buf.putFloat(p.z.toFloat())
+                            }
 
-							for (p in points) {
-								buf.putFloat(radius)
-							}
+                            for (p in points) {
+                                buf.putFloat(radius)
+                            }
 
-							for (p in points) {
-								buf.putColor4Bytes(color)
-							}
+                            for (p in points) {
+                                buf.putColor4Bytes(color)
+                            }
 
-							for (p in points) {
-								buf.putInt(0)
-							}
+                            for (p in points) {
+                                buf.putInt(0)
+                            }
 
-							// no effects needed (yet?)
-							for (p in points) {
-								buf.put(null as RenderEffect?)
-							}
-						}
-					}
-				}
-			}
-		}
-	}
+                            // no effects needed (yet?)
+                            for (p in points) {
+                                buf.put(null as RenderEffect?)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
 	companion object {
 

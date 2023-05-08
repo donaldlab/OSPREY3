@@ -39,77 +39,82 @@ class ConfPosEditor(val confSpace: ConfSpace, val molInfo: MolInfo, val posInfo:
 	private val pDihedralIncludeHydroxyls = Ref.of(posEditor.dihedralSettings::includeHydroxyls)
 	private val pDihedralIncludeNonHydroxylHGroups = Ref.of(posEditor.dihedralSettings::includeNonHydroxylHGroups)
 
-	private inner class MutInfo(val type: String) {
+    private inner class MutInfo(val type: String) {
 
-		inner class FragInfo(val conflib: ConfLib?, val frag: ConfLib.Fragment) {
+        inner class FragInfo(val conflib: ConfLib?, val frag: ConfLib.Fragment) {
 
-			val id =
-				if (conflib != null) {
-					frag.uniqueId(conflib)
-				} else {
-					"wildtype/${frag.id}"
-				}
+            val id =
+                if (conflib != null) {
+                    frag.uniqueId(conflib)
+                } else {
+                    "wildtype/${frag.id}"
+                }
 
-			inner class ConfInfo(val conf: ConfLib.Conf) {
+            inner class ConfInfo(val conf: ConfLib.Conf) {
 
-				val fragInfo get() = this@FragInfo
+                val fragInfo get() = this@FragInfo
 
-				val id =
-					if (conflib != null) {
-						conf.uniqueId(conflib, frag)
-					} else {
-						"wildtype/${frag.id}/${conf.id}"
-					}
-				val label = "${conf.name}##$id"
+                val id =
+                    if (conflib != null) {
+                        conf.uniqueId(conflib, frag)
+                    } else {
+                        "wildtype/${frag.id}/${conf.id}"
+                    }
+                val label = "${conf.name}##$id"
 
-				val isSelected = posInfo.posConfSpace.confs.contains(frag, conf)
+                val isSelected = posInfo.posConfSpace.confs.contains(frag, conf)
 
-				fun add() {
-					posInfo.posConfSpace.confs.add(frag, conf).run {
+                fun add() {
+                    posInfo.posConfSpace.confs.add(frag, conf).run {
 
-						// add default dihedral angles from the conformation library
-						DihedralAngle.ConfDescription.makeFromLibrary(posInfo.pos, frag, conf, posEditor.dihedralSettings)
-							.forEach { motions.add(it) }
-					}
-				}
+                        // add default dihedral angles from the conformation library
+                        DihedralAngle.ConfDescription.makeFromLibrary(
+                            posInfo.pos,
+                            frag,
+                            conf,
+                            posEditor.dihedralSettings
+                        )
+                            .forEach { motions.add(it) }
+                    }
+                }
 
-				fun remove() = posInfo.posConfSpace.confs.remove(frag, conf)
-				fun get() = posInfo.posConfSpace.confs.get(frag, conf)
-				fun included() = posInfo.posConfSpace.confs.contains(frag, conf)
-			}
+                fun remove() = posInfo.posConfSpace.confs.remove(frag, conf)
+                fun get() = posInfo.posConfSpace.confs.get(frag, conf)
+                fun included() = posInfo.posConfSpace.confs.contains(frag, conf)
+            }
 
-			// collect the conformations
-			val confInfos = frag.confs
-				.values
-				.map { ConfInfo(it) }
+            // collect the conformations
+            val confInfos = frag.confs
+                .values
+                .map { ConfInfo(it) }
 
-			val numSelected = confInfos.count { it.isSelected }
-			val numPossible = frag.confs.size
+            val numSelected = confInfos.count { it.isSelected }
+            val numPossible = frag.confs.size
 
-			val label = "${frag.name}, $numSelected/$numPossible confs###${posInfo.pos.name}-$id"
-		}
+            val label = "${frag.name}, $numSelected/$numPossible confs###${posInfo.pos.name}-$id"
+        }
 
-		// collect the fragments from the conf libs
-		val fragInfos = confSpace.conflibs
-			.flatMap { conflib -> conflib.fragments.values.map { conflib to it } }
-			.toMutableList()
-			.let { frags ->
-				// prepend the wild-type fragment, if any
-				val wtFrag = posInfo.posConfSpace.wildTypeFragment
-				if (wtFrag != null) {
-					listOf(null to wtFrag) + frags
-				} else {
-					frags
-				}
-			}
-			.filter { (_, frag) -> frag.type == type && posInfo.pos.isFragmentCompatible(frag) }
-			.map { (conflib, frag) -> FragInfo(conflib, frag) }
+        // collect the fragments from the conf libs
+        val fragInfos = confSpace.conflibs
+            .flatMap { conflib -> conflib.fragments.values.map { conflib to it } }
+            .toMutableList()
+            .let { frags ->
+                // prepend the wild-type fragment, if any
+                val wtFrag = posInfo.posConfSpace.wildTypeFragment
+                if (wtFrag != null) {
+                    listOf(null to wtFrag) + frags
+                } else {
+                    frags
+                }
+            }
+            .filter { (_, frag) -> frag.type == type && posInfo.pos.isFragmentCompatible(frag) }
+            .map { (conflib, frag) -> FragInfo(conflib, frag) }
 
-		val numSelected = fragInfos.sumBy { it.numSelected }
-		val numConfs = fragInfos.sumBy { it.numPossible }
+        val numSelected = fragInfos.sumOf { it.numSelected }
+        val numConfs = fragInfos.sumOf { it.numPossible }
 
-		val label = "$type, $numSelected/$numConfs confs###${posInfo.pos.name}-$type"
-	}
+        val label = "$type, $numSelected/$numConfs confs###${posInfo.pos.name}-$type"
+    }
 	private val mutInfos = ArrayList<MutInfo>()
 	private var selectedFragInfo: MutInfo.FragInfo? = null
 	private var selectedConfInfo: MutInfo.FragInfo.ConfInfo? = null
@@ -311,7 +316,7 @@ class ConfPosEditor(val confSpace: ConfSpace, val molInfo: MolInfo, val posInfo:
 		}
 	}
 
-	private fun deactivateDiscreteTab(view: MoleculeRenderView) {
+	private fun deactivateDiscreteTab(@Suppress("UNUSED_PARAMETER") view: MoleculeRenderView) {
 
 		// remove any molecule and effects render overrides
 		stackedMol?.pop()

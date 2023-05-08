@@ -71,7 +71,6 @@ fun CompiledConfSpace.toBytes(): ByteArray {
 			when (motion) {
 				is CompiledConfSpace.MotionInfo.DihedralAngle -> out.write(motion)
 				is CompiledConfSpace.MotionInfo.TranslationRotation -> out.write(motion)
-				else -> throw UnsupportedClassException("motion not supported on molecules", motion)
 			}
 		}
 	}

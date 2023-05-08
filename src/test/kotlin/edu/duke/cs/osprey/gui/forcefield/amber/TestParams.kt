@@ -18,7 +18,7 @@ class TestParams : FunSpec({
 	fun Polymer.findNonTerminalResidue(type: String): Polymer.Residue {
 		val residues = chains.first().residues
 		return residues.subList(1, residues.size - 1)
-			.find { it.type.toLowerCase() == type.toLowerCase() }
+			.find { it.type.lowercase() == type.lowercase() }
 			?: throw NoSuchElementException("no non-terminal $type residue")
 	}
 

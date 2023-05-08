@@ -51,22 +51,22 @@ class ConfSpaceCompiler(val confSpace: ConfSpace) {
 		// otherwise we get an intractable dependency cycle
 		var thread = null as Thread?
 
-		val numSingles = confSpaceIndex.positions.sumBy { it.fragments.size }
-		val numPairs = confSpaceIndex.positions.pairs().sumBy { (posInfo1, posInfo2) ->
-			posInfo1.fragments.size*posInfo2.fragments.size
+		val numSingles = confSpaceIndex.positions.sumOf { it.fragments.size }
+		val numPairs = confSpaceIndex.positions.pairs().sumOf { (posInfo1, posInfo2) ->
+			posInfo1.fragments.size * posInfo2.fragments.size
 		}
 
 		// init the progress
 		val paramsTask = CompilerProgress.Task(
 			"Parameterize molecules",
-			forcefields.size*(
-				confSpaceIndex.mols.size
-				+ numSingles
-			)
+			forcefields.size * (
+					confSpaceIndex.mols.size
+							+ numSingles
+					)
 		)
 		val fixedAtomsTask = CompilerProgress.Task(
 			"Partition fixed atoms",
-			forcefields.size*numSingles + 2
+			forcefields.size * numSingles + 2
 		)
 		val staticEnergiesTask = CompilerProgress.Task(
 			"Calculate energy of static atoms",
@@ -83,7 +83,15 @@ class ConfSpaceCompiler(val confSpace: ConfSpace) {
 
 		// make a thread to do the actual compilation and start it
 		thread = Thread {
-			compile(confSpaceIndex, progress, paramsTask, fixedAtomsTask, staticEnergiesTask, atomPairsTask, concurrency)
+			compile(
+				confSpaceIndex,
+				progress,
+				paramsTask,
+				fixedAtomsTask,
+				staticEnergiesTask,
+				atomPairsTask,
+				concurrency
+			)
 		}.apply {
 			name = "ConfSpaceCompiler"
 			isDaemon = false
@@ -321,7 +329,7 @@ class ConfSpaceCompiler(val confSpace: ConfSpace) {
 
 					// compile the fragments
 					val fragInfos = ArrayList<CompiledConfSpace.FragInfo>()
-					posInfo.forEachFrag { assignments, assignmentInfo, confInfo ->
+					posInfo.forEachFrag { _, assignmentInfo, confInfo ->
 						launchLimits.launch {
 							fragInfos.add(confInfo.fragInfo.compile(fixedAtoms, assignmentInfo))
 						}

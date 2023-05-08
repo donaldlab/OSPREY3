@@ -45,7 +45,7 @@ class CompilerProgress(
 		Thread {
 			while (threadGetter().isAlive) {
 				sleep(intervalMs)
-				val percent = 100.0*tasks.sumBy { it.progress }/tasks.sumBy { it.size }
+				val percent = 100.0* tasks.sumOf { it.progress } / tasks.sumOf { it.size }
 				println("Compiling: %.1f%%".format(percent))
 			}
 		}.start()

@@ -81,7 +81,7 @@ val defaultRenderSettings = RenderSettings().apply {
 	depthWeight = 1.0f
 }
 
-fun Molecule.show(focusAtom: Atom? = null, wait: Boolean = false) {
+fun Molecule.show(focusAtom: Atom? = null, @Suppress("UNUSED_PARAMETER") wait: Boolean = false) {
 	val mol = this
 	autoCloser {
 

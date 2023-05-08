@@ -179,71 +179,72 @@ class ConfSpace(val mols: List<Pair<MoleculeType,Molecule>>) {
 
 		inner class Confs : Iterable<ConfConfSpace> {
 
-			private val byFragConf = IdentityHashMap<ConfLib.Fragment,MutableMap<ConfLib.Conf,ConfConfSpace>>()
+            private val byFragConf = IdentityHashMap<ConfLib.Fragment, MutableMap<ConfLib.Conf, ConfConfSpace>>()
 
-			fun fragments() =
-				byFragConf
-					.keys
-					.sortedBy { frag -> frag.id }
+            fun fragments() =
+                byFragConf
+                    .keys
+                    .sortedBy { frag -> frag.id }
 
-			override fun iterator() =
-				fragments()
-					.mapNotNull { frag -> byFragConf[frag] }
-					.flatMap { spaces -> spaces.values.sortedBy { it.conf.id } }
-					.iterator()
+            override fun iterator() =
+                fragments()
+                    .mapNotNull { frag -> byFragConf[frag] }
+                    .flatMap { spaces -> spaces.values.sortedBy { it.conf.id } }
+                    .iterator()
 
-			val size get() =
-				byFragConf
-					.values
-					.sumBy { it.size }
+            val size
+                get() =
+                    byFragConf
+                        .values
+                        .sumOf { it.size }
 
-			fun get(frag: ConfLib.Fragment, conf: ConfLib.Conf) =
-				byFragConf[frag]?.get(conf)
+            fun get(frag: ConfLib.Fragment, conf: ConfLib.Conf) =
+                byFragConf[frag]?.get(conf)
 
-			fun getByFragment(frag: ConfLib.Fragment): List<ConfConfSpace> =
-				byFragConf[frag]?.values?.toList() ?: emptyList()
+            fun getByFragment(frag: ConfLib.Fragment): List<ConfConfSpace> =
+                byFragConf[frag]?.values?.toList() ?: emptyList()
 
-			fun contains(frag: ConfLib.Fragment, conf: ConfLib.Conf) =
-				get(frag, conf) != null
+            fun contains(frag: ConfLib.Fragment, conf: ConfLib.Conf) =
+                get(frag, conf) != null
 
-			fun getOrAdd(frag: ConfLib.Fragment, conf: ConfLib.Conf) =
-				get(frag, conf) ?: add(frag, conf)
+            fun getOrAdd(frag: ConfLib.Fragment, conf: ConfLib.Conf) =
+                get(frag, conf) ?: add(frag, conf)
 
-			fun add(frag: ConfLib.Fragment, conf: ConfLib.Conf): ConfConfSpace {
+            fun add(frag: ConfLib.Fragment, conf: ConfLib.Conf): ConfConfSpace {
 
-				// don't add duplicates
-				if (get(frag, conf) != null) {
-					throw IllegalStateException("position already has conformation ${frag.id}, ${conf.id}")
-				}
+                // don't add duplicates
+                if (get(frag, conf) != null) {
+                    throw IllegalStateException("position already has conformation ${frag.id}, ${conf.id}")
+                }
 
-				// add it
-				val confConfSpace = ConfConfSpace(frag, conf)
-				byFragConf
-					.getOrPut(frag) { IdentityHashMap() }
-					.put(conf, confConfSpace)
-				return confConfSpace
-			}
+                // add it
+                val confConfSpace = ConfConfSpace(frag, conf)
+                byFragConf
+                    .getOrPut(frag) { IdentityHashMap() }
+                    .put(conf, confConfSpace)
+                return confConfSpace
+            }
 
-			fun addAll(frag: ConfLib.Fragment, confs: Iterable<ConfLib.Conf>) {
-				for (conf in confs) {
-					add(frag, conf)
-				}
-			}
+            fun addAll(frag: ConfLib.Fragment, confs: Iterable<ConfLib.Conf>) {
+                for (conf in confs) {
+                    add(frag, conf)
+                }
+            }
 
-			fun addAll(frag: ConfLib.Fragment, vararg confIds: String) =
-				addAll(frag, frag.getConfs(*confIds))
+            fun addAll(frag: ConfLib.Fragment, vararg confIds: String) =
+                addAll(frag, frag.getConfs(*confIds))
 
-			fun addAll(frag: ConfLib.Fragment) =
-				addAll(frag, frag.confs.values)
+            fun addAll(frag: ConfLib.Fragment) =
+                addAll(frag, frag.confs.values)
 
-			fun remove(frag: ConfLib.Fragment, conf: ConfLib.Conf) =
-				byFragConf[frag]?.remove(conf)
+            fun remove(frag: ConfLib.Fragment, conf: ConfLib.Conf) =
+                byFragConf[frag]?.remove(conf)
 
-			fun removeByFragmentType(type: String) =
-				byFragConf.values.forEach { spaces ->
-					spaces.values.removeIf { space -> space.frag.type == type }
-				}
-		}
+            fun removeByFragmentType(type: String) =
+                byFragConf.values.forEach { spaces ->
+                    spaces.values.removeIf { space -> space.frag.type == type }
+                }
+        }
 		val confs = Confs()
 	}
 	inner class PositionConfSpaces {

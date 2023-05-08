@@ -94,9 +94,8 @@ class TestPolymerPartitioning : FunSpec({
 			val solvent = solvents.first().second
 
 			// all the solvent molecules should be in a single "molecule"
-			solvent.shouldBeTypeOf<Molecule> { mol ->
-				mol.atoms.size shouldBe 117
-			}
+			solvent.shouldBeTypeOf<Molecule>();
+			solvent.atoms.size shouldBe 117
 		}
 
 		test("combine protein, Hg, benzamidines") {

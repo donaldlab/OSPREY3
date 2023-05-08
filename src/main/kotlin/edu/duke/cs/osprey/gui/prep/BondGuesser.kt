@@ -95,7 +95,7 @@ fun Atom.maxCovalentDist(
 
 fun Atom.covalentRange(
 	a2: Atom,
-	guesser: BondGuesser = BondGuesser()
+	@Suppress("UNUSED_PARAMETER") guesser: BondGuesser = BondGuesser()
 ): ClosedFloatingPointRange<Double> =
 	minCovalentDist() .. maxCovalentDist(a2)
 

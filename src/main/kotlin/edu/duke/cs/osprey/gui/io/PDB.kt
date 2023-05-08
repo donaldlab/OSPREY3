@@ -213,8 +213,8 @@ fun Molecule.toOspreyMol(
 						// HIE has HE2
 						// HID has HD1
 						// HIP has both
-						val hasHe2 = res.atoms.any { it.name.toLowerCase() == "he2" }
-						val hasHd1 = res.atoms.any { it.name.toLowerCase() == "hd1" }
+						val hasHe2 = res.atoms.any { it.name.lowercase() == "he2" }
+						val hasHd1 = res.atoms.any { it.name.lowercase() == "hd1" }
 						if (hasHe2 && hasHd1) {
 							"HIP"
 						} else if (hasHe2) {
@@ -274,7 +274,7 @@ fun Molecule.toOspreyMol(
 				coords.add(oatomCoords)
 			}
 
-			val resType = mol.type ?: mol.name.first(3).toUpperCase()
+			val resType = mol.type ?: mol.name.first(3).uppercase()
 			omol.residues.add(OspreyResidue(atoms, coords, fullName("A", "1", resType), omol))
 		}
 	}

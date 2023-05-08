@@ -195,7 +195,7 @@ class CompileConfSpace(val confSpace: ConfSpace) : SlideFeature {
 
 			text("Design Positions:")
 			nextColumn()
-			text("${confSpace.designPositionsByMol.values.sumBy { it.size }}")
+			text("${confSpace.designPositionsByMol.values.sumOf { it.size }}")
 			nextColumn()
 
 			text("Sequences:")
@@ -358,7 +358,7 @@ class CompileConfSpace(val confSpace: ConfSpace) : SlideFeature {
 				text(warning.msg)
 
 				// show a button to show more info, if needed
-				warning.extraInfo?.let { extra ->
+				warning.extraInfo?.let { _ ->
 					// TODO: show this somehow
 				}
 			}

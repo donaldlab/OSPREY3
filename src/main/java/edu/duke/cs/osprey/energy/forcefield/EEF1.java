@@ -107,13 +107,13 @@ public class EEF1 implements Serializable {
 			while (!(curLine==null)) {
 				groupEEF1names[tmpInt] = StringParsing.getToken(curLine,1);  // snag group name
 				atTypeEEF1names[tmpInt] = StringParsing.getToken(curLine,2);  // snag atom type
-				atEEF1Vol[tmpInt] = (new Double(StringParsing.getToken(curLine,3))).doubleValue();
-				dGiRef[tmpInt] = (new Double(StringParsing.getToken(curLine,4))).doubleValue();
-				dGiFree[tmpInt] = (new Double(StringParsing.getToken(curLine,5))).doubleValue();
-				dHiRef[tmpInt] = (new Double(StringParsing.getToken(curLine,6))).doubleValue();
-				dCpiRef[tmpInt] = (new Double(StringParsing.getToken(curLine,7))).doubleValue();
-				lambdai[tmpInt] = (new Double(StringParsing.getToken(curLine,8))).doubleValue();
-				vdWri[tmpInt] = (new Double(StringParsing.getToken(curLine,9))).doubleValue();
+				atEEF1Vol[tmpInt] = Double.parseDouble(StringParsing.getToken(curLine, 3));
+				dGiRef[tmpInt] = (Double.parseDouble(StringParsing.getToken(curLine,4)));
+				dGiFree[tmpInt] = (Double.parseDouble(StringParsing.getToken(curLine,5)));
+				dHiRef[tmpInt] = (Double.parseDouble(StringParsing.getToken(curLine,6)));
+				dCpiRef[tmpInt] = (Double.parseDouble(StringParsing.getToken(curLine,7)));
+				lambdai[tmpInt] = (Double.parseDouble(StringParsing.getToken(curLine,8)));
+				vdWri[tmpInt] = (Double.parseDouble(StringParsing.getToken(curLine,9)));
 				tmpInt++;
 				curLine = bufread.readLine();
 			}

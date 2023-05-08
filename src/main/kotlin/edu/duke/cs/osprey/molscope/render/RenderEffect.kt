@@ -20,19 +20,19 @@ data class RenderEffect(val flags: ByteFlags<Flags>, val r: UByte, val g: UByte,
 		 * Shows the selected items in brighter colors:
 		 * color.rgb *= (1 + rgb)
 		 */
-		Highlight(1 shl 0),
+		Highlight((1 shl 0).toByte()),
 
 		/**
 		 * Draws an inset border around the selected items:
 		 * color.rgb = rgb
 		 */
-		Inset(1 shl 1),
+		Inset((1 shl 1).toByte()),
 
 		/**
 		 * Draws an outset border around the selected items:
 		 * color.rgb = rgb
 		 */
-		Outset(1 shl 2),
+		Outset((1 shl 2).toByte())
 	}
 
 	companion object {

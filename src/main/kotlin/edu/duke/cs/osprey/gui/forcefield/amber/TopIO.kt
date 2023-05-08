@@ -390,7 +390,7 @@ class AmberTopology(
 		 */
 		fun addMissingAtoms(
 			coords: List<Vector3d>,
-			filter: (Atom, Polymer.Residue?) -> Boolean = { atom: Atom, residue: Polymer.Residue? -> true }
+			filter: (Atom, Polymer.Residue?) -> Boolean = { _: Atom, _: Polymer.Residue? -> true }
 		): Int {
 
 			var numAtomsAdded = 0

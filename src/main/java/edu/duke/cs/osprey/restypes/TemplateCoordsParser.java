@@ -154,7 +154,7 @@ public class TemplateCoordsParser {
 		AtomicCoord(String line){//Make from a line in the template coords file
 			atomName = StringParsing.getToken(line,1);
 			for(int dim=0; dim<3; dim++)
-				coords[dim] = new Double(StringParsing.getToken(line,dim+2));
+				coords[dim] = Double.parseDouble(StringParsing.getToken(line,dim+2));
 		}
 
 		void copyToResidue(Residue r){

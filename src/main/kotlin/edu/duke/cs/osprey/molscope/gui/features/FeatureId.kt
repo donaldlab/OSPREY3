@@ -3,7 +3,7 @@ package edu.duke.cs.osprey.molscope.gui.features
 
 class FeatureId(id: String) {
 
-	private fun String.normalize() = toLowerCase()
+	private fun String.normalize() = lowercase()
 
 	private val str: String = id.normalize()
 

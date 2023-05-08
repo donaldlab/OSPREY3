@@ -55,7 +55,7 @@ class ConfLib(
 
 	override fun toString() = "$name ($runtimeId)"
 
-	open fun invertChirality(): ConfLib {
+	fun invertChirality(): ConfLib {
 		val invertedFrags = fragments.map { (fragId, frag) ->
 			val invertedConfs = frag.confs.map { (confId, conf) ->
 				val invertedCoords = conf.coords.map { (atomInfo, vector) ->
@@ -335,7 +335,7 @@ class ConfLib(
 				return frag.bfs(
 					source = c,
 					visitSource = false,
-					shouldVisit = { from, to -> to !== b }
+					shouldVisit = { _, to -> to !== b }
 				).toList()
 			}
 
@@ -535,7 +535,7 @@ class ConfLib(
 					val pos = anchorArray.inputPositionOf(i)
 
 					val id = anchorTable.getIntOrThrow("id", pos)
-					val type = anchorTable.getString("type")?.toLowerCase()
+					val type = anchorTable.getString("type")?.lowercase()
 					anchors[id] = when (type) {
 						"single" -> {
 							Anchor.Single(

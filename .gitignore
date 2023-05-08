@@ -30,3 +30,6 @@ nbbuild.xml
 
 # confdbs
 *.confdb
+
+# environment files
+.envrc

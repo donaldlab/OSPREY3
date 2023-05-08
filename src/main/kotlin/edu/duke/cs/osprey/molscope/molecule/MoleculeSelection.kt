@@ -7,7 +7,7 @@ typealias MoleculeSelector = (Molecule) -> List<Atom>
 object MoleculeSelectors {
 
 	/** Selects no atoms */
-	val none: MoleculeSelector = { mol -> emptyList() }
+	val none: MoleculeSelector = { _ -> emptyList() }
 
 	/** Selects all the atoms */
 	val all: MoleculeSelector = { mol -> mol.atoms }
@@ -26,7 +26,7 @@ object MoleculeSelectors {
 	}
 
 	fun atomsByName(name: String): MoleculeSelector = { mol ->
-		fun String.normalize() = toUpperCase()
+		fun String.normalize() = uppercase()
 		mol.atoms.filter { it.name.normalize() == name.normalize() }
 	}
 }

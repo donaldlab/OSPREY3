@@ -139,22 +139,19 @@ class TestMutation : FunSpec({
 			pairs.size shouldBe 2
 
 			val (posAnchorCA, fragAnchorCA) = pairs[0]
-			posAnchorCA.shouldBeTypeOf<Anchor.Single> {
-				it.a.name shouldBe "CA"
-				it.getConnectedAtoms(atoms).map { it.name }.toSet() shouldBe namesCA
-			}
-			fragAnchorCA.shouldBeTypeOf<ConfLib.Anchor.Single> {
-				it.id shouldBe 1
-			}
 
+			posAnchorCA.shouldBeTypeOf<Anchor.Single>()
+			posAnchorCA.a.name shouldBe "CA"
+			posAnchorCA.getConnectedAtoms(atoms).map { it.name }.toSet() shouldBe namesCA
+
+			fragAnchorCA.shouldBeTypeOf<ConfLib.Anchor.Single>()
+			fragAnchorCA.id shouldBe 1
 			val (posAnchorN, fragAnchorN) = pairs[1]
-			posAnchorN.shouldBeTypeOf<Anchor.Single> {
-				it.a.name shouldBe "N"
-				it.getConnectedAtoms(atoms).map { it.name }.toSet() shouldBe namesN
-			}
-			fragAnchorN.shouldBeTypeOf<ConfLib.Anchor.Single> {
-				it.id shouldBe 2
-			}
+			posAnchorN.shouldBeTypeOf<Anchor.Single>()
+			posAnchorN.a.name shouldBe "N"
+			posAnchorN.getConnectedAtoms(atoms).map { it.name }.toSet() shouldBe namesN
+			fragAnchorN.shouldBeTypeOf<ConfLib.Anchor.Single>()
+			fragAnchorN.id shouldBe 2
 		}
 
 		fun DesignPosition.AnchorMatch.shouldHaveAnchors_CA(atoms: Set<Atom>, namesCA: Set<String>) {
@@ -163,13 +160,11 @@ class TestMutation : FunSpec({
 			pairs.size shouldBe 1
 
 			val (posAnchorCA, fragAnchorCA) = pairs[0]
-			posAnchorCA.shouldBeTypeOf<Anchor.Single> {
-				it.a.name shouldBe "CA"
-				it.getConnectedAtoms(atoms).map { it.name }.toSet() shouldBe namesCA
-			}
-			fragAnchorCA.shouldBeTypeOf<ConfLib.Anchor.Single> {
-				it.id shouldBe 1
-			}
+			posAnchorCA.shouldBeTypeOf<Anchor.Single>()
+			posAnchorCA.a.name shouldBe "CA"
+			posAnchorCA.getConnectedAtoms(atoms).map { it.name }.toSet() shouldBe namesCA
+			fragAnchorCA.shouldBeTypeOf<ConfLib.Anchor.Single>()
+			fragAnchorCA.id shouldBe 1
 		}
 
 		fun DesignPosition.AnchorMatch.shouldHaveAnchors_CAN(atoms: Set<Atom>, names: Set<String>) {
@@ -178,14 +173,12 @@ class TestMutation : FunSpec({
 			pairs.size shouldBe 1
 
 			val (posAnchor, fragAnchor) = pairs[0]
-			posAnchor.shouldBeTypeOf<Anchor.Double> {
-				it.a.name shouldBe "CA"
-				it.b.name shouldBe "N"
-				it.getConnectedAtoms(atoms).map { it.name }.toSet() shouldBe names
-			}
-			fragAnchor.shouldBeTypeOf<ConfLib.Anchor.Double> {
-				it.id shouldBe 1
-			}
+			posAnchor.shouldBeTypeOf<Anchor.Double>()
+			posAnchor.a.name shouldBe "CA"
+			posAnchor.b.name shouldBe "N"
+			posAnchor.getConnectedAtoms(atoms).map { it.name }.toSet() shouldBe names
+			fragAnchor.shouldBeTypeOf<ConfLib.Anchor.Double>()
+			fragAnchor.id shouldBe 1
 		}
 
 		fun Assignments.AssignmentInfo.mapRes(res: Polymer.Residue) =
@@ -526,15 +519,15 @@ class TestMutation : FunSpec({
 			// check the fragment anchors
 			wtFrag.anchors.run {
 				size shouldBe 1
-				this[0].shouldBeTypeOf<ConfLib.Anchor.Double> { confAnchor ->
-					wtConf.anchorCoords[confAnchor].shouldBeTypeOf<ConfLib.AnchorCoords.Double> { confCoords ->
-						res.shouldHaveAtomNear("CA", confCoords.a)
-						res.shouldHaveAtomNear("N", confCoords.b)
-						protein1cc8.findChainOrThrow("A").findResidueOrThrow("51") // C in previous residue
-							.shouldHaveAtomNear("C", confCoords.c)
-						res.shouldHaveAtomNear("C", confCoords.d)
-					}
-				}
+				val confAnchor = this[0]
+				confAnchor.shouldBeTypeOf<ConfLib.Anchor.Double>()
+				val confCoords = wtConf.anchorCoords[confAnchor]
+				confCoords.shouldBeTypeOf<ConfLib.AnchorCoords.Double>()
+				res.shouldHaveAtomNear("CA", confCoords.a)
+				res.shouldHaveAtomNear("N", confCoords.b)
+				protein1cc8.findChainOrThrow("A").findResidueOrThrow("51") // C in previous residue
+					.shouldHaveAtomNear("C", confCoords.c)
+				res.shouldHaveAtomNear("C", confCoords.d)
 			}
 
 			// mutate to glycine
@@ -634,7 +627,7 @@ class TestMutation : FunSpec({
 
 		test("glycine->valine chi1") {
 
-			val (res, pos, confSpace) = gly17()
+			val (_, pos, confSpace) = gly17()
 
 			// mutate to valine
 			val frag = conflib.fragments.getValue("VAL")

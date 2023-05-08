@@ -237,7 +237,7 @@ public class TermECalculator implements MPISlaveTask {
 		}
 
 		if(resElements[depth] == -1) 
-			resElements[depth] = new Integer(res[depth]);
+			resElements[depth] = res[depth];
 
 		for(int rcNum = 0; rcNum < RCLists.get(depth).size(); ++rcNum) {
 			rcNums[depth] = rcNum;

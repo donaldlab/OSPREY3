@@ -170,7 +170,7 @@ class CameraTool : SlideFeature {
 		}
 	}
 
-	private fun drag(slide: Slide.Locked, slidewin: SlideCommands) {
+	private fun drag(@Suppress("UNUSED_PARAMETER") slide: Slide.Locked, slidewin: SlideCommands) {
 
 		// apply the drag rotations
 		cameraRotator?.apply {

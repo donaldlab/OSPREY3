@@ -322,7 +322,7 @@ fun Molecule.partitionAndAtomMap(combineSolvent: Boolean = true): Pair<List<Pair
 					.sorted()
 					.joinToString(", ")
 				val combinedSolvent = Molecule(name, solventMols.first().type)
-				solventMols.forEachIndexed { i, solventMol ->
+				solventMols.forEachIndexed { _, solventMol ->
 					combinedSolvent.atoms.addAll(solventMol.atoms)
 				}
 

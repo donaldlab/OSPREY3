@@ -95,7 +95,7 @@ fun Molecule.toMol2(metadata: Mol2Metadata? = null): String {
 	// write the molecule section
 	write("@<TRIPOS>MOLECULE\n")
 	write(mol.name.replace("\n", " ") + "\n")
-	write("  ${mol.atoms.size} ${bonds.size} ${chains.sumBy { it.residues.size }}\n")
+	write("  ${mol.atoms.size} ${bonds.size} ${chains.sumOf { it.residues.size }}\n")
 	when (this) {
 		is Polymer -> write("BIOPOLYMER\n")
 		else -> write("SMALL\n")
@@ -244,7 +244,7 @@ fun Molecule.Companion.fromMol2WithMetadata(
 			val section = Section[
 				line.trim()
 					.substring(1)
-					.toUpperCase()
+					.uppercase()
 					.replace("<", "")
 					.replace(">", "_")
 			] ?: continue

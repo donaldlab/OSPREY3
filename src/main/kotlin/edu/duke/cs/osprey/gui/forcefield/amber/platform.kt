@@ -34,7 +34,7 @@ enum class Architecture(vararg val names: String) {
 		fun get(): Architecture {
 			val name = System.getProperty("os.arch")
 			return values()
-				.find { name.toLowerCase() in it.names }
+				.find { name.lowercase() in it.names }
 				?: throw NoSuchElementException("unrecognizied architecture: $name")
 		}
 	}
@@ -50,7 +50,7 @@ class Platform(
 		fun get() = platform
 	}
 
-	fun toPathString() = "$os/$arch".toLowerCase()
+	fun toPathString() = "$os/$arch".lowercase()
 
 	override fun toString() = "$os/$arch"
 }

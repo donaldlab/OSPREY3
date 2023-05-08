@@ -135,7 +135,7 @@ class FilterTool(val prep: MoleculePrep) : SlideFeature {
 		)
 	}
 
-	private fun updateHighlight(slide: Slide.Locked, mouseTarget: ViewIndexed?, guiMol: Molecule?) {
+	private fun updateHighlight(@Suppress("UNUSED_PARAMETER") slide: Slide.Locked, mouseTarget: ViewIndexed?, guiMol: Molecule?) {
 
 		val (mol, atom) = if (guiMol != null) {
 

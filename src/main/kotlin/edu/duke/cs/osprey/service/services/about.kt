@@ -17,7 +17,7 @@ object AboutService : OspreyService.Provider {
 		routing.service(instance, "$prefix/about", ::run)
 	}
 
-	fun run(instance: OspreyService.Instance): ServiceResponse<AboutResponse> =
+	fun run(@Suppress("UNUSED_PARAMETER") instance: OspreyService.Instance): ServiceResponse<AboutResponse> =
 		ServiceResponse.Success(AboutResponse(OspreyService.name, OspreyService.version))
 }
 

@@ -22,7 +22,7 @@ enum class OS(val id: String) {
 			// since they're not guaranteed to be stable
 
 			val name = System.getProperty("os.name")
-				?.toLowerCase()
+				?.lowercase()
 				?: throw Error("no operating system defined by the JVM")
 
 			return if (name.contains("windows")) {

@@ -42,7 +42,7 @@ class DesignPositionEditor(
 		val pSelected = Ref.of(false)
 	}
 
-	private fun toggleCurrentAtom(atom: Atom, view: MoleculeRenderView) {
+	private fun toggleCurrentAtom(atom: Atom, @Suppress("UNUSED_PARAMETER") view: MoleculeRenderView) {
 
 		// is the atom already selected?
 		val isSelected = pos.sourceAtoms.any { it === atom }
@@ -75,7 +75,7 @@ class DesignPositionEditor(
 		resetPosConfSpace()
 	}
 
-	private fun removeCurrentAtoms(atoms: Set<Atom>, view: MoleculeRenderView) {
+	private fun removeCurrentAtoms(atoms: Set<Atom>, @Suppress("UNUSED_PARAMETER") view: MoleculeRenderView) {
 
 		pos.sourceAtoms.removeIf { it in atoms }
 
@@ -316,7 +316,7 @@ class DesignPositionEditor(
 		}
 	}
 
-	private fun selectResidue(view: MoleculeRenderView, res: Polymer.Residue) {
+	private fun selectResidue(@Suppress("UNUSED_PARAMETER") view: MoleculeRenderView, res: Polymer.Residue) {
 
 		// save the selection
 		selectedRes = res
@@ -445,7 +445,7 @@ class DesignPositionEditor(
 										Conveniently, resetInfos() will drop this function from the heap when
 										it re-creates all the AnchorInfos instances, so we won't have stale handlers hanging around
 									*/
-									atomInfo.atomClickHandler = { view, clickedAtom ->
+									atomInfo.atomClickHandler = { _, clickedAtom ->
 										anchorGroupInfo.replaceAnchor(
 											anchorInfo.anchor,
 											anchorUpdater(clickedAtom)

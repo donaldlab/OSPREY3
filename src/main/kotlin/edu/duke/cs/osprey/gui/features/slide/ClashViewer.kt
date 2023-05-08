@@ -130,9 +130,9 @@ class ClashViewer : SlideFeature {
 					))
 				}
 				.apply {
-					dots += group.dots.values.sumBy { it.size }
-					vectors += group.vectors.values.sumBy { it.size }
-				}
+                    dots += group.dots.values.sumOf { it.size }
+                    vectors += group.vectors.values.sumOf { it.size }
+                }
 		}
 	}
 

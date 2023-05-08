@@ -138,13 +138,6 @@ fun Project.makeBuildDesktopTasks() {
 
 	tasks["build"].dependsOn(compileShaders)
 
-	// add documentation to the gui distribution
-	val desktopRelease by tasks.creating {
-		group = "release"
-		description = "build the desktop release of osprey"
-		dependsOn(tasks.jpackage)
-	}
-
 	tasks.jpackageImage {
 		doLast {
 			val jp = project.runtime.jpackageData.get()

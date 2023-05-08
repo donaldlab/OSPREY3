@@ -76,7 +76,7 @@ class TestMoleculeHashEquals : FunSpec({
 	val mol1MissingBonds = Molecule("test1 different").apply {
 		val a1 = Atom(Element.Carbon, "C1", 1.0, 2.0, 3.5).also { atoms.add(it) }
 		val a2 = Atom(Element.Carbon, "C2", 2.0, 3.0, 4.0).also { atoms.add(it) }
-		val a3 = Atom(Element.Nitrogen, "N", 5.0, 6.0, 7.0).also { atoms.add(it) }
+		Atom(Element.Nitrogen, "N", 5.0, 6.0, 7.0).also { atoms.add(it) }
 		bonds.add(a1, a2)
 	}
 

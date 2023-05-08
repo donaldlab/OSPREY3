@@ -32,7 +32,7 @@ class ExportMol2(val getter: () -> Pair<List<Molecule>,String>) : SlideFeature {
 		}
 	}
 
-	private fun save(slide: Slide.Locked, slidewin: SlideCommands, path: Path) = slidewin.showExceptions {
+	private fun save(@Suppress("UNUSED_PARAMETER") slide: Slide.Locked, slidewin: SlideCommands, path: Path) = slidewin.showExceptions {
 
 		// append the file extension if needed
 		var filename = path.fileName.toString()

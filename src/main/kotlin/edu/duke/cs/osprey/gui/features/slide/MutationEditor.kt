@@ -245,7 +245,7 @@ class MutationEditor(val confSpace: ConfSpace) : SlideFeature {
 			}
 		}
 
-		private fun deactivateMutationsTab(view: MoleculeRenderView) {
+		private fun deactivateMutationsTab(@Suppress("UNUSED_PARAMETER") view: MoleculeRenderView) {
 
 			// remove any molecule and effects render overrides
 			stackedMol?.pop()
