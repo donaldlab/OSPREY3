@@ -39,7 +39,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.externalMemory.Queue;
+import edu.duke.cs.osprey.Queue;
 import org.apache.commons.collections4.queue.CircularFifoQueue;
 
 import edu.duke.cs.osprey.gmec.ConsoleConfPrinter;

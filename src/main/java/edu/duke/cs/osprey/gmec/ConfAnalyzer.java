@@ -40,7 +40,7 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.ResidueForcefieldBreakdown;
-import edu.duke.cs.osprey.externalMemory.Queue;
+import edu.duke.cs.osprey.Queue;
 import edu.duke.cs.osprey.structure.PDBIO;
 
 import java.io.File;

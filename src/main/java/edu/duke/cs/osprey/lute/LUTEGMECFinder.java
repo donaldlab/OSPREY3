@@ -33,9 +33,9 @@
 package edu.duke.cs.osprey.lute;
 
 
+import edu.duke.cs.osprey.Queue;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.externalMemory.*;
 import edu.duke.cs.osprey.gmec.ConfPrinter;
 import edu.duke.cs.osprey.gmec.ConsoleConfPrinter;
 import edu.duke.cs.osprey.gmec.EnergyRange;

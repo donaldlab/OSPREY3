@@ -35,7 +35,7 @@ package edu.duke.cs.osprey.astar.conf.linked;
 import edu.duke.cs.osprey.astar.conf.ConfAStarFactory;
 import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.externalMemory.Queue;
+import edu.duke.cs.osprey.Queue;
 
 public class LinkedConfAStarFactory implements ConfAStarFactory {
 	

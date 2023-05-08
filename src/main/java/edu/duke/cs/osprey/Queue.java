@@ -30,7 +30,7 @@
 ** Bruce Donald, Professor of Computer Science
 */
 
-package edu.duke.cs.osprey.externalMemory;
+package edu.duke.cs.osprey;
 
 import java.util.*;
 import java.util.function.Predicate;

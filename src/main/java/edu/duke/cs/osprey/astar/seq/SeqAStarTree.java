@@ -36,7 +36,7 @@ import edu.duke.cs.osprey.astar.seq.nodes.LinkedSeqAStarNode;
 import edu.duke.cs.osprey.astar.seq.nodes.SeqAStarNode;
 import edu.duke.cs.osprey.astar.seq.order.SeqAStarOrder;
 import edu.duke.cs.osprey.astar.seq.scoring.SeqAStarScorer;
-import edu.duke.cs.osprey.externalMemory.Queue;
+import edu.duke.cs.osprey.Queue;
 import edu.duke.cs.osprey.ewakstar.EwakstarLimitedSequenceTrie;
 import edu.duke.cs.osprey.tools.MathTools;
 
