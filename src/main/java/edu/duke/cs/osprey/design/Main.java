@@ -29,6 +29,7 @@ public class Main {
     public int run(String[] args) {
 
         var commandMap = Map.of(
+                CommandLaunchGui.CommandName, new CommandLaunchGui(),
                 CommandPartitionFunction.CommandName, new CommandPartitionFunction(),
                 CommandBindingAffinity.CommandName, new CommandBindingAffinity(),
                 CommandTopNConfs.CommandName, new CommandTopNConfs(),
