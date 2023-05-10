@@ -50,6 +50,9 @@ public class CompiledConfSpaceKStar implements CliCommand {
     @Parameter(names = "--write-n-confs", description = "The number (n) of best conformations to write in each sequence's ensemble. Defaults to 10.")
     public int writeNConfs = 10;
 
+    @Parameter(description = "The approximation accuracy. Z* = (1 - epsilon)Z. Values closer to 0 improve approximation accuracy.", names={"--epsilon", "-e"})
+    double epsilon = 0.683;
+
     @Override
     public String getCommandName() {
         return CommandName;
@@ -105,6 +108,8 @@ public class CompiledConfSpaceKStar implements CliCommand {
         var settings = new NewKStar.Settings.Builder()
                 .setStabilityThreshold(stabilityThreshold)
                 .setMaxNumConf(maxConfs > 0 ? maxConfs : Integer.MAX_VALUE)
+                .setMaxSimultaneousMutations(2)
+                .setEpsilon(epsilon)
                 .build();
 
         var kstar = new NewKStar(target, design, complex, settings);

@@ -94,8 +94,8 @@ class ConfPosEditor(val confSpace: ConfSpace, val molInfo: MolInfo, val posInfo:
             val label = "${frag.name}, $numSelected/$numPossible confs###${posInfo.pos.name}-$id"
         }
 
-        // collect the fragments from the conf libs
-        val fragInfos = confSpace.conflibs
+        // collect the fragments from the relevant conflib
+        val fragInfos = confSpace.getConflibsByMol(molInfo.mol)
             .flatMap { conflib -> conflib.fragments.values.map { conflib to it } }
             .toMutableList()
             .let { frags ->
