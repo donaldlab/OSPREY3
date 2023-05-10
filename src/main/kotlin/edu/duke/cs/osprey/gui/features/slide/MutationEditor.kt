@@ -186,7 +186,7 @@ class MutationEditor(val confSpace: ConfSpace) : SlideFeature {
 			selectedSeqInfo = wildTypeInfo
 
 			// add fragments from the libraries
-			for (conflib in confSpace.conflibs) {
+			for (conflib in confSpace.getConflibsByMol(mol)) {
 				conflib.fragments.values
 					.filter { pos.isFragmentCompatible(it) }
 					.groupBy { it.type }

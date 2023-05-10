@@ -42,6 +42,13 @@ class MoleculePrep(
 				}
 		}
 
+	private val isInverted = IdentityHashMap<Molecule, Boolean>()
+		.apply {
+			partition.map { (_, mol) ->
+				this[mol] = false
+			}
+		}
+
 	fun isIncluded(mol: Molecule) =
 		isIncluded[mol] ?: throw NoSuchElementException("mol was not found in this prep")
 
@@ -60,6 +67,12 @@ class MoleculePrep(
 				slide.views.remove(existingView)
 			}
 		}
+	}
+
+	fun isInverted(mol: Molecule) = this.isInverted[mol] ?: throw NoSuchElementException("mol was not found in this prep")
+
+	fun setInverted(mol: Molecule, isInverted: Boolean, slide: Slide.Locked) {
+		this.isInverted[mol] = isInverted
 	}
 
 	fun getIncludedTypedMols(): List<Pair<MoleculeType,Molecule>> =
@@ -98,10 +111,11 @@ class MoleculePrep(
 			}
 			s.features.menu("Prepare") {
 				add(FilterTool(this@MoleculePrep))
+				add(SpecifyChiralityEditor(this@MoleculePrep))
 				add(DuplicateAtomsEditor())
-				add(MissingAtomsEditor())
+				add(MissingAtomsEditor(this@MoleculePrep))
 				add(BondEditor())
-				add(ProtonationEditor())
+				add(ProtonationEditor(this@MoleculePrep))
 				add(NetChargeEditor(this@MoleculePrep))
 				add(MinimizerTool())
 			}

@@ -16,17 +16,18 @@ import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
 import edu.duke.cs.osprey.kstar.*;
 import edu.duke.cs.osprey.kstar.pfunc.NewGradientDescentPfunc;
+import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.FileTools;
 
 import java.io.File;
 import java.util.*;
 
-@Parameters(commandDescription = CommandCKStar.CommandDescription)
-public class CommandCKStar extends DelegatingCommand {
+@Parameters(commandDescription = CompiledConfSpaceKStar.CommandDescription)
+public class CompiledConfSpaceKStar implements CliCommand {
 
-    public static final String CommandName = "ckstar";
-    public static final String CommandDescription = "Run K* using compiled conformation spaces.";
+    public static final String CommandName = "kstar";
+    public static final String CommandDescription = "Run the K* algorithm with compiled conformation spaces.";
 
     @Parameter(names = "--complex-confspace", description = "Path to the compiled complex conformation space file.", required = true)
     private String complexConfSpacePath;
@@ -39,6 +40,15 @@ public class CommandCKStar extends DelegatingCommand {
 
     @Parameter(names = "--stability-threshold", description = "Pruning criteria to remove sequences with unstable unbound states relative to the wild type sequence. Set to a negative number to disable.")
     public double stabilityThreshold = 5.0;
+
+    @Parameter(names = {"--max-confs"}, description = "Number of lowest energy conformations to save. Off by default.")
+    public int maxConfs = -1;
+
+    @Parameter(names = "--ensemble-dir", description = "Directory to save each sequence's structural ensemble in. Defaults to current working directory.")
+    public String ensembleDir = ".";
+
+    @Parameter(names = "--write-n-confs", description = "The number (n) of best conformations to write in each sequence's ensemble. Defaults to 10.")
+    public int writeNConfs = 10;
 
     @Override
     public String getCommandName() {
@@ -53,14 +63,13 @@ public class CommandCKStar extends DelegatingCommand {
     @Override
     public int run(JCommander commander, String[] args) {
 
-        cleanupStuffFromPreviousRuns();
         var start = System.currentTimeMillis();
-
         var complex = ConfSpace.fromBytes(FileTools.readFileBytes(complexConfSpacePath));
         var design = ConfSpace.fromBytes(FileTools.readFileBytes(designConfSpacePath));
         var target = ConfSpace.fromBytes(FileTools.readFileBytes(targetConfSpacePath));
-        var parallelism = delegate.getParallelism();
-        var taskExecutor = parallelism.makeTaskExecutor();
+
+        var taskExecutor = new Parallelism(Runtime.getRuntime().availableProcessors(), 0, 0)
+                .makeTaskExecutor();
 
         var complexConfCalc = new CPUConfEnergyCalculator(complex);
         var targetConfCalc = new CPUConfEnergyCalculator(target);
@@ -95,7 +104,7 @@ public class CommandCKStar extends DelegatingCommand {
 
         var settings = new NewKStar.Settings.Builder()
                 .setStabilityThreshold(stabilityThreshold)
-                .setMaxNumConf(delegate.maxConfs > 0 ? delegate.maxConfs : Integer.MAX_VALUE)
+                .setMaxNumConf(maxConfs > 0 ? maxConfs : Integer.MAX_VALUE)
                 .build();
 
         var kstar = new NewKStar(target, design, complex, settings);
@@ -139,7 +148,7 @@ public class CommandCKStar extends DelegatingCommand {
                 int i = 0;
                 ArrayList<ConfEnergyCalculator.EnergiedCoords> coords = new ArrayList<>();
 
-                while (i < delegate.writeNConfs && iterator.hasNext()) {
+                while (i < writeNConfs && iterator.hasNext()) {
                     var energiedConf = iterator.next();
                     var assignments = energiedConf.getAssignments();
                     var posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, complexRefEnergies);
@@ -156,7 +165,7 @@ public class CommandCKStar extends DelegatingCommand {
                 // pick a name for the ensemble file
                 String seqstr = scoredSequence.sequence.toString(Sequence.Renderer.ResTypeMutations)
                         .replace(' ', '-');
-                File ensembleFile = new File(delegate.ensembleDir, String.format("seq.%s.pdb", seqstr));
+                File ensembleFile = new File(ensembleDir, String.format("seq.%s.pdb", seqstr));
                 PDBIO.writeFileEcoords(coords, ensembleFile, comment);
             }
 

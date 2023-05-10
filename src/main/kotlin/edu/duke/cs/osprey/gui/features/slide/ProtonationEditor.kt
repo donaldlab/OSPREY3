@@ -15,13 +15,14 @@ import edu.duke.cs.osprey.molscope.view.MoleculeRenderView
 import edu.duke.cs.osprey.dof.DihedralRotation
 import edu.duke.cs.osprey.tools.Protractor
 import edu.duke.cs.osprey.gui.forcefield.amber.*
+import edu.duke.cs.osprey.gui.prep.MoleculePrep
 import org.joml.Vector3d
 import java.util.*
 import kotlin.math.cos
 import kotlin.math.sin
 
 
-class ProtonationEditor : SlideFeature {
+class ProtonationEditor(val prep: MoleculePrep) : SlideFeature {
 
 	override val id = FeatureId("edit.protonation")
 
@@ -192,8 +193,22 @@ class ProtonationEditor : SlideFeature {
 	private fun autoProtonate(views: List<MoleculeRenderView>) {
 		for (view in views) {
 			val mol = view.molStack.originalMol
-			mol.inferProtonationBlocking()
-				.forEach { it.add() }
+
+			// Amber protonated D and L peptides differently, so if D invert to L to protonate and then invert back
+			val needsInversion = prep.isInverted(mol)
+			if (needsInversion) {
+				mol.invertedInPlace()
+			}
+
+			val protons = mol.inferProtonationBlocking()
+			if (needsInversion) {
+				mol.invertedInPlace()
+				protons.forEach { protonatedAtom ->
+					protonatedAtom.light.invertInPlace()
+				}
+			}
+			protons.forEach { it.add() }
+
 			view.moleculeChanged()
 		}
 	}

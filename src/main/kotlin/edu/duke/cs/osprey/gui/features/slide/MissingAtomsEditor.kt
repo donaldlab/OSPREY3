@@ -13,9 +13,10 @@ import edu.duke.cs.osprey.molscope.gui.features.WindowState
 import edu.duke.cs.osprey.molscope.gui.infoTip
 import edu.duke.cs.osprey.molscope.view.MoleculeRenderView
 import edu.duke.cs.osprey.gui.forcefield.amber.inferMissingAtomsAmberBlocking
+import edu.duke.cs.osprey.gui.prep.MoleculePrep
 
 
-class MissingAtomsEditor : SlideFeature {
+class MissingAtomsEditor(val prep: MoleculePrep) : SlideFeature {
 
 	override val id = FeatureId("edit.missingAtoms")
 
@@ -128,7 +129,19 @@ class MissingAtomsEditor : SlideFeature {
 		for (view in views) {
 
 			val mol = view.molStack.originalMol
+
+			// Amber missing atoms inference doesn't work with D-AAs
+			val needToInvert = prep.isInverted(mol)
+			if (needToInvert) {
+				mol.invertedInPlace()
+			}
+
 			val missingAtoms = mol.inferMissingAtomsAmberBlocking()
+			if (needToInvert) {
+				missingAtoms.forEach { it.atom.invertInPlace() }
+				mol.invertedInPlace()
+			}
+
 			for (missingAtom in missingAtoms) {
 
 				// add the atoms to the molecule

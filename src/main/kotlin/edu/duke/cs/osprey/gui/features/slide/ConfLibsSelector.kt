@@ -33,7 +33,13 @@ class ConfLibsSelector(val confSpace: ConfSpace) : SlideFeature {
 				// draw the window
 				window("Conformation Libraries##${slide.name}", winState.pOpen, IntFlags.of(Commands.BeginFlags.AlwaysAutoResize)) {
 
-					conflibPicker.render(imgui)
+					tabBar("tabs") {
+						for (mol in confSpace.mols) {
+							tabItem(mol.second.name, flags = IntFlags.of(Commands.TabItemFlags.None)) {
+								conflibPicker.render(imgui, mol.second)
+							}
+						}
+					}
 				}
 			}
 		)

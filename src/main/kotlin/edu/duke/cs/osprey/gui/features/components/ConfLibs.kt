@@ -7,8 +7,7 @@ import edu.duke.cs.osprey.molscope.gui.Alert
 import edu.duke.cs.osprey.gui.OspreyGui
 import edu.duke.cs.osprey.gui.io.*
 import edu.duke.cs.osprey.gui.prep.ConfSpace
-import kotlin.io.path.pathString
-import kotlin.io.path.writeText
+import edu.duke.cs.osprey.molscope.molecule.Molecule
 
 
 /**
@@ -59,7 +58,7 @@ class ConfLibPicker(val confSpace: ConfSpace) {
 
 	var onAdd: ((ConfLib) -> Unit)? = null
 
-	fun render(imgui: Commands) = imgui.run {
+	fun render(imgui: Commands, mol: Molecule) = imgui.run {
 
 		fun conflibTooltip(name: String?, desc: String?, citation: String?) {
 			if (isItemHovered()) {
@@ -80,7 +79,7 @@ class ConfLibPicker(val confSpace: ConfSpace) {
 		// show available libraries
 		text("Conformation Libraries")
 		child("libs", 300f, 100f, true) {
-			for (conflib in confSpace.conflibs) {
+			for (conflib in confSpace.getConflibsByMol(mol)) {
 				text(conflib.name)
 				conflibTooltip(conflib.name, conflib.description, conflib.citation)
 			}
@@ -92,7 +91,7 @@ class ConfLibPicker(val confSpace: ConfSpace) {
 		popup("addlib") {
 			for (info in ConfLibs.infos) {
 				if (menuItem(info.name)) {
-					addLib(info.read())
+					addLib(mol, info.read())
 				}
 				conflibTooltip(null, info.description, info.citation)
 			}
@@ -101,34 +100,34 @@ class ConfLibPicker(val confSpace: ConfSpace) {
 		sameLine()
 
 		if (button("Add from file")) {
-			addLibFromFile()
+			addLibFromFile(mol)
 		}
 
 		alert.render(this)
 	}
 
-	private fun addLibFromFile() {
+	private fun addLibFromFile(mol: Molecule) {
 		FileDialog.openFiles(
 			conflibFilter,
 			defaultPath = UserSettings.openSaveDir
 		)?.let { paths ->
 			paths.firstOrNull()?.parent?.let { UserSettings.openSaveDir = it }
 			for (path in paths) {
-				addLib(path.read())
+				addLib(mol, path.read())
 			}
 		}
 	}
 
-	private fun addLib(toml: String) {
+	private fun addLib(mol: Molecule, toml: String) {
 
 		val conflib = ConfLib.from(toml)
 
-		if (confSpace.conflibs.contains(conflib)) {
-			alert.show("Skipped adding duplicate Conformation Library:\n${conflib.name}")
+		if (confSpace.getConflibsByMol(mol).contains(conflib)) {
+			alert.show("Skipped adding duplicate Conformation Library:\n${conflib.name} for ${mol.name}")
 			return
 		}
 
-		confSpace.conflibs.add(conflib)
+		confSpace.addConflibByMol(mol, conflib)
 		onAdd?.invoke(conflib)
 	}
 }

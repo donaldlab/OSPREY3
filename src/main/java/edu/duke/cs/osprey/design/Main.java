@@ -30,13 +30,13 @@ public class Main {
 
         var commandMap = Map.of(
                 CommandLaunchGui.CommandName, new CommandLaunchGui(),
-                CommandPartitionFunction.CommandName, new CommandPartitionFunction(),
-                CommandBindingAffinity.CommandName, new CommandBindingAffinity(),
-                CommandTopNConfs.CommandName, new CommandTopNConfs(),
-                CommandGMEC.CommandName, new CommandGMEC(),
-                CommandMakeFlexShell.CommandName, new CommandMakeFlexShell(),
-                CommandKStar.CommandName, new CommandKStar(),
-                CommandCKStar.CommandName, new CommandCKStar(),
+//                CommandPartitionFunction.CommandName, new CommandPartitionFunction(),
+//                CommandBindingAffinity.CommandName, new CommandBindingAffinity(),
+//                CommandTopNConfs.CommandName, new CommandTopNConfs(),
+//                CommandGMEC.CommandName, new CommandGMEC(),
+//                CommandMakeFlexShell.CommandName, new CommandMakeFlexShell(),
+//                CommandKStar.CommandName, new CommandKStar(),
+                CompiledConfSpaceKStar.CommandName, new CompiledConfSpaceKStar(),
                 CommandInvert.CommandName, new CommandInvert()
         );
 
@@ -59,7 +59,7 @@ public class Main {
 
         if (args.length == 0 || this.help) {
             commander.usage();
-            return args.length == 0 ? Failure : Success;
+            return Success;
         }
 
         var parsedCommand = commander.getParsedCommand();
