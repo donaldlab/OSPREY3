@@ -83,7 +83,6 @@ fun Project.makeBuildTasks() {
 			"java.management",
 			"jdk.httpserver",
 			"jdk.zipfs" // needed to provide jar:// file system
-//			"jdk.incubator.foreign" // needed for foreign memory access API
 		)
 	}
 }

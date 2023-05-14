@@ -23,7 +23,8 @@ import java.util.stream.IntStream;
 
 /**
  * NOTE: running these tests directly from your IDE may require extra JVM flags:
- * --add-modules=jdk.incubator.foreign
+ * --enable-preview
+ * because the Java Foreign Memory API is in preview as of JDK 19.
  */
 public class TestNativeConfEnergyCalculator {
 

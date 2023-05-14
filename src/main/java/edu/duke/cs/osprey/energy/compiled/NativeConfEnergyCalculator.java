@@ -29,7 +29,7 @@ import edu.duke.cs.osprey.gpu.Precision;
  * something C++ can understand (and dealing with memory layouts, etc), calling the C++ library
  * over Java's FFI, and then convertering the C++ results back into something Java can understand.
  *
- * The FFI in this case is based on JNA. As jdk.incubator.foreign is (currently) incubating in JDK 16, a MemoryBuffer
+ * The FFI in this case is based on JNA. As java.lang.foreign is (currently) in preview in JDK 19, a MemoryBuffer
  * is used to construct the buffer passed to the native code.
  *
  * This implementation is correct (as best as I can tell), but it's very naive and totally unoptimized.
