@@ -117,14 +117,12 @@ public interface ConfEnergyCalculator extends AutoCloseable {
 	/**
 	 * Builds the best conformation energy calculator based on the given resources.
 	 */
-	static ConfEnergyCalculator makeBest(ConfSpace confSpace, Parallelism parallelism, Precision precision) {
+	static ConfEnergyCalculator makeBest(ConfSpace confSpace, Precision precision) {
 
 		// try GPUs first
-		/*
-		if (parallelism.numGpus > 0) {
-			return new CudaConfEnergyCalculator(confSpace, precision, parallelism);
+		if (CudaConfEnergyCalculator.isSupported()) {
+			return new CudaConfEnergyCalculator(confSpace, precision);
 		}
-		 */
 
 		// TODO: prefer intel if the hardware suitably matched?
 		return new CPUConfEnergyCalculator(confSpace);
@@ -134,7 +132,7 @@ public interface ConfEnergyCalculator extends AutoCloseable {
 	 * Builds the best conformation energy calculator based on the given resources,
 	 * and using Float64 precision.
 	 */
-	static ConfEnergyCalculator makeBest(ConfSpace confSpace, Parallelism parallelism) {
-		return makeBest(confSpace, parallelism, Precision.Float64);
+	static ConfEnergyCalculator makeBest(ConfSpace confSpace) {
+		return makeBest(confSpace, Precision.Float64);
 	}
 }

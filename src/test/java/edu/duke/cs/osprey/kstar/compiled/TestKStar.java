@@ -21,7 +21,6 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 import static org.hamcrest.Matchers.is;
@@ -135,7 +134,7 @@ public class TestKStar {
 
 				ConfSpace confSpace = (ConfSpace)info.confSpace;
 
-				ConfEnergyCalculator ecalc = ConfEnergyCalculator.makeBest(confSpace, parallelism);
+				ConfEnergyCalculator ecalc = ConfEnergyCalculator.makeBest(confSpace);
 
 				SimpleReferenceEnergies eref = new ErefCalculator.Builder(ecalc)
 					.build()

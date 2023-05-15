@@ -74,9 +74,9 @@ public class CompiledConfSpaceKStar implements CliCommand {
         var taskExecutor = new Parallelism(Runtime.getRuntime().availableProcessors(), 0, 0)
                 .makeTaskExecutor();
 
-        var complexConfCalc = new CPUConfEnergyCalculator(complex);
-        var targetConfCalc = new CPUConfEnergyCalculator(target);
-        var designConfCalf = new CPUConfEnergyCalculator(design);
+        var complexConfCalc = ConfEnergyCalculator.makeBest(complex);
+        var targetConfCalc = ConfEnergyCalculator.makeBest(target);
+        var designConfCalc = ConfEnergyCalculator.makeBest(design);
 
         var complexRefEnergies = new ErefCalculator.Builder(complexConfCalc)
                 .build()
@@ -84,7 +84,7 @@ public class CompiledConfSpaceKStar implements CliCommand {
         var targetRefEnergies = new ErefCalculator.Builder(targetConfCalc)
                 .build()
                 .calc(taskExecutor);
-        var designRefEnergies = new ErefCalculator.Builder(designConfCalf)
+        var designRefEnergies = new ErefCalculator.Builder(designConfCalc)
                 .build()
                 .calc(taskExecutor);
 
@@ -96,7 +96,7 @@ public class CompiledConfSpaceKStar implements CliCommand {
                 .setReferenceEnergies(targetRefEnergies)
                 .build()
                 .calc(taskExecutor);
-        var designEnergyMatrix = new EmatCalculator.Builder(designConfCalf)
+        var designEnergyMatrix = new EmatCalculator.Builder(designConfCalc)
                 .setReferenceEnergies(designRefEnergies)
                 .build()
                 .calc(taskExecutor);
@@ -124,14 +124,14 @@ public class CompiledConfSpaceKStar implements CliCommand {
         kstar.protein.confEcalc = targetConfCalc;
 
         kstar.ligand.pfuncFactory = (rcs) -> new NewGradientDescentPfunc(
-                designConfCalf,
+                designConfCalc,
                 new ConfAStarTree.Builder(designEnergyMatrix, rcs).setTraditional().build(),
                 new ConfAStarTree.Builder(designEnergyMatrix, rcs).setTraditional().build(),
                 rcs.getNumConformations(),
                 designPosInterGen,
                 taskExecutor
         );
-        kstar.ligand.confEcalc = designConfCalf;
+        kstar.ligand.confEcalc = designConfCalc;
 
         kstar.complex.pfuncFactory = (rcs) -> new NewGradientDescentPfunc(
                 complexConfCalc,
