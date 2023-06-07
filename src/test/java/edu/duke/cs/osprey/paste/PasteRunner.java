@@ -42,6 +42,7 @@ import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.kstar.KStar;
+import edu.duke.cs.osprey.kstar.KStarSettings;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
@@ -147,7 +148,7 @@ public class PasteRunner {
 
 	private static void runKStar(SimpleConfSpace targetConfSpace, SimpleConfSpace ligandConfSpace, SimpleConfSpace complexConfSpace) {
 
-		KStar.Settings settings = new KStar.Settings.Builder()
+		KStarSettings settings = new KStarSettings.Builder()
 				.setEpsilon(0.9999)
 				.setStabilityThreshold(null)
 				.setMaxSimultaneousMutations(3)

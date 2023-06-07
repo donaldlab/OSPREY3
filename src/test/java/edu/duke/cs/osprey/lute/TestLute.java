@@ -258,7 +258,7 @@ public class TestLute {
 		{
 			try (EnergyCalculator ecalc = new EnergyCalculator.Builder(complex, ffparams).build()) {
 
-				KStar.Settings settings = new KStar.Settings.Builder()
+				KStarSettings settings = new KStarSettings.Builder()
 					.setEpsilon(epsilon)
 					.setStabilityThreshold(null)
 					.addScoreConsoleWriter(testFormatter)
@@ -294,7 +294,7 @@ public class TestLute {
 			try (EnergyCalculator ecalc = new EnergyCalculator.Builder(complex, ffparams).build()) {
 
 				// configure BBK*
-				KStar.Settings kstarSettings = new KStar.Settings.Builder()
+				KStarSettings kstarSettings = new KStarSettings.Builder()
 					.setEpsilon(epsilon)
 					.setStabilityThreshold(null)
 					.addScoreConsoleWriter(testFormatter)
@@ -488,7 +488,7 @@ public class TestLute {
 			.setParallelism(Parallelism.makeCpu(4))
 			.build()) {
 
-			KStar.Settings settings = new KStar.Settings.Builder()
+			KStarSettings settings = new KStarSettings.Builder()
 				.setEpsilon(epsilon)
 				.setStabilityThreshold(null)
 				.build();
@@ -520,7 +520,7 @@ public class TestLute {
 				);
 			}
 
-			List<KStar.ScoredSequence> scoredSequences = kstar.run(ecalc.tasks);
+			List<ScoredSequence> scoredSequences = kstar.run(ecalc.tasks);
 
 			// LUTE approximates energies, so it doesn't compute quite the same K* scores
 			final double fudge = 0.01;
@@ -532,7 +532,7 @@ public class TestLute {
 		}
 	}
 
-	private static void assertKstar(KStar.ScoredSequence scoredSequence, String expectedSequence, double kstarLower, double kstarUpper, double fudge) {
+	private static void assertKstar(ScoredSequence scoredSequence, String expectedSequence, double kstarLower, double kstarUpper, double fudge) {
 		assertThat(scoredSequence.sequence.toString(Sequence.Renderer.ResTypeMutations), is(expectedSequence));
 		assertThat(scoredSequence.score.lowerBoundLog10(), lessThanOrEqualTo(kstarLower*(1+fudge)));
 		assertThat(scoredSequence.score.upperBoundLog10(), greaterThanOrEqualTo(kstarUpper*(1-fudge)));
@@ -547,7 +547,7 @@ public class TestLute {
 			.setParallelism(Parallelism.makeCpu(4))
 			.build()) {
 
-			KStar.Settings kstarSettings = new KStar.Settings.Builder()
+			KStarSettings kstarSettings = new KStarSettings.Builder()
 				.setEpsilon(epsilon)
 				.setStabilityThreshold(null)
 				.addScoreConsoleWriter()
@@ -582,7 +582,7 @@ public class TestLute {
 				);
 			}
 
-			List<KStar.ScoredSequence> scoredSequences = bbkstar.run(ecalc.tasks);
+			List<ScoredSequence> scoredSequences = bbkstar.run(ecalc.tasks);
 
 			// LUTE approximates energies, so it doesn't compute quite the same K* scores
 			final double fudge = 0.01;

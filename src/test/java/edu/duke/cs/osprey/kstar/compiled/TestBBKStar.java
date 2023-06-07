@@ -12,9 +12,7 @@ import edu.duke.cs.osprey.ematrix.compiled.ErefCalculator;
 import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculatorAdapter;
-import edu.duke.cs.osprey.kstar.BBKStar;
-import edu.duke.cs.osprey.kstar.KStar;
-import edu.duke.cs.osprey.kstar.KStarScoreWriter;
+import edu.duke.cs.osprey.kstar.*;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.tools.FileTools;
@@ -40,7 +38,7 @@ public class TestBBKStar {
 		run(chainG, chainA, complex, epsilon);
 	}
 
-	private static List<KStar.ScoredSequence> run(ConfSpace protein, ConfSpace ligand, ConfSpace complex, double epsilon) {
+	private static List<ScoredSequence> run(ConfSpace protein, ConfSpace ligand, ConfSpace complex, double epsilon) {
 
 		KStarScoreWriter.Formatter testFormatter = info ->
 			String.format("%3d %s   protein: %s   ligand: %s   complex: %s   K*: %s",
@@ -52,7 +50,7 @@ public class TestBBKStar {
 				info.kstarScore.toString()
 			);
 
-		KStar.Settings kstarSettings = new KStar.Settings.Builder()
+		KStarSettings kstarSettings = new KStarSettings.Builder()
 			.setEpsilon(epsilon)
 			.setStabilityThreshold(null)
 			.setMaxSimultaneousMutations(1)

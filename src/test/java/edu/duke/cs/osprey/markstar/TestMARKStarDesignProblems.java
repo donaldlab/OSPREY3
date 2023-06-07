@@ -38,6 +38,7 @@ import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.kstar.KStar;
+import edu.duke.cs.osprey.kstar.ScoredSequence;
 import edu.duke.cs.osprey.kstar.TestKStar;
 import edu.duke.cs.osprey.markstar.TestMARKStar.Result;
 import edu.duke.cs.osprey.kstar.TestKStar.ConfSpaces;
@@ -166,7 +167,7 @@ public class TestMARKStarDesignProblems {
         ConfSpaces confSpaces = make2RL0Python();
         List<MARKStar.ScoredSequence> markstarResult = runMARKStar(confSpaces, 0.1).scores;
         boolean runkstar = true;
-        List<KStar.ScoredSequence> kstarResult = null;
+        List<ScoredSequence> kstarResult = null;
         if(runkstar) {
             kstarResult = runKStar(confSpaces, 0.1);
         }
@@ -174,7 +175,7 @@ public class TestMARKStarDesignProblems {
             System.out.println(seq);
         }
         if(runkstar)
-            for (KStar.ScoredSequence seq : kstarResult) {
+            for (ScoredSequence seq : kstarResult) {
                 System.out.println(seq);
             }
     }
@@ -468,7 +469,7 @@ public class TestMARKStarDesignProblems {
         String kstartime = "(not run)";
         boolean runkstar = true;
         Stopwatch runtime = new Stopwatch().start();
-        List<KStar.ScoredSequence> kStarSeqs = null;
+        List<ScoredSequence> kStarSeqs = null;
         if(runkstar) {
             kStarSeqs = runKStar(confSpaces, epsilon);
             runtime.stop();
@@ -483,7 +484,7 @@ public class TestMARKStarDesignProblems {
         for(MARKStar.ScoredSequence seq: result.scores)
             printMARKStarComputationStats(seq);
         if(runkstar)
-            for(KStar.ScoredSequence seq: kStarSeqs)
+            for(ScoredSequence seq: kStarSeqs)
                 printKStarComputationStats(seq);
     }
 

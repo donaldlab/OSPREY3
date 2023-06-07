@@ -12,6 +12,8 @@ import edu.duke.cs.osprey.ematrix.compiled.ErefCalculator;
 import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculatorAdapter;
 import edu.duke.cs.osprey.kstar.KStar;
+import edu.duke.cs.osprey.kstar.KStarSettings;
+import edu.duke.cs.osprey.kstar.ScoredSequence;
 import edu.duke.cs.osprey.kstar.SequenceAnalyzer;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.tools.FileTools;
@@ -48,7 +50,7 @@ public class CommandKStar extends DelegatingCommand {
         var parallelism = delegate.getParallelism();
         var taskExecutor = parallelism.makeTaskExecutor();
 
-        var settings = new KStar.Settings.Builder()
+        var settings = new KStarSettings.Builder()
                 .setStabilityThreshold(stabilityThreshold)
                 .setMaxNumConf(delegate.maxConfs)
                 .build();
@@ -78,10 +80,10 @@ public class CommandKStar extends DelegatingCommand {
             );
         }
 
-        List<KStar.ScoredSequence> sequences = kstar.run(taskExecutor);
+        List<ScoredSequence> sequences = kstar.run(taskExecutor);
 
         SequenceAnalyzer analyzer = new SequenceAnalyzer(kstar);
-        for (KStar.ScoredSequence sequence : sequences) {
+        for (ScoredSequence sequence : sequences) {
             System.out.println("result:");
             System.out.println("\tsequence: " + sequence.sequence);
             System.out.println("\tscore: " + sequence.score);

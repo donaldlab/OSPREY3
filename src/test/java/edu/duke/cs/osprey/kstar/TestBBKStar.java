@@ -61,7 +61,7 @@ public class TestBBKStar {
 
 	public static class Results {
 		public BBKStar bbkstar;
-		public List<KStar.ScoredSequence> sequences;
+		public List<ScoredSequence> sequences;
 	}
 
 	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, int numSequences, double epsilon, String confdbPattern, int maxSimultaneousMutations,
@@ -85,7 +85,7 @@ public class TestBBKStar {
 				);
 
 			// configure BBK*
-			KStar.Settings kstarSettings = new KStar.Settings.Builder()
+			KStarSettings kstarSettings = new KStarSettings.Builder()
 				.setEpsilon(epsilon)
 				.setStabilityThreshold(null)
 				.setMaxSimultaneousMutations(maxSimultaneousMutations)
@@ -332,7 +332,7 @@ public class TestBBKStar {
 	private void assertSequence(Results results, String sequence, Double estKStarLowerLog10, Double estKStarUpperLog10) {
 
 		// find the sequence
-		for (KStar.ScoredSequence scoredSequence : results.sequences) {
+		for (ScoredSequence scoredSequence : results.sequences) {
 
 			if (scoredSequence.sequence.toString(Sequence.Renderer.ResType).equals(sequence)) {
 
@@ -357,10 +357,10 @@ public class TestBBKStar {
 		fail("sequence not found: " + sequence);
 	}
 
-	private void assertDecreasingUpperBounds(List<KStar.ScoredSequence> sequences) {
+	private void assertDecreasingUpperBounds(List<ScoredSequence> sequences) {
 
 		double minUpperBoundLog10 = Double.POSITIVE_INFINITY;
-		for (KStar.ScoredSequence sequence : sequences) {
+		for (ScoredSequence sequence : sequences) {
 
 			Double upperBoundLog10 = sequence.score.upperBoundLog10();
 			if (upperBoundLog10 == null) {

@@ -530,7 +530,7 @@ public class BBKStar {
 	public final ConfSpaceInfo complex;
 
 	/** Optional and overridable settings for BBK*, shared with K* */
-	public final KStar.Settings kstarSettings;
+	public final KStarSettings kstarSettings;
 
 	/** Optional and overridable settings for BBK* */
 	public final Settings bbkstarSettings;
@@ -543,7 +543,7 @@ public class BBKStar {
 	/** Enables computing logs of bigDecimal, minimizing precision issues */
 	private final ExpFunction exp;
 
-	public BBKStar(ConfSpaceIteration protein, ConfSpaceIteration ligand, ConfSpaceIteration complex, KStar.Settings kstarSettings, Settings bbkstarSettings) {
+	public BBKStar(ConfSpaceIteration protein, ConfSpaceIteration ligand, ConfSpaceIteration complex, KStarSettings kstarSettings, Settings bbkstarSettings) {
 
 		// BBK* doesn't work with external memory (never enough internal memory for all the priority queues)
 		if (kstarSettings.useExternalMemory) {
@@ -582,13 +582,13 @@ public class BBKStar {
 		}
 	}
 
-	public List<KStar.ScoredSequence> run() {
+	public List<ScoredSequence> run() {
 		// run without task contexts
 		// useful for LUTE ecalcs, which don't use parallelism at all
 		return run(new TaskExecutor());
 	}
 
-	public List<KStar.ScoredSequence> run(TaskExecutor tasks) {
+	public List<ScoredSequence> run(TaskExecutor tasks) {
 
 		// make a context group for the task executor
 		try (TaskExecutor.ContextGroup ctxGroup = complex.confEcalcMinimized.tasks.contextGroup()) {
@@ -616,7 +616,7 @@ public class BBKStar {
 				ligandPfuncs.clear();
 				complexPfuncs.clear();
 
-				List<KStar.ScoredSequence> scoredSequences = new ArrayList<>();
+				List<ScoredSequence> scoredSequences = new ArrayList<>();
 
 				// calculate wild-type first
 				if (complex.confSpace.seqSpace().containsWildTypeSequence()) {
@@ -707,10 +707,10 @@ public class BBKStar {
 		}
 	}
 
-	private void reportSequence(SingleSequenceNode ssnode, List<KStar.ScoredSequence> scoredSequences) {
+	private void reportSequence(SingleSequenceNode ssnode, List<ScoredSequence> scoredSequences) {
 
 		KStarScore kstarScore = ssnode.makeKStarScore();
-		scoredSequences.add(new KStar.ScoredSequence(ssnode.sequence, kstarScore));
+		scoredSequences.add(new ScoredSequence(ssnode.sequence, kstarScore));
 
 		kstarSettings.scoreWriters.writeScore(new KStarScoreWriter.ScoreInfo(
 			scoredSequences.size() - 1,

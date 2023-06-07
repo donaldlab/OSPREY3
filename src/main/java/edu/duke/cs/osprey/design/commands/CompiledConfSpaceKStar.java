@@ -11,7 +11,6 @@ import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
 import edu.duke.cs.osprey.design.Main;
 import edu.duke.cs.osprey.ematrix.compiled.EmatCalculator;
 import edu.duke.cs.osprey.ematrix.compiled.ErefCalculator;
-import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
 import edu.duke.cs.osprey.kstar.*;
@@ -105,7 +104,7 @@ public class CompiledConfSpaceKStar implements CliCommand {
         var targetPosInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, targetRefEnergies);
         var designPosInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, designRefEnergies);
 
-        var settings = new NewKStar.Settings.Builder()
+        var settings = new KStarSettings.Builder()
                 .setStabilityThreshold(stabilityThreshold)
                 .setMaxNumConf(maxConfs > 0 ? maxConfs : Integer.MAX_VALUE)
                 .setMaxSimultaneousMutations(2)
@@ -143,7 +142,8 @@ public class CompiledConfSpaceKStar implements CliCommand {
         );
         kstar.complex.confEcalc = complexConfCalc;
 
-        List<NewKStar.ScoredSequence> sequences = kstar.run(taskExecutor);
+        List<ScoredSequence> sequences = kstar.run(taskExecutor);
+
         for (var scoredSequence : sequences) {
             try (var confDb = new ConfDB(kstar.complex.confSpace, kstar.complex.confDBFile)) {
                 var iterator = confDb.getSequence(scoredSequence.sequence)
@@ -176,6 +176,7 @@ public class CompiledConfSpaceKStar implements CliCommand {
 
             System.out.println(scoredSequence);
         }
+
 
         var stop = System.currentTimeMillis();
         System.out.printf("Took %f seconds to run%n", (stop - start) / 1000.);

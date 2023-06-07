@@ -120,7 +120,7 @@ public class KStarRunner {
 
 	private static void runKStar(SimpleConfSpace targetConfSpace, SimpleConfSpace ligandConfSpace, SimpleConfSpace complexConfSpace) {
 
-		KStar.Settings settings = new KStar.Settings.Builder()
+		KStarSettings settings = new KStarSettings.Builder()
 			.setEpsilon(0.9999)
 			.setStabilityThreshold(null)
 			.setMaxSimultaneousMutations(3)

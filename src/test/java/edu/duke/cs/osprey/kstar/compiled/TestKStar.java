@@ -11,6 +11,8 @@ import edu.duke.cs.osprey.ematrix.compiled.ErefCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculatorAdapter;
 import edu.duke.cs.osprey.kstar.KStar;
+import edu.duke.cs.osprey.kstar.KStarSettings;
+import edu.duke.cs.osprey.kstar.ScoredSequence;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Parallelism;
@@ -34,7 +36,7 @@ public class TestKStar {
 
 	public static class Result {
 		public KStar kstar;
-		public List<KStar.ScoredSequence> scores;
+		public List<ScoredSequence> scores;
 	}
 
 
@@ -80,7 +82,7 @@ public class TestKStar {
 
 	private Result run(ConfSpace protein, ConfSpace ligand, ConfSpace complex, PosInterDist posInterDist, double epsilon) {
 
-		var settings = new KStar.Settings.Builder()
+		var settings = new KStarSettings.Builder()
 			.setEpsilon(epsilon)
 			.setStabilityThreshold(null)
 			.setMaxSimultaneousMutations(1)
@@ -186,7 +188,7 @@ public class TestKStar {
 		var ligandExp = new BigDecimalBounds(ligandMin, ligandMax);
 		var complexExp = new BigDecimalBounds(complexMin, complexMax);
 
-		KStar.ScoredSequence seq = result.scores.get(index);
+		ScoredSequence seq = result.scores.get(index);
 		assertThat(seq.sequence.toString(Sequence.Renderer.ResType), is(seqstr));
 
 		var proteinObs = seq.score.protein.values.calcBounds();

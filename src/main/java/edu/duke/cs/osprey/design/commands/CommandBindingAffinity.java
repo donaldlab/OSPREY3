@@ -19,6 +19,8 @@ import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.amber.ForcefieldFileParser;
 import edu.duke.cs.osprey.kstar.KStar;
+import edu.duke.cs.osprey.kstar.KStarSettings;
+import edu.duke.cs.osprey.kstar.ScoredSequence;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBoundFastQueues;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -316,12 +318,12 @@ public class CommandBindingAffinity extends DelegatingCommand {
         return modifier;
     }
 
-    private void printResults(List<KStar.ScoredSequence> results) {
+    private void printResults(List<ScoredSequence> results) {
         // nop
     }
 
-    private KStar.Settings makeKStarSettings(double epsilon) {
-        var builder = new KStar.Settings.Builder();
+    private KStarSettings makeKStarSettings(double epsilon) {
+        var builder = new KStarSettings.Builder();
         builder.setEpsilon(epsilon);
         builder.addScoreConsoleWriter();
         if (maxNumberConfs > 0) {

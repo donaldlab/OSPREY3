@@ -75,7 +75,7 @@ public class TestKStar {
 
 	public static class Result {
 		public KStar kstar;
-		public List<KStar.ScoredSequence> scores;
+		public List<ScoredSequence> scores;
 	}
 
 	public static Result runKStar(ConfSpaces confSpaces, double epsilon, String confDBPattern, int maxSimultaneousMutations) {
@@ -110,7 +110,7 @@ public class TestKStar {
 			};
 
 			// configure K*
-			KStar.Settings settings = new KStar.Settings.Builder()
+			KStarSettings settings = new KStarSettings.Builder()
 				.setEpsilon(epsilon)
 				.setStabilityThreshold(null)
 				.addScoreConsoleWriter(testFormatter)
@@ -628,7 +628,7 @@ public class TestKStar {
 
 	public static void assertSequence(Result result, int sequenceIndex, String sequence, Double proteinQStar, Double ligandQStar, Double complexQStar, double epsilon) {
 
-		KStar.ScoredSequence scoredSequence = result.scores.get(sequenceIndex);
+		ScoredSequence scoredSequence = result.scores.get(sequenceIndex);
 
 		// check the sequence
 		assertThat(scoredSequence.sequence.toString(Sequence.Renderer.ResType), is(sequence));

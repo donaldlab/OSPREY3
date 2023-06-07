@@ -44,9 +44,7 @@ import edu.duke.cs.osprey.energy.EnergyPartition;
 import edu.duke.cs.osprey.energy.ResidueForcefieldBreakdown;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.gmec.ConfAnalyzer;
-import edu.duke.cs.osprey.kstar.KStar;
-import edu.duke.cs.osprey.kstar.TestBBKStar;
-import edu.duke.cs.osprey.kstar.TestKStar;
+import edu.duke.cs.osprey.kstar.*;
 import edu.duke.cs.osprey.kstar.TestKStar.ConfSpaces;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
@@ -95,7 +93,7 @@ public class TestMARKStar {
 	protected  static void TestComparison(TestKStar.ConfSpaces confSpaces, double epsilon, boolean runkstar) {
 		Stopwatch runtime = new Stopwatch().start();
 		String kstartime = "(Not run)";
-		List<KStar.ScoredSequence> seqs = null;
+		List<ScoredSequence> seqs = null;
 		if(runkstar) {
 			seqs = runKStar(confSpaces, epsilon);
 			runtime.stop();
@@ -109,7 +107,7 @@ public class TestMARKStar {
 		for(MARKStar.ScoredSequence seq: result.scores)
 			printMARKStarComputationStats(seq);
 		if(seqs != null)
-		for(KStar.ScoredSequence seq: seqs)
+		for(ScoredSequence seq: seqs)
 			printKStarComputationStats(seq);
 		System.out.println("MARK* time: "+markstartime+", K* time: "+kstartime);
 	}
@@ -620,7 +618,7 @@ public class TestMARKStar {
 		String kstartime = "(not run)";
 		boolean runkstar = false;
 		Stopwatch runtime = new Stopwatch().start();
-		List<KStar.ScoredSequence> kStarSeqs = null;
+		List<ScoredSequence> kStarSeqs = null;
 		if(runkstar) {
 			kStarSeqs = runKStar(confSpaces, epsilon);
 			runtime.stop();
@@ -635,7 +633,7 @@ public class TestMARKStar {
 		for(MARKStar.ScoredSequence seq: result.scores)
 			printMARKStarComputationStats(seq);
 		if(runkstar)
-			for(KStar.ScoredSequence seq: kStarSeqs)
+			for(ScoredSequence seq: kStarSeqs)
 				printKStarComputationStats(seq);
 	}
 
@@ -1002,7 +1000,7 @@ public class TestMARKStar {
 		try {
 			ConfSpaces confSpaces = loadFromCFS("examples/python.KStar/4hem_B_7res_1.131E+41.cfs");
 			TestBBKStar.Results results = runBBKStar(confSpaces, 1, 0.999999999999, null, 2, true);
-			for(KStar.ScoredSequence seq: results.sequences)
+			for(ScoredSequence seq: results.sequences)
 				System.out.println(seq);
 
 		} catch (FileNotFoundException e) {
@@ -1013,7 +1011,7 @@ public class TestMARKStar {
 	private void compareMARKStarAndKStar(int numFlex, double epsilon) {
 		Stopwatch runTime = new Stopwatch().start();
 		String kstartime = "(not run)";
-		List<KStar.ScoredSequence> kStarSeqs = null;
+		List<ScoredSequence> kStarSeqs = null;
 		boolean runkstar = true;
 		if(runkstar) {
 			kStarSeqs = runKStarComparison(numFlex, epsilon);
@@ -1027,7 +1025,7 @@ public class TestMARKStar {
 		for(MARKStar.ScoredSequence seq: markStarSeqs)
 			printMARKStarComputationStats(seq);
 		if(runkstar)
-			for(KStar.ScoredSequence seq: kStarSeqs)
+			for(ScoredSequence seq: kStarSeqs)
 				printKStarComputationStats(seq);
 		System.out.println("K* time: "+kstartime);
 		System.out.println("MARK* time: "+runTime.getTime(2));
@@ -1035,7 +1033,7 @@ public class TestMARKStar {
 
 
 
-	protected static void printKStarComputationStats(KStar.ScoredSequence result)
+	protected static void printKStarComputationStats(ScoredSequence result)
 	{}
 
 	protected static void printMARKStarComputationStats(MARKStar.ScoredSequence result)
@@ -1043,7 +1041,7 @@ public class TestMARKStar {
 
 	@Test
 	public void KStarComparison() {
-		List<KStar.ScoredSequence> results = runKStarComparison(5,0.68);
+		List<ScoredSequence> results = runKStarComparison(5,0.68);
 		for (int index = 0; index < results.size(); index++) {
 			int totalConfsEnergied = results.get(index).score.complex.numConfs + results.get(index).score.protein.numConfs + results.get(index).score.ligand.numConfs;
 			int totalConfsLooked = -1;
@@ -1111,10 +1109,10 @@ public class TestMARKStar {
 
 	public static class KstarResult {
 		public KStar kstar;
-		public List<KStar.ScoredSequence> scores;
+		public List<ScoredSequence> scores;
 	}
 
-	public static List<KStar.ScoredSequence> runKStarComparison(int numFlex, double epsilon) {
+	public static List<ScoredSequence> runKStarComparison(int numFlex, double epsilon) {
 		//ConfSpaces confSpaces = make1GUASmallCATS(numFlex);
 		//ConfSpaces confSpaces = make1GUASmallDEEP(numFlex);
 		ConfSpaces confSpaces = make1GUASmall(numFlex);
@@ -1125,7 +1123,7 @@ public class TestMARKStar {
 				.setParallelism(parallelism)
 				.build();
 		// configure K*
-		KStar.Settings settings = new KStar.Settings.Builder()
+		KStarSettings settings = new KStarSettings.Builder()
 				.setEpsilon(epsilon)
 				.setStabilityThreshold(null)
 				.setShowPfuncProgress(true)
@@ -1173,7 +1171,7 @@ public class TestMARKStar {
 		return result.scores;
 	}
 
-	public static List<KStar.ScoredSequence> runKStar(TestKStar.ConfSpaces confSpaces, double epsilon) {
+	public static List<ScoredSequence> runKStar(TestKStar.ConfSpaces confSpaces, double epsilon) {
 
 		Parallelism parallelism = Parallelism.makeCpu(NUM_CPUs);
 
@@ -1182,7 +1180,7 @@ public class TestMARKStar {
 				.setParallelism(parallelism)
 				.build();
 		// configure K*
-		KStar.Settings settings = new KStar.Settings.Builder()
+		KStarSettings settings = new KStarSettings.Builder()
 				.setEpsilon(epsilon)
 				.setStabilityThreshold(null)
 				.setShowPfuncProgress(true)

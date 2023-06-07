@@ -43,6 +43,7 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.Queue;
 import edu.duke.cs.osprey.kstar.BBKStar;
 import edu.duke.cs.osprey.kstar.KStar;
+import edu.duke.cs.osprey.kstar.KStarSettings;
 import edu.duke.cs.osprey.kstar.TestKStar;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.parallelism.Parallelism;
@@ -210,7 +211,7 @@ public class LUTELab {
 			.setParallelism(Parallelism.makeCpu(8))
 			.build()) {
 
-			KStar.Settings settings = new KStar.Settings.Builder()
+			KStarSettings settings = new KStarSettings.Builder()
 				.setEpsilon(0.01)
 				.setStabilityThreshold(null)
 				.setMaxSimultaneousMutations(1)
@@ -257,7 +258,7 @@ public class LUTELab {
 			.setParallelism(Parallelism.makeCpu(8))
 			.build()) {
 
-			KStar.Settings kstarSettings = new KStar.Settings.Builder()
+			KStarSettings kstarSettings = new KStarSettings.Builder()
 				.setEpsilon(0.01)
 				.setStabilityThreshold(null)
 				.setMaxSimultaneousMutations(1)

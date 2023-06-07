@@ -74,7 +74,7 @@ public class TestSequenceAnalyzer {
 						.setParallelism(parallelism)
 						.build()) {
 
-						KStar.Settings settings = new KStar.Settings.Builder()
+						KStarSettings settings = new KStarSettings.Builder()
 							.setShowPfuncProgress(true)
 							.build();
 						KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
