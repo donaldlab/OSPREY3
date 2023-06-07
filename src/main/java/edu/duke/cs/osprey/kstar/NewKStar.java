@@ -53,19 +53,6 @@ import java.util.*;
  */
 public class NewKStar {
 
-	public enum ConfSpaceType {
-		Protein,
-		Ligand,
-		Complex
-	}
-
-	public static class InitException extends RuntimeException {
-
-		public InitException(ConfSpaceType type, String name) {
-			super(String.format("set %s for the %s conf space info before running", name, type.name()));
-		}
-	}
-
 	private interface Scorer {
 		KStarScore score(int sequenceNumber, PartitionFunction.Result proteinResult, PartitionFunction.Result ligandResult, PartitionFunction.Result complexResult);
 	}
@@ -86,9 +73,9 @@ public class NewKStar {
 
 	public NewKStar(ConfSpaceIteration protein, ConfSpaceIteration ligand, ConfSpaceIteration complex, KStarSettings settings) {
 		this.settings = settings;
-		this.protein = new ConfSpaceInfo(this, protein, ConfSpaceType.Protein);
-		this.ligand = new ConfSpaceInfo(this, ligand, ConfSpaceType.Ligand);
-		this.complex = new ConfSpaceInfo(this, complex, ConfSpaceType.Complex);
+		this.protein = new ConfSpaceInfo(settings, protein, ConfSpaceType.Protein);
+		this.ligand = new ConfSpaceInfo(settings, ligand, ConfSpaceType.Ligand);
+		this.complex = new ConfSpaceInfo(settings, complex, ConfSpaceType.Complex);
 		this.sequences = new ArrayList<>();
 	}
 

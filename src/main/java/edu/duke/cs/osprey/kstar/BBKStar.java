@@ -107,7 +107,7 @@ public class BBKStar {
 	public class ConfSpaceInfo {
 
 		public final ConfSpaceIteration confSpace;
-		public final KStar.ConfSpaceType type;
+		public final ConfSpaceType type;
 		public final String id;
 
 		/** A ConfEnergyCalculator that computes minimized energies */
@@ -123,7 +123,7 @@ public class BBKStar {
 
 		private BigDecimal stabilityThreshold = null;
 
-		public ConfSpaceInfo(ConfSpaceIteration confSpace, KStar.ConfSpaceType type) {
+		public ConfSpaceInfo(ConfSpaceIteration confSpace, ConfSpaceType type) {
 
 			this.confSpace = confSpace;
 			this.type = type;
@@ -134,16 +134,16 @@ public class BBKStar {
 
 		private void check() {
 			if (confEcalcMinimized == null) {
-				throw new KStar.InitException(type, "confEcalcMinimized");
+				throw new InitException(type, "confEcalcMinimized");
 			}
 			if (confSearchFactoryMinimized == null) {
-				throw new KStar.InitException(type, "confSearchFactoryMinimized");
+				throw new InitException(type, "confSearchFactoryMinimized");
 			}
 			if (confSearchFactoryRigid == null) {
-				throw new KStar.InitException(type, "confSearchFactoryRigid");
+				throw new InitException(type, "confSearchFactoryRigid");
 			}
 			if (pfuncFactory == null) {
-				throw new KStar.InitException(type, "pfuncFactory");
+				throw new InitException(type, "pfuncFactory");
 			}
 		}
 
@@ -554,9 +554,9 @@ public class BBKStar {
 		this.kstarSettings = kstarSettings;
 		this.bbkstarSettings = bbkstarSettings;
 
-		this.protein = new ConfSpaceInfo(protein, KStar.ConfSpaceType.Protein);
-		this.ligand = new ConfSpaceInfo(ligand, KStar.ConfSpaceType.Ligand);
-		this.complex = new ConfSpaceInfo(complex, KStar.ConfSpaceType.Complex);
+		this.protein = new ConfSpaceInfo(protein, ConfSpaceType.Protein);
+		this.ligand = new ConfSpaceInfo(ligand, ConfSpaceType.Ligand);
+		this.complex = new ConfSpaceInfo(complex, ConfSpaceType.Complex);
 
 		proteinPfuncs = new HashMap<>();
 		ligandPfuncs = new HashMap<>();

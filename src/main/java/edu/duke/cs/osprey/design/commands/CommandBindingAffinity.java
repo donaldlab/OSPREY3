@@ -333,9 +333,12 @@ public class CommandBindingAffinity extends DelegatingCommand {
         builder.setStabilityThreshold(stabilityThreshold < 0 ? null : stabilityThreshold);
 
         if (delegate.writeNConfs > 0) {
+            /*
+            TODO: reimplement this
             var saveDir = delegate.ensembleDir;
             var scoreWriter = new StructureFileScoreWriter(saveDir, delegate.writeNConfs);
             builder.addScoreWriter(scoreWriter);
+             */
         }
 
         return builder.build();

@@ -49,19 +49,17 @@ public interface KStarScoreWriter {
 		public final int numSequences;
 		public final Sequence sequence;
 		public final KStarScore kstarScore;
-		public final KStar kstar;
 		public final long timeNs;
 
-		public ScoreInfo(int sequenceNumber, int numSequences, Sequence sequence, KStarScore kstarScore) {
-			this(sequenceNumber, numSequences, sequence, kstarScore, null);
+		public ScoreInfo(int sequenceNumber, int numSequences, Sequence sequence) {
+			this(sequenceNumber, numSequences, sequence, null);
 		}
 
-		public ScoreInfo(int sequenceNumber, int numSequences, Sequence sequence, KStarScore kstarScore, KStar kstar) {
+		public ScoreInfo(int sequenceNumber, int numSequences, Sequence sequence, KStarScore kstarScore) {
 			this.sequenceNumber = sequenceNumber;
 			this.numSequences = numSequences;
 			this.sequence = sequence;
 			this.kstarScore = kstarScore;
-			this.kstar = kstar;
 			this.timeNs = System.nanoTime();
 		}
 	}

@@ -42,7 +42,6 @@ import edu.duke.cs.osprey.tools.AutoCloseableNoEx;
 
 import java.io.File;
 import java.math.BigDecimal;
-import java.time.Duration;
 import java.util.*;
 
 
@@ -55,19 +54,6 @@ import java.util.*;
  * In Journal of Computational Biology (vol 12. num. 6 pp. 740–761).}.
  */
 public class KStar {
-
-	public enum ConfSpaceType {
-		Protein,
-		Ligand,
-		Complex
-	}
-
-	public static class InitException extends RuntimeException {
-
-		public InitException(ConfSpaceType type, String name) {
-			super(String.format("set %s for the %s conf space info before running", name, type.name()));
-		}
-	}
 
 	public interface PfuncFactory {
 		PartitionFunction make(RCs rcs);
@@ -315,8 +301,7 @@ public class KStar {
 						sequenceNumber,
 						n,
 						sequence,
-						kstarScore,
-						this
+						kstarScore
 					));
 
 					return kstarScore;

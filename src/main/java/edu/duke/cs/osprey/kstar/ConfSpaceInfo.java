@@ -16,9 +16,9 @@ import java.util.Map;
 
 public class ConfSpaceInfo {
 
-    private final NewKStar newKStar;
+    private final KStarSettings settings;
     public final ConfSpaceIteration confSpace;
-    public final NewKStar.ConfSpaceType type;
+    public final ConfSpaceType type;
     public ConfEnergyCalculator confEcalc = null;
     public final String id;
 
@@ -32,21 +32,21 @@ public class ConfSpaceInfo {
     }
     private ConfDB confDB = null;
 
-    public ConfSpaceInfo(NewKStar newKStar, ConfSpaceIteration confSpace, NewKStar.ConfSpaceType type) {
-        this.newKStar = newKStar;
+    public ConfSpaceInfo(KStarSettings settings, ConfSpaceIteration confSpace, ConfSpaceType type) {
+        this.settings = settings;
         this.confSpace = confSpace;
         this.type = type;
         this.id = type.name().toLowerCase();
 
-        confDBFile = new File(String.format(newKStar.settings.confDBPattern, id));
+        confDBFile = new File(String.format(settings.confDBPattern, id));
     }
 
     public void check() {
         if (confEcalc == null) {
-            throw new NewKStar.InitException(type, "confEcalc");
+            throw new InitException(type, "confEcalc");
         }
         if (pfuncFactory == null) {
-            throw new NewKStar.InitException(type, "pfuncFactory");
+            throw new InitException(type, "pfuncFactory");
         }
     }
 
@@ -86,10 +86,10 @@ public class ConfSpaceInfo {
         // compute the partition function
         PartitionFunction pfunc = makePfunc(ctxGroup, sequence);
         pfunc.setStabilityThreshold(stabilityThreshold);
-        if (newKStar.settings.pfuncTimeout != null) {
-            pfunc.compute(newKStar.settings.pfuncTimeout);
+        if (settings.pfuncTimeout != null) {
+            pfunc.compute(settings.pfuncTimeout);
         } else {
-            pfunc.compute(newKStar.settings.maxNumConfs);
+            pfunc.compute(settings.maxNumConfs);
         }
 
         // save the result
@@ -123,8 +123,8 @@ public class ConfSpaceInfo {
 
         PartitionFunction pfunc = pfuncFactory.make(rcs);
 
-        pfunc.setReportProgress(newKStar.settings.showPfuncProgress);
-        if (newKStar.settings.useExternalMemory) {
+        pfunc.setReportProgress(settings.showPfuncProgress);
+        if (settings.useExternalMemory) {
             PartitionFunction.WithExternalMemory.setOrThrow(pfunc, true, rcs);
         }
         if (confDB != null) {
@@ -134,7 +134,7 @@ public class ConfSpaceInfo {
         pfunc.setInstanceId(type.ordinal());
         pfunc.putTaskContexts(ctxGroup);
 
-        pfunc.init(newKStar.settings.epsilon);
+        pfunc.init(settings.epsilon);
 
         return pfunc;
     }
