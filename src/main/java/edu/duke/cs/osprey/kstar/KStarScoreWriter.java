@@ -36,9 +36,7 @@ import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.TimeFormatter;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.util.ArrayList;
 
 public interface KStarScoreWriter {

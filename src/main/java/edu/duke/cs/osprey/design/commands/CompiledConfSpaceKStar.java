@@ -9,6 +9,7 @@ import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
 import edu.duke.cs.osprey.design.Main;
+import edu.duke.cs.osprey.design.io.ScoredSequenceCsvPrinter;
 import edu.duke.cs.osprey.ematrix.compiled.EmatCalculator;
 import edu.duke.cs.osprey.ematrix.compiled.ErefCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
@@ -143,6 +144,8 @@ public class CompiledConfSpaceKStar implements CliCommand {
         kstar.complex.confEcalc = complexConfCalc;
 
         List<ScoredSequence> sequences = kstar.run(taskExecutor);
+        var printer = new ScoredSequenceCsvPrinter(sequences);
+        printer.write(System.out);
 
         for (var scoredSequence : sequences) {
             try (var confDb = new ConfDB(kstar.complex.confSpace, kstar.complex.confDBFile)) {

@@ -83,18 +83,6 @@ public class NewKStar {
 		return Arrays.asList(protein, ligand, complex);
 	}
 
-	public ConfSpaceInfo getConfSpaceInfo(ConfSpaceIteration confSpace) {
-		if (confSpace == protein.confSpace) {
-			return protein;
-		} else if (confSpace == ligand.confSpace) {
-			return ligand;
-		} else if (confSpace == complex.confSpace) {
-			return complex;
-		} else {
-			throw new IllegalArgumentException("conf space does not match any known by this K* instance");
-		}
-	}
-
 	public ScoredSequence score(Sequence seq, TaskExecutor tasks) {
 
 		// make a context group for the task executor
@@ -168,17 +156,6 @@ public class NewKStar {
 				Sequence sequence = sequences.get(sequenceNumber);
 				scores.add(new ScoredSequence(sequence, kstarScore));
 
-				// report scores
-					/*
-					settings.scoreWriters.writeScore(new KStarScoreWriter.ScoreInfo(
-						sequenceNumber,
-						n,
-						sequence,
-						kstarScore,
-						this.confSpaceInfos()
-					));
-					 */
-
 				return kstarScore;
 			};
 
@@ -241,6 +218,7 @@ public class NewKStar {
 
 				scorer.score(i, proteinResult, ligandResult, complexResult);
 			}
+
 			return scores;
 		}
 	}

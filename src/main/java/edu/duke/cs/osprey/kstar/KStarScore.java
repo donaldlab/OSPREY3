@@ -170,6 +170,13 @@ public class KStarScore {
 	public String lowerBoundLog10String() { return scoreToLog10String(lowerBound); }
 	public String upperBoundLog10String() { return scoreToLog10String(upperBound); }
 
+	public String complexLowerBoundLog10String() { return scoreToLog10String(complex.values.calcLowerBound()); }
+	public String complexUpperBoundLog10String() { return scoreToLog10String(complex.values.calcUpperBound()); }
+	public String ligandLowerBoundLog10String() { return scoreToLog10String(ligand.values.calcLowerBound()); }
+	public String ligandUpperBoundLog10String() { return scoreToLog10String(ligand.values.calcUpperBound()); }
+	public String proteinLowerBoundLog10String() { return scoreToLog10String(protein.values.calcLowerBound()); }
+	public String proteinUpperBoundLog10String() { return scoreToLog10String(protein.values.calcUpperBound()); }
+
 	public static Double scoreToLog10(BigDecimal score) {
 		if (score != null) {
 			return MathTools.log10(score);
