@@ -27,11 +27,9 @@ object ConfLibs {
 		val description: String?,
 		val citation: String?
 	) {
-		fun read(): String =
-			OspreyGui.getResourceAsString(path)
-
-		fun load(): ConfLib =
-			ConfLib.from(read())
+		val lib : ConfLib by lazy {
+			ConfLib.from(OspreyGui.getResourceAsString(path))
+		}
 	}
 
 	val infos: List<ConfLibInfo> by lazy {
@@ -91,7 +89,7 @@ class ConfLibPicker(val confSpace: ConfSpace) {
 		popup("addlib") {
 			for (info in ConfLibs.infos) {
 				if (menuItem(info.name)) {
-					addLib(mol, info.read())
+					addLib(mol, info.lib)
 				}
 				conflibTooltip(null, info.description, info.citation)
 			}
@@ -113,14 +111,12 @@ class ConfLibPicker(val confSpace: ConfSpace) {
 		)?.let { paths ->
 			paths.firstOrNull()?.parent?.let { UserSettings.openSaveDir = it }
 			for (path in paths) {
-				addLib(mol, path.read())
+				addLib(mol, ConfLib.from(path.read()))
 			}
 		}
 	}
 
-	private fun addLib(mol: Molecule, toml: String) {
-
-		val conflib = ConfLib.from(toml)
+	private fun addLib(mol: Molecule, conflib: ConfLib) {
 
 		if (confSpace.getConflibsByMol(mol).contains(conflib)) {
 			alert.show("Skipped adding duplicate Conformation Library:\n${conflib.name} for ${mol.name}")
