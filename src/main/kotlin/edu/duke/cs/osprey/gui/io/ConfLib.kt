@@ -55,7 +55,10 @@ class ConfLib(
 
 	override fun toString() = "$name ($runtimeId)"
 
-	fun invertChirality(): ConfLib {
+	/**
+	 * reflect all coordinates in the Conflib over the Z-axis. A new Conflib is returned with the specified id and name.
+	 */
+	fun invertChirality(id: String, name: String): ConfLib {
 		val invertedFrags = fragments.map { (fragId, frag) ->
 			val invertedConfs = frag.confs.map { (confId, conf) ->
 				val invertedCoords = conf.coords.map { (atomInfo, vector) ->
@@ -82,7 +85,7 @@ class ConfLib(
 			fragId to dFrag
 		}.toMap()
 
-		return ConfLib("D-$id", "D-$name", invertedFrags, description, citation)
+		return ConfLib(id, name, invertedFrags, description, citation)
 	}
 
 	data class AtomInfo(

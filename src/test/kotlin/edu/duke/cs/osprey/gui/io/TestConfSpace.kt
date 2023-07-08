@@ -17,6 +17,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeSameSizeAs
 import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldNotBeEmpty
 import io.kotest.matchers.types.shouldNotBeSameInstanceAs
 import org.joml.Vector3d
 
@@ -385,7 +386,7 @@ class TestConfSpace : FunSpec({
 	test("can add per-molecule conflibs in a confspace") {
 		val emptyConfLib = ConfLib("empty-conflib", "empty-conflib", mapOf())
 		val lConflib = ConfLib.from(OspreyGui.getResourceAsString("conflib/lovell.conflib"))
-		val dConflib = lConflib.invertChirality()
+		val dConflib = lConflib.invertChirality("D-${lConflib.id}", "D-${lConflib.name}")
 		val protein = Molecule.fromOMOL(OspreyGui.getResourceAsString("1cc8.protein.omol"))[0] as Polymer
 		val leu26 = protein.findChainOrThrow("A").findResidueOrThrow("26")
 		val pos1 = Proteins.makeDesignPosition(protein, leu26, "Pos1")
@@ -425,16 +426,31 @@ class TestConfSpace : FunSpec({
 			}
 		}
 
-		ConfSpace(listOf(MoleculeType.Protein to protein)).apply {
-			name = "Conflibs with fragments with same ids but per-molecule conflib specified"
-			conflibs.addAll(listOf(dConflib, lConflib))
-			designPositionsByMol[protein] = mutableListOf(pos1)
+		val proteinCopy = protein.copy()
+		val conflibCopy = lConflib.invertChirality("", "").invertChirality(lConflib.id, lConflib.name)
+
+		ConfSpace(listOf(MoleculeType.Protein to protein, MoleculeType.Protein to proteinCopy)).apply {
+			// as if often the case in proteins, multiple molecules might use the "same" conflib,
+			// even though they're technically different instances.
+			name = "Two or more polymers use a conflib with the same id"
+
 			addConflibByMol(protein, lConflib)
+			addConflibByMol(proteinCopy, conflibCopy)
+
+			designPositionsByMol[protein] = mutableListOf(pos1)
+			val copyLeu26 = proteinCopy.findChainOrThrow("A").findResidueOrThrow("26")
+			val pos2 = Proteins.makeDesignPosition(proteinCopy, copyLeu26, "Pos2")
+			designPositionsByMol[proteinCopy] = mutableListOf(pos2)
+
 			positionConfSpaces.getOrMake(pos1).apply {
-				addConformationsFromLibraries(pos1, "ALA")
-				confs.shouldNotBeEmpty()
-				confs.size shouldBe lConflib.fragments["ALA"]?.confs?.size
+				addConformationsFromLibraries(pos1, "LYS")
 			}
+			positionConfSpaces.getOrMake(pos2).apply {
+				addConformationsFromLibraries(pos2, "ALA")
+			}
+
+			// this is here because writing the confspace in TOML has failed in this scenario before.
+			toToml().shouldNotBeEmpty()
 		}
 
 		ConfSpace(listOf(MoleculeType.Protein to protein)).apply {

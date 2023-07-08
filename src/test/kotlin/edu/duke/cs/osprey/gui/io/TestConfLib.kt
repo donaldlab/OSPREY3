@@ -225,7 +225,7 @@ class TestConfLib : FunSpec({
 
 	test("D-conflib can be constructed from L-conflib") {
 		val lConfLib = ConfLib.from(OspreyGui.getResourceAsString("conflib/lovell.conflib"))
-		val dConfLib = lConfLib.invertChirality()
+		val dConfLib = lConfLib.invertChirality("D-${lConfLib.id}", "D-${lConfLib.name}")
 		dConfLib.name shouldBe "D-" + lConfLib.name
 		dConfLib.id shouldBe "D-" + lConfLib.id
 
