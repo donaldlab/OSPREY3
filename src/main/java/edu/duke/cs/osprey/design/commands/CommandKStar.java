@@ -85,16 +85,17 @@ public class CommandKStar extends DelegatingCommand {
         SequenceAnalyzer analyzer = new SequenceAnalyzer(kstar);
         for (ScoredSequence sequence : sequences) {
             System.out.println("result:");
-            System.out.println("\tsequence: " + sequence.sequence);
-            System.out.println("\tscore: " + sequence.score);
+            System.out.println("\tsequence: " + sequence.sequence());
+            System.out.println("\tscore: " + sequence.score());
 
-            SequenceAnalyzer.Analysis analysis = analyzer.analyze(sequence.sequence, delegate.writeNConfs);
+            SequenceAnalyzer.Analysis analysis = analyzer.analyze(sequence.sequence(), delegate.writeNConfs);
             System.out.println(analysis);
 
-            String seqstr = sequence.sequence.toString(Sequence.Renderer.ResTypeMutations)
+            String seqstr = sequence.sequence().toString(Sequence.Renderer.ResTypeMutations)
                     .replace(' ', '-');
             File ensembleFile = new File(delegate.ensembleDir, String.format("seq.%s.pdb", seqstr));
-            analysis.writePdb(ensembleFile.getAbsolutePath(), String.format("Top %d conformations for sequence %s", delegate.writeNConfs, sequence.sequence));
+            analysis.writePdb(ensembleFile.getAbsolutePath(), String.format("Top %d conformations for sequence %s",
+                    delegate.writeNConfs, sequence.sequence()));
         }
 
         var end = System.currentTimeMillis();

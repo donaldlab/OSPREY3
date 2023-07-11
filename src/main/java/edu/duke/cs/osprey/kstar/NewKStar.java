@@ -53,10 +53,6 @@ import java.util.*;
  */
 public class NewKStar {
 
-	private interface Scorer {
-		KStarScore score(int sequenceNumber, PartitionFunction.Result proteinResult, PartitionFunction.Result ligandResult, PartitionFunction.Result complexResult);
-	}
-
 	/** A configuration space containing just the protein strand */
 	public final ConfSpaceInfo protein;
 
@@ -71,12 +67,24 @@ public class NewKStar {
 
 	private final List<Sequence> sequences;
 
+	private final List<ScoredSequence> scores = new ArrayList<>();
+
+	private final List<SequenceComputedListener> sequenceListeners = new ArrayList<>();
+
+	public interface SequenceComputedListener {
+		void onSequence(NewKStar kstar, ScoredSequence seq);
+	}
+
 	public NewKStar(ConfSpaceIteration protein, ConfSpaceIteration ligand, ConfSpaceIteration complex, KStarSettings settings) {
 		this.settings = settings;
 		this.protein = new ConfSpaceInfo(settings, protein, ConfSpaceType.Protein);
 		this.ligand = new ConfSpaceInfo(settings, ligand, ConfSpaceType.Ligand);
 		this.complex = new ConfSpaceInfo(settings, complex, ConfSpaceType.Complex);
 		this.sequences = new ArrayList<>();
+	}
+
+	public void putSequenceComputedListener(SequenceComputedListener listener) {
+		sequenceListeners.add(listener);
 	}
 
 	public List<ConfSpaceInfo> confSpaceInfos() {
@@ -134,9 +142,6 @@ public class NewKStar {
 			ligand.clear();
 			complex.clear();
 
-
-			List<ScoredSequence> scores = new ArrayList<>();
-
 			// collect all the sequences explicitly
 			if (complex.confSpace.seqSpace().containsWildTypeSequence()) {
 				sequences.add(complex.confSpace.seqSpace().makeWildTypeSequence());
@@ -147,21 +152,6 @@ public class NewKStar {
 
 			// now we know how many sequences there are in total
 			int n = sequences.size();
-
-			// make the sequence scorer and reporter
-			Scorer scorer = (sequenceNumber, proteinResult, ligandResult, complexResult) -> {
-
-				// compute the K* score
-				KStarScore kstarScore = new KStarScore(proteinResult, ligandResult, complexResult);
-				Sequence sequence = sequences.get(sequenceNumber);
-				scores.add(new ScoredSequence(sequence, kstarScore));
-
-				return kstarScore;
-			};
-
-			System.out.println("computing K* scores for " + sequences.size() + " sequences to epsilon = " + settings.epsilon + " ...");
-			settings.scoreWriters.writeHeader();
-			// TODO: progress bar?
 
 			// open the conf databases if needed
 			BigDecimal proteinStabilityThreshold = null;
@@ -179,27 +169,21 @@ public class NewKStar {
 						complexResult = complex.calcPfunc(ctxGroup, sequences.get(0), BigDecimal.ZERO);
 					}}}
 
-			KStarScore wildTypeScore = scorer.score(
-					0,
-					proteinResult,
-					ligandResult,
-					complexResult
-			);
+			var wildTypeScore = new ScoredSequence(sequences.get(0), new KStarScore(proteinResult, ligandResult, complexResult));
+			saveScoredSequence(wildTypeScore);
 
 			if (settings.stabilityThreshold != null) {
 				BigDecimal stabilityThresholdFactor = new BoltzmannCalculator(PartitionFunction.decimalPrecision).calc(settings.stabilityThreshold);
-				proteinStabilityThreshold = wildTypeScore.protein.values.calcLowerBound().multiply(stabilityThresholdFactor);
-				ligandStabilityThreshold = wildTypeScore.ligand.values.calcLowerBound().multiply(stabilityThresholdFactor);
+				proteinStabilityThreshold = wildTypeScore.score().protein.values.calcLowerBound().multiply(stabilityThresholdFactor);
+				ligandStabilityThreshold = wildTypeScore.score().ligand.values.calcLowerBound().multiply(stabilityThresholdFactor);
 			}
 
 			// compute all the partition functions and K* scores for the rest of the sequences
 			for (int i=1; i<n; i++) {
-
-				System.out.printf("Computing sequence %d%n", i);
+				Sequence seq = sequences.get(i);
 				try (AutoCloseableNoEx proteinCloser = protein.openConfDB()) {
 					try (AutoCloseableNoEx ligandCloser = ligand.openConfDB()) {
 						try (AutoCloseableNoEx complexCloser = complex.openConfDB()) {
-							Sequence seq = sequences.get(i);
 
 							// get the pfuncs, with short circuits as needed
 							proteinResult = protein.calcPfunc(ctxGroup, seq, proteinStabilityThreshold);
@@ -216,10 +200,18 @@ public class NewKStar {
 							}
 						}}}
 
-				scorer.score(i, proteinResult, ligandResult, complexResult);
+				var scoredSeq = new ScoredSequence(seq, new KStarScore(proteinResult, ligandResult, complexResult));
+				saveScoredSequence(scoredSeq);
 			}
 
 			return scores;
+		}
+	}
+
+	private void saveScoredSequence(ScoredSequence scoredSeq) {
+		scores.add(scoredSeq);
+		for (var listener : sequenceListeners) {
+			listener.onSequence(this, scoredSeq);
 		}
 	}
 }

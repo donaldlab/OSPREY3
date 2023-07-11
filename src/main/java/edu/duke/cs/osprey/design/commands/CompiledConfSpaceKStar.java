@@ -4,24 +4,24 @@ import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.confspace.ConfDB;
-import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
 import edu.duke.cs.osprey.design.Main;
 import edu.duke.cs.osprey.design.io.ScoredSequenceCsvPrinter;
+import edu.duke.cs.osprey.design.io.ScoredSequenceEnsembleWriter;
 import edu.duke.cs.osprey.ematrix.compiled.EmatCalculator;
 import edu.duke.cs.osprey.ematrix.compiled.ErefCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
-import edu.duke.cs.osprey.kstar.*;
+import edu.duke.cs.osprey.kstar.KStarSettings;
+import edu.duke.cs.osprey.kstar.NewKStar;
+import edu.duke.cs.osprey.kstar.ScoredSequence;
 import edu.duke.cs.osprey.kstar.pfunc.NewGradientDescentPfunc;
 import edu.duke.cs.osprey.parallelism.Parallelism;
-import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.FileTools;
 
-import java.io.File;
-import java.util.*;
+import java.io.PrintWriter;
+import java.util.List;
 
 @Parameters(commandDescription = CompiledConfSpaceKStar.CommandDescription)
 public class CompiledConfSpaceKStar implements CliCommand {
@@ -66,7 +66,6 @@ public class CompiledConfSpaceKStar implements CliCommand {
     @Override
     public int run(JCommander commander, String[] args) {
 
-        var start = System.currentTimeMillis();
         var complex = ConfSpace.fromBytes(FileTools.readFileBytes(complexConfSpacePath));
         var design = ConfSpace.fromBytes(FileTools.readFileBytes(designConfSpacePath));
         var target = ConfSpace.fromBytes(FileTools.readFileBytes(targetConfSpacePath));
@@ -143,46 +142,14 @@ public class CompiledConfSpaceKStar implements CliCommand {
         );
         kstar.complex.confEcalc = complexConfCalc;
 
+        var printWriter = new PrintWriter(System.out);
+        var csvPrinter = new ScoredSequenceCsvPrinter(printWriter);
+        kstar.putSequenceComputedListener(csvPrinter);
+
+        var ensembleWriter = new ScoredSequenceEnsembleWriter(writeNConfs, ensembleDir, complexRefEnergies, complexConfCalc, complex);
+        kstar.putSequenceComputedListener(ensembleWriter);
+
         List<ScoredSequence> sequences = kstar.run(taskExecutor);
-        var printer = new ScoredSequenceCsvPrinter(sequences);
-        printer.write(System.out);
-
-        for (var scoredSequence : sequences) {
-            try (var confDb = new ConfDB(kstar.complex.confSpace, kstar.complex.confDBFile)) {
-                var iterator = confDb.getSequence(scoredSequence.sequence)
-                        .energiedConfs(ConfDB.SortOrder.Energy)
-                        .iterator();
-
-                int i = 0;
-                ArrayList<ConfEnergyCalculator.EnergiedCoords> coords = new ArrayList<>();
-
-                while (i < writeNConfs && iterator.hasNext()) {
-                    var energiedConf = iterator.next();
-                    var assignments = energiedConf.getAssignments();
-                    var posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, complexRefEnergies);
-                    var energiedCoords = complexConfCalc.minimize(assignments, posInterGen.all(complex, assignments));
-                    coords.add(energiedCoords);
-                    i++;
-                }
-
-                // write the PDB file
-                String comment = String.format("Ensemble of %d conformations for:\n\t   State  %s\n\tSequence  [%s]",
-                        coords.size(), complex.name, scoredSequence.sequence.toString(Sequence.Renderer.AssignmentMutations)
-                );
-
-                // pick a name for the ensemble file
-                String seqstr = scoredSequence.sequence.toString(Sequence.Renderer.ResTypeMutations)
-                        .replace(' ', '-');
-                File ensembleFile = new File(ensembleDir, String.format("seq.%s.pdb", seqstr));
-                PDBIO.writeFileEcoords(coords, ensembleFile, comment);
-            }
-
-            System.out.println(scoredSequence);
-        }
-
-
-        var stop = System.currentTimeMillis();
-        System.out.printf("Took %f seconds to run%n", (stop - start) / 1000.);
         return Main.Success;
     }
 }
