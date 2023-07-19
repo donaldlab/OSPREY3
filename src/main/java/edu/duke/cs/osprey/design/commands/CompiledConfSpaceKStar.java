@@ -50,6 +50,9 @@ public class CompiledConfSpaceKStar implements CliCommand {
     @Parameter(names = "--write-n-confs", description = "The number (n) of best conformations to write in each sequence's ensemble. Defaults to 10.")
     public int writeNConfs = 10;
 
+    @Parameter(names = "--max-simultaneous-mutations", description = "How many residues should concurrently be allowed to mutate to non-wildtype amino acids?")
+    public int maxSimultaneousMutations = 2;
+
     @Parameter(description = "The approximation accuracy. Z* = (1 - epsilon)Z. Values closer to 0 improve approximation accuracy.", names={"--epsilon", "-e"})
     double epsilon = 0.683;
 
@@ -107,7 +110,7 @@ public class CompiledConfSpaceKStar implements CliCommand {
         var settings = new KStarSettings.Builder()
                 .setStabilityThreshold(stabilityThreshold)
                 .setMaxNumConf(maxConfs > 0 ? maxConfs : Integer.MAX_VALUE)
-                .setMaxSimultaneousMutations(2)
+                .setMaxSimultaneousMutations(maxSimultaneousMutations)
                 .setEpsilon(epsilon)
                 .build();
 
