@@ -244,13 +244,22 @@ class ConfSpace(val mols: List<Pair<MoleculeType,Molecule>>) {
             fun addAll(frag: ConfLib.Fragment) =
                 addAll(frag, frag.confs.values)
 
-            fun remove(frag: ConfLib.Fragment, conf: ConfLib.Conf) =
-                byFragConf[frag]?.remove(conf)
+            fun remove(frag: ConfLib.Fragment, conf: ConfLib.Conf) {
+				byFragConf[frag]?.remove(conf)
+				if (byFragConf[frag]?.isEmpty() == true) {
+					byFragConf.remove(frag)
+				}
+			}
 
-            fun removeByFragmentType(type: String) =
-                byFragConf.values.forEach { spaces ->
-                    spaces.values.removeIf { space -> space.frag.type == type }
-                }
+
+            fun removeByFragmentType(type: String) {
+				byFragConf.values.forEach { spaces ->
+					spaces.values.removeIf { space -> space.frag.type == type }
+				}
+
+				byFragConf.filter { it.value.isEmpty() }
+						.forEach { remove -> byFragConf.remove(remove.key) }
+			}
         }
 		val confs = Confs()
 	}

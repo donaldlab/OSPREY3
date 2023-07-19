@@ -133,6 +133,7 @@ class ConfSpaceIndex(val confSpace: ConfSpace) {
 	// choose an order for the design positions and assign indices
 	// alas, we need a named tuple here, since we need to associate three things together rather than just two
 	private class PosTuple(val pos: DesignPosition, val moli: Int, val posConfSpace: ConfSpace.PositionConfSpace)
+
 	val positions =
 		mols.withIndex()
 			.mapNotNull { (moli, mol) ->
