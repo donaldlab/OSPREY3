@@ -33,13 +33,13 @@
 package edu.duke.cs.osprey.energy.forcefield;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
-import static org.junit.Assume.assumeTrue;
+import static org.hamcrest.MatcherAssert.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.Arrays;
 
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.confspace.Strand;
@@ -65,7 +65,7 @@ public class TestForcefieldEnergy extends TestBase {
 	
 	private static Strand strand = null;
 	
-	@BeforeClass
+	@BeforeAll
 	public static void before() {
 		strand = new Strand.Builder(PDBIO.readFile("examples/DAGK/2KDC.P.forOsprey.pdb"))
 			.setErrorOnNonTemplateResidues(true)

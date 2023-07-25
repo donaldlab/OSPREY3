@@ -1,7 +1,7 @@
 package edu.duke.cs.osprey.kstar.compiled;
 
 import static edu.duke.cs.osprey.TestBase.isAbsolutely;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
@@ -14,7 +14,7 @@ import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.tools.FileTools;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
 

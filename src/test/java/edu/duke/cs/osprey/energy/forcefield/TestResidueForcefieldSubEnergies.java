@@ -33,18 +33,18 @@
 package edu.duke.cs.osprey.energy.forcefield;
 
 import static edu.duke.cs.osprey.TestBase.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
 import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.AtomConnectivity;
 import edu.duke.cs.osprey.structure.Residues;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 public class TestResidueForcefieldSubEnergies {
 
-	@BeforeClass
+	@BeforeAll
 	public static void before() {
 		TestForcefieldEnergy.before();
 	}

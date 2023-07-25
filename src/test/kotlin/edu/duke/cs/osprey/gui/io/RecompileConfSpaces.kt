@@ -1,9 +1,9 @@
 package edu.duke.cs.osprey.gui.io
 
-import edu.duke.cs.osprey.tools.LZMA2
 import edu.duke.cs.osprey.gui.compiler.ConfSpaceCompiler
 import edu.duke.cs.osprey.gui.forcefield.Forcefield
 import edu.duke.cs.osprey.gui.prep.ConfSpace
+import edu.duke.cs.osprey.tools.LZMA2
 import java.nio.file.Files
 import java.nio.file.Paths
 

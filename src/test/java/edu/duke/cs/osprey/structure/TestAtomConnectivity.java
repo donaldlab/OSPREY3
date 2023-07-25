@@ -33,13 +33,15 @@
 package edu.duke.cs.osprey.structure;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
@@ -219,5 +221,10 @@ public class TestAtomConnectivity {
 	@Test public void allSeparatePairs_1CC8Cyx_nonCyxFlexible() { allSeparatePairs(new Case(setNonCyxFlexible(make1CC8Cyx()))); }
 
 	// flexibiility across disulfide bonds is not yet supported, if the user tries this, they should see an error
-	@Test(expected=UnsupportedOperationException.class) public void allSeparatePairs_1CC8Cyx_allFlexible() { allSeparatePairs(new Case(setAllFlexible(make1CC8Cyx()))); }
+	@Test
+	public void allSeparatePairs_1CC8Cyx_allFlexible() {
+		Assertions.assertThrows(UnsupportedOperationException.class, () -> {
+			allSeparatePairs(new Case(setAllFlexible(make1CC8Cyx())));
+		});
+	}
 }

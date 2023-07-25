@@ -41,8 +41,9 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.PDBIO;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;
@@ -50,7 +51,7 @@ import java.util.List;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.core.IsNull.notNullValue;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 public class TestConfSearchSplitter {
 
@@ -58,7 +59,7 @@ public class TestConfSearchSplitter {
 	private static EnergyMatrix emat;
 	private static List<ConfSearch.ScoredConf> expectedConfs;
 
-	@BeforeClass
+	@BeforeAll
 	public static void beforeClass() {
 
 		// make a conf space
@@ -146,26 +147,30 @@ public class TestConfSearchSplitter {
 		second.assertEnd();
 	}
 
-	@Test(expected=ConfSearch.Splitter.OutOfOrderException.class)
+	@Test
 	public void outOfOrderDirect() {
 
-		ConfSearch.Splitter splitter = new ConfSearch.Splitter(makeSearch());
+		Assertions.assertThrows(ConfSearch.Splitter.OutOfOrderException.class, () -> {
+			ConfSearch.Splitter splitter = new ConfSearch.Splitter(makeSearch());
 
-		Checker second = new Checker(splitter.second);
-		second.assertConfs(1);
+			Checker second = new Checker(splitter.second);
+			second.assertConfs(1);
+		});
 	}
 
-	@Test(expected=ConfSearch.Splitter.OutOfOrderException.class)
+	@Test
 	public void outOfOrderDelayed() {
 
-		ConfSearch.Splitter splitter = new ConfSearch.Splitter(makeSearch());
+		Assertions.assertThrows(ConfSearch.Splitter.OutOfOrderException.class, () -> {
+			ConfSearch.Splitter splitter = new ConfSearch.Splitter(makeSearch());
 
-		Checker first = new Checker(splitter.first);
-		first.assertConfs(10);
+			Checker first = new Checker(splitter.first);
+			first.assertConfs(10);
 
-		Checker second = new Checker(splitter.second);
-		second.assertConfs(10);
-		second.assertConfs(1);
+			Checker second = new Checker(splitter.second);
+			second.assertConfs(10);
+			second.assertConfs(1);
+		});
 	}
 
 	@Test

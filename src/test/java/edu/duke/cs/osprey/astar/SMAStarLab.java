@@ -34,7 +34,7 @@ package edu.duke.cs.osprey.astar;
 
 import static edu.duke.cs.osprey.TestBase.isAbsolutely;
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;

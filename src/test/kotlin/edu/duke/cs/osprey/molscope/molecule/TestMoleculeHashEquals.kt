@@ -1,11 +1,11 @@
 package edu.duke.cs.osprey.molscope.molecule
 
-import edu.duke.cs.osprey.SharedSpec
-import io.kotlintest.shouldBe
-import io.kotlintest.shouldNotBe
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 
 
-class TestMoleculeHashEquals : SharedSpec({
+class TestMoleculeHashEquals : FunSpec({
 
 	val mol1 = Molecule("test1").apply {
 		val a1 = Atom(Element.Carbon, "C1", 1.0, 2.0, 3.0).also { atoms.add(it) }

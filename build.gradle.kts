@@ -42,7 +42,7 @@ plugins {
 	kotlin("jvm") // no version here, already specified in buildSrc
 	kotlin("plugin.serialization") // no version here, already specified in buildSrc
 	id("org.openjfx.javafxplugin") version("0.0.7")
-	id("org.beryx.runtime") // no version here, already specified in buildSrc
+	id("org.beryx.runtime") // no version here, already specified in buildSrc. This implicitly applies the application plugin.
 }
 
 javafx {
@@ -59,7 +59,7 @@ group = "edu.duke.cs"
  * This version number is largely cosmetic, compared to the versioning scheme for the Osprey Service
  * But it does help users provide some information to developers when reporting issues.
  */
-version = "4.0.2"
+version = "3.3"
 
 repositories {
 	mavenCentral()
@@ -93,8 +93,9 @@ dependencies {
 
 	// test dependencies
 	testImplementation("org.hamcrest:hamcrest-all:1.3")
-	testImplementation("junit:junit:4.12")
-	testImplementation("io.kotlintest:kotlintest-runner-junit5:3.4.0")
+	testImplementation("io.kotest:kotest-runner-junit5:5.5.5")
+	testImplementation("org.junit.jupiter:junit-jupiter:5.9.2")
+	testImplementation("org.assertj:assertj-core:3.18.1")
 
 	// handle logging
 	implementation("ch.qos.logback:logback-classic:1.2.3")
@@ -137,8 +138,6 @@ dependencies {
 	implementation("org.sql2o:sql2o:1.6.0")
 	implementation("com.google.auto.value:auto-value-annotations:$autoValueVersion")
 	annotationProcessor("com.google.auto.value:auto-value:$autoValueVersion")
-	testImplementation("org.junit.jupiter:junit-jupiter:5.4.2")
-	testImplementation("org.assertj:assertj-core:3.18.1")
 
 
 	val ktorVersion = "1.5.4"
@@ -194,6 +193,14 @@ tasks.withType<JavaExec> {
 	}
 }
 
+distributions {
+	main {
+		contents {
+			from("src/main/julia") // add the resistor modules to the distribution
+		}
+	}
+}
+
 
 tasks.withType<JavaCompile> {
 	options.compilerArgs.addAll(Jvm.moduleArgs)
@@ -214,9 +221,10 @@ tasks.withType<KotlinCompile> {
 tasks.withType<Test> {
 	// the default 512m is too little memory to run test designs
 	maxHeapSize = "2g"
-	useJUnit()
+	useJUnitPlatform()
     failFast = true
-	Jvm.addModuleArgs(jvmArgs)
+	// method call appends additional arguments for the JVM
+	jvmArgs(Jvm.moduleArgs)
 
 	testLogging {
 		setExceptionFormat("full")

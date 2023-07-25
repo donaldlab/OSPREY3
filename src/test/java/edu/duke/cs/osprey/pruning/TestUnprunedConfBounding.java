@@ -33,7 +33,7 @@
 package edu.duke.cs.osprey.pruning;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
@@ -44,8 +44,8 @@ import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.PDBIO;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 
@@ -55,7 +55,7 @@ public class TestUnprunedConfBounding {
 	private static SimpleConfSpace confSpace;
 	private static EnergyMatrix emat;
 
-	@BeforeClass
+	@BeforeAll
 	public static void beforeClass() {
 
 		// get a conf space small enough we can exhaustively enumerate

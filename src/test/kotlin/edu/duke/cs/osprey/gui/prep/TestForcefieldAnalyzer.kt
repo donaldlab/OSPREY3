@@ -1,14 +1,14 @@
 package edu.duke.cs.osprey.gui.prep
 
-import edu.duke.cs.osprey.molscope.molecule.Molecule
 import edu.duke.cs.osprey.gui.OspreyGui
-import edu.duke.cs.osprey.SharedSpec
 import edu.duke.cs.osprey.gui.forcefield.Forcefield
 import edu.duke.cs.osprey.gui.io.fromOMOL
 import edu.duke.cs.osprey.gui.io.withService
+import edu.duke.cs.osprey.molscope.molecule.Molecule
+import io.kotest.core.spec.style.FunSpec
 
 
-class TestForcefieldAnalyzer : SharedSpec({
+class TestForcefieldAnalyzer : FunSpec({
 
 	test("don't crash") {
 

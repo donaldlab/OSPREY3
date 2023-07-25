@@ -1,20 +1,21 @@
 package edu.duke.cs.osprey.gui.io
 
-import edu.duke.cs.osprey.molscope.molecule.Element
+
 import edu.duke.cs.osprey.gui.OspreyGui
-import edu.duke.cs.osprey.SharedSpec
-import io.kotlintest.matchers.collections.shouldContainExactly
-import io.kotlintest.matchers.collections.shouldContainExactlyInAnyOrder
-import io.kotlintest.matchers.collections.shouldExist
-import io.kotlintest.matchers.maps.shouldContainExactly
-import io.kotlintest.matchers.types.shouldBeTypeOf
-import io.kotlintest.shouldBe
-import io.kotlintest.shouldNotBe
-import io.kotlintest.shouldThrow
+import edu.duke.cs.osprey.molscope.molecule.Element
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.collections.shouldExist
+import io.kotest.matchers.maps.shouldContainExactly
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.types.shouldBeTypeOf
 import org.joml.Vector3d
 
 
-class TestConfLib : SharedSpec({
+class TestConfLib : FunSpec({
 
 	test("read Lovell") {
 

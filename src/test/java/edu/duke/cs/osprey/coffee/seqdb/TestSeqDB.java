@@ -2,7 +2,8 @@ package edu.duke.cs.osprey.coffee.seqdb;
 
 import static edu.duke.cs.osprey.TestBase.*;
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import com.google.common.collect.Iterators;
 import edu.duke.cs.osprey.coffee.ClusterMember;
@@ -14,7 +15,7 @@ import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.tools.BigExp;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
 import java.math.BigDecimal;

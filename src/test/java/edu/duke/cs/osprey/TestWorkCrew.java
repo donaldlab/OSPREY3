@@ -33,11 +33,11 @@
 package edu.duke.cs.osprey;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
 import java.util.Random;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import edu.duke.cs.osprey.parallelism.WorkCrew;
 import edu.duke.cs.osprey.parallelism.Worker;

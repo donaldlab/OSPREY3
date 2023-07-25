@@ -33,13 +33,13 @@
 package edu.duke.cs.osprey.tools;
 
 import static edu.duke.cs.osprey.TestBase.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
 import java.util.Arrays;
 import java.util.Random;
 import java.util.function.Consumer;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 
 public class TestDihedrals {

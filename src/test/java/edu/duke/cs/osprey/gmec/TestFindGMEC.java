@@ -33,12 +33,12 @@
 package edu.duke.cs.osprey.gmec;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
 import java.io.File;
 import java.util.Arrays;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;

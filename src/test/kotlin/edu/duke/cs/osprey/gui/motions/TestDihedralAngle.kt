@@ -1,15 +1,15 @@
 package edu.duke.cs.osprey.gui.motions
 
+import edu.duke.cs.osprey.gui.OspreyGui
+import edu.duke.cs.osprey.gui.io.fromOMOL
 import edu.duke.cs.osprey.molscope.molecule.Molecule
 import edu.duke.cs.osprey.molscope.molecule.Polymer
-import edu.duke.cs.osprey.gui.OspreyGui
-import edu.duke.cs.osprey.SharedSpec
-import edu.duke.cs.osprey.gui.io.fromOMOL
-import io.kotlintest.matchers.doubles.plusOrMinus
-import io.kotlintest.shouldBe
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.doubles.plusOrMinus
+import io.kotest.matchers.shouldBe
 
 
-class TestDihedralAngle : SharedSpec({
+class TestDihedralAngle : FunSpec({
 
 	fun Double.shouldBeAbsolutely(expected: Double, epsilon: Double = 1e-3) {
 		this shouldBe expected.plusOrMinus(epsilon)

@@ -47,7 +47,7 @@ public class CommandBindingAffinity extends RunnableCommand {
     public boolean doScan;
 
     @Parameter(names = "--scan-flex-distance", description = "Distance (in angstroms) around mutable residues in which residues are flexible.")
-    public double scanFlexDistance = 3.0;
+    public double scanFlexDistance = 2.0;
 
     @Parameter(names = "--scan-distance", description = "Distance (in angstroms) around a scan's target residue in which residues are made mutable.")
     public double scanDistance = 5.0;

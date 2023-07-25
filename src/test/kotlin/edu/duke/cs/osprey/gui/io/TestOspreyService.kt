@@ -1,14 +1,14 @@
 package edu.duke.cs.osprey.gui.io
 
+import edu.duke.cs.osprey.gui.OspreyGui
+import edu.duke.cs.osprey.gui.forcefield.amber.MoleculeType
 import edu.duke.cs.osprey.molscope.molecule.Atom
 import edu.duke.cs.osprey.molscope.molecule.Element
 import edu.duke.cs.osprey.molscope.molecule.Molecule
-import edu.duke.cs.osprey.gui.OspreyGui
-import edu.duke.cs.osprey.SharedSpec
-import edu.duke.cs.osprey.gui.forcefield.amber.MoleculeType
 import edu.duke.cs.osprey.service.services.*
-import io.kotlintest.shouldBe
-import io.kotlintest.shouldNotBe
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import java.nio.file.Paths
 import edu.duke.cs.osprey.service.OspreyService as Server
 
@@ -24,7 +24,7 @@ inline fun <T> withService(block: () -> T): T {
 	}
 }
 
-class TestOspreyService : SharedSpec({
+class TestOspreyService : FunSpec({
 
 	// NOTE: these tests mostly make sure nothing crashes, rather than test for correct output
 
@@ -42,7 +42,7 @@ class TestOspreyService : SharedSpec({
 		}
 	}
 
-	group("bonds") {
+	context("bonds") {
 
 		test("protein") {
 			withService {
@@ -60,7 +60,7 @@ class TestOspreyService : SharedSpec({
 		}
 	}
 
-	group("protonation") {
+	context("protonation") {
 
 		test("protein") {
 			withService {
@@ -79,13 +79,13 @@ class TestOspreyService : SharedSpec({
 		}
 	}
 
-	group("protonate") {
+	context("protonate") {
 
 		test("methylene") {
 			withService {
 
 				val c = Atom(Element.Carbon, "C", 0.0, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("protonate").apply {
 					atoms.add(c)
 				}
 
@@ -106,7 +106,7 @@ class TestOspreyService : SharedSpec({
 
 				val n1 = Atom(Element.Nitrogen, "N1",  0.6334, 0.0, 0.0)
 				val n2 = Atom(Element.Nitrogen, "N2", -0.6334, 0.0, 0.0)
-				val mol = Molecule(description().name).apply {
+				val mol = Molecule("diazynediium").apply {
 					atoms.add(n1)
 					atoms.add(n2)
 					bonds.add(n1, n2)
@@ -126,7 +126,7 @@ class TestOspreyService : SharedSpec({
 		}
 	}
 
-	group("types") {
+	context("types") {
 
 		test("protein") {
 			withService {
@@ -158,7 +158,7 @@ class TestOspreyService : SharedSpec({
 		}
 	}
 
-	group("moleculeFFInfo") {
+	context("moleculeFFInfo") {
 
 		test("protein") {
 			withService {
@@ -177,7 +177,7 @@ class TestOspreyService : SharedSpec({
 		}
 	}
 
-	group("forcefieldParams") {
+	context("forcefieldParams") {
 
 		test("protein") {
 			withService {
@@ -221,7 +221,7 @@ class TestOspreyService : SharedSpec({
 		}
 	}
 
-	group("minimize") {
+	context("minimize") {
 
 		test("protein") {
 			withService {

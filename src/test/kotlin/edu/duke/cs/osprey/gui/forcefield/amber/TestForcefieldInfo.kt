@@ -1,16 +1,17 @@
 package edu.duke.cs.osprey.gui.forcefield.amber
 
 import edu.duke.cs.osprey.gui.OspreyGui
-import edu.duke.cs.osprey.SharedSpec
 import edu.duke.cs.osprey.gui.io.OspreyService
 import edu.duke.cs.osprey.gui.io.withService
 import edu.duke.cs.osprey.service.services.MoleculeFFInfoRequest
-import io.kotlintest.shouldBe
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 
 
-class TestForcefieldInfo : SharedSpec({
+/* Test that Osprey Service can generate forcefield modification parameters for small molecules using parmchk2 */
+class TestForcefieldInfo : FunSpec({
 
-	group("benzamidine") {
+	context("benzamidine") {
 
 		test("heavy") {
 			withService {

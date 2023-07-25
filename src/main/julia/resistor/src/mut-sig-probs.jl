@@ -52,7 +52,7 @@ function init(probs)
 	# Build the graph
 	for (index, fivemer) in enumerate(fiveMers)
 		for next_fivemer in reachableInOneStep(probs, fivemer)
-			add_edge!(graph, index, d[next_fivemer.fiveMer], next_fivemer.prob)
+			SimpleWeightedGraphs.add_edge!(graph, index, d[next_fivemer.fiveMer], next_fivemer.prob)
 			if next_fivemer.prob != graph.weights[d[next_fivemer.fiveMer], index]
 				@error "ERROR!: ($(reachable.prob) != $(graph.weights[d[reachable.fiveMer], index]))"
 			end

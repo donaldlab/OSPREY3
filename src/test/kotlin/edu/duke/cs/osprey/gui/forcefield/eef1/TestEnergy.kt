@@ -1,22 +1,22 @@
 package edu.duke.cs.osprey.gui.forcefield.eef1
 
-import edu.duke.cs.osprey.molscope.molecule.Molecule
 import edu.duke.cs.osprey.confspace.ParametricMolecule
 import edu.duke.cs.osprey.confspace.Strand
 import edu.duke.cs.osprey.energy.EnergyCalculator
 import edu.duke.cs.osprey.energy.ResidueInteractions
-import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams as OldFFParams
 import edu.duke.cs.osprey.gui.OspreyGui
-import edu.duke.cs.osprey.SharedSpec
 import edu.duke.cs.osprey.gui.forcefield.*
 import edu.duke.cs.osprey.gui.io.fromOMOL
 import edu.duke.cs.osprey.gui.io.toOspreyMol
-import io.kotlintest.matchers.doubles.plusOrMinus
-import io.kotlintest.shouldBe
+import edu.duke.cs.osprey.molscope.molecule.Molecule
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.doubles.plusOrMinus
+import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.runBlocking
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams as OldFFParams
 
 
-class TestEnergy : SharedSpec({
+class TestEnergy : FunSpec({
 
 	/**
 	 * Calculate the molecule energy using the new parameterization system.
@@ -46,7 +46,7 @@ class TestEnergy : SharedSpec({
 	fun readMol(name: String) =
 		Molecule.fromOMOL(OspreyGui.getResourceAsString("preppedMols/$name.omol"))[0]
 
-	group("compared to templated ecalc") {
+	context("compared to templated ecalc") {
 
 		/**
 		 * The parameters from the newer code are identical to the older code,
@@ -124,7 +124,7 @@ class TestEnergy : SharedSpec({
 		These tests are designed to catch regressions in the EEF1 energy calculator.
 		The expected values were captured when the code was last deemed to be working correctly.
 	*/
-	group("precision regressions") {
+	context("precision regressions") {
 
 		fun Double.shouldBeEnergy(expected: Double, epsilon: Double = 1e-9) {
 			this shouldBe expected.plusOrMinus(epsilon)

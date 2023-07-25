@@ -1,7 +1,7 @@
 package edu.duke.cs.osprey.confspace.compiled.motions;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 import static edu.duke.cs.osprey.TestBase.isAbsolutely;
 
 import edu.duke.cs.osprey.confspace.compiled.AssignedCoords;
@@ -10,7 +10,7 @@ import edu.duke.cs.osprey.confspace.compiled.CoordsList;
 import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.Protractor;
 import org.joml.Vector3d;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.stream.Collectors;

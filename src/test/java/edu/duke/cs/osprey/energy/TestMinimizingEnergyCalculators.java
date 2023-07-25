@@ -33,16 +33,17 @@
 package edu.duke.cs.osprey.energy;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
-import static org.junit.Assume.assumeTrue;
+import static org.hamcrest.MatcherAssert.*;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
@@ -78,7 +79,7 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 	private static ForcefieldParams ffparams;
 	private static List<ScoredConf> confs;
 	
-	@BeforeClass
+	@BeforeAll
 	public static void beforeClass() {
 		
 		// get a conf space

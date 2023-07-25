@@ -9,6 +9,7 @@ import kotlinx.serialization.modules.PolymorphicModuleBuilder
 import kotlinx.serialization.modules.subclass
 
 
+/* Use LEaP/Antechamber to generate a MOL2 structure, which contains atom connectivity */
 object BondsService : OspreyService.Provider {
 
 	override fun registerResponses(responses: PolymorphicModuleBuilder<ResponseInfo>) {

@@ -8,6 +8,7 @@ import kotlinx.serialization.modules.PolymorphicModuleBuilder
 import kotlinx.serialization.modules.subclass
 
 
+/* Runs Amber's parmchk2 command to generate parameters that might be missing for molecules */
 object MoleculeFFInfoService : OspreyService.Provider {
 
 	override fun registerResponses(responses: PolymorphicModuleBuilder<ResponseInfo>) {

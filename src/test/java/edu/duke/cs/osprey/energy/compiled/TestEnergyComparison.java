@@ -1,7 +1,7 @@
 package edu.duke.cs.osprey.energy.compiled;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 import static edu.duke.cs.osprey.TestBase.isAbsolutely;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
@@ -22,7 +22,7 @@ import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.stream.Collectors;

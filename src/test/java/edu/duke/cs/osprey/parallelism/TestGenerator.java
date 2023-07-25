@@ -1,9 +1,10 @@
 package edu.duke.cs.osprey.parallelism;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -34,31 +35,34 @@ public class TestGenerator {
 		}
 	}
 
-	@Test(expected = NoSuchElementException.class)
+	@Test
 	public void iterateTooFar() {
-
-		try (var gen = new Generator<Integer>(yielder -> {
-			for (int i=0; i<3; i++) {
-				yielder.yield(i);
+		Assertions.assertThrows(NoSuchElementException.class, () -> {
+			try (var gen = new Generator<Integer>(yielder -> {
+				for (int i=0; i<3; i++) {
+					yielder.yield(i);
+				}
+			})) {
+				var iter = gen.iterator();
+				iter.next();
+				iter.next();
+				iter.next();
+				iter.next();
 			}
-		})) {
-			var iter = gen.iterator();
-			iter.next();
-			iter.next();
-			iter.next();
-			iter.next();
-		}
+		});
 	}
 
-	@Test(expected = Generator.GeneratorFailedException.class)
+	@Test
 	public void threadFail() {
 
-		try (var gen = new Generator<Integer>(yielder -> {
-			throw new Error("fail");
-		})) {
-			var iter = gen.iterator();
-			iter.next();
-		}
+		Assertions.assertThrows(Generator.GeneratorFailedException.class, () -> {
+			try (var gen = new Generator<Integer>(yielder -> {
+				throw new Error("fail");
+			})) {
+				var iter = gen.iterator();
+				iter.next();
+			}
+		});
 	}
 
 	@Test

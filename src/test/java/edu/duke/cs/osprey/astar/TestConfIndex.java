@@ -34,9 +34,9 @@ package edu.duke.cs.osprey.astar;
 
 import static edu.duke.cs.osprey.astar.Matchers.*;
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 

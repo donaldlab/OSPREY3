@@ -18,17 +18,14 @@ import edu.duke.cs.osprey.kstar.KStarScoreWriter;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.tools.FileTools;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.Timeout;
+//import org.junit.Rule;
+import org.junit.jupiter.api.Test;
+//import org.junit.rules.Timeout;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public class TestBBKStar {
-
-	@Rule
-	public Timeout globalTimeout = new Timeout(5, TimeUnit.MINUTES);
 
 	// NOTE: these tests don't test for correctness, only that the code finishes and doesn't crash
 

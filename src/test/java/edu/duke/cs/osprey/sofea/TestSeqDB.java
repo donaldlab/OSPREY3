@@ -33,7 +33,7 @@
 package edu.duke.cs.osprey.sofea;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
 import com.google.common.collect.Iterators;
 import edu.duke.cs.osprey.TestBase.TempFile;
@@ -42,7 +42,7 @@ import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.BigExp;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.math.MathContext;

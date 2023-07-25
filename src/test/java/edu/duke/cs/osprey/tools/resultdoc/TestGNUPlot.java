@@ -34,7 +34,7 @@ package edu.duke.cs.osprey.tools.resultdoc;
 
 
 import edu.duke.cs.osprey.tools.FileTools;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.util.Arrays;

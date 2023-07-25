@@ -44,15 +44,15 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.AtomConnectivity;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residues;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import static edu.duke.cs.osprey.TestBase.isAbsolutely;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 public class TestResidueForcefieldBreakdown {
 
-	@BeforeClass
+	@BeforeAll
 	public static void before() {
 		TestForcefieldEnergy.before();
 	}

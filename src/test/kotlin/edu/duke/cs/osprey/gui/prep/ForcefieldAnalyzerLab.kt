@@ -1,12 +1,12 @@
 package edu.duke.cs.osprey.gui.prep
 
-import edu.duke.cs.osprey.molscope.molecule.Molecule
-import edu.duke.cs.osprey.tools.FileTools
 import edu.duke.cs.osprey.gui.forcefield.Forcefield
 import edu.duke.cs.osprey.gui.forcefield.amber.MoleculeType
 import edu.duke.cs.osprey.gui.forcefield.amber.findTypeOrThrow
 import edu.duke.cs.osprey.gui.io.fromOMOL
 import edu.duke.cs.osprey.gui.io.withService
+import edu.duke.cs.osprey.molscope.molecule.Molecule
+import edu.duke.cs.osprey.tools.FileTools
 
 
 fun main() {

@@ -29,7 +29,7 @@ public class DesignFileDelegate {
     boolean help;
 
     @Parameter(description = "The approximation accuracy. Z* = (1 - epsilon)Z. Values closer to 0 improve approximation accuracy.", names={"--epsilon", "-e"})
-    double epsilon = 0.63;
+    double epsilon = 0.683;
 
     @Parameter(names = "--verify-design", description = "Verifies input parameters, but does not run the design")
     boolean verifyInput;

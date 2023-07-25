@@ -12,7 +12,7 @@ public class CapturedIOTest {
     protected InputStream inputStream, mockedIn;
 
     @BeforeEach
-    private void beforeEach() {
+    public void beforeEach() {
         outputStream = System.out;
         inputStream = System.in;
         errorStream = System.err;
@@ -26,7 +26,7 @@ public class CapturedIOTest {
     }
 
     @AfterEach
-    private void afterEach() {
+    public void afterEach() {
         System.setOut(new PrintStream(outputStream));
         System.setErr(new PrintStream(errorStream));
         System.setIn(inputStream);

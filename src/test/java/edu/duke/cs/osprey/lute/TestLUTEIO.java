@@ -33,10 +33,10 @@
 package edu.duke.cs.osprey.lute;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
 import edu.duke.cs.osprey.confspace.RCTuple;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestLUTEIO {
 

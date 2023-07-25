@@ -33,13 +33,13 @@
 package edu.duke.cs.osprey.confspace;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
 import java.util.List;
 
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace.Position;
@@ -54,7 +54,7 @@ public class TestSimpleConfSpace extends TestBase {
 	
 	private static Molecule mol;
 	
-	@BeforeClass
+	@BeforeAll
 	public static void beforeClass() {
 		mol = PDBIO.readFile("examples/1CC8/1CC8.ss.pdb");
 	}

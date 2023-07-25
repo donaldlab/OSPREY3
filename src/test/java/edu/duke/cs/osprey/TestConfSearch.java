@@ -32,8 +32,8 @@
 
 package edu.duke.cs.osprey;
 
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
@@ -57,7 +57,7 @@ public class TestConfSearch extends TestBase {
     //and that DEE pruning does not change the overall minimum
     //this is testing discrete conformational search
     
-    @BeforeClass
+    @BeforeAll
     public static void before() {
             initDefaultEnvironment();
     }

@@ -33,12 +33,12 @@
 package edu.duke.cs.osprey.partcr;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
 import java.util.List;
 
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.confspace.ConfSpace;
@@ -48,7 +48,7 @@ import edu.duke.cs.osprey.partcr.splitters.BinaryRCSplitter;
 
 public class TestRCSplits extends TestBase {
 	
-	@BeforeClass
+	@BeforeAll
 	public static void before() {
 		initDefaultEnvironment();
 	}

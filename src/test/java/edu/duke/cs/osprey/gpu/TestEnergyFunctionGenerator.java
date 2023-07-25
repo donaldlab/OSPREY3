@@ -32,14 +32,14 @@
 
 package edu.duke.cs.osprey.gpu;
 
-import static org.junit.Assert.*;
-import static org.junit.Assume.assumeTrue;
+import static org.hamcrest.MatcherAssert.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.ArrayList;
 
 import edu.duke.cs.osprey.gpu.opencl.Gpus;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.confspace.SearchProblem;
@@ -56,7 +56,7 @@ import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class TestEnergyFunctionGenerator extends TestBase {
 	
-	@BeforeClass
+	@BeforeAll
 	public static void before() {
 		
 		initDefaultEnvironment();

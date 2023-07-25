@@ -37,10 +37,10 @@ package edu.duke.cs.osprey.gmec;
 
 import static edu.duke.cs.osprey.TestBase.*;
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
@@ -89,7 +89,7 @@ public class TestDEEGMECFinder {
 	private static Problem problemContinuous;
 	private static Problem problemMultipleStrands;
 	
-	@BeforeClass
+	@BeforeAll
 	public static void beforeClass() {
 		
 		Molecule mol = PDBIO.readFile("examples/python.GMEC/1CC8.ss.pdb");

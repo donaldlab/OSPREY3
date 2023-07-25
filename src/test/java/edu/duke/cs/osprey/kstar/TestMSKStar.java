@@ -34,7 +34,7 @@ package edu.duke.cs.osprey.kstar;
 
 import static edu.duke.cs.osprey.tools.Log.log;
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
@@ -48,7 +48,8 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.tools.MathTools;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -313,28 +314,37 @@ public class TestMSKStar {
 	// MSK* has been short-circuited until it can be fixed,
 	// so all these tests are supposed to fail
 
-	@Test(expected = UnsupportedOperationException.class)
+	@Test
+
 	public void test2RL0() {
-		Problem problem = make2RL0PPI(false);
-		prepStates(problem, () -> check2RL0PPI(problem.mskstar));
+		Assertions.assertThrows(UnsupportedOperationException.class, () -> {
+			Problem problem = make2RL0PPI(false);
+			prepStates(problem, () -> check2RL0PPI(problem.mskstar));
+		});
 	}
 
-	@Test(expected = UnsupportedOperationException.class)
+	@Test
 	public void test2RL0BoundedMemory() {
-		Problem problem = make2RL0PPI(true);
-		prepStates(problem, () -> check2RL0PPI(problem.mskstar));
+		Assertions.assertThrows(UnsupportedOperationException.class, () -> {
+			Problem problem = make2RL0PPI(true);
+			prepStates(problem, () -> check2RL0PPI(problem.mskstar));
+		});
 	}
 
-	@Test(expected = UnsupportedOperationException.class)
+	@Test
 	public void test2RL0OnlyOneMutant() {
-		Problem problem = make2RL0OnlyOneMutant();
-		prepStates(problem, () -> check2RL0OnlyOneMutant(problem.mskstar));
+		Assertions.assertThrows(UnsupportedOperationException.class, () -> {
+			Problem problem = make2RL0OnlyOneMutant();
+			prepStates(problem, () -> check2RL0OnlyOneMutant(problem.mskstar));
+		});
 	}
 
-	@Test(expected = UnsupportedOperationException.class)
+	@Test
 	public void test2RL0SpaceWithoutWildType() {
-	Problem problem = make2RL0SpaceWithoutWildType();
-		prepStates(problem, () -> check2RL0WithoutWildType(problem.mskstar));
+		Assertions.assertThrows(UnsupportedOperationException.class, () -> {
+			Problem problem = make2RL0SpaceWithoutWildType();
+			prepStates(problem, () -> check2RL0WithoutWildType(problem.mskstar));
+		});
 	}
 
 	private static void assertSequence(List<MSKStar.SequenceInfo> sequences, String seqStr, double objectiveLower, double objectiveUpper) {

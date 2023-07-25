@@ -34,7 +34,7 @@ package edu.duke.cs.osprey.lute;
 
 import static edu.duke.cs.osprey.TestBase.isAbsolutely;
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
@@ -56,8 +56,8 @@ import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.Streams;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.util.*;
 import java.util.function.BiFunction;
@@ -77,7 +77,7 @@ public class TestLute {
 	private static SimpleConfSpace complex;
 	private static ForcefieldParams ffparams;
 	
-	@BeforeClass
+	@BeforeAll
 	public static void beforeClass() {
 
 		// configure the forcefield

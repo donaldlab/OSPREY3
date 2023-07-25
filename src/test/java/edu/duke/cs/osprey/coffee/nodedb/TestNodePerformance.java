@@ -2,12 +2,12 @@ package edu.duke.cs.osprey.coffee.nodedb;
 
 import static edu.duke.cs.osprey.TestBase.*;
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
 import edu.duke.cs.osprey.coffee.TestCoffee;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.tools.BigExp;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 
 public class TestNodePerformance {

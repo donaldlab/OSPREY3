@@ -35,7 +35,7 @@ package edu.duke.cs.osprey.sofea;
 import static edu.duke.cs.osprey.TestBase.*;
 import static edu.duke.cs.osprey.tools.Log.log;
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
 import edu.duke.cs.osprey.TestBase.TempFile;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
@@ -57,7 +57,7 @@ import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.*;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.math.BigInteger;

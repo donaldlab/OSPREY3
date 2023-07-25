@@ -1,23 +1,24 @@
 package edu.duke.cs.osprey.gui.prep
 
-import edu.duke.cs.osprey.molscope.molecule.*
 import edu.duke.cs.osprey.gui.OspreyGui
-import edu.duke.cs.osprey.SharedSpec
 import edu.duke.cs.osprey.gui.forcefield.amber.MoleculeType
 import edu.duke.cs.osprey.gui.io.ConfLib
 import edu.duke.cs.osprey.gui.io.fromOMOL
 import edu.duke.cs.osprey.gui.motions.DihedralAngle
 import edu.duke.cs.osprey.gui.show
-import io.kotlintest.matchers.beLessThanOrEqualTo
-import io.kotlintest.matchers.collections.shouldContain
-import io.kotlintest.matchers.types.shouldBeSameInstanceAs
-import io.kotlintest.matchers.types.shouldBeTypeOf
-import io.kotlintest.should
-import io.kotlintest.shouldBe
+import edu.duke.cs.osprey.molscope.molecule.*
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeSameSizeAs
+import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.comparables.beLessThanOrEqualTo
+import io.kotest.matchers.should
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeSameInstanceAs
+import io.kotest.matchers.types.shouldBeTypeOf
 import org.joml.Vector3d
 
 
-class TestMutation : SharedSpec({
+class TestMutation : FunSpec({
 
 	fun Vector3d.shouldBeNear(p: Vector3d) =
 		distance(p) should beLessThanOrEqualTo(1e-3)
@@ -34,24 +35,20 @@ class TestMutation : SharedSpec({
 	fun Molecule.shouldBeConsistent() {
 
 		val atomsLookup = atoms.toIdentitySet()
+		val residueAtoms = if (this is Polymer) {
+			chains.flatMap { chain -> chain.residues }
+				.flatMap { residue -> residue.atoms }
+				.toMutableSet()
+		} else {
+			mutableSetOf()
+		}.toIdentitySet()
 
 		// check that all residue atoms are also in the main atoms list
-		if (this is Polymer) {
-			for (chain in chains) {
-				for (res in chain.residues) {
-					for (atom in res.atoms) {
-						atomsLookup shouldContain atom
-					}
-				}
-			}
-		}
+		(residueAtoms - atomsLookup) shouldBeSameSizeAs emptySet<Atom>()
 
 		// check that all the bonds are to atoms also in the molecule
-		for (atom in atoms) {
-			for (bondedAtom in bonds.bondedAtoms(atom)) {
-				atomsLookup shouldContain bondedAtom
-			}
-		}
+		val bondedAtoms = atoms.flatMap { bonds.bondedAtoms(it) }.toIdentitySet()
+		(bondedAtoms - atomsLookup) shouldBeSameSizeAs emptySet<Atom>()
 	}
 
 	/**
@@ -75,7 +72,7 @@ class TestMutation : SharedSpec({
 		atoms.associate { it.name to Vector3d(it.pos) }
 
 
-	group("protein") {
+	context("protein") {
 
 		val conflib = ConfLib.from(OspreyGui.getResourceAsString("conflib/lovell.conflib"))
 		val protein1cc8 = Molecule.fromOMOL(OspreyGui.getResourceAsString("1cc8.protein.omol"))[0] as Polymer

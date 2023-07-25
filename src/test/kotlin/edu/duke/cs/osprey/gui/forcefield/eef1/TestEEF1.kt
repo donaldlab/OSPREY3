@@ -1,18 +1,18 @@
 package edu.duke.cs.osprey.gui.forcefield.eef1
 
+import edu.duke.cs.osprey.gui.OspreyGui
+import edu.duke.cs.osprey.gui.io.fromOMOL
 import edu.duke.cs.osprey.molscope.molecule.Element
 import edu.duke.cs.osprey.molscope.molecule.Molecule
 import edu.duke.cs.osprey.molscope.molecule.Polymer
-import edu.duke.cs.osprey.gui.OspreyGui
-import edu.duke.cs.osprey.SharedSpec
-import edu.duke.cs.osprey.gui.io.fromOMOL
-import io.kotlintest.shouldBe
-import io.kotlintest.shouldNotBe
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 
 
-class TestEEF1 : SharedSpec({
+class TestEEF1 : FunSpec({
 
-	group("1cc8") {
+	context("1cc8") {
 
 		val mol = Molecule.fromOMOL(OspreyGui.getResourceAsString("1cc8.protein.omol"))[0] as Polymer
 

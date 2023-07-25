@@ -1,17 +1,17 @@
 package edu.duke.cs.osprey.gui.io
 
+import edu.duke.cs.osprey.gui.OspreyGui
+import edu.duke.cs.osprey.gui.forcefield.amber.partition
 import edu.duke.cs.osprey.molscope.molecule.*
 import edu.duke.cs.osprey.structure.OMOLIO
-import edu.duke.cs.osprey.gui.OspreyGui
-import edu.duke.cs.osprey.SharedSpec
-import edu.duke.cs.osprey.gui.forcefield.amber.partition
-import io.kotlintest.matchers.collections.shouldContainExactlyInAnyOrder
-import io.kotlintest.matchers.types.shouldBeInstanceOf
-import io.kotlintest.shouldBe
-import io.kotlintest.shouldThrow
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 
 
-class TestMolIO : SharedSpec({
+class TestMolIO : FunSpec({
 
 	val dipeptide = Polymer("GLU-ILE Dipeptide").apply {
 
@@ -204,7 +204,7 @@ class TestMolIO : SharedSpec({
 		}
 	}
 
-	group("OMOL roundtrip") {
+	context("OMOL roundtrip") {
 
 		fun roundtrip(mols: List<Molecule>) {
 			Molecule.fromOMOL(mols.toOMOL()) shouldBe mols
@@ -224,7 +224,7 @@ class TestMolIO : SharedSpec({
 		}
 	}
 
-	group("OSPREY roundtrip") {
+	context("OSPREY roundtrip") {
 
 		fun roundtrip(mol: Molecule) {
 			mol.toOspreyMol().toMolecule() shouldBe mol
@@ -240,7 +240,7 @@ class TestMolIO : SharedSpec({
 		// PDB formats can't tell the difference between small molecules and single-residue polymers
 	}
 
-	group("OSPREY OMOL roundtrip") {
+	context("OSPREY OMOL roundtrip") {
 
 		fun roundtrip(mol: Molecule) {
 			OMOLIO.read(OMOLIO.write(mol.toOspreyMol())).toMolecule() shouldBe mol
@@ -256,7 +256,7 @@ class TestMolIO : SharedSpec({
 		// PDB formats can't tell the difference between small molecules and single-residue polymers
 	}
 
-	group("Mol2 roundtrip") {
+	context("Mol2 roundtrip") {
 
 		fun roundtrip(mol: Molecule) {
 			// NOTE: the Mol2 format doesn't have a place to put the molecule type,
@@ -275,7 +275,7 @@ class TestMolIO : SharedSpec({
 		}
 	}
 
-	group("PDB export") {
+	context("PDB export") {
 
 		test("1cc8") {
 			Molecule.fromPDB(OspreyGui.getResourceAsString("1cc8.pdb"))

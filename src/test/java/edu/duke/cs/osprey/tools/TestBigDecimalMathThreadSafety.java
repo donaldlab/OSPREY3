@@ -1,11 +1,11 @@
 package edu.duke.cs.osprey.tools;
 
 import static edu.duke.cs.osprey.TestBase.isRelatively;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
 import ch.obermuhlner.math.big.BigDecimalMath;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;

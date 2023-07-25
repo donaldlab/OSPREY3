@@ -33,13 +33,13 @@
 package edu.duke.cs.osprey.confspace;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.Streams;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Iterator;
@@ -50,7 +50,7 @@ public class TestSequence {
 	private static Molecule mol;
 	private static SimpleConfSpace confSpace;
 
-	@BeforeClass
+	@BeforeAll
 	public static void beforeClass() {
 
 		mol = PDBIO.readFile("examples/1CC8/1CC8.ss.pdb");

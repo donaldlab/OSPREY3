@@ -33,7 +33,7 @@
 package edu.duke.cs.osprey.astar;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.pruning.AStarSequencePruner;
@@ -46,15 +46,15 @@ import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.PDBIO;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 public class TestSequencePruner {
 
 	private static SimpleConfSpace confSpace;
 	private static EnergyMatrix emat;
 
-	@BeforeClass
+	@BeforeAll
 	public static void beforeClass() {
 
 		// get any arbitrary conf space...

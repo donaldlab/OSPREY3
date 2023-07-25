@@ -32,14 +32,14 @@
 
 package edu.duke.cs.osprey.minimization;
 
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
@@ -63,7 +63,7 @@ public class TestMinimizationStability extends TestBase {
 	private static List<ScoredConf> confs;
 	private static ForcefieldParams ffparams;
 	
-	@BeforeClass
+	@BeforeAll
 	public static void before() {
 		initDefaultEnvironment();
 		

@@ -1,9 +1,9 @@
 [deps]
 ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
 BioSequences = "7e6ae17a-c86d-528c-b3b9-7f778a29fe59"
-Debugger = "31a5f54b-26ea-5ae9-a837-f05ce5417438"
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 FASTX = "c2308a5c-f048-11e8-3e8a-31650f418d12"
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 LightGraphs = "093fc24a-ae57-5d10-9952-331d41423f4d"
 SimpleWeightedGraphs = "47aef6b3-ad0c-573a-a1e2-d07658019622"
-XLSX = "fdbf4ff8-1666-58a4-91e7-1b58723a45e0"

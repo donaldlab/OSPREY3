@@ -1,8 +1,8 @@
 package edu.duke.cs.osprey.confspace.compiled;
 
 import static edu.duke.cs.osprey.TestBase.isAbsolutely;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
 
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
@@ -14,7 +14,7 @@ import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.FileTools;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;

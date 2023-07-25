@@ -185,12 +185,11 @@ suspend fun Molecule.calcTypesAmber(
 			).toRequest()
 			val (src, srcMetadata) = Molecule.fromMol2WithMetadata(
 				OspreyService.types(request).mol2,
-				// HACKHACK: AmberTools19 LEaP won't return protein formatted mol2 files for single residue chains,
-				// so force the Mol2 code to build a polymer if we're expecting one
-				isPolymer = dst is Polymer
+				// Small molecules aren't polymers
+				isPolymer = false
 			)
 
-			// Tragically, we antechamber doesn't write the residue info back into the mol2 file,
+			// Tragically, antechamber doesn't write the residue info back into the mol2 file,
 			// so we can't use our usual MoleculeMapper to do the atom mapping here.
 			// Thankfully, the atom order is preserved, so we can use that to do the mapping instead.
 			val atomMap = src.atoms.zip(dst.atoms)

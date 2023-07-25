@@ -33,10 +33,10 @@
 package edu.duke.cs.osprey.ematrix;
 
 import static edu.duke.cs.osprey.TestBase.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
@@ -55,7 +55,7 @@ public class TestEnergyPartitions {
 	private static SimpleConfSpace confSpace;
 	private static RCTuple conf;
 	
-	@BeforeClass
+	@BeforeAll
 	public static void beforeClass() {
 		
 		// read a protein

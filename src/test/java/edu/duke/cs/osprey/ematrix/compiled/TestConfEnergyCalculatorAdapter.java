@@ -3,7 +3,7 @@ package edu.duke.cs.osprey.ematrix.compiled;
 import static edu.duke.cs.osprey.TestBase.isAbsoluteBound;
 import static edu.duke.cs.osprey.TestBase.isAbsolutely;
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
@@ -22,7 +22,7 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.MathTools;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 
 @SuppressWarnings("deprecation") // yes, we're using the deprecated adapter class: we're testing it

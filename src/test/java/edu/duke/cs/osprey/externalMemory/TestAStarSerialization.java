@@ -33,13 +33,14 @@
 package edu.duke.cs.osprey.externalMemory;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.*;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.tpie.EntrySize;
 import edu.duke.cs.tpie.serialization.SerializingDoublePriorityQueue;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.util.Arrays;
@@ -126,14 +127,16 @@ public class TestAStarSerialization {
 		});
 	}
 
-	@Test(expected = RuntimeException.class)
+	@Test
 	public void astarNode1x128TooBig() {
-		ExternalMemory.use(16, () -> {
+		Assertions.assertThrows(RuntimeException.class, () -> {
+			ExternalMemory.use(16, () -> {
 
-			Queue<EMConfAStarNode> q = makeQueue(128); // 21 bytes
-			assertQueue(q, EntrySize.Bytes32, AssignmentsSerializer.Encoding.Byte);
+				Queue<EMConfAStarNode> q = makeQueue(128); // 21 bytes
+				assertQueue(q, EntrySize.Bytes32, AssignmentsSerializer.Encoding.Byte);
 
-			q.push(makeNode(7, 4.2, 7.9, 128));
+				q.push(makeNode(7, 4.2, 7.9, 128));
+			});
 		});
 	}
 
@@ -164,14 +167,16 @@ public class TestAStarSerialization {
 		});
 	}
 
-	@Test(expected = RuntimeException.class)
+	@Test
 	public void astarNode1x32768TooBig() {
-		ExternalMemory.use(16, () -> {
+		Assertions.assertThrows(RuntimeException.class, () -> {
+			ExternalMemory.use(16, () -> {
 
-			Queue<EMConfAStarNode> q = makeQueue(32768); // 22 bytes
-			assertQueue(q, EntrySize.Bytes32, AssignmentsSerializer.Encoding.Short);
+				Queue<EMConfAStarNode> q = makeQueue(32768); // 22 bytes
+				assertQueue(q, EntrySize.Bytes32, AssignmentsSerializer.Encoding.Short);
 
-			q.push(makeNode(7, 4.2, 7.9, 32768));
+				q.push(makeNode(7, 4.2, 7.9, 32768));
+			});
 		});
 	}
 

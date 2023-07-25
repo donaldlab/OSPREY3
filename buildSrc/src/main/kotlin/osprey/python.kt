@@ -15,6 +15,8 @@ val Project.pythonWheelhouseDir get() = pythonSrcDir / "wheelhouse"
 /** assume python3 is available on the system, but allow overriding the actual command to invoke it */
 val Project.pythonCmd get() = findProperty("OSPREY_PYTHON3")?.toString() ?: "python3"
 
+/** Allow specifying that we are in a python virtual environment*/
+val Project.venv get() = findProperty("VENV")?.toString().toBoolean()?: false
 
 fun Project.makePythonTasks() {
 
@@ -36,7 +38,7 @@ fun Project.makePythonTasks() {
 		commandLine(
 			pythonCmd, "-m", "pip",
 			"install",
-			"--user", "--editable",
+			if (!venv) "--user --editable" else "--editable",
 			".", // path to package to install, ie osprey
 			"--find-links=$pythonWheelhouseDir" // add a wheelhouse dir to find any bundled packages
 		)

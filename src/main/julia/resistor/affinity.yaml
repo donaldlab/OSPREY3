@@ -1,0 +1,17 @@
+osprey_version: '3.3'
+design_name: ''
+scan:
+  residues: []
+protein:
+  coordinates: |+2
+  residue_configurations: []
+  extra_templates: |+2
+  extra_templates_coordinates: |+2
+  extra_rotamers: |+2
+ligand:
+  coordinates: |+2
+  residue_configurations: []
+  extra_templates: |+2
+  extra_templates_coordinates: |+2
+  extra_rotamers: |+2
+  translate_rotate: true

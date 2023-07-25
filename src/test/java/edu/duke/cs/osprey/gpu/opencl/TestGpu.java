@@ -33,12 +33,12 @@
 package edu.duke.cs.osprey.gpu.opencl;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
-import static org.junit.Assume.assumeTrue;
+import static org.hamcrest.MatcherAssert.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.Random;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import edu.duke.cs.osprey.gpu.opencl.GpuQueue;
 import edu.duke.cs.osprey.gpu.opencl.Gpus;

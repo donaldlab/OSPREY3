@@ -3,15 +3,15 @@ package edu.duke.cs.osprey.energy.compiled;
 import static edu.duke.cs.osprey.TestBase.*;
 import static edu.duke.cs.osprey.tools.Log.log;
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
-import static org.junit.Assume.assumeTrue;
+import static org.hamcrest.MatcherAssert.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.compiled.*;
 import edu.duke.cs.osprey.gpu.Structs;
 import edu.duke.cs.osprey.tools.MathTools;
 import org.joml.Vector3d;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;
