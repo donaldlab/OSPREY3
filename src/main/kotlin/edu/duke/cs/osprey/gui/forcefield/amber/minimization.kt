@@ -103,7 +103,7 @@ suspend fun List<MinimizerInfo>.minimize(numSteps: Int) {
 						)
 					}
 
-					val types = mol.calcTypesAmber(moltype, atomIndex, generateCharges = generateCharges)
+					val types = mol.calcTypesAmber(moltype, atomIndex, ffname = ForcefieldName.ff14SB, generateCharges = generateCharges)
 					val frcmods = mol.calcModsAmber(types, atomIndex)
 						?.let { listOf(it) }
 						?: emptyList()
