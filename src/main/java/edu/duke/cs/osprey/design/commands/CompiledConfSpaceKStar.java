@@ -9,6 +9,7 @@ import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
 import edu.duke.cs.osprey.design.Main;
 import edu.duke.cs.osprey.design.io.ScoredSequenceCsvPrinter;
 import edu.duke.cs.osprey.design.io.ScoredSequenceEnsembleWriter;
+import edu.duke.cs.osprey.design.io.ScoredSequencePFuncStatsWriter;
 import edu.duke.cs.osprey.ematrix.compiled.EmatCalculator;
 import edu.duke.cs.osprey.ematrix.compiled.ErefCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
@@ -147,10 +148,12 @@ public class CompiledConfSpaceKStar implements CliCommand {
 
         var printWriter = new PrintWriter(System.out);
         var csvPrinter = new ScoredSequenceCsvPrinter(printWriter);
-        kstar.putSequenceComputedListener(csvPrinter);
-
+        var statsWriter = new ScoredSequencePFuncStatsWriter(ensembleDir);
         var ensembleWriter = new ScoredSequenceEnsembleWriter(writeNConfs, ensembleDir, complexRefEnergies, complexConfCalc, complex);
+
+        kstar.putSequenceComputedListener(csvPrinter);
         kstar.putSequenceComputedListener(ensembleWriter);
+        kstar.putSequenceComputedListener(statsWriter);
 
         List<ScoredSequence> sequences = kstar.run(taskExecutor);
         return Main.Success;
