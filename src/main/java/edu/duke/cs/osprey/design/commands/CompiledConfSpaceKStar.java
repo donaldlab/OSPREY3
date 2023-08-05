@@ -69,7 +69,7 @@ public class CompiledConfSpaceKStar implements CliCommand {
 
     @Override
     public int run(JCommander commander, String[] args) {
-        var taskExecutor = new Parallelism(1 /*Runtime.getRuntime().availableProcessors() */, 0, 0)
+        var taskExecutor = new Parallelism(Runtime.getRuntime().availableProcessors(), 0, 0)
                 .makeTaskExecutor();
 
         var design = ConfSpace.fromBytes(FileTools.readFileBytes(designConfSpacePath));
@@ -78,21 +78,25 @@ public class CompiledConfSpaceKStar implements CliCommand {
                 .build()
                 .calc(taskExecutor);
 
+        System.out.println("Design ref energies");
         System.out.println(designRefEnergies.toString(design));
 
         var complex = ConfSpace.fromBytes(FileTools.readFileBytes(complexConfSpacePath));
-        var target = ConfSpace.fromBytes(FileTools.readFileBytes(targetConfSpacePath));
-
         var complexConfCalc = ConfEnergyCalculator.makeBest(complex);
-        var targetConfCalc = ConfEnergyCalculator.makeBest(target);
-
-
         var complexRefEnergies = new ErefCalculator.Builder(complexConfCalc)
                 .build()
                 .calc(taskExecutor);
+
+        System.out.println("Complex ref energies");
+        System.out.println(complexRefEnergies.toString(complex));
+
+        var target = ConfSpace.fromBytes(FileTools.readFileBytes(targetConfSpacePath));
+        var targetConfCalc = ConfEnergyCalculator.makeBest(target);
         var targetRefEnergies = new ErefCalculator.Builder(targetConfCalc)
                 .build()
                 .calc(taskExecutor);
+        System.out.println("Target ref energies");
+        System.out.println(targetRefEnergies.toString(target));
 
         var complexEnergyMatrix = new EmatCalculator.Builder(complexConfCalc)
                 .setReferenceEnergies(complexRefEnergies)
