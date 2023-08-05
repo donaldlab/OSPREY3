@@ -572,7 +572,7 @@ public class TestKStar {
 		Result result = runKStar(make2RL0OnlyOneMutant(), epsilon, null, 1);
 
 		assertThat(result.scores.size(), is(1));
-		assertThat(result.scores.get(0).sequence.toString(Sequence.Renderer.AssignmentMutations), is("A193=VAL"));
+		assertThat(result.scores.get(0).sequence().toString(Sequence.Renderer.AssignmentMutations), is("A193=VAL"));
 	}
 
 	public static ConfSpaces make2RL0SpaceWithoutWildType() {
@@ -622,8 +622,8 @@ public class TestKStar {
 		Result result = runKStar(make2RL0SpaceWithoutWildType(), epsilon, null, 2);
 
 		assertThat(result.scores.size(), is(2));
-		assertThat(result.scores.get(0).sequence.toString(Sequence.Renderer.AssignmentMutations), is("G654=VAL A193=VAL"));
-		assertThat(result.scores.get(1).sequence.toString(Sequence.Renderer.AssignmentMutations), is("G654=thr A193=VAL"));
+		assertThat(result.scores.get(0).sequence().toString(Sequence.Renderer.AssignmentMutations), is("G654=VAL A193=VAL"));
+		assertThat(result.scores.get(1).sequence().toString(Sequence.Renderer.AssignmentMutations), is("G654=thr A193=VAL"));
 	}
 
 	public static void assertSequence(Result result, int sequenceIndex, String sequence, Double proteinQStar, Double ligandQStar, Double complexQStar, double epsilon) {
@@ -631,12 +631,12 @@ public class TestKStar {
 		ScoredSequence scoredSequence = result.scores.get(sequenceIndex);
 
 		// check the sequence
-		assertThat(scoredSequence.sequence.toString(Sequence.Renderer.ResType), is(sequence));
+		assertThat(scoredSequence.sequence().toString(Sequence.Renderer.ResType), is(sequence));
 
 		// check q* values and epsilon
-		assertResult(scoredSequence.score.protein, proteinQStar, epsilon);
-		assertResult(scoredSequence.score.ligand, ligandQStar, epsilon);
-		assertResult(scoredSequence.score.complex, complexQStar, epsilon);
+		assertResult(scoredSequence.score().protein, proteinQStar, epsilon);
+		assertResult(scoredSequence.score().ligand, ligandQStar, epsilon);
+		assertResult(scoredSequence.score().complex, complexQStar, epsilon);
 	}
 
 	public static void assertResult(PartitionFunction.Result result, Double qstar, double epsilon) {

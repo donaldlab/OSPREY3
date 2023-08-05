@@ -1043,10 +1043,10 @@ public class TestMARKStar {
 	public void KStarComparison() {
 		List<ScoredSequence> results = runKStarComparison(5,0.68);
 		for (int index = 0; index < results.size(); index++) {
-			int totalConfsEnergied = results.get(index).score.complex.numConfs + results.get(index).score.protein.numConfs + results.get(index).score.ligand.numConfs;
+			int totalConfsEnergied = results.get(index).score().complex.numConfs + results.get(index).score().protein.numConfs + results.get(index).score().ligand.numConfs;
 			int totalConfsLooked = -1;
-			System.out.println(String.format("score:%12e in [%12e,%12e], confs looked at:%4d, confs minimized:%4d",results.get(index).score.score, results.get(index).score.lowerBound,
-					results.get(index).score.upperBound,totalConfsLooked,totalConfsEnergied));
+			System.out.println(String.format("score:%12e in [%12e,%12e], confs looked at:%4d, confs minimized:%4d",results.get(index).score().score, results.get(index).score().lowerBound,
+					results.get(index).score().upperBound,totalConfsLooked,totalConfsEnergied));
 		}
 	}
 

@@ -69,25 +69,28 @@ public class CompiledConfSpaceKStar implements CliCommand {
 
     @Override
     public int run(JCommander commander, String[] args) {
+        var taskExecutor = new Parallelism(1 /*Runtime.getRuntime().availableProcessors() */, 0, 0)
+                .makeTaskExecutor();
+
+        var design = ConfSpace.fromBytes(FileTools.readFileBytes(designConfSpacePath));
+        var designConfCalc = ConfEnergyCalculator.makeBest(design);
+        var designRefEnergies = new ErefCalculator.Builder(designConfCalc)
+                .build()
+                .calc(taskExecutor);
+
+        System.out.println(designRefEnergies.toString(design));
 
         var complex = ConfSpace.fromBytes(FileTools.readFileBytes(complexConfSpacePath));
-        var design = ConfSpace.fromBytes(FileTools.readFileBytes(designConfSpacePath));
         var target = ConfSpace.fromBytes(FileTools.readFileBytes(targetConfSpacePath));
-
-        var taskExecutor = new Parallelism(Runtime.getRuntime().availableProcessors(), 0, 0)
-                .makeTaskExecutor();
 
         var complexConfCalc = ConfEnergyCalculator.makeBest(complex);
         var targetConfCalc = ConfEnergyCalculator.makeBest(target);
-        var designConfCalc = ConfEnergyCalculator.makeBest(design);
+
 
         var complexRefEnergies = new ErefCalculator.Builder(complexConfCalc)
                 .build()
                 .calc(taskExecutor);
         var targetRefEnergies = new ErefCalculator.Builder(targetConfCalc)
-                .build()
-                .calc(taskExecutor);
-        var designRefEnergies = new ErefCalculator.Builder(designConfCalc)
                 .build()
                 .calc(taskExecutor);
 

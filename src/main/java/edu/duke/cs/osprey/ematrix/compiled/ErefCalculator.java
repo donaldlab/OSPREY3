@@ -60,6 +60,8 @@ public class ErefCalculator {
 		return calc(new TaskExecutor());
 	}
 
+	record ECalcResultContainer(int pos, int conf, double energy) {}
+
 	public SimpleReferenceEnergies calc(TaskExecutor tasks) {
 
 		// allocate space
@@ -73,7 +75,8 @@ public class ErefCalculator {
 
 		for (int posi=0; posi<confSpace.numPos(); posi++) {
 			final int fposi = posi;
-			for (int confi=0; confi<confSpace.numConf(posi); confi++) {
+			final int numConf = confSpace.numConf(fposi);
+			for (int confi=0; confi<numConf; confi++) {
 				final int fconfi = confi;
 				tasks.submit(
 					() -> {
@@ -82,17 +85,20 @@ public class ErefCalculator {
 						inters.add(new PosInter(fposi, fposi, 1.0, 0.0));
 
 						int[] assignments = confSpace.assign(fposi, fconfi);
-						return confEcalc.calcOrMinimizeEnergy(assignments, inters, minimize);
+						return new ECalcResultContainer(fposi, fconfi, confEcalc.calcOrMinimizeEnergy(assignments, inters, minimize));
 					},
-					energy -> {
+					container -> {
+						var energy = container.energy;
+						var conf = container.conf;
+						var pos = container.pos;
 
 						// keep the min energy for each pos,resType
-						String resType = confSpace.confType(fposi, fconfi);
-						Double e = eref.get(fposi, resType);
+						String resType = confSpace.confType(pos, conf);
+						Double e = eref.get(pos, resType);
 						if (e == null || energy < e) {
 							e = energy;
 						}
-						eref.set(fposi, resType, e);
+						eref.set(pos, resType, e);
 
 						progress.incrementProgress();
 					}

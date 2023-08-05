@@ -313,7 +313,7 @@ public class TestBBKStar {
 		Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1);
 
 		assertThat(results.sequences.size(), is(1));
-		assertThat(results.sequences.get(0).sequence.toString(Sequence.Renderer.AssignmentMutations), is("A193=VAL"));
+		assertThat(results.sequences.get(0).sequence().toString(Sequence.Renderer.AssignmentMutations), is("A193=VAL"));
 	}
 
 	@Test
@@ -325,8 +325,8 @@ public class TestBBKStar {
 		Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 2);
 
 		assertThat(results.sequences.size(), is(2));
-		assertThat(results.sequences.get(0).sequence.toString(Sequence.Renderer.AssignmentMutations), is("G654=thr A193=VAL"));
-		assertThat(results.sequences.get(1).sequence.toString(Sequence.Renderer.AssignmentMutations), is("G654=VAL A193=VAL"));
+		assertThat(results.sequences.get(0).sequence().toString(Sequence.Renderer.AssignmentMutations), is("G654=thr A193=VAL"));
+		assertThat(results.sequences.get(1).sequence().toString(Sequence.Renderer.AssignmentMutations), is("G654=VAL A193=VAL"));
 	}
 
 	private void assertSequence(Results results, String sequence, Double estKStarLowerLog10, Double estKStarUpperLog10) {
@@ -334,20 +334,20 @@ public class TestBBKStar {
 		// find the sequence
 		for (ScoredSequence scoredSequence : results.sequences) {
 
-			if (scoredSequence.sequence.toString(Sequence.Renderer.ResType).equals(sequence)) {
+			if (scoredSequence.sequence().toString(Sequence.Renderer.ResType).equals(sequence)) {
 
 				// found it
 
 				// check the K* bounds
-				assertThat(scoredSequence.score, is(not(nullValue())));
+				assertThat(scoredSequence.score(), is(not(nullValue())));
 				if (estKStarLowerLog10 != null && estKStarUpperLog10 != null) {
 
 					// make sure these bounds contain the estimated bounds
-					assertThat(scoredSequence.score.lowerBoundLog10(), lessThanOrEqualTo(estKStarLowerLog10));
-					assertThat(scoredSequence.score.upperBoundLog10(), greaterThanOrEqualTo(estKStarUpperLog10));
+					assertThat(scoredSequence.score().lowerBoundLog10(), lessThanOrEqualTo(estKStarLowerLog10));
+					assertThat(scoredSequence.score().upperBoundLog10(), greaterThanOrEqualTo(estKStarUpperLog10));
 
 				} else {
-					assertThat(scoredSequence.score.score, is(nullValue()));
+					assertThat(scoredSequence.score().score, is(nullValue()));
 				}
 
 				return;
@@ -362,7 +362,7 @@ public class TestBBKStar {
 		double minUpperBoundLog10 = Double.POSITIVE_INFINITY;
 		for (ScoredSequence sequence : sequences) {
 
-			Double upperBoundLog10 = sequence.score.upperBoundLog10();
+			Double upperBoundLog10 = sequence.score().upperBoundLog10();
 			if (upperBoundLog10 == null) {
 				break;
 			}

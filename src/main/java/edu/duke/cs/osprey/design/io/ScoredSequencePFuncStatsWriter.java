@@ -52,7 +52,8 @@ public class ScoredSequencePFuncStatsWriter implements NewKStar.SequenceComputed
                 var headings = String.join(",", "score", "energy", "assignments");
                 pw.println(headings);
 
-                for (ConfSearch.EnergiedConf conf : confDb.getSequence(seq.sequence())
+                var localSeq = seq.sequence().filter(info.confSpace.seqSpace());
+                for (ConfSearch.EnergiedConf conf : confDb.getSequence(localSeq)
                         .energiedConfs(ConfDB.SortOrder.Energy)) {
                     var energy = conf.getEnergy();
                     var score = conf.getScore();

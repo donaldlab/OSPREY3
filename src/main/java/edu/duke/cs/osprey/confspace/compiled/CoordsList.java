@@ -98,4 +98,10 @@ public class CoordsList {
 	public String toString() {
 		return String.format("CoordsList[n=%d]", size);
 	}
+
+	public void print() {
+		for (int i = 0; i < size; i++) {
+			System.out.printf("%f %f %f%n", x(i), y(i), z(i));
+		}
+	}
 }

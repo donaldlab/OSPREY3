@@ -533,9 +533,9 @@ public class TestLute {
 	}
 
 	private static void assertKstar(ScoredSequence scoredSequence, String expectedSequence, double kstarLower, double kstarUpper, double fudge) {
-		assertThat(scoredSequence.sequence.toString(Sequence.Renderer.ResTypeMutations), is(expectedSequence));
-		assertThat(scoredSequence.score.lowerBoundLog10(), lessThanOrEqualTo(kstarLower*(1+fudge)));
-		assertThat(scoredSequence.score.upperBoundLog10(), greaterThanOrEqualTo(kstarUpper*(1-fudge)));
+		assertThat(scoredSequence.sequence().toString(Sequence.Renderer.ResTypeMutations), is(expectedSequence));
+		assertThat(scoredSequence.score().lowerBoundLog10(), lessThanOrEqualTo(kstarLower*(1+fudge)));
+		assertThat(scoredSequence.score().upperBoundLog10(), greaterThanOrEqualTo(kstarUpper*(1-fudge)));
 	}
 
 	@Test

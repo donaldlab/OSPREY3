@@ -91,35 +91,6 @@ public class NewKStar {
 		return Arrays.asList(protein, ligand, complex);
 	}
 
-	public ScoredSequence score(Sequence seq, TaskExecutor tasks) {
-
-		// make a context group for the task executor
-		try (var ctxGroup = tasks.contextGroup()) {
-			// open the conf databases if needed
-			try (AutoCloseableNoEx proteinCloser = protein.openConfDB()) {
-				try (AutoCloseableNoEx ligandCloser = ligand.openConfDB()) {
-					try (AutoCloseableNoEx complexCloser = complex.openConfDB()) {
-
-						// check the conf space infos to make sure we have all the inputs
-						protein.check();
-						ligand.check();
-						complex.check();
-
-						// reset any previous state
-						sequences.clear();
-						protein.clear();
-						ligand.clear();
-						complex.clear();
-
-						return new ScoredSequence(seq, new KStarScore(
-								protein.calcPfunc(ctxGroup, seq, BigDecimal.ZERO),
-								ligand.calcPfunc(ctxGroup, seq, BigDecimal.ZERO),
-								complex.calcPfunc(ctxGroup, seq, BigDecimal.ZERO)
-						));
-					}}}
-		}
-	}
-
 	public List<ScoredSequence> run() {
 		// run without task contexts
 		// useful for LUTE ecalcs, which don't use parallelism at all

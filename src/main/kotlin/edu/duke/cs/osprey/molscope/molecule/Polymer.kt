@@ -29,6 +29,12 @@ class Polymer(
 				?: throw NoSuchElementException("no atom with name=$name")
 
 		override fun toString() = "$id:$type"
+
+		fun mainchain() =
+				atoms.filter { it.name in setOf("O", "C", "OXT", "CA") }.toList()
+
+		fun sidechain() =
+				atoms.subtract(mainchain().toSet()).toList()
 	}
 
 	class Chain(

@@ -188,17 +188,28 @@ class ConfSpaceCompiler(val confSpace: ConfSpace) {
 
 					val wtParams = params[ff, posInfo.moli]
 					val molFixedAtoms = fixedAtoms.fixed(posInfo.moli)
+					val bbAtoms = (confSpaceIndex.mols[posInfo.moli] as? Polymer)
+							?.let { polymer ->
+								polymer
+										.atoms.subtract(molFixedAtoms.toSet())
+										.filter { a -> a in posInfo.pos.sourceAtoms }
+										.map { polymer.findResidue(it) }
+										.first()
+										?.mainchain()
+							}
+							?: emptyList()
 
 					for (fragInfo in posInfo.fragments) {
 
 						val fragParams = params[ff, fragInfo]
+
 
 						// find the atoms whose parameters have changed
 						val changedAtoms = molFixedAtoms
 							.filter { atom ->
 								val atomi = confSpaceIndex.atomIndexWildType(posInfo.moli).getOrThrow(atom)
 								wtParams[atomi] != fragParams[atomi]
-							}
+							}.toSet() + bbAtoms.toSet()
 
 						try {
 							fixedAtoms[posInfo].addDynamic(changedAtoms, fragInfo)

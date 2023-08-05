@@ -189,11 +189,11 @@ public class TestKStar {
 		var complexExp = new BigDecimalBounds(complexMin, complexMax);
 
 		ScoredSequence seq = result.scores.get(index);
-		assertThat(seq.sequence.toString(Sequence.Renderer.ResType), is(seqstr));
+		assertThat(seq.sequence().toString(Sequence.Renderer.ResType), is(seqstr));
 
-		var proteinObs = seq.score.protein.values.calcBounds();
-		var ligandObs = seq.score.ligand.values.calcBounds();
-		var complexObs = seq.score.complex.values.calcBounds();
+		var proteinObs = seq.score().protein.values.calcBounds();
+		var ligandObs = seq.score().ligand.values.calcBounds();
+		var complexObs = seq.score().complex.values.calcBounds();
 
 		// the two pfunc bounds should overlap for each state
 		assertThat(
