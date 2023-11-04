@@ -1,6 +1,6 @@
 ## Predicting Affinity Through Homology (PATH): Interpretable Binding Affinity Prediction with Persistent Homology
 
-*This repository contains the optimized inference code only*
+*This repository contains the optimized inference code only. The training process and scripts for PATH are detailed [here](https://github.com/longyuxi/PATH-training). An open-source implementation of TNet-BP from TopologyNet (Cang and Wei, 2017) can be found [here](https://github.com/longyuxi/TopologyNet-2017).*
 
 ### Prerequisites
 
