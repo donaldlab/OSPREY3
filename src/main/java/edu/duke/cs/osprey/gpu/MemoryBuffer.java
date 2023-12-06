@@ -1,7 +1,7 @@
 package edu.duke.cs.osprey.gpu;
 
 import java.lang.foreign.MemorySegment;
-import java.lang.foreign.MemorySession;
+import java.lang.foreign.Arena;
 import java.lang.foreign.ValueLayout;
 import java.nio.ByteBuffer;
 
@@ -27,7 +27,7 @@ public class MemoryBuffer implements AutoCloseable {
     private static final long sizeDouble = Double.BYTES;
 
     private final MemorySegment base;
-    private final MemorySession sharedScope = MemorySession.openShared();
+    private final Arena sharedScope = Arena.ofShared();
     private long pos = 0;
 
     private MemoryBuffer(MemorySegment mem) {
@@ -35,7 +35,7 @@ public class MemoryBuffer implements AutoCloseable {
     }
 
     public MemoryBuffer(long size) {
-        this.base = MemorySegment.allocateNative(size, sharedScope);
+        this.base = sharedScope.allocate(size, 8);
     }
 
     public static MemoryBuffer ofByteBuffer(ByteBuffer buf) {

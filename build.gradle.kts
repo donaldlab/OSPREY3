@@ -68,12 +68,12 @@ repositories {
 
 java {
 	toolchain {
-		languageVersion.set(JavaLanguageVersion.of(19))
+		languageVersion.set(JavaLanguageVersion.of(21))
 	}
 }
 
 kotlin {
-	jvmToolchain(19)
+	jvmToolchain(21)
 }
 
 application {
