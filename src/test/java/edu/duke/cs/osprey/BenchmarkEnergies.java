@@ -135,6 +135,17 @@ public class BenchmarkEnergies {
 		Benchmark[] bmCompiledCudaf32 = new Benchmark[gpuSizes.length];
 		Benchmark[] bmCompiledCudaf64 = new Benchmark[gpuSizes.length];
 
+		// classic
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(classic.complex, new ForcefieldParams())
+				.setIsMinimizing(true)
+				.build()) {
+
+			benchmarkThreads("classic", bmClassic, null, threadSizes, numWarmups, numRuns, () -> {
+				ParametricMolecule pmol = classic.complex.makeMolecule(classicConf);
+				ecalc.calcEnergy(pmol, classicInters);
+			});
+		}
+
 		{ // compiled CUDA f32
 			// NOTE: this benchmark is slower than it should be because the CCD minimizer gets unlucky on these inputs
 			// if you tweak the step size for the line search a bit, f32 goes MUCH faster!
@@ -149,17 +160,6 @@ public class BenchmarkEnergies {
 					numGpus -> new CudaConfEnergyCalculator(compiled.complex, Precision.Float64, gpus.subList(0, numGpus)),
 					ecalc -> ecalc.minimizeEnergies(jobs)
 			);
-		}
-
-		// classic
-		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(classic.complex, new ForcefieldParams())
-			.setIsMinimizing(true)
-			.build()) {
-
-			benchmarkThreads("classic", bmClassic, null, threadSizes, numWarmups, numRuns, () -> {
-				ParametricMolecule pmol = classic.complex.makeMolecule(classicConf);
-				ecalc.calcEnergy(pmol, classicInters);
-			});
 		}
 
 		{ // compiled
