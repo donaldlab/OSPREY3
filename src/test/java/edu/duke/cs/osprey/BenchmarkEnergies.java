@@ -24,6 +24,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static edu.duke.cs.osprey.tools.Log.log;
 import static edu.duke.cs.osprey.tools.Log.logf;
@@ -109,7 +111,6 @@ public class BenchmarkEnergies {
 
 		// NOTE: the jerrys have 48 cores, 4 GPUs
 		int[] threadSizes = { 1, 3, 6, 12, 24, 48 };
-		int[] gpuSizes = { 1, 2, 4 };
 		int numWarmups = 2;
 		int numRuns = 10;
 
@@ -117,6 +118,7 @@ public class BenchmarkEnergies {
 		var gpus = CudaConfEnergyCalculator.getGpusInfos();
 		int batchSize = gpus.get(0).bestBatchSize();
 		int threadsPerGpu = gpus.get(0).bestNumStreams();
+		int[] gpuSizes = IntStream.of(1, 2, 4, 8).filter(x -> x <= gpus.size()).toArray();
 
 		// set up the minimization jobs
 		var jobs = new ArrayList<MinimizationJob>();
@@ -132,6 +134,22 @@ public class BenchmarkEnergies {
 		Benchmark[] bmCompiledIntelf64 = new Benchmark[threadSizes.length];
 		Benchmark[] bmCompiledCudaf32 = new Benchmark[gpuSizes.length];
 		Benchmark[] bmCompiledCudaf64 = new Benchmark[gpuSizes.length];
+
+		{ // compiled CUDA f32
+			// NOTE: this benchmark is slower than it should be because the CCD minimizer gets unlucky on these inputs
+			// if you tweak the step size for the line search a bit, f32 goes MUCH faster!
+			benchmarkGpus("compiled CUDA f32", bmCompiledCudaf32, bmClassic[0], gpuSizes, threadsPerGpu, batchSize, numWarmups, numRuns,
+					numGpus -> new CudaConfEnergyCalculator(compiled.complex, Precision.Float32, gpus.subList(0, numGpus)),
+					ecalc -> ecalc.minimizeEnergies(jobs)
+			);
+		}
+
+		{ // compiled CUDA f64
+			benchmarkGpus("compiled CUDA f64", bmCompiledCudaf64, bmClassic[0], gpuSizes, threadsPerGpu, batchSize, numWarmups, numRuns,
+					numGpus -> new CudaConfEnergyCalculator(compiled.complex, Precision.Float64, gpus.subList(0, numGpus)),
+					ecalc -> ecalc.minimizeEnergies(jobs)
+			);
+		}
 
 		// classic
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(classic.complex, new ForcefieldParams())
@@ -162,22 +180,6 @@ public class BenchmarkEnergies {
 			benchmarkThreads("compiled reference f64", bmCompiledf64, bmClassic[0], threadSizes, numWarmups, numRuns, () -> {
 				ecalc.minimizeEnergy(compiledConf, compiledInters);
 			});
-		}
-
-		{ // compiled CUDA f32
-			// NOTE: this benchmark is slower than it should be because the CCD minimizer gets unlucky on these inputs
-			// if you tweak the step size for the line search a bit, f32 goes MUCH faster!
-			benchmarkGpus("compiled CUDA f32", bmCompiledCudaf32, bmClassic[0], gpuSizes, threadsPerGpu, batchSize, numWarmups, numRuns,
-				numGpus -> new CudaConfEnergyCalculator(compiled.complex, Precision.Float32, gpus.subList(0, numGpus)),
-				ecalc -> ecalc.minimizeEnergies(jobs)
-			);
-		}
-
-		{ // compiled CUDA f64
-			benchmarkGpus("compiled CUDA f64", bmCompiledCudaf64, bmClassic[0], gpuSizes, threadsPerGpu, batchSize, numWarmups, numRuns,
-				numGpus -> new CudaConfEnergyCalculator(compiled.complex, Precision.Float64, gpus.subList(0, numGpus)),
-				ecalc -> ecalc.minimizeEnergies(jobs)
-			);
 		}
 	}
 

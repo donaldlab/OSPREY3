@@ -24,7 +24,7 @@ import java.util.stream.IntStream;
 /**
  * NOTE: running these tests directly from your IDE may require extra JVM flags:
  * --enable-preview
- * because the Java Foreign Memory API is in preview as of JDK 19.
+ * because the Java Foreign Memory API is in preview as of JDK 21.
  */
 public class TestNativeConfEnergyCalculator {
 

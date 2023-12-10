@@ -2,6 +2,7 @@ package osprey
 
 import org.gradle.api.Project
 import org.gradle.api.tasks.Exec
+import org.gradle.api.tasks.JavaExec
 import org.gradle.kotlin.dsl.creating
 import org.gradle.kotlin.dsl.getValue
 
@@ -14,6 +15,14 @@ fun Project.makeCudaTasks() {
 
 	val compileCuda_residueCcd by tasks.creating(Exec::class) {
 		nvcc(this, "residueCcd", maxRegisters=64)
+	}
+
+	val benchmarkCuda by tasks.creating(JavaExec::class) {
+		group = "Execution"
+		description = "Run Benchmark Energies"
+		classpath = sourceSets.test.runtimeClasspath
+		mainClass.set("edu.duke.cs.osprey.BenchmarkEnergies")
+		jvmArgs = listOf("--enable-preview")
 	}
 
 	@Suppress("UNUSED_VARIABLE")
