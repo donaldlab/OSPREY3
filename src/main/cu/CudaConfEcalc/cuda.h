@@ -410,8 +410,8 @@ namespace cuda {
 		cudaError_t result = call; \
 		if (result != cudaSuccess) { \
 			auto msg = cudaGetErrorString(result); \
-			std::cerr << "CUDA error @ " __FILE__ ":" S__LINE__ " " << msg << std::endl; \
-			throw std::runtime_error(msg); \
+			::std::cerr << "CUDA error @ " __FILE__ ":" S__LINE__ " " << msg << ::std::endl; \
+			throw ::std::runtime_error(msg); \
 		} \
 	} while(0)
 
@@ -421,8 +421,8 @@ namespace cuda {
 	do { \
 		int max_size = cuda::get_max_shared_size(device); \
 		if ((requested_size) > max_size) { \
-			std::cerr << "CUDA error @ " __FILE__ ":" S__LINE__ " requested too much shared memory " << (requested_size) << " but only have " << max_size << std::endl; \
-			throw std::runtime_error("Requested too much shared memory"); \
+			::std::cerr << "CUDA error @ " __FILE__ ":" S__LINE__ " requested too much shared memory " << (requested_size) << " but only have " << max_size << ::std::endl; \
+			throw ::std::runtime_error("Requested too much shared memory"); \
 		} \
 	} while(0)
 

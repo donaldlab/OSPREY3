@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.10)
 
+if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+        set(CMAKE_CUDA_ARCHITECTURES 86)
+endif()
+set(CMAKE_CUDA_COMPILER /usr/local/cuda/bin/nvcc)
+
 project(CudaConfEcalc VERSION 0.1 DESCRIPTION "CUDA-based conformation energy calculator for OSPREY")
 
 # NOTE: if CMake complains about not being able to find nvcc, try something like this:
@@ -45,14 +50,8 @@ set(CMAKE_CUDA_FLAGS "\
         -Xcudafe --display_error_number \
         --resource-usage \
         --generate-line-info \
-        -gencode=arch=compute_50,code=sm_50 \
-        -gencode=arch=compute_52,code=sm_52 \
-        -gencode=arch=compute_60,code=sm_60 \
-        -gencode=arch=compute_61,code=sm_61 \
-        -gencode=arch=compute_70,code=sm_70 \
-        -gencode=arch=compute_75,code=sm_75 \
-        -gencode=arch=compute_75,code=compute_75 \
         ")
+# the compiler option -Xptxas -v can be added to show per function register and memory usage
 
 # make a library target, for calling from osprey
 add_library(CudaConfEcalc SHARED ${CXXFiles} api.cu)
@@ -60,7 +59,7 @@ target_include_directories(CudaConfEcalc PUBLIC "${PROJECT_BINARY_DIR}")
 set_target_properties(CudaConfEcalc PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON
         POSITION_INDEPENDENT_CODE ON
-        CUDA_ARCHITECTURES false # newer versions of CMake require this, even though we don't use it
+        CUDA_ARCHITECTURES "70;86"
         )
 
 # add another target to copy the libraries from the resources path to the build path

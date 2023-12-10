@@ -134,7 +134,7 @@ namespace osprey {
 		CUDACHECK(cudaFree(d_out_coords));
 	}
 
-	#define CALC_THREADS 1024
+	#define CALC_THREADS 512
 	#define CALC_BLOCKS 1
 
 	template<typename T, osprey::EnergyFunction<T> efunc>
@@ -373,12 +373,12 @@ namespace osprey {
 
 
 	// configure the launch bounds, so the compiler knows how many registers to use
-	#define MINIMIZE_THREADS_F32_VOLTA 1024
-	#define MINIMIZE_THREADS_F64_VOLTA 1024
-	#define MINIMIZE_THREADS_F32_PASCAL 1024 // TODO: optimize for pascal?
-	#define MINIMIZE_THREADS_F64_PASCAL 1024
-	#define MINIMIZE_THREADS_F32_MAXWELL 1024 // TODO: optimize for maxwell?
-	#define MINIMIZE_THREADS_F64_MAXWELL 1024
+	#define MINIMIZE_THREADS_F32_VOLTA 512
+	#define MINIMIZE_THREADS_F64_VOLTA 512
+	#define MINIMIZE_THREADS_F32_PASCAL 512 // TODO: optimize for pascal?
+	#define MINIMIZE_THREADS_F64_PASCAL 512
+	#define MINIMIZE_THREADS_F32_MAXWELL 512 // TODO: optimize for maxwell?
+	#define MINIMIZE_THREADS_F64_MAXWELL 512
 
 	// the kernels use __syncthreads a lot, so they're designed to take up an entire SM
 	#define MINIMIZE_BLOCKS 1
