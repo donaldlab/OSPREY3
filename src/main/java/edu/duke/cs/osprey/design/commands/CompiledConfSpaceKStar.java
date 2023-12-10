@@ -1,8 +1,6 @@
 package edu.duke.cs.osprey.design.commands;
 
-import com.beust.jcommander.JCommander;
-import com.beust.jcommander.Parameter;
-import com.beust.jcommander.Parameters;
+import com.beust.jcommander.*;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
@@ -14,6 +12,7 @@ import edu.duke.cs.osprey.ematrix.compiled.EmatCalculator;
 import edu.duke.cs.osprey.ematrix.compiled.ErefCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
+import edu.duke.cs.osprey.gpu.Precision;
 import edu.duke.cs.osprey.kstar.KStarSettings;
 import edu.duke.cs.osprey.kstar.NewKStar;
 import edu.duke.cs.osprey.kstar.ScoredSequence;
@@ -57,6 +56,9 @@ public class CompiledConfSpaceKStar implements CliCommand {
     @Parameter(description = "The approximation accuracy. Z* = (1 - epsilon)Z. Values closer to 0 improve approximation accuracy.", names={"--epsilon", "-e"})
     double epsilon = 0.683;
 
+    @Parameter(names = "--precision", description = "The precision of the energy calculator's floating points { fp32 or fp64 }.", converter = PrecisionConverter.class)
+    Precision precision = Precision.Float64;
+
     @Override
     public String getCommandName() {
         return CommandName;
@@ -69,11 +71,13 @@ public class CompiledConfSpaceKStar implements CliCommand {
 
     @Override
     public int run(JCommander commander, String[] args) {
-        var taskExecutor = new Parallelism(Runtime.getRuntime().availableProcessors(), 0, 0)
-                .makeTaskExecutor();
 
         var design = ConfSpace.fromBytes(FileTools.readFileBytes(designConfSpacePath));
-        var designConfCalc = ConfEnergyCalculator.makeBest(design);
+        var designConfCalc = ConfEnergyCalculator.makeBest(design, precision);
+
+        // use a CPU task executor only for calculating reference energies
+        var taskExecutor = new Parallelism(Runtime.getRuntime().availableProcessors(), 0, 0)
+                .makeTaskExecutor();
         var designRefEnergies = new ErefCalculator.Builder(designConfCalc)
                 .build()
                 .calc(taskExecutor);
@@ -82,7 +86,7 @@ public class CompiledConfSpaceKStar implements CliCommand {
         System.out.println(designRefEnergies.toString(design));
 
         var complex = ConfSpace.fromBytes(FileTools.readFileBytes(complexConfSpacePath));
-        var complexConfCalc = ConfEnergyCalculator.makeBest(complex);
+        var complexConfCalc = ConfEnergyCalculator.makeBest(complex, precision);
         var complexRefEnergies = new ErefCalculator.Builder(complexConfCalc)
                 .build()
                 .calc(taskExecutor);
@@ -91,7 +95,7 @@ public class CompiledConfSpaceKStar implements CliCommand {
         System.out.println(complexRefEnergies.toString(complex));
 
         var target = ConfSpace.fromBytes(FileTools.readFileBytes(targetConfSpacePath));
-        var targetConfCalc = ConfEnergyCalculator.makeBest(target);
+        var targetConfCalc = ConfEnergyCalculator.makeBest(target, precision);
         var targetRefEnergies = new ErefCalculator.Builder(targetConfCalc)
                 .build()
                 .calc(taskExecutor);
@@ -164,5 +168,30 @@ public class CompiledConfSpaceKStar implements CliCommand {
 
         List<ScoredSequence> sequences = kstar.run(taskExecutor);
         return Main.Success;
+    }
+
+    public class ValidatePrecision implements IParameterValidator {
+        @Override
+        public void validate(String name, String value) throws ParameterException {
+            switch (value) {
+                case "fp32":
+                case "fp64":
+                    break;
+                default:
+                    throw new ParameterException(String.format("Parameter %s must be fp32 or fp64", name));
+
+            }
+        }
+    }
+
+    public class PrecisionConverter implements IStringConverter<Precision> {
+        @Override
+        public Precision convert(String s) {
+            return switch (s) {
+                case "fp64" -> Precision.Float64;
+                case "fp32" -> Precision.Float32;
+                default -> throw new ParameterException(String.format("Parameter %s must be fp32 or fp64", "precision"));
+            };
+        }
     }
 }
