@@ -373,12 +373,12 @@ namespace osprey {
 
 
 	// configure the launch bounds, so the compiler knows how many registers to use
-	#define MINIMIZE_THREADS_F32_VOLTA 512
-	#define MINIMIZE_THREADS_F64_VOLTA 512
-	#define MINIMIZE_THREADS_F32_PASCAL 512 // TODO: optimize for pascal?
-	#define MINIMIZE_THREADS_F64_PASCAL 512
-	#define MINIMIZE_THREADS_F32_MAXWELL 512 // TODO: optimize for maxwell?
-	#define MINIMIZE_THREADS_F64_MAXWELL 512
+	#define MINIMIZE_THREADS_F32_VOLTA CALC_THREADS
+	#define MINIMIZE_THREADS_F64_VOLTA CALC_THREADS
+	#define MINIMIZE_THREADS_F32_PASCAL CALC_THREADS // TODO: optimize for pascal?
+	#define MINIMIZE_THREADS_F64_PASCAL CALC_THREADS
+	#define MINIMIZE_THREADS_F32_MAXWELL CALC_THREADS // TODO: optimize for maxwell?
+	#define MINIMIZE_THREADS_F64_MAXWELL CALC_THREADS
 
 	// the kernels use __syncthreads a lot, so they're designed to take up an entire SM
 	#define MINIMIZE_BLOCKS 1
