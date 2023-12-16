@@ -80,7 +80,7 @@ public class CompiledConfSpaceKStar implements CliCommand {
                 .makeTaskExecutor();
         var designRefEnergies = new ErefCalculator.Builder(designConfCalc)
                 .build()
-                .calc(taskExecutor);
+                .calc();
 
         System.out.println("Design ref energies");
         System.out.println(designRefEnergies.toString(design));
@@ -89,7 +89,7 @@ public class CompiledConfSpaceKStar implements CliCommand {
         var complexConfCalc = ConfEnergyCalculator.makeBest(complex, precision);
         var complexRefEnergies = new ErefCalculator.Builder(complexConfCalc)
                 .build()
-                .calc(taskExecutor);
+                .calc();
 
         System.out.println("Complex ref energies");
         System.out.println(complexRefEnergies.toString(complex));
@@ -98,7 +98,7 @@ public class CompiledConfSpaceKStar implements CliCommand {
         var targetConfCalc = ConfEnergyCalculator.makeBest(target, precision);
         var targetRefEnergies = new ErefCalculator.Builder(targetConfCalc)
                 .build()
-                .calc(taskExecutor);
+                .calc();
         System.out.println("Target ref energies");
         System.out.println(targetRefEnergies.toString(target));
 
@@ -109,11 +109,11 @@ public class CompiledConfSpaceKStar implements CliCommand {
         var targetEnergyMatrix = new EmatCalculator.Builder(targetConfCalc)
                 .setReferenceEnergies(targetRefEnergies)
                 .build()
-                .calc(taskExecutor);
+                .calc();
         var designEnergyMatrix = new EmatCalculator.Builder(designConfCalc)
                 .setReferenceEnergies(designRefEnergies)
                 .build()
-                .calc(taskExecutor);
+                .calc();
 
         var complexPosInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, complexRefEnergies);
         var targetPosInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, targetRefEnergies);
@@ -184,7 +184,7 @@ public class CompiledConfSpaceKStar implements CliCommand {
         }
     }
 
-    public class PrecisionConverter implements IStringConverter<Precision> {
+    public static class PrecisionConverter implements IStringConverter<Precision> {
         @Override
         public Precision convert(String s) {
             return switch (s) {
