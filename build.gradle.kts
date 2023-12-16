@@ -78,6 +78,7 @@ kotlin {
 
 application {
 	mainClass.set("edu.duke.cs.osprey.design.Main")
+	applicationDefaultJvmArgs = listOf("--enable-preview")
 }
 
 dependencies {
