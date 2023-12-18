@@ -26,7 +26,7 @@ namespace osprey::motions {
 			public:
 
 				Dof(TransRotDofs * transrot, T dist, T step_size):
-					osprey::Dof<T>(-dist, dist, step_size, transrot->assignment.conf_space.num_pos),
+					osprey::Dof<T>(-dist, dist, step_size, transrot->assignment.conf_space.num_pos + transrot->assignment.conf_space.num_molecule_motions),
 					transrot(transrot), value(0.0) {}
 
 				~Dof() {

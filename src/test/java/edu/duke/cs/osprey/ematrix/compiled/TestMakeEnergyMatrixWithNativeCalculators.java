@@ -15,6 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public class TestMakeEnergyMatrixWithNativeCalculators {
+
+    // This confspace has 0 mutations, 0 amino acid flexibility, but translation/rotation on one of the two molecules.
     private static final ConfSpace confSpace = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/6og7.transrot.minimal.ccsx"));
 
     private void testCanMakeEnergyMatrixWithCalculator(Supplier<ConfEnergyCalculator> calculatorSupplier) {
