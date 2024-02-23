@@ -300,45 +300,6 @@ fun Project.makeDocsTasks() {
 		}
 	}
 
-	val downloadDocReleases by tasks.creating {
-		group = "documentation"
-		description = "Download all versions of the doc releases, for the website generator"
-		doLast {
-
-			// make the releases folder if it's not already there
-			releasesDir.createFolderIfNeeded()
-
-			ssh {
-				sftp {
-
-					// what releases do we have already?
-					val localReleases = releasesDir.listFiles()
-						.map { it.fileName.toString() }
-						.filter { it.startsWith(docReleaseName) }
-						.toSet()
-
-					// what releases do we need?
-					val missingReleases = ls(releaseArchiveDir.toString())
-						.filter { !it.attrs.isDir }
-						.filter { it.filename.startsWith(docReleaseName) && it.filename !in localReleases }
-
-					// download the missing releases
-					if (missingReleases.isNotEmpty()) {
-						for (release in missingReleases) {
-							get(
-								(releaseArchiveDir / release.filename).toString(),
-								(releasesDir / release.filename).toString(),
-								SftpProgressLogger()
-							)
-						}
-					} else {
-						println("No extra documentation releases to download")
-					}
-				}
-			}
-		}
-	}
-
 	data class DocRelease(
 		val version: Version,
 		val path: Path
@@ -351,7 +312,8 @@ fun Project.makeDocsTasks() {
 	val prebuildWebsite by tasks.creating {
 		group = "documentation"
 		description = "prep steps to build the Osprey documentation and download website"
-		dependsOn(generateCodeDocs, downloadDocReleases)
+
+		dependsOn(generateCodeDocs, buildDocsRelease)
 
 		outputs.dir(webDstDir)
 

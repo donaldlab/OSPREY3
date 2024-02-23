@@ -10,4 +10,4 @@ TODO: explain how the Python API is a thin veneer over the Java/Kotlin code and 
 
 ## Python Packages
 
-{{% children showhidden="true" %}}
+{{% children showhidden="true" /%}}
