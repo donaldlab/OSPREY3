@@ -67,7 +67,7 @@ public class AffinityDesign {
         var errors = new ArrayList<String>();
 
         if (this.ligand == null || this.protein == null) {
-            errors.add("The this must have both a protein and ligand specified");
+            errors.add("You must specify both a protein and ligand");
             return errors;
         }
 

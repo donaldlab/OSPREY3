@@ -36,7 +36,7 @@ object MoleculeFFInfoService : OspreyService.Provider {
 
 		if (results.frcmod == null) {
 			return ServiceResponse.Failure(MoleculeFFInfoError(
-				"No forecfield info generate for molecule",
+				"No forcefield info generate for molecule",
 				results.console.joinToString("\n")
 			))
 		}

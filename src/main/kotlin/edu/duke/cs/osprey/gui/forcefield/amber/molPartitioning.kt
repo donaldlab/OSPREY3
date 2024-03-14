@@ -92,7 +92,7 @@ enum class MoleculeType(
 ) {
 
 	Protein(true, listOf(
-		ForcefieldName.ff96, // dlab's favorite and time-tested protein forecfield
+		ForcefieldName.ff96, // dlab's favorite and time-tested protein forcefield
 		ForcefieldName.ff14SB // currently recommended by AmberTools19
 	)),
 

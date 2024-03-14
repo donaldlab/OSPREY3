@@ -56,7 +56,7 @@ public class RCTuple implements Serializable {
 
     
     public RCTuple(){
-        //empty pos, RCs (basically tuple of nothing
+        //empty pos, RCs (basically tuple of nothing)
         pos = new ArrayList<>();
         RCs = new ArrayList<>();
     }

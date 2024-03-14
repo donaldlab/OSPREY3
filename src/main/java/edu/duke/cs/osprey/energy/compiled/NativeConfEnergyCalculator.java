@@ -26,7 +26,7 @@ import edu.duke.cs.osprey.gpu.MemoryBuffer;
 /*
  * This is the Java side, which is mostly responsible for converting the Java objects into
  * something C++ can understand (and dealing with memory layouts, etc), calling the C++ library
- * over Java's FFI, and then convertering the C++ results back into something Java can understand.
+ * over Java's FFI, and then converting the C++ results back into something Java can understand.
  *
  * The FFI in this case is based on JNA. As jdk.incubator.foreign is (currently) incubating in JDK 16, a MemoryBuffer
  * is used to construct the buffer passed to the native code.

@@ -53,7 +53,7 @@ In this example conformation space, there are a total of 4 * 8 = 32 conformation
 since Residue 42 can be one of 4 different options, Reisdue 17 can be one of 8 different
 options, and both of these choices are completely independent.
 
-Also in this example conformation, there are a total of 2*1 = 1 sequences. The sequences
+Also in this example conformation, there are a total of 2 * 1 = 2 sequences. The sequences
 are (in no particular order):
 * Alanine @ Residue 42, Tyrosine @ Residue 17
     * (this sequence has 1*8 = 8 conformations)
@@ -171,7 +171,7 @@ The main purpose of the conformation space compilation system is two-fold:
 
 The conformation space compiler itself lives in the Kotlin `.gui.compiler.ConfSpaceCompiler` class.
 The compiler does quite a bit of work to make the conformation spaces ready for design. Perhaps the most
-important step is collecting the forecfield parameters for the design molecules. OSPREY currently provides
+important step is collecting the forcefield parameters for the design molecules. OSPREY currently provides
 the EEF1 implicit solvation forcefield and also various flavors of Amber forcefields. The forcefield system
 in OSPREY is general enough to allow integrating with (hopefully) any forcefield system, so it should be possible
 to integrate with other forcefiled systems in the future, should such a thing ever be desired.

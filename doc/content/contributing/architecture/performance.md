@@ -6,9 +6,9 @@ weight = 9
 
 
 OSPREY relies on searching exponentially-sized combinatorial spaces to find sequences
-and conformations of interest for molecular designs. Since these search spaces are so astronically huge,
-the runtime performace of OSPREY has a big impact on the quality of the results that can be found.
-If OSPREY runs faster, designer can design larger conformation spaces with more interesting options
+and conformations of interest for molecular designs. Since these search spaces are so huge,
+the runtime performance of OSPREY has a big impact on the quality of the results that can be found.
+If OSPREY runs faster, the designer can design larger conformation spaces with more interesting options
 to explore, and can hopefully get more interesting and biologically relevant results.
 So there is a large incentive to invest in the engineering of OSPREY to improve runtime
 performance as much as possible.
@@ -23,7 +23,7 @@ in running time.
 
 Task 1 can be very memory hungry though, since the space of all possible conformations
 is exponentially large. So as designs include more and more choices for mutations,
-we can easily exaust all the RAM available in even large server machines trying
+we can easily exhaust all the RAM available in even large server machines trying
 to find conformations before even getting to task 2.
 
 
@@ -41,7 +41,7 @@ throughout the rest of the program, serving as lookup tables for later computati
 Parallel tasks read these objects without sychronizing since there's no possiblity of
 a race.
 
-For varying objects like conformations, or lists of position interations, these
+For varying objects like conformations, or lists of position interactions, these
 objects are created as part of a task definition and moved across threads with the task,
 so no two threads can access it at once (outside of the `TaskExecutor` system).
 Other varying objects are created wholly whithin the task as it executes, and are
@@ -87,7 +87,7 @@ for primitive types and pointers across the Java/C++ boundary.
 The `NativeConfEnergyCalculator` and `CUDAConfEnergyCalculator`
 classes are all the newest versions of the Java/C++ bridge class idea.
 They're based on a [Foreign Memory Access API](https://openjdk.java.net/jeps/370)
-that's a new feature of JDK14 (Java development kit, ie the compiler and runtime for Java).
+that's a new feature of JDK14 (Java development kit, i.e., the compiler and runtime for Java).
 These classes handle all the memory layouts and alignments
 for the constant data that's needed by the C++ code. They use a custom struct definition
 API on the Java side to help read/write the data from/into the raw memory buffers.
@@ -112,8 +112,8 @@ the CCD algorithm as much as possible.
 [ccd]: https://en.wikipedia.org/wiki/Coordinate_descent
 [embarassingly-parallel]: https://en.wikipedia.org/wiki/Embarrassingly_parallel
 
-The parllelization approach to energy calculation that has worked best for OSPREY so far
-is to run one minimization per Symmetric Multiprocessor (SM) on the GPU and rely heavily
+The parallelization approach to energy calculation that has worked best for OSPREY so far
+is to run one minimization per streaming multiprocessor (SM) on the GPU and rely heavily
 on the `syncthreads()` mechanism to allow us to mix parallel and serial code and handle
 temporal dependencies. Modern GPUs typically have tens of SMs on-chip, so not only
 can OSPREY use the parallelism within a single minimization to saturate the SM hardware,
@@ -124,5 +124,5 @@ of conformations, this leaves us with no shortage of parallelism to fill up avai
 Newer CUDA versions have introduced cooperative kernels that might give us
 better options for parallelism, this hasn't yet been explored in OSPREY.
 It's not clear yet if the multi-block synchronization mechanisms are fast enough
-for our purposes. We're never huring for more conformations to minimize concurrently,
+for our purposes. We're never hurting for more conformations to minimize concurrently,
 so one SM per minimization has worked really well so far.

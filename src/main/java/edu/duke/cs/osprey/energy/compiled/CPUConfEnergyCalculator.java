@@ -22,7 +22,7 @@ import java.util.Set;
  */
 /*
  * But it is the simplest and easiest to understand implementation.
- * So if you're working on a new implemtation, this is a good place to start learning how things work.
+ * So if you're working on a new implementation, this is a good place to start learning how things work.
  */
 public class CPUConfEnergyCalculator implements ConfEnergyCalculator {
 

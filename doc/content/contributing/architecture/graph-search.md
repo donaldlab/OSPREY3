@@ -121,7 +121,7 @@ on the minimized energy of the entire conformation.
 
 ### The computed edge weights form an "energy matrix"
 
-Edge weights are computed by miniming only part of a conformation, rather than
+Edge weights are computed by minimizing only part of a conformation, rather than
 minimizing an entire conformation. For example, for the edge `(S,0=3)`, Osprey
 creates a partial molecule containing the atoms for position `S` and position `0`.
 Then osprey computes the minimized energy for this partial molecule and stores the
@@ -146,10 +146,10 @@ edge weights:
 Osprey also has settings to use different distributions of edges onto the energy
 matrix that can result in much tighter lower bounds for the A* search. Older parts of the code
 call this process "energy partitioning" (embodied in the `EnergyPartition` class), and
-the newest parts of the code calls this process the "position interation distribution"
+the newest parts of the code calls this process the "position interaction distribution"
 (embodied in the `PosInterDist` class). The idea there is that when the energy function is
-described at a high level using the interations between design positions in the conformation
-space, those interations can be mapped to different "distributions" of low-level interations
+described at a high level using the interactions between design positions in the conformation
+space, those interactions can be mapped to different "distributions" of low-level interactions
 between individual atom pairs. In the newest energy calculation code, these distribution
 settings can be configured by any class that accepts a position interaction generator
 (embodied in the `PosInterGen` class).

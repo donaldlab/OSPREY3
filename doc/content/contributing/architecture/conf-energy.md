@@ -55,7 +55,7 @@ those design positions can have.
 
 For example, `posi1=0,posi2=1` represents all the atom pairs between the atoms in
 position `0` and position `1` in a conformation. If the conformation in this case is `[0,0]`,
-then we'll lookup the atom pairs for this position interaction in the conformation space
+then we'll look up the atom pairs for this position interaction in the conformation space
 at position `0` conformation `0`, and position `1` conformation `0`.
 
 Positions can also be paired with themselves. So `posi1=0,posi2=0` refers to all the atom
@@ -82,7 +82,7 @@ and interactions within the static position.
 Osprey's design algorithm that try to find conformations to evaluate sometimes only
 care about interactions between some of the positions. For example, a design algorithm
 in Osprey may want to compute the pairwise energy between positions `0` and `1`
-independently of the other interactions. So our energy calculators need to support
+independently of the other interactions. So our energy calculators need to
 compute energies on arbitrary subsets of the position interactions.
 
 
