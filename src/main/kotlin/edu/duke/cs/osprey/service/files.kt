@@ -27,6 +27,11 @@ fun Path.deleteFolder() =
 		.forEach { Files.delete(it) }
 
 
+/**
+ * @param name the name of the temporary directory to create
+ * @param block the work to be done in the newly created directory, taken as a Path parameter
+ * @return whatever is returned by the function passed as 'block', eg a result structure
+ */
 inline fun <R> tempFolder(name: String, block: (Path) -> R): R {
 	val dir = Files.createTempDirectory(name)
 	try {

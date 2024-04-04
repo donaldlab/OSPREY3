@@ -106,34 +106,40 @@ public class Molecule implements Serializable {
     public Residue getResByPDBResNumberOrNull(String resNum){
         return residues.getOrNull(resNum);
     }
-    
+
+    /**
+     *
+     * @param firstResNum the first residue in the range
+     * @param lastResNum the last residue in the range
+     * @return a list of residues in the range, inclusive of endpoints
+     */
     public List<Residue> getResRangeByPDBResNumber(String firstResNum, String lastResNum) {
-    	
-    		//check that the residue numbers exist in the molecule, and add chain numbers if needed to match molecule
-	    firstResNum = residues.getOrThrow(firstResNum).getPDBResNumber();
-	    lastResNum = residues.getOrThrow(lastResNum).getPDBResNumber();
-	    	
-	    	List<Residue> residues = new ArrayList<>();
-	    	
-	    	boolean isInside = false;
-	    	for (Residue res : this.residues) {
-	    		
-	    		String resNum = res.getPDBResNumber();
-	    		
-	    		if (resNum.equals(firstResNum)) {
-	    			isInside = true;
-	    		}
-	    		
-	    		if (isInside) {
-	    			residues.add(res);
-	    		}
-	    		
-	    		if (resNum.equals(lastResNum)) {
-	    			break;
-	    		}
-	    	}
-    	
-    	return residues;
+
+        //check that the residue numbers exist in the molecule, and add chain numbers if needed to match molecule
+        firstResNum = residues.getOrThrow(firstResNum).getPDBResNumber();
+        lastResNum = residues.getOrThrow(lastResNum).getPDBResNumber();
+
+        List<Residue> residues = new ArrayList<>();
+
+        boolean isInside = false;
+        for (Residue res : this.residues) {
+
+            String resNum = res.getPDBResNumber();
+
+            if (resNum.equals(firstResNum)) {
+                isInside = true;
+            }
+
+            if (isInside) {
+                residues.add(res);
+            }
+
+            if (resNum.equals(lastResNum)) {
+                break;
+            }
+        }
+
+        return residues;
     }
     
     public List<Residue> getResiduesByPDBResNumbers(Iterable<String> resNums) {

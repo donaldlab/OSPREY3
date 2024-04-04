@@ -28,6 +28,7 @@ object Sander {
 
 		val sanderPath = serviceDir.resolve("progs/ambertools/bin/sander").toAbsolutePath()
 
+		// Finish constructing and execute sander command, in temporary directory "sander"
 		tempFolder("sander") { cwd ->
 
 			// inputs:

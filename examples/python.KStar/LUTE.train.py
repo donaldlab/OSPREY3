@@ -60,7 +60,7 @@ for (id, confSpace) in confSpaces.items():
 
 		# LUTE uses a conformation database to speed up training.
 		# You can save this database to disk by choosing a filename, or don't set this argument to not save the db.
-		# If you save it, the datebase can be used to speed up the next training job too, as well as this one.
+		# If you save it, the database can be used to speed up the next training job too, as well as this one.
 		# But if you change the conformation space at all, you'll need to delete the db file before training again.
 		confDBPath = 'LUTE.conf.%s.db' % id
 	)
