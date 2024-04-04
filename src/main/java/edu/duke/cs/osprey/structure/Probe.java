@@ -228,12 +228,12 @@ public class Probe {
 				} catch (NoSuchElementException | NumberFormatException ex) {
 					throw new IllegalArgumentException("can't parse atom record: " + reader.getLine());
 				}
+			}
 
-				// make the template
-				templatesByResType
+			// make the template
+			templatesByResType
 					.computeIfAbsent(resType, (resTypeAgain) -> new ArrayList<>())
 					.add(new Template(id, resType, classifier, atomInfos));
-			}
 		}
 	}
 
