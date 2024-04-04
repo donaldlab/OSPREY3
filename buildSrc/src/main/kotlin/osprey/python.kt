@@ -38,7 +38,8 @@ fun Project.makePythonTasks() {
 		commandLine(
 			pythonCmd, "-m", "pip",
 			"install",
-			if (!venv) "--user --editable" else "--editable",
+			if (!venv) "--user" else "",
+			"--editable",
 			".", // path to package to install, ie osprey
 			"--find-links=$pythonWheelhouseDir" // add a wheelhouse dir to find any bundled packages
 		)
