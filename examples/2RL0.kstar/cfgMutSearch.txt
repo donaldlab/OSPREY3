@@ -1,0 +1,29 @@
+runName 2RL0-output
+%mutfile mutfile.txt
+useERef true
+iMinDEE true
+typedep true
+stericthresh 100
+ival 5.0
+ew 0
+
+kStarOutputDir examples/2RL0.kstar
+kStarPFuncMethod parallel0
+
+
+epsilon 0.95
+doMinimize true
+addWT true
+addWTRots true
+kStarSaveTopConfsAsPDB false
+kStarNumTopConfsToSave 10
+
+numMutations 1
+resAllowed649 PHE TYR ALA VAL ILE LEU
+resAllowed650 ASP GLU
+resAllowed651 GLU ASP
+resAllowed654 THR SER ASN GLN
+resAllowed156 PHE TYR ALA VAL ILE LEU
+resAllowed172 LYS ASP GLU
+resAllowed192 ILE ALA VAL LEU PHE TYR
+resAllowed193 THR SER ASN
