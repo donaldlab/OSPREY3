@@ -100,14 +100,14 @@ with osprey.prep.LocalService():
     # Let's make sure our starting structure is low-energy
     # by doing an all-atom minimization against the Amber forcefield
     # but restrain the heavy atoms so they don't move around too much
-    print('minimizing ...')
-    def heavy_atoms(mol):
-        return [atom for atom in mol.getAtoms() if atom.getElement().getSymbol() != 'H']
-    osprey.prep.minimize(
-        [osprey.prep.minimizerInfo(mol, heavy_atoms(mol)) for mol in mols],
-        numSteps = 100
-    )
-    print('minimization complete!')
+    # print('minimizing ...')
+    # def heavy_atoms(mol):
+    #     return [atom for atom in mol.getAtoms() if atom.getElement().getSymbol() != 'H']
+    # osprey.prep.minimize(
+    #     [osprey.prep.minimizerInfo(mol, heavy_atoms(mol)) for mol in mols],
+    #     numSteps = 100
+    # )
+    # print('minimization complete!')
 
     # Moleclue Preparation Step 7: save the results
     path = '1dg9.omol'

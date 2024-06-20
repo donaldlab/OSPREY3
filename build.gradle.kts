@@ -242,5 +242,6 @@ tasks {
 // add a whole bunch of other tasks to do interesting things
 makeCudaTasks()
 makeBuildTasks()
+makePythonTasks()
 makeBuildDesktopTasks()
 makeBuildServiceTasks()
