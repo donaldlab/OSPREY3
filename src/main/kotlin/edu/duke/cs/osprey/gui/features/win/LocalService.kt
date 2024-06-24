@@ -34,7 +34,7 @@ class LocalService : WindowFeature {
 
 object LocalServiceRunner : AutoCloseable {
 
-	private val serviceDir = Paths.get("../osprey-service")
+	private val serviceDir = Paths.get("")
 
 	private var service: Server.Instance? = null
 
