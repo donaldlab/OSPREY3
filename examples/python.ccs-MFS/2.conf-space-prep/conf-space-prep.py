@@ -5,11 +5,11 @@ osprey.start()
 # import the prep module after starting Osprey
 import osprey.prep
 
-# let's create a new conformation space from an OMOL file created by a previous molecule preparation
-mols_path = '6ov7-GUI.omol'
+# let's create a new conformation space from an OMOL file created by a previous molecule preparation python script
+mols_path = '../1.molecule-prep/6ov7-python.omol'
 mols = osprey.prep.loadOMOL(open(mols_path, 'r').read())
 
-# the molecules we prepped are Bovine PTPase and HEPES
+# the molecules we prepped are CALP and kCAL01
 CALP = mols[0]
 kCAL01 = mols[1]
 
@@ -20,8 +20,7 @@ kCAL01 = mols[1]
 conf_space = osprey.prep.ConfSpace(mols)
 
 # choose a name for your conformation space
-conf_space.setName('CALP and kCAL01')
-
+conf_space.setName('Conformation Space')
 
 # Conformation Space Preparation Step 1: load the conformation libraries
 # The conformation libraries are collections of mutations and conformations for molecules.
@@ -58,7 +57,7 @@ for pos in conf_space.positions():
     print('\t%6s mutations: %s' % (pos.getName(), conf_space.getMutations(pos)))
 
 
-# Conformation Space Preparation Step 3: define discrete flexiblilty using conformations
+# Conformation Space Preparation Step 3: define discrete flexibility using conformations
 # Conformations tell osprey how to model structural flexibility when evaluating sequences
 for pos in conf_space.positions():
 
@@ -68,7 +67,7 @@ for pos in conf_space.positions():
 
     # Next, if the design position allows the wild-type "mutation"
     if pos.getType() in conf_space.getMutations(pos):
-        # Create a conformation out of the PDB structure (the "wild-type" conformation) and add it to the space.
+        # Create a conformation out of the PDB structure (the "wild-type" input structure conformation) and add it
         # Often these "wild-type" conformations will have lower energies than the library conformations,
         # since the "wild-type" conformations are specifically adapted to the input structures.
         conf_space.addWildTypeConformation(pos)
@@ -91,30 +90,28 @@ for pos in conf_space.positions():
             for motion in osprey.prep.conformationDihedralAngles(pos, conf_info, dihedral_settings):
                 conf_info.getMotions().add(motion)
 
-# add a translation/rotation motion to kCAL01
+# add a translation/rotation motion to kCAL01 (adding to CALP is redundant)
 conf_space.addMotion(osprey.prep.moleculeTranslationRotation(kCAL01))
-
 
 # Conformation Space Preparation Step 5: save the conformation space
 # Save the complex
-path = '6ov7-python.confspace'
+path = 'complex-python.confspace'
 open(path, 'w').write(osprey.prep.saveConfSpace(conf_space))
 print('saved complex conformation space to %s' % path)
 
 # Save the ligand
 conf_space_kCAL01 = conf_space.copy(kCAL01)
-conf_space_kCAL01.setName('kCAL01')
+# conf_space_kCAL01.setName('kCAL01')
 path = 'kCAL01-python.confspace'
 open(path, 'w').write(osprey.prep.saveConfSpace(conf_space_kCAL01))
 print('saved kCAL01 conformation space to %s' % path)
 
 # save the target protein
 conf_space_CALP = conf_space.copy(CALP)
-conf_space_CALP.setName('CALP')
+# conf_space_CALP.setName('CALP')
 path = 'CALP-python.confspace'
 open(path, 'w').write(osprey.prep.saveConfSpace(conf_space_CALP))
 print('saved CALP conformation space to %s' % path)
-
 
 # Conformation Space Preparation Step 6: compile the conformation spaces
 # "Compilation", in this case, is the process by which Osprey transforms the
@@ -152,7 +149,7 @@ def compile(cs, name):
 with osprey.prep.LocalService():
 
     # compile all three conformation spaces
-    compile(conf_space, '6ov7-python')
+    compile(conf_space, 'complex-python')
     compile(conf_space_kCAL01, 'kCAL01-python')
     compile(conf_space_CALP, 'CALP-python')
 

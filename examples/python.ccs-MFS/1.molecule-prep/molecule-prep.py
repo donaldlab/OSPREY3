@@ -5,7 +5,6 @@ osprey.start()
 # import the prep module after starting Osprey
 import osprey.prep
 
-
 # load PDB 6ov7 (kcal01, all L-amino acids)
 # this has been manually trimmed in PyMOL to remove waters, unwanted dimer, and kcal01 to 6 residues
 # note: filenames ending in "-GUI" indicate that operation was performed in the GUI interface
@@ -13,29 +12,28 @@ import osprey.prep
 pdb_path = '6ov7.pdb'
 pdb = osprey.prep.loadPDB(open(pdb_path, 'r').read())
 
-# confirm we have chains A and C (what we trimmed to in PyMOL)
+# print confirm we have chains A and C (what we trimmed to in PyMOL)
 print('Loaded %d molecules:' % len(pdb))
 for mol in pdb:
     print('\t%s: %s' % (mol, osprey.prep.molTypes(mol)))
 
 # looks like the PDB file has two protein chains (all L-space)
 # chain is CALP, ligand is kCAL01
-# optional: this can also be used to ignore water molecules
+# optional: this can also be used to ignore water molecules instead of trim in PYMOL
 CALP = pdb[0]
 kCAL01 = pdb[1]
 mols = [CALP, kCAL01]
 
-
 # optional: give our molecules better names
+# must be done manually on the omol file if using the GUI
 CALP.setName('CALP')
 kCAL01.setName('kCAL01')
-
 
 # start the local service that calls AmberTools for us (Note: ONLY WORKS ON LINUX)
 with osprey.prep.LocalService():
 
     # Molecule Preparation Step 1: remove duplicate atoms
-    # For this PDB, none should be present
+    # For this PDB example, none should be present
     for mol in mols:
         # remove all but the first duplicated atom from each group
         for group in osprey.prep.duplicateAtoms(mol):
@@ -81,15 +79,14 @@ with osprey.prep.LocalService():
     #
     # print('minimization complete!')
 
-    # Molecule Preparation Step 6: save the cleaned PDB and OMOL
-    omol_path = '6ov7-python-nomin.omol'
+    # Molecule Preparation Step 6: save the cleaned OMOL
+    omol_path = '6ov7-python.omol'
     open(omol_path, 'w').write(osprey.prep.saveOMOL(mols))
     print('saved prepared OMOL to %s' % omol_path)
 
+    # optional: save the cleaned PDB
     # pdb_path = '6ov7-python.pdb'
     # open(pdb_path, 'w').write(osprey.prep.savePDB(mols))
     # print('saved prepared PDB to %s' % pdb_path)
-
-
 
 print('Molecule preparation complete!')

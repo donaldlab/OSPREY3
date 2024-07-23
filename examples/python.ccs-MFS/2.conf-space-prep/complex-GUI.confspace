@@ -1,5 +1,5 @@
 [molecule.0]
-name = "Chain A"
+name = "CALP"
 
 atoms = [
 	{ i=    0, name=    "N", x=    8.844000, y=   17.265000, z=   26.156000, elem="N" },
@@ -2774,6 +2774,254 @@ bonds = [
 	{ id=  "360", type= "VAL", atoms=[631, 632, 633, 634, 635, 636, 637, 1307, 1308, 1309, 1310, 1311, 1312, 1313, 1314, 1315] },
 	{ id=  "361", type= "TYR", atoms=[638, 639, 640, 641, 642, 643, 644, 645, 646, 647, 648, 649, 1316, 1317, 1318, 1319, 1320, 1321, 1322, 1323, 1324] },
 	{ id=  "362", type= "VAL", atoms=[650, 651, 652, 653, 654, 655, 656, 657, 1325, 1326, 1327, 1328, 1329, 1330, 1331, 1332, 1333] },
+]
+
+[molecule.1]
+name = "kCAL01"
+
+atoms = [
+	{ i= 1334, name=    "N", x=    9.754000, y=    8.364000, z=   47.815000, elem="N" },
+	{ i= 1335, name=   "CA", x=   10.919000, y=    9.010000, z=   47.233000, elem="C" },
+	{ i= 1336, name=    "C", x=   11.454000, y=   10.091000, z=   48.158000, elem="C" },
+	{ i= 1337, name=    "O", x=   10.705000, y=   10.756000, z=   48.876000, elem="O" },
+	{ i= 1338, name=   "CB", x=   10.574000, y=    9.654000, z=   45.894000, elem="C" },
+	{ i= 1339, name=   "CG", x=   10.073000, y=    8.737000, z=   44.837000, elem="C" },
+	{ i= 1340, name=  "CD1", x=    9.956000, y=    7.378000, z=   44.897000, elem="C" },
+	{ i= 1341, name=  "CD2", x=    9.625000, y=    9.126000, z=   43.543000, elem="C" },
+	{ i= 1342, name=  "CE2", x=    9.241000, y=    7.954000, z=   42.861000, elem="C" },
+	{ i= 1343, name=  "CE3", x=    9.504000, y=   10.356000, z=   42.894000, elem="C" },
+	{ i= 1344, name=  "NE1", x=    9.454000, y=    6.897000, z=   43.706000, elem="N" },
+	{ i= 1345, name=  "CZ2", x=    8.748000, y=    7.980000, z=   41.561000, elem="C" },
+	{ i= 1346, name=  "CZ3", x=    9.015000, y=   10.379000, z=   41.604000, elem="C" },
+	{ i= 1347, name=  "CH2", x=    8.645000, y=    9.198000, z=   40.949000, elem="C" },
+	{ i= 1348, name=    "N", x=   12.766000, y=   10.282000, z=   48.114000, elem="N" },
+	{ i= 1349, name=   "CA", x=   13.374000, y=   11.420000, z=   48.779000, elem="C" },
+	{ i= 1350, name=    "C", x=   13.018000, y=   12.709000, z=   48.053000, elem="C" },
+	{ i= 1351, name=    "O", x=   12.855000, y=   12.734000, z=   46.830000, elem="O" },
+	{ i= 1352, name=   "CB", x=   14.893000, y=   11.243000, z=   48.831000, elem="C" },
+	{ i= 1353, name=   "CG", x=   15.315000, y=    9.998000, z=   49.592000, elem="C" },
+	{ i= 1354, name=   "CD", x=   16.635000, y=    9.433000, z=   49.117000, elem="C" },
+	{ i= 1355, name=  "NE2", x=   16.585000, y=    8.611000, z=   48.077000, elem="N" },
+	{ i= 1356, name=  "OE1", x=   17.687000, y=    9.722000, z=   49.684000, elem="O" },
+	{ i= 1357, name=    "N", x=   12.877000, y=   13.785000, z=   48.822000, elem="N" },
+	{ i= 1358, name=   "CA", x=   12.696000, y=   15.125000, z=   48.276000, elem="C" },
+	{ i= 1359, name=    "C", x=   13.672000, y=   16.049000, z=   48.988000, elem="C" },
+	{ i= 1360, name=    "O", x=   13.710000, y=   16.082000, z=   50.223000, elem="O" },
+	{ i= 1361, name=   "CB", x=   11.249000, y=   15.633000, z=   48.433000, elem="C" },
+	{ i= 1362, name=  "CG1", x=   11.136000, y=   17.053000, z=   47.903000, elem="C" },
+	{ i= 1363, name=  "CG2", x=   10.278000, y=   14.715000, z=   47.686000, elem="C" },
+	{ i= 1364, name=    "N", x=   14.460000, y=   16.792000, z=   48.212000, elem="N" },
+	{ i= 1365, name=   "CA", x=   15.525000, y=   17.627000, z=   48.751000, elem="C" },
+	{ i= 1366, name=    "C", x=   15.515000, y=   18.978000, z=   48.059000, elem="C" },
+	{ i= 1367, name=    "O", x=   15.471000, y=   19.047000, z=   46.827000, elem="O" },
+	{ i= 1368, name=   "CB", x=   16.899000, y=   16.976000, z=   48.556000, elem="C" },
+	{ i= 1369, name=  "CG2", x=   17.982000, y=   17.848000, z=   49.179000, elem="C" },
+	{ i= 1370, name=  "OG1", x=   16.913000, y=   15.675000, z=   49.159000, elem="O" },
+	{ i= 1371, name=    "N", x=   15.593000, y=   20.041000, z=   48.850000, elem="N" },
+	{ i= 1372, name=   "CA", x=   15.723000, y=   21.396000, z=   48.332000, elem="C" },
+	{ i= 1373, name=    "C", x=   17.194000, y=   21.753000, z=   48.166000, elem="C" },
+	{ i= 1374, name=    "O", x=   17.993000, y=   21.554000, z=   49.084000, elem="O" },
+	{ i= 1375, name=   "CB", x=   15.046000, y=   22.389000, z=   49.272000, elem="C" },
+	{ i= 1376, name=   "CG", x=   15.103000, y=   23.834000, z=   48.815000, elem="C" },
+	{ i= 1377, name=   "CD", x=   14.110000, y=   24.635000, z=   49.631000, elem="C" },
+	{ i= 1378, name=   "NE", x=   14.032000, y=   26.042000, z=   49.261000, elem="N" },
+	{ i= 1379, name=   "CZ", x=   13.130000, y=   26.872000, z=   49.777000, elem="C" },
+	{ i= 1380, name=  "NH1", x=   12.262000, y=   26.423000, z=   50.671000, elem="N" },
+	{ i= 1381, name=  "NH2", x=   13.098000, y=   28.143000, z=   49.414000, elem="N" },
+	{ i= 1382, name=    "N", x=   17.548000, y=   22.271000, z=   46.993000, elem="N" },
+	{ i= 1383, name=   "CA", x=   18.920000, y=   22.707000, z=   46.740000, elem="C" },
+	{ i= 1384, name=    "C", x=   18.925000, y=   24.112000, z=   46.144000, elem="C" },
+	{ i= 1385, name=    "O", x=   17.872000, y=   24.681000, z=   45.821000, elem="O" },
+	{ i= 1386, name=   "CB", x=   19.673000, y=   21.716000, z=   45.824000, elem="C" },
+	{ i= 1387, name=  "CG1", x=   19.884000, y=   20.388000, z=   46.541000, elem="C" },
+	{ i= 1388, name=  "CG2", x=   18.923000, y=   21.517000, z=   44.504000, elem="C" },
+	{ i= 1389, name=  "OXT", x=   19.990000, y=   24.714000, z=   45.984000, elem="O" },
+	{ i= 1390, name=   "H1", x=    9.569376, y=    8.796245, z=   48.708968, elem="H" },
+	{ i= 1391, name=   "H2", x=   10.029906, y=    7.404709, z=   47.969069, elem="H" },
+	{ i= 1392, name=   "H3", x=    8.990669, y=    8.575507, z=   47.188349, elem="H" },
+	{ i= 1393, name=   "HA", x=   11.703927, y=    8.271010, z=   47.072119, elem="H" },
+	{ i= 1394, name=  "HB2", x=    9.794201, y=   10.398018, z=   46.056633, elem="H" },
+	{ i= 1395, name=  "HB3", x=   11.461346, y=   10.140913, z=   45.489485, elem="H" },
+	{ i= 1396, name=  "HD1", x=   10.259001, y=    6.894068, z=   45.825494, elem="H" },
+	{ i= 1397, name=  "HE1", x=    9.273983, y=    5.927144, z=   43.489039, elem="H" },
+	{ i= 1398, name=  "HZ2", x=    8.468175, y=    7.036645, z=   41.092088, elem="H" },
+	{ i= 1399, name=  "HH2", x=    8.266906, y=    9.255995, z=   39.928323, elem="H" },
+	{ i= 1400, name=  "HZ3", x=    8.924745, y=   11.345463, z=   41.108114, elem="H" },
+	{ i= 1401, name=  "HE3", x=    9.772129, y=   11.303139, z=   43.362120, elem="H" },
+	{ i= 1402, name=    "H", x=   13.369938, y=    9.624873, z=   47.641196, elem="H" },
+	{ i= 1403, name=   "HA", x=   12.997849, y=   11.502594, z=   49.798700, elem="H" },
+	{ i= 1404, name=  "HB2", x=   15.256822, y=   11.182349, z=   47.805303, elem="H" },
+	{ i= 1405, name=  "HB3", x=   15.314931, y=   12.124295, z=   49.314109, elem="H" },
+	{ i= 1406, name=  "HG2", x=   15.401184, y=   10.241406, z=   50.650974, elem="H" },
+	{ i= 1407, name=  "HG3", x=   14.542751, y=    9.240983, z=   49.455407, elem="H" },
+	{ i= 1408, name= "HE21", x=   17.436606, y=    8.204114, z=   47.717400, elem="H" },
+	{ i= 1409, name= "HE22", x=   15.695556, y=    8.395830, z=   47.649574, elem="H" },
+	{ i= 1410, name=    "H", x=   12.860680, y=   13.670548, z=   49.825361, elem="H" },
+	{ i= 1411, name=   "HA", x=   12.956601, y=   15.137390, z=   47.217684, elem="H" },
+	{ i= 1412, name=   "HB", x=   10.975110, y=   15.616308, z=   49.487896, elem="H" },
+	{ i= 1413, name= "HG11", x=   11.409308, y=   17.070414, z=   46.847964, elem="H" },
+	{ i= 1414, name= "HG12", x=   10.110391, y=   17.403733, z=   48.017945, elem="H" },
+	{ i= 1415, name= "HG13", x=   11.807150, y=   17.704666, z=   48.462456, elem="H" },
+	{ i= 1416, name= "HG21", x=   10.345958, y=   13.705806, z=   48.092216, elem="H" },
+	{ i= 1417, name= "HG22", x=    9.260424, y=   15.086735, z=   47.806218, elem="H" },
+	{ i= 1418, name= "HG23", x=   10.535273, y=   14.697899, z=   46.626935, elem="H" },
+	{ i= 1419, name=    "H", x=   14.327582, y=   16.771760, z=   47.210923, elem="H" },
+	{ i= 1420, name=   "HA", x=   15.368470, y=   17.797729, z=   49.816105, elem="H" },
+	{ i= 1421, name=   "HB", x=   17.093914, y=   16.861319, z=   47.489718, elem="H" },
+	{ i= 1422, name= "HG21", x=   17.788005, y=   17.962760, z=   50.245441, elem="H" },
+	{ i= 1423, name= "HG22", x=   18.954879, y=   17.377806, z=   49.035741, elem="H" },
+	{ i= 1424, name= "HG23", x=   17.978999, y=   18.828156, z=   48.702149, elem="H" },
+	{ i= 1425, name=  "HG1", x=   17.775797, y=   15.273297, z=   49.033238, elem="H" },
+	{ i= 1426, name=    "H", x=   15.536190, y=   19.914213, z=   49.850398, elem="H" },
+	{ i= 1427, name=   "HA", x=   15.250124, y=   21.465740, z=   47.352396, elem="H" },
+	{ i= 1428, name=  "HB2", x=   14.005353, y=   22.077874, z=   49.363396, elem="H" },
+	{ i= 1429, name=  "HB3", x=   15.539262, y=   22.294412, z=   50.239391, elem="H" },
+	{ i= 1430, name=  "HG2", x=   16.105297, y=   24.234062, z=   48.968139, elem="H" },
+	{ i= 1431, name=  "HG3", x=   14.842969, y=   23.901329, z=   47.758613, elem="H" },
+	{ i= 1432, name=  "HD2", x=   13.126497, y=   24.184080, z=   49.498740, elem="H" },
+	{ i= 1433, name=  "HD3", x=   14.403289, y=   24.565096, z=   50.678471, elem="H" },
+	{ i= 1434, name=   "HE", x=   14.683916, y=   26.402312, z=   48.578886, elem="H" },
+	{ i= 1435, name= "HH11", x=   12.290040, y=   25.454252, z=   50.955326, elem="H" },
+	{ i= 1436, name= "HH12", x=   11.576062, y=   27.051429, z=   51.064276, elem="H" },
+	{ i= 1437, name= "HH21", x=   13.764242, y=   28.488969, z=   48.738332, elem="H" },
+	{ i= 1438, name= "HH22", x=   12.407464, y=   28.762040, z=   49.814060, elem="H" },
+	{ i= 1439, name=    "H", x=   16.882839, y=   22.318710, z=   46.234459, elem="H" },
+	{ i= 1440, name=   "HA", x=   19.487123, y=   22.827973, z=   47.662950, elem="H" },
+	{ i= 1441, name=   "HB", x=   20.640072, y=   22.142199, z=   45.557118, elem="H" },
+	{ i= 1442, name= "HG11", x=   18.917288, y=   19.960938, z=   46.807807, elem="H" },
+	{ i= 1443, name= "HG12", x=   20.415583, y=   19.700004, z=   45.883595, elem="H" },
+	{ i= 1444, name= "HG13", x=   20.470269, y=   20.551812, z=   47.445188, elem="H" },
+	{ i= 1445, name= "HG21", x=   18.834171, y=   22.473152, z=   43.988263, elem="H" },
+	{ i= 1446, name= "HG22", x=   19.471978, y=   20.815536, z=   43.875771, elem="H" },
+	{ i= 1447, name= "HG23", x=   17.928185, y=   21.120450, z=   44.706959, elem="H" },
+]
+
+bonds = [
+	[ 1334, 1335], #      N - CA    
+	[ 1334, 1390], #      N - H1    
+	[ 1334, 1391], #      N - H2    
+	[ 1334, 1392], #      N - H3    
+	[ 1335, 1336], #     CA - C     
+	[ 1335, 1338], #     CA - CB    
+	[ 1335, 1393], #     CA - HA    
+	[ 1336, 1348], #      C - N     
+	[ 1336, 1337], #      C - O     
+	[ 1338, 1339], #     CB - CG    
+	[ 1338, 1394], #     CB - HB2   
+	[ 1338, 1395], #     CB - HB3   
+	[ 1339, 1340], #     CG - CD1   
+	[ 1339, 1341], #     CG - CD2   
+	[ 1340, 1396], #    CD1 - HD1   
+	[ 1340, 1344], #    CD1 - NE1   
+	[ 1341, 1342], #    CD2 - CE2   
+	[ 1341, 1343], #    CD2 - CE3   
+	[ 1342, 1345], #    CE2 - CZ2   
+	[ 1342, 1344], #    CE2 - NE1   
+	[ 1343, 1346], #    CE3 - CZ3   
+	[ 1343, 1401], #    CE3 - HE3   
+	[ 1344, 1397], #    NE1 - HE1   
+	[ 1345, 1347], #    CZ2 - CH2   
+	[ 1345, 1398], #    CZ2 - HZ2   
+	[ 1346, 1347], #    CZ3 - CH2   
+	[ 1346, 1400], #    CZ3 - HZ3   
+	[ 1347, 1399], #    CH2 - HH2   
+	[ 1348, 1349], #      N - CA    
+	[ 1348, 1402], #      N - H     
+	[ 1349, 1350], #     CA - C     
+	[ 1349, 1352], #     CA - CB    
+	[ 1349, 1403], #     CA - HA    
+	[ 1350, 1357], #      C - N     
+	[ 1350, 1351], #      C - O     
+	[ 1352, 1353], #     CB - CG    
+	[ 1352, 1404], #     CB - HB2   
+	[ 1352, 1405], #     CB - HB3   
+	[ 1353, 1354], #     CG - CD    
+	[ 1353, 1406], #     CG - HG2   
+	[ 1353, 1407], #     CG - HG3   
+	[ 1354, 1355], #     CD - NE2   
+	[ 1354, 1356], #     CD - OE1   
+	[ 1355, 1408], #    NE2 - HE21  
+	[ 1355, 1409], #    NE2 - HE22  
+	[ 1357, 1358], #      N - CA    
+	[ 1357, 1410], #      N - H     
+	[ 1358, 1359], #     CA - C     
+	[ 1358, 1361], #     CA - CB    
+	[ 1358, 1411], #     CA - HA    
+	[ 1359, 1364], #      C - N     
+	[ 1359, 1360], #      C - O     
+	[ 1361, 1362], #     CB - CG1   
+	[ 1361, 1363], #     CB - CG2   
+	[ 1361, 1412], #     CB - HB    
+	[ 1362, 1413], #    CG1 - HG11  
+	[ 1362, 1414], #    CG1 - HG12  
+	[ 1362, 1415], #    CG1 - HG13  
+	[ 1363, 1416], #    CG2 - HG21  
+	[ 1363, 1417], #    CG2 - HG22  
+	[ 1363, 1418], #    CG2 - HG23  
+	[ 1364, 1365], #      N - CA    
+	[ 1364, 1419], #      N - H     
+	[ 1365, 1366], #     CA - C     
+	[ 1365, 1368], #     CA - CB    
+	[ 1365, 1420], #     CA - HA    
+	[ 1366, 1371], #      C - N     
+	[ 1366, 1367], #      C - O     
+	[ 1368, 1369], #     CB - CG2   
+	[ 1368, 1421], #     CB - HB    
+	[ 1368, 1370], #     CB - OG1   
+	[ 1369, 1422], #    CG2 - HG21  
+	[ 1369, 1423], #    CG2 - HG22  
+	[ 1369, 1424], #    CG2 - HG23  
+	[ 1370, 1425], #    OG1 - HG1   
+	[ 1371, 1372], #      N - CA    
+	[ 1371, 1426], #      N - H     
+	[ 1372, 1373], #     CA - C     
+	[ 1372, 1375], #     CA - CB    
+	[ 1372, 1427], #     CA - HA    
+	[ 1373, 1382], #      C - N     
+	[ 1373, 1374], #      C - O     
+	[ 1375, 1376], #     CB - CG    
+	[ 1375, 1428], #     CB - HB2   
+	[ 1375, 1429], #     CB - HB3   
+	[ 1376, 1377], #     CG - CD    
+	[ 1376, 1430], #     CG - HG2   
+	[ 1376, 1431], #     CG - HG3   
+	[ 1377, 1432], #     CD - HD2   
+	[ 1377, 1433], #     CD - HD3   
+	[ 1377, 1378], #     CD - NE    
+	[ 1378, 1379], #     NE - CZ    
+	[ 1378, 1434], #     NE - HE    
+	[ 1379, 1380], #     CZ - NH1   
+	[ 1379, 1381], #     CZ - NH2   
+	[ 1380, 1435], #    NH1 - HH11  
+	[ 1380, 1436], #    NH1 - HH12  
+	[ 1381, 1437], #    NH2 - HH21  
+	[ 1381, 1438], #    NH2 - HH22  
+	[ 1382, 1383], #      N - CA    
+	[ 1382, 1439], #      N - H     
+	[ 1383, 1384], #     CA - C     
+	[ 1383, 1386], #     CA - CB    
+	[ 1383, 1440], #     CA - HA    
+	[ 1384, 1385], #      C - O     
+	[ 1384, 1389], #      C - OXT   
+	[ 1386, 1387], #     CB - CG1   
+	[ 1386, 1388], #     CB - CG2   
+	[ 1386, 1441], #     CB - HB    
+	[ 1387, 1442], #    CG1 - HG11  
+	[ 1387, 1443], #    CG1 - HG12  
+	[ 1387, 1444], #    CG1 - HG13  
+	[ 1388, 1445], #    CG2 - HG21  
+	[ 1388, 1446], #    CG2 - HG22  
+	[ 1388, 1447], #    CG2 - HG23  
+]
+
+[molecule.1.polymer]
+"C" = [
+	{ id=    "5", type= "TRP", atoms=[1334, 1335, 1336, 1337, 1338, 1339, 1340, 1341, 1342, 1343, 1344, 1345, 1346, 1347, 1390, 1391, 1392, 1393, 1394, 1395, 1396, 1397, 1398, 1399, 1400, 1401] },
+	{ id=    "6", type= "GLN", atoms=[1348, 1349, 1350, 1351, 1352, 1353, 1354, 1355, 1356, 1402, 1403, 1404, 1405, 1406, 1407, 1408, 1409] },
+	{ id=    "7", type= "VAL", atoms=[1357, 1358, 1359, 1360, 1361, 1362, 1363, 1410, 1411, 1412, 1413, 1414, 1415, 1416, 1417, 1418] },
+	{ id=    "8", type= "THR", atoms=[1364, 1365, 1366, 1367, 1368, 1369, 1370, 1419, 1420, 1421, 1422, 1423, 1424, 1425] },
+	{ id=    "9", type= "ARG", atoms=[1371, 1372, 1373, 1374, 1375, 1376, 1377, 1378, 1379, 1380, 1381, 1426, 1427, 1428, 1429, 1430, 1431, 1432, 1433, 1434, 1435, 1436, 1437, 1438] },
+	{ id=   "10", type= "VAL", atoms=[1382, 1383, 1384, 1385, 1386, 1387, 1388, 1389, 1439, 1440, 1441, 1442, 1443, 1444, 1445, 1446, 1447] },
 ]
 
 [conflibs.lovell2000-osprey3]
@@ -13399,8 +13647,8 @@ anchorCoords = [
 id = '__wildtype__'
 name = 'Wild-Type'
 
-[conflibs.__wildtype__.frag.wt-Chain_A-295_ILE]
-name = 'WildType @ Chain A 295 ILE'
+[conflibs.__wildtype__.frag.wt-CALP-295_ILE]
+name = 'WildType @ CALP 295 ILE'
 type = 'ILE'
 atoms = [
 	{ id =  1, name =   'CB', elem = 'C' },
@@ -13443,7 +13691,7 @@ motions = [
 	{ id =  3, type = 'dihedral', a = 1, b = 3, c = 2, d = 8 }, # CB, CG1, CD1, HD11
 	{ id =  4, type = 'dihedral', a = [ 1, 1 ], b = 1, c = 4, d = 13 }, # A0, CB, CG2, HG21
 ]
-[conflibs.__wildtype__.frag.wt-Chain_A-295_ILE.conf.conf1]
+[conflibs.__wildtype__.frag.wt-CALP-295_ILE.conf.conf1]
 name = 'conf1'
 coords = [
 	{ id =  1, xyz = [    15.699000,    17.302000,    42.800000 ] }, # CB
@@ -13467,8 +13715,8 @@ anchorCoords = [
 	{ id =  2, a = [    14.223000,    18.650000,    44.300000 ], b = [    13.468000,    19.714000,    44.043000 ], c = [    14.283000,    17.529000,    43.375000 ] },
 ]
 
-[conflibs.__wildtype__.frag.wt-Chain_A-341_HIS]
-name = 'WildType @ Chain A 341 HIS'
+[conflibs.__wildtype__.frag.wt-CALP-341_HIS]
+name = 'WildType @ CALP 341 HIS'
 type = 'HIS'
 atoms = [
 	{ id =  1, name =   'CB', elem = 'C' },
@@ -13506,7 +13754,7 @@ motions = [
 	{ id =  1, type = 'dihedral', a = [ 1, 2 ], b = [ 1, 1 ], c = 1, d = 4 }, # A1, A0, CB, CG
 	{ id =  2, type = 'dihedral', a = [ 1, 1 ], b = 1, c = 4, d = 12 }, # A0, CB, CG, ND1
 ]
-[conflibs.__wildtype__.frag.wt-Chain_A-341_HIS.conf.conf1]
+[conflibs.__wildtype__.frag.wt-CALP-341_HIS.conf.conf1]
 name = 'conf1'
 coords = [
 	{ id =  1, xyz = [    18.047000,    10.684000,    45.815000 ] }, # CB
@@ -13528,8 +13776,8 @@ anchorCoords = [
 	{ id =  2, a = [    19.750000,     9.600000,    44.414000 ], b = [    20.863000,     9.553000,    43.674000 ], c = [    19.210000,    10.886000,    44.842000 ] },
 ]
 
-[conflibs.__wildtype__.frag.wt-Chain_A-345_VAL]
-name = 'WildType @ Chain A 345 VAL'
+[conflibs.__wildtype__.frag.wt-CALP-345_VAL]
+name = 'WildType @ CALP 345 VAL'
 type = 'VAL'
 atoms = [
 	{ id =  1, name =   'CB', elem = 'C' },
@@ -13565,7 +13813,7 @@ motions = [
 	{ id =  2, type = 'dihedral', a = [ 1, 1 ], b = 1, c = 2, d = 7 }, # A0, CB, CG1, HG11
 	{ id =  3, type = 'dihedral', a = [ 1, 1 ], b = 1, c = 3, d = 10 }, # A0, CB, CG2, HG21
 ]
-[conflibs.__wildtype__.frag.wt-Chain_A-345_VAL.conf.conf1]
+[conflibs.__wildtype__.frag.wt-CALP-345_VAL.conf.conf1]
 name = 'conf1'
 coords = [
 	{ id =  1, xyz = [    21.427000,    16.088000,    46.955000 ] }, # CB
@@ -13584,6 +13832,125 @@ coords = [
 anchorCoords = [
 	{ id =  1, a = [    21.980000,    16.575000,    45.603000 ], b = [    21.975000,    15.484000,    44.631000 ], c = [    23.381000,    17.141000,    45.754000 ] },
 	{ id =  2, a = [    21.975000,    15.484000,    44.631000 ], b = [    22.374000,    15.690000,    43.372000 ], c = [    21.980000,    16.575000,    45.603000 ] },
+]
+
+[conflibs.__wildtype__.frag.wt-kCAL01-10_VAL]
+name = 'WildType @ kCAL01 10 VAL'
+type = 'VAL'
+atoms = [
+	{ id =  1, name =   'CB', elem = 'C' },
+	{ id =  2, name =  'CG1', elem = 'C' },
+	{ id =  3, name =  'CG2', elem = 'C' },
+	{ id =  4, name =    'H', elem = 'H' },
+	{ id =  5, name =   'HA', elem = 'H' },
+	{ id =  6, name =   'HB', elem = 'H' },
+	{ id =  7, name = 'HG11', elem = 'H' },
+	{ id =  8, name = 'HG12', elem = 'H' },
+	{ id =  9, name = 'HG13', elem = 'H' },
+	{ id = 10, name = 'HG21', elem = 'H' },
+	{ id = 11, name = 'HG22', elem = 'H' },
+	{ id = 12, name = 'HG23', elem = 'H' },
+]
+bonds = [
+	[  1,  2 ], #   CB - CG1 
+	[  1,  3 ], #   CB - CG2 
+	[  1,  6 ], #   CB - HB  
+	[  2,  7 ], #  CG1 - HG11
+	[  2,  8 ], #  CG1 - HG12
+	[  2,  9 ], #  CG1 - HG13
+	[  3, 10 ], #  CG2 - HG21
+	[  3, 11 ], #  CG2 - HG22
+	[  3, 12 ], #  CG2 - HG23
+]
+anchors = [
+	{ id =  1, type = 'single', bonds = [ 1, 5 ] }, # CB, HA
+	{ id =  2, type = 'single', bonds = [ 4 ] }, # H
+]
+motions = [
+	{ id =  1, type = 'dihedral', a = [ 1, 2 ], b = [ 1, 1 ], c = 1, d = 2 }, # A1, A0, CB, CG1
+	{ id =  2, type = 'dihedral', a = [ 1, 1 ], b = 1, c = 2, d = 7 }, # A0, CB, CG1, HG11
+	{ id =  3, type = 'dihedral', a = [ 1, 1 ], b = 1, c = 3, d = 10 }, # A0, CB, CG2, HG21
+]
+[conflibs.__wildtype__.frag.wt-kCAL01-10_VAL.conf.conf1]
+name = 'conf1'
+coords = [
+	{ id =  1, xyz = [    19.673000,    21.716000,    45.824000 ] }, # CB
+	{ id =  2, xyz = [    19.884000,    20.388000,    46.541000 ] }, # CG1
+	{ id =  3, xyz = [    18.923000,    21.517000,    44.504000 ] }, # CG2
+	{ id =  4, xyz = [    16.882839,    22.318710,    46.234459 ] }, # H
+	{ id =  5, xyz = [    19.487123,    22.827973,    47.662950 ] }, # HA
+	{ id =  6, xyz = [    20.640072,    22.142199,    45.557118 ] }, # HB
+	{ id =  7, xyz = [    18.917288,    19.960938,    46.807807 ] }, # HG11
+	{ id =  8, xyz = [    20.415583,    19.700004,    45.883595 ] }, # HG12
+	{ id =  9, xyz = [    20.470269,    20.551812,    47.445188 ] }, # HG13
+	{ id = 10, xyz = [    18.834171,    22.473152,    43.988263 ] }, # HG21
+	{ id = 11, xyz = [    19.471978,    20.815536,    43.875771 ] }, # HG22
+	{ id = 12, xyz = [    17.928185,    21.120450,    44.706959 ] }, # HG23
+]
+anchorCoords = [
+	{ id =  1, a = [    18.920000,    22.707000,    46.740000 ], b = [    17.548000,    22.271000,    46.993000 ], c = [    18.925000,    24.112000,    46.144000 ] },
+	{ id =  2, a = [    17.548000,    22.271000,    46.993000 ], b = [    17.194000,    21.753000,    48.166000 ], c = [    18.920000,    22.707000,    46.740000 ] },
+]
+
+[conflibs.__wildtype__.frag.wt-kCAL01-6_GLN]
+name = 'WildType @ kCAL01 6 GLN'
+type = 'GLN'
+atoms = [
+	{ id =  1, name =   'CB', elem = 'C' },
+	{ id =  2, name =   'CD', elem = 'C' },
+	{ id =  3, name =   'CG', elem = 'C' },
+	{ id =  4, name =    'H', elem = 'H' },
+	{ id =  5, name =   'HA', elem = 'H' },
+	{ id =  6, name =  'HB2', elem = 'H' },
+	{ id =  7, name =  'HB3', elem = 'H' },
+	{ id =  8, name = 'HE21', elem = 'H' },
+	{ id =  9, name = 'HE22', elem = 'H' },
+	{ id = 10, name =  'HG2', elem = 'H' },
+	{ id = 11, name =  'HG3', elem = 'H' },
+	{ id = 12, name =  'NE2', elem = 'N' },
+	{ id = 13, name =  'OE1', elem = 'O' },
+]
+bonds = [
+	[  1,  3 ], #   CB - CG  
+	[  1,  6 ], #   CB - HB2 
+	[  1,  7 ], #   CB - HB3 
+	[  2,  3 ], #   CD - CG  
+	[  2, 12 ], #   CD - NE2 
+	[  2, 13 ], #   CD - OE1 
+	[  3, 10 ], #   CG - HG2 
+	[  3, 11 ], #   CG - HG3 
+	[  8, 12 ], # HE21 - NE2 
+	[  9, 12 ], # HE22 - NE2 
+]
+anchors = [
+	{ id =  1, type = 'single', bonds = [ 1, 5 ] }, # CB, HA
+	{ id =  2, type = 'single', bonds = [ 4 ] }, # H
+]
+motions = [
+	{ id =  1, type = 'dihedral', a = [ 1, 2 ], b = [ 1, 1 ], c = 1, d = 3 }, # A1, A0, CB, CG
+	{ id =  2, type = 'dihedral', a = [ 1, 1 ], b = 1, c = 3, d = 2 }, # A0, CB, CG, CD
+	{ id =  3, type = 'dihedral', a = 1, b = 3, c = 2, d = 13 }, # CB, CG, CD, OE1
+]
+[conflibs.__wildtype__.frag.wt-kCAL01-6_GLN.conf.conf1]
+name = 'conf1'
+coords = [
+	{ id =  1, xyz = [    14.893000,    11.243000,    48.831000 ] }, # CB
+	{ id =  2, xyz = [    16.635000,     9.433000,    49.117000 ] }, # CD
+	{ id =  3, xyz = [    15.315000,     9.998000,    49.592000 ] }, # CG
+	{ id =  4, xyz = [    13.369938,     9.624873,    47.641196 ] }, # H
+	{ id =  5, xyz = [    12.997849,    11.502594,    49.798700 ] }, # HA
+	{ id =  6, xyz = [    15.256822,    11.182349,    47.805303 ] }, # HB2
+	{ id =  7, xyz = [    15.314931,    12.124295,    49.314109 ] }, # HB3
+	{ id =  8, xyz = [    17.436606,     8.204114,    47.717400 ] }, # HE21
+	{ id =  9, xyz = [    15.695556,     8.395830,    47.649574 ] }, # HE22
+	{ id = 10, xyz = [    15.401184,    10.241406,    50.650974 ] }, # HG2
+	{ id = 11, xyz = [    14.542751,     9.240983,    49.455407 ] }, # HG3
+	{ id = 12, xyz = [    16.585000,     8.611000,    48.077000 ] }, # NE2
+	{ id = 13, xyz = [    17.687000,     9.722000,    49.684000 ] }, # OE1
+]
+anchorCoords = [
+	{ id =  1, a = [    13.374000,    11.420000,    48.779000 ], b = [    12.766000,    10.282000,    48.114000 ], c = [    13.018000,    12.709000,    48.053000 ] },
+	{ id =  2, a = [    12.766000,    10.282000,    48.114000 ], b = [    11.454000,    10.091000,    48.158000 ], c = [    13.374000,    11.420000,    48.779000 ] },
 ]
 
 [confspace]
@@ -13607,7 +13974,7 @@ anchors = [
 ]
 
 [confspace.positions.0.confspace]
-wtfrag = 'wt-Chain_A-295_ILE'
+wtfrag = 'wt-CALP-295_ILE'
 mutations = [ 'ILE' ]
 [confspace.positions.0.confspace.confs.0]
 conflib = 'lovell2000-osprey3'
@@ -13667,7 +14034,7 @@ motions = [
 ]
 [confspace.positions.0.confspace.confs.7]
 conflib = '__wildtype__'
-frag = 'wt-Chain_A-295_ILE'
+frag = 'wt-CALP-295_ILE'
 conf = 'conf1'
 motions = [
 	{ type = 'dihedralAngle', index = 0, minDegrees =    49.551556, maxDegrees =    67.551556 },
@@ -13692,7 +14059,7 @@ anchors = [
 ]
 
 [confspace.positions.1.confspace]
-wtfrag = 'wt-Chain_A-341_HIS'
+wtfrag = 'wt-CALP-341_HIS'
 mutations = [ 'HIS' ]
 [confspace.positions.1.confspace.confs.0]
 conflib = 'lovell2000-osprey3'
@@ -13888,7 +14255,7 @@ motions = [
 ]
 [confspace.positions.1.confspace.confs.24]
 conflib = '__wildtype__'
-frag = 'wt-Chain_A-341_HIS'
+frag = 'wt-CALP-341_HIS'
 conf = 'conf1'
 motions = [
 	{ type = 'dihedralAngle', index = 0, minDegrees =  -186.878102, maxDegrees =  -168.878102 },
@@ -13913,7 +14280,7 @@ anchors = [
 ]
 
 [confspace.positions.2.confspace]
-wtfrag = 'wt-Chain_A-345_VAL'
+wtfrag = 'wt-CALP-345_VAL'
 mutations = [ 'VAL' ]
 [confspace.positions.2.confspace.confs.0]
 conflib = 'lovell2000-osprey3'
@@ -13938,8 +14305,173 @@ motions = [
 ]
 [confspace.positions.2.confspace.confs.3]
 conflib = '__wildtype__'
-frag = 'wt-Chain_A-345_VAL'
+frag = 'wt-CALP-345_VAL'
 conf = 'conf1'
 motions = [
 	{ type = 'dihedralAngle', index = 0, minDegrees =   162.836342, maxDegrees =   180.836342 },
 ]
+
+[confspace.positions.3]
+mol = 1
+name = '6 GLN'
+type = 'GLN'
+atoms = [ 1352, 1353, 1354, 1355, 1356, 1402, 1403, 1404, 1405, 1406, 1407, 1408, 1409 ]
+
+[confspace.positions.3.confspace.anchorGroups.0]
+anchors = [
+	{ type = 'single', atoms = [ 1349, 1348, 1350 ] },
+	{ type = 'single', atoms = [ 1348, 1336, 1349 ] },
+]
+
+[confspace.positions.3.confspace.anchorGroups.1]
+anchors = [
+	{ type = 'double', atoms = [ 1349, 1348, 1336, 1350 ] },
+]
+
+[confspace.positions.3.confspace]
+wtfrag = 'wt-kCAL01-6_GLN'
+mutations = [ 'GLN' ]
+[confspace.positions.3.confspace.confs.0]
+conflib = 'lovell2000-osprey3'
+frag = 'GLN'
+conf = 'mm-40'
+motions = [
+	{ type = 'dihedralAngle', index = 0, minDegrees =   -74.000017, maxDegrees =   -56.000017 },
+	{ type = 'dihedralAngle', index = 1, minDegrees =   -73.999986, maxDegrees =   -55.999986 },
+	{ type = 'dihedralAngle', index = 2, minDegrees =   -49.000008, maxDegrees =   -31.000008 },
+]
+[confspace.positions.3.confspace.confs.1]
+conflib = 'lovell2000-osprey3'
+frag = 'GLN'
+conf = 'mm100'
+motions = [
+	{ type = 'dihedralAngle', index = 0, minDegrees =   -74.000017, maxDegrees =   -56.000017 },
+	{ type = 'dihedralAngle', index = 1, minDegrees =   -73.999986, maxDegrees =   -55.999986 },
+	{ type = 'dihedralAngle', index = 2, minDegrees =    90.999991, maxDegrees =   108.999991 },
+]
+[confspace.positions.3.confspace.confs.2]
+conflib = 'lovell2000-osprey3'
+frag = 'GLN'
+conf = 'mp0'
+motions = [
+	{ type = 'dihedralAngle', index = 0, minDegrees =   -74.000017, maxDegrees =   -56.000017 },
+	{ type = 'dihedralAngle', index = 1, minDegrees =    76.000004, maxDegrees =    94.000004 },
+	{ type = 'dihedralAngle', index = 2, minDegrees =    -8.999999, maxDegrees =     9.000001 },
+]
+[confspace.positions.3.confspace.confs.3]
+conflib = 'lovell2000-osprey3'
+frag = 'GLN'
+conf = 'mt-30'
+motions = [
+	{ type = 'dihedralAngle', index = 0, minDegrees =   -76.000003, maxDegrees =   -58.000003 },
+	{ type = 'dihedralAngle', index = 1, minDegrees =   170.999977, maxDegrees =   188.999977 },
+	{ type = 'dihedralAngle', index = 2, minDegrees =   -33.999967, maxDegrees =   -15.999967 },
+]
+[confspace.positions.3.confspace.confs.4]
+conflib = 'lovell2000-osprey3'
+frag = 'GLN'
+conf = 'pm0'
+motions = [
+	{ type = 'dihedralAngle', index = 0, minDegrees =    60.999992, maxDegrees =    78.999992 },
+	{ type = 'dihedralAngle', index = 1, minDegrees =   -83.999996, maxDegrees =   -65.999996 },
+	{ type = 'dihedralAngle', index = 2, minDegrees =    -8.999995, maxDegrees =     9.000005 },
+]
+[confspace.positions.3.confspace.confs.5]
+conflib = 'lovell2000-osprey3'
+frag = 'GLN'
+conf = 'pt20'
+motions = [
+	{ type = 'dihedralAngle', index = 0, minDegrees =    52.999999, maxDegrees =    70.999999 },
+	{ type = 'dihedralAngle', index = 1, minDegrees =  -188.999998, maxDegrees =  -170.999998 },
+	{ type = 'dihedralAngle', index = 2, minDegrees =    10.999997, maxDegrees =    28.999997 },
+]
+[confspace.positions.3.confspace.confs.6]
+conflib = 'lovell2000-osprey3'
+frag = 'GLN'
+conf = 'tp-100'
+motions = [
+	{ type = 'dihedralAngle', index = 0, minDegrees =  -186.000010, maxDegrees =  -168.000010 },
+	{ type = 'dihedralAngle', index = 1, minDegrees =    56.000012, maxDegrees =    74.000012 },
+	{ type = 'dihedralAngle', index = 2, minDegrees =  -109.000036, maxDegrees =   -91.000036 },
+]
+[confspace.positions.3.confspace.confs.7]
+conflib = 'lovell2000-osprey3'
+frag = 'GLN'
+conf = 'tp60'
+motions = [
+	{ type = 'dihedralAngle', index = 0, minDegrees =  -186.000010, maxDegrees =  -168.000010 },
+	{ type = 'dihedralAngle', index = 1, minDegrees =    56.000012, maxDegrees =    74.000012 },
+	{ type = 'dihedralAngle', index = 2, minDegrees =    51.000003, maxDegrees =    69.000003 },
+]
+[confspace.positions.3.confspace.confs.8]
+conflib = 'lovell2000-osprey3'
+frag = 'GLN'
+conf = 'tt0'
+motions = [
+	{ type = 'dihedralAngle', index = 0, minDegrees =  -186.000010, maxDegrees =  -168.000010 },
+	{ type = 'dihedralAngle', index = 1, minDegrees =  -188.999994, maxDegrees =  -170.999994 },
+	{ type = 'dihedralAngle', index = 2, minDegrees =    -9.000005, maxDegrees =     8.999995 },
+]
+[confspace.positions.3.confspace.confs.9]
+conflib = '__wildtype__'
+frag = 'wt-kCAL01-6_GLN'
+conf = 'conf1'
+motions = [
+	{ type = 'dihedralAngle', index = 0, minDegrees =   -69.348071, maxDegrees =   -51.348071 },
+	{ type = 'dihedralAngle', index = 1, minDegrees =   142.753888, maxDegrees =   160.753888 },
+	{ type = 'dihedralAngle', index = 2, minDegrees =    86.444512, maxDegrees =   104.444512 },
+]
+
+[confspace.positions.4]
+mol = 1
+name = '10 VAL'
+type = 'VAL'
+atoms = [ 1386, 1387, 1388, 1439, 1440, 1441, 1442, 1443, 1444, 1445, 1446, 1447 ]
+
+[confspace.positions.4.confspace.anchorGroups.0]
+anchors = [
+	{ type = 'single', atoms = [ 1383, 1382, 1384 ] },
+	{ type = 'single', atoms = [ 1382, 1373, 1383 ] },
+]
+
+[confspace.positions.4.confspace.anchorGroups.1]
+anchors = [
+	{ type = 'double', atoms = [ 1383, 1382, 1373, 1384 ] },
+]
+
+[confspace.positions.4.confspace]
+wtfrag = 'wt-kCAL01-10_VAL'
+mutations = [ 'VAL' ]
+[confspace.positions.4.confspace.confs.0]
+conflib = 'lovell2000-osprey3'
+frag = 'VAL'
+conf = 'm'
+motions = [
+	{ type = 'dihedralAngle', index = 0, minDegrees =   -69.000010, maxDegrees =   -51.000010 },
+]
+[confspace.positions.4.confspace.confs.1]
+conflib = 'lovell2000-osprey3'
+frag = 'VAL'
+conf = 'p'
+motions = [
+	{ type = 'dihedralAngle', index = 0, minDegrees =    54.999991, maxDegrees =    72.999991 },
+]
+[confspace.positions.4.confspace.confs.2]
+conflib = 'lovell2000-osprey3'
+frag = 'VAL'
+conf = 't'
+motions = [
+	{ type = 'dihedralAngle', index = 0, minDegrees =   166.000008, maxDegrees =   184.000008 },
+]
+[confspace.positions.4.confspace.confs.3]
+conflib = '__wildtype__'
+frag = 'wt-kCAL01-10_VAL'
+conf = 'conf1'
+motions = [
+	{ type = 'dihedralAngle', index = 0, minDegrees =   -76.076610, maxDegrees =   -58.076610 },
+]
+
+[confspace.molMotions.1.0]
+type = 'translationRotation'
+maxTranslationDist =     1.200000
+maxRotationDegrees =     5.000000

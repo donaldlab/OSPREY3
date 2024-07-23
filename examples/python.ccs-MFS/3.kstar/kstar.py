@@ -12,20 +12,22 @@ kstar = osprey.KStar(
     # load the conformation spaces for your design
     # these conformation spaces were prepared in a previous step
     # see the 'conf space prep' example
-    proteinConfSpace=osprey.ccs.loadConfSpace("CALP-python.ccsx"),
-    ligandConfSpace=osprey.ccs.loadConfSpace("kCAL01-python.ccsx"),
-    complexConfSpace=osprey.ccs.loadConfSpace("6ov7-python.ccsx"),
+    proteinConfSpace=osprey.ccs.loadConfSpace("../2.conf-space-prep/CALP-python.ccsx"),
+    ligandConfSpace=osprey.ccs.loadConfSpace("../2.conf-space-prep/kCAL01-python.ccsx"),
+    complexConfSpace=osprey.ccs.loadConfSpace("../2.conf-space-prep/complex-python.ccsx"),
 
     # this is a good starting point for partiton function value precision,
     # but you may need something more precise (smaller epsilon)
+    # q* >= q(1 -e)
     # or less precise (larger epsilon) in your designs
-    epsilon=0.90,
+    # recommend: 0.68
+    epsilon=0.05,
 
     # save the sequence results somewhere so we can find them later
     writeSequencesToConsole=True,
-    writeSequencesToFile='sequences-python.tsv',
+    writeSequencesToFile='python.csv',
 
-    # this doesn't matter for MFS
+    # this doesn't matter for MFS, which has no AA identity changes
     maxSimultaneousMutations=1000,
 
     # turn this one off when you get tired of the log spam
@@ -50,11 +52,11 @@ for info in kstar.confSpaceInfos():
         ecalc,
         tasks,
         eref,
-        # cache the energy matrices so we only need to compute them once,
-        # even if you decide to run the design again
-        # if the cached value dosen't match the current design settings, don't worry
-        # the energy matrices should get automatically recalculated
-        cachePath='emat.%s.dat' % info.id,
+        # # cache the energy matrices so we only need to compute them once,
+        # # even if you decide to run the design again
+        # # if the cached value doesn't match the current design settings, don't worry
+        # # the energy matrices should get automatically recalculated
+        # cachePath='emat.%s.dat' % info.id,
     )
 
     # adapt the new energy calculation system into the older K* implementation

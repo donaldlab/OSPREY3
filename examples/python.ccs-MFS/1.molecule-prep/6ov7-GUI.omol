@@ -1,5 +1,5 @@
 [molecule.0]
-name = "Chain A"
+name = "CALP"
 
 atoms = [
 	{ i=    0, name=    "N", x=    8.844000, y=   17.265000, z=   26.156000, elem="N" },
@@ -2777,7 +2777,7 @@ bonds = [
 ]
 
 [molecule.1]
-name = "Chain C"
+name = "kCAL01"
 
 atoms = [
 	{ i=    0, name=    "N", x=    9.754000, y=    8.364000, z=   47.815000, elem="N" },
