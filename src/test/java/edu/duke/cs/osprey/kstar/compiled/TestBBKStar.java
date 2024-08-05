@@ -16,30 +16,36 @@ import edu.duke.cs.osprey.kstar.*;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.tools.FileTools;
-//import org.junit.Rule;
 import org.junit.jupiter.api.Test;
-//import org.junit.rules.Timeout;
 
+import java.io.File;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
+
+
+// runs BBK* using the new compiled confspace (ccsx) system
+// using kCAL01:CALP with:
+// flex CALP: I295, H341, V345
+// flex kCAL01: Q6, V10
+// mutant: kCAL01 Q6 to Ala and Glu (plus WT)
 
 public class TestBBKStar {
 
-	// NOTE: these tests don't test for correctness, only that the code finishes and doesn't crash
+	// import the compiled ccsx (from PINT or GUI) and set epsilon
 
 	@Test
 	public void test2RL0() {
 
-		ConfSpace complex = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.complex.ccsx"));
-		ConfSpace chainA = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.A.ccsx"));
-		ConfSpace chainG = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.G.ccsx"));
+		ConfSpace complex = ConfSpace.fromBytes(FileTools.readResourceBytes("/Thanatin/complex.ccsx"));
+		ConfSpace protein = ConfSpace.fromBytes(FileTools.readResourceBytes("/Thanatin/CALP.ccsx"));
+		ConfSpace ligand = ConfSpace.fromBytes(FileTools.readResourceBytes("/Thanatin/kCAL01.ccsx"));
 
 		final double epsilon = 0.99;
-		run(chainG, chainA, complex, epsilon);
+		run(ligand, protein, complex, epsilon);
 	}
 
-	private static List<ScoredSequence> run(ConfSpace protein, ConfSpace ligand, ConfSpace complex, double epsilon) {
+	private static int run(ConfSpace protein, ConfSpace ligand, ConfSpace complex, double epsilon) {
 
+		// format Kstar score information
 		KStarScoreWriter.Formatter testFormatter = info ->
 			String.format("%3d %s   protein: %s   ligand: %s   complex: %s   K*: %s",
 				info.sequenceNumber,
@@ -50,15 +56,20 @@ public class TestBBKStar {
 				info.kstarScore.toString()
 			);
 
+		// customize Kstar and BBKstar settings
 		KStarSettings kstarSettings = new KStarSettings.Builder()
 			.setEpsilon(epsilon)
 			.setStabilityThreshold(null)
+				// change this value for large designs
 			.setMaxSimultaneousMutations(1)
-			//.setShowPfuncProgress(true)
+				// set false to disable lots of printouts
+			.setShowPfuncProgress(true)
 			.addScoreConsoleWriter(testFormatter)
 			.build();
 		BBKStar.Settings bbkstarSettings = new BBKStar.Settings.Builder()
-			.setNumBestSequences(5)
+				// # of best seqs before BBK* stops
+			.setNumBestSequences(20)
+				// make this even multiple of available threads
 			.setNumConfsPerBatch(8)
 			.build();
 		BBKStar bbkstar = new BBKStar(protein, ligand, complex, kstarSettings, bbkstarSettings);
@@ -68,20 +79,24 @@ public class TestBBKStar {
 
 			for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
 
-				// turn off default confDB for tests
-				info.confDBFile = null;
+				// turn off default confDB for tests - I have no idea what this does
+				// info.confDBFile = null;
 
+				// pass ConfSpace info?
 				ConfSpace confSpace = (ConfSpace)info.confSpace;
 
+				// determine how residue interactions distributed among fragments
 				PosInterDist posInterDist = PosInterDist.DesmetEtAl1992;
 				boolean includeStaticStatic = true;
 				ConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(confSpace);
 
+				// calculate minimized reference energies
 				SimpleReferenceEnergies eref = new ErefCalculator.Builder(ecalc)
 					.setMinimize(true)
 					.build()
 					.calc();
 
+				// create energy calculator amenable to ccsx file format
 				info.confEcalcMinimized = new ConfEnergyCalculatorAdapter.Builder(ecalc, tasks)
 					.setPosInterDist(posInterDist)
 					.setReferenceEnergies(eref)
@@ -89,6 +104,7 @@ public class TestBBKStar {
 					.setIncludeStaticStatic(includeStaticStatic)
 					.build();
 
+				// build energy matrix + A* search tree
 				EnergyMatrix ematMinimized = new EmatCalculator.Builder(ecalc)
 					.setPosInterDist(posInterDist)
 					.setReferenceEnergies(eref)
@@ -114,6 +130,7 @@ public class TestBBKStar {
 						.setTraditional()
 						.build();
 
+				// use gradient descent to min pfuncs
 				info.pfuncFactory = rcs -> new GradientDescentPfunc(
 					info.confEcalcMinimized,
 					info.confSearchFactoryMinimized.make(rcs),
@@ -122,8 +139,36 @@ public class TestBBKStar {
 				).setPreciseBcalc(true);
 			}
 
+
 			// run K*
-			return bbkstar.run(tasks);
+			List<ScoredSequence> sequences = bbkstar.run(tasks);
+			int lsize = sequences.size();
+			System.out.println("Length of sequences: " + lsize);
+
+			// make Sequence Analyzer + save PDB ensembles
+			SequenceAnalyzer analyzer = new SequenceAnalyzer(bbkstar);
+			for (ScoredSequence sequence : sequences) {
+				System.out.println("result:");
+				System.out.println("\tsequence: " + sequence.sequence());
+				System.out.println("\tscore: " + sequence.score());
+
+				// set # conformations printed in ensemble + analyze
+				int numEConfs = 10;
+				SequenceAnalyzer.Analysis analysis = analyzer.analyze(sequence.sequence(), numEConfs);
+
+				// formats seqstr for file outputs (only changes filename)
+				String seqstr = sequence.sequence().toString(Sequence.Renderer.ResTypeMutations)
+						.replace(' ', '-');
+
+				// set where file is saved + name
+				File ensembleFile = new File(String.format("/home/henry-childs/IdeaProjects/OSPREY3/src/test/resources/Thanatin/seq.%s.pdb", seqstr));
+
+				// write the PDB (can also set filepath here)
+				analysis.writePdb(ensembleFile.getAbsolutePath(), String.format("Top %d conformations for sequence %s",
+						numEConfs, sequence.sequence()));
+			}
+
+			return 1;
 
 		} finally {
 
