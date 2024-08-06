@@ -22,12 +22,6 @@ import java.io.File;
 import java.util.List;
 
 
-// runs BBK* using the new compiled confspace (ccsx) system
-// using kCAL01:CALP with:
-// flex CALP: I295, H341, V345
-// flex kCAL01: Q6, V10
-// mutant: kCAL01 Q6 to Ala and Glu (plus WT)
-
 public class TestBBKStar {
 
 	// import the compiled ccsx (from PINT or GUI) and set epsilon
@@ -35,11 +29,11 @@ public class TestBBKStar {
 	@Test
 	public void test2RL0() {
 
-		ConfSpace complex = ConfSpace.fromBytes(FileTools.readResourceBytes("/Thanatin/complex.ccsx"));
-		ConfSpace protein = ConfSpace.fromBytes(FileTools.readResourceBytes("/Thanatin/CALP.ccsx"));
-		ConfSpace ligand = ConfSpace.fromBytes(FileTools.readResourceBytes("/Thanatin/kCAL01.ccsx"));
+		ConfSpace complex = ConfSpace.fromBytes(FileTools.readResourceBytes("/Thanatin/two-mut-D-peptide/complex.ccsx"));
+		ConfSpace protein = ConfSpace.fromBytes(FileTools.readResourceBytes("/Thanatin/two-mut-D-peptide/CALP.ccsx"));
+		ConfSpace ligand = ConfSpace.fromBytes(FileTools.readResourceBytes("/Thanatin/two-mut-D-peptide/match4.ccsx"));
 
-		final double epsilon = 0.99;
+		final double epsilon = 0.05;
 		run(ligand, protein, complex, epsilon);
 	}
 
@@ -61,14 +55,14 @@ public class TestBBKStar {
 			.setEpsilon(epsilon)
 			.setStabilityThreshold(null)
 				// change this value for large designs
-			.setMaxSimultaneousMutations(1)
+			.setMaxSimultaneousMutations(4)
 				// set false to disable lots of printouts
 			.setShowPfuncProgress(true)
 			.addScoreConsoleWriter(testFormatter)
 			.build();
 		BBKStar.Settings bbkstarSettings = new BBKStar.Settings.Builder()
 				// # of best seqs before BBK* stops
-			.setNumBestSequences(20)
+			.setNumBestSequences(4)
 				// make this even multiple of available threads
 			.setNumConfsPerBatch(8)
 			.build();
@@ -155,13 +149,14 @@ public class TestBBKStar {
 				// set # conformations printed in ensemble + analyze
 				int numEConfs = 10;
 				SequenceAnalyzer.Analysis analysis = analyzer.analyze(sequence.sequence(), numEConfs);
+				// System.out.println(analysis);
 
 				// formats seqstr for file outputs (only changes filename)
 				String seqstr = sequence.sequence().toString(Sequence.Renderer.ResTypeMutations)
 						.replace(' ', '-');
 
 				// set where file is saved + name
-				File ensembleFile = new File(String.format("/home/henry-childs/IdeaProjects/OSPREY3/src/test/resources/Thanatin/seq.%s.pdb", seqstr));
+				File ensembleFile = new File(String.format("/home/henry-childs/IdeaProjects/OSPREY3/src/test/resources/Thanatin/two-mut-D-peptide/seq.%s.pdb", seqstr));
 
 				// write the PDB (can also set filepath here)
 				analysis.writePdb(ensembleFile.getAbsolutePath(), String.format("Top %d conformations for sequence %s",
