@@ -17,7 +17,8 @@ import edu.duke.cs.osprey.gui.prep.ConfSpace
 object ConfLibs {
 
 	private val builtInConflibPaths = listOf(
-		"conflib/lovell.conflib"
+		"conflib/lovell.conflib",
+		"conflib/D-lovell.conflib",
 	)
 
 	data class ConfLibInfo(

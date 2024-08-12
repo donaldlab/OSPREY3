@@ -230,6 +230,14 @@ def saveOMOL(mols):
     '''
     return osprey.c.gui.io.OMOLKt.toOMOL(jvm.toArrayList(mols))
 
+def loadMol2(mol2):
+    mol = osprey.c.gui.io.MOL2Kt.fromMol2(_kotlin_companion(osprey.c.molscope.molecule.Molecule), mol2)
+    return mol
+
+def saveMol2(mols):
+    combined = osprey.c.molscope.molecule.MoleculeKt.combine(jvm.toArrayList(mols), "", None, None).getFirst()
+    return osprey.c.gui.io.MOL2Kt.toMol2(combined, None)
+
 
 def loadConfSpace(toml):
     '''
