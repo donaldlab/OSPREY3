@@ -98,9 +98,6 @@ f = open("L-peptide-new.omol", 'w')
 f.write(str(file_list))
 f.close()
 
-
-# let's now paste together the D-peptide and L-target OMOL
-
 # # let's create a new conformation space from the complex OMOL file
 # mols_path = '6ov7.omol'
 # mols = osprey.prep.loadOMOL(open(mols_path, 'r').read())
