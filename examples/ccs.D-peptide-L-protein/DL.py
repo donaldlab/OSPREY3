@@ -1,86 +1,100 @@
-# import osprey
-# osprey.start()
-#
-# # import the prep module after starting Osprey
-# import osprey.prep
+from Bio.PDB import PDBParser, PDBIO
+import osprey
+osprey.start()
+import osprey.prep
 
-# # we have our L-target and D-peptide from DL preprocessing
-# pdb_path = 'match1-D-L-minimized.pdb'
-# pdb = osprey.prep.loadPDB(open(pdb_path, 'r').read())
+# TODO: for loop over prepared files
+pdb_path = "match1-D-L-complex.pdb"
 
-# # we have two protein chains
-# # note: this also removes water molecules
-# target = pdb[0]
-# peptide = pdb[1]
-# mols = [target, peptide]
+# get target and peptide chain ids for later confspace specification
+parser = PDBParser(PERMISSIVE=1)
+structure = parser.get_structure("complex", pdb_path)
+model = structure[0]
+chain_ids = []
+for chain in model:
+    chain_ids.append(chain.id)
+target_chain_id = chain_ids[0]
+peptide_chain_id = chain_ids[1]
 
-# save OMOLs for the L-target and D-peptide
+# TODO: create IAS mutable residues dictionaries for target
+# need: AA identity, residue number
+# https://biopython.org/docs/1.76/api/Bio.PDB.NeighborSearch.html
+thisdict = {
+    'HIS': '301',
+    'VAL': '303'
+}
+
+# we have our L-target and D-peptide from DL-preprocessing
+pdb = osprey.prep.loadPDB(open(pdb_path, 'r').read())
+
+# get both protein chains
+target = pdb[0]
+peptide = pdb[1]
+mols = [target, peptide]
+
+# save OMOL for the L-target
+target_omol_path = 'match1-target.omol'
+open(target_omol_path, 'w').write(osprey.prep.saveOMOL([target]))
+print('saved prepared OMOL to %s' % target_omol_path)
+
+# save OMOL for the D-peptide
+peptide_omol_path = 'match1-peptide.omol'
+open(peptide_omol_path, 'w').write(osprey.prep.saveOMOL([peptide]))
+print('saved prepared OMOL to %s' % peptide_omol_path)
 
 # # rename the D-peptide.omol to be molecule.1
 # # this will be important later when we paste together the files
-# f = open('L-peptide.omol', 'r')
+# f = open('match1-peptide.omol', 'r')
 # filedata = f.read()
 # f.close()
 #
 # newatom = filedata.replace("molecule.0", "molecule.1")
 # newpoly = newatom.replace("molecule.0.polymer", "molecule.1.polymer")
 #
-# f = open("L-peptide.omol", 'w')
+# f = open("match1-peptide.omol", 'w')
 # f.write(newpoly)
 # f.close()
 
-# # let's create a new conformation space from the complex OMOL file
-# mols_path = '6ov7.omol'
-# mols = osprey.prep.loadOMOL(open(mols_path, 'r').read())
-#
-# # the molecules we prepped are CALP and kCAL01
-# CALP = mols[0]
-# kCAL01 = mols[1]
-#
-# # create a new conformation space out of the molecules
-# # we'll define all of our sequence mutations in the conformation space,
-# # as well as all of the desired conformations for each sequence,
-# # desired flexibilities, etc
-# conf_space = osprey.prep.ConfSpace(mols)
-#
-# # choose a name for your conformation space
-# conf_space.setName('Conformation Space')
-#
-# # Conformation Space Preparation Step 1: load the conformation libraries
-# # The conformation libraries are collections of mutations and conformations for molecules.
-# # In this case, the Lovell et al 2000 library describes common rotamers for protein natual amino acids.
-# # We'll load it from Osprey's built-in database of conformation libraries by scanning for its id.
-# lovell2000 = next(lib for lib in osprey.prep.confLibs if lib.getId() == 'lovell2000-osprey3').load()
-# conf_space.getConflibs().add(lovell2000)
-#
-#
-# # Conformation Space Preparation Step 2: define WT mutations
-# # Create a design position for that residue, then add the mutations.
-# # The identifiers for the mutations must match the fragment types in the loaded conformation libraries.
-#
-# # add kCAL01 mutants (Chain C w/ mutations)
-# pos6gln = conf_space.addPosition(osprey.prep.ProteinDesignPosition(kCAL01, 'C', '6'))
-# conf_space.addMutations(pos6gln, 'GLN', 'ALA', 'GLU')
-#
-# pos10val = conf_space.addPosition(osprey.prep.ProteinDesignPosition(kCAL01, 'C', '10'))
-# conf_space.addMutations(pos10val, 'VAL')
-#
-# # add CALP mutants (Chain A, only WT)
-# pos295ile = conf_space.addPosition(osprey.prep.ProteinDesignPosition(CALP, 'A', '295'))
-# conf_space.addMutations(pos295ile, 'ILE')
-#
-# pos341his = conf_space.addPosition(osprey.prep.ProteinDesignPosition(CALP, 'A', '341'))
-# conf_space.addMutations(pos341his, 'HIS')
-#
-# pos345val = conf_space.addPosition(osprey.prep.ProteinDesignPosition(CALP, 'A', '345'))
-# conf_space.addMutations(pos345val, 'VAL')
-#
-# # now we have defined a conformation space
-# print('conformation space describes %s sequences:' % conf_space.countSequences())
-# for pos in conf_space.positions():
-#     print('\t%6s mutations: %s' % (pos.getName(), conf_space.getMutations(pos)))
-#
-#
+# let's create the target conformation space
+target_omol = osprey.prep.loadOMOL(open(target_omol_path, 'r').read())
+target_conf_space = osprey.prep.ConfSpace(target_omol)
+lovell2000 = next(lib for lib in osprey.prep.confLibs if lib.getId() == 'lovell2000-osprey3').load()
+target_conf_space.getConflibs().add(lovell2000)
+
+# define mutations
+# TODO: make this a for loop for length of IAS flex dict
+for res in thisdict:
+    res_type = res
+    res_id = thisdict[res]
+    print("target chain id is " + target_chain_id)
+    print("residue type is " + res_type)
+    print("id is " + res_id)
+    # target_mut = target_conf_space.addPosition(osprey.prep.ProteinDesignPosition(target_omol, target_chain_id, res_id))
+    # target_conf_space.addMutations(target_mut, res_type)
+
+target_mut = target_conf_space.addPosition(osprey.prep.ProteinDesignPosition(target_omol, 'y', '301'))
+target_conf_space.addMutations(target_mut, 'HIS')
+
+# now we have defined a conformation space
+print('conformation space describes %s sequences:' % target_conf_space.countSequences())
+for pos in target_conf_space.positions():
+    print('\t%6s mutations: %s' % (pos.getName(), target_conf_space.getMutations(pos)))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # # Conformation Space Preparation Step 3: define discrete flexibility using conformations
 # # Conformations tell osprey how to model structural flexibility when evaluating sequences
 # for pos in conf_space.positions():
