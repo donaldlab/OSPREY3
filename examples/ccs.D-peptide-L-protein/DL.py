@@ -1,4 +1,3 @@
-import csv
 # import osprey
 # osprey.start()
 #
@@ -6,7 +5,7 @@ import csv
 # import osprey.prep
 
 # # we have our L-target and D-peptide from DL preprocessing
-# pdb_path = 'match1-ready.pdb'
+# pdb_path = 'match1-D-L-minimized.pdb'
 # pdb = osprey.prep.loadPDB(open(pdb_path, 'r').read())
 
 # # we have two protein chains
