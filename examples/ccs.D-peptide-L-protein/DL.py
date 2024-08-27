@@ -5,71 +5,20 @@ import csv
 # # import the prep module after starting Osprey
 # import osprey.prep
 
-# # we have our L-target and L-peptide from DL preprocessing
-# # let's load the L-target
-# pdb_path = 'L-target.pdb'
-# target_pdb = osprey.prep.loadPDB(open(pdb_path, 'r').read())
-#
-# # Let's now load the L-peptide PDB
-# pdb_path = 'L-peptide.pdb'
-# ligand_pdb = osprey.prep.loadPDB(open(pdb_path, 'r').read())
-#
+# # we have our L-target and D-peptide from DL preprocessing
+# pdb_path = 'match1-ready.pdb'
+# pdb = osprey.prep.loadPDB(open(pdb_path, 'r').read())
+
 # # we have two protein chains
 # # note: this also removes water molecules
-# target = target_pdb[0]
-# match4 = ligand_pdb[0]
-# mols = [target, match4]
-#
-# # start the local service that calls AmberTools for us (Note: ONLY WORKS ON LINUX)
-# with osprey.prep.LocalService():
-#
-#     # Molecule Preparation Step 1: remove duplicate atoms
-#     # For this PDB example, none should be present
-#     for mol in mols:
-#         # remove all but the first duplicated atom from each group
-#         for group in osprey.prep.duplicateAtoms(mol):
-#             for atomi in range(1, len(group.getAtoms())):
-#                 group.remove(atomi)
-#                 print('removed duplicate atom %s' % group)
-#
-#
-#     # Molecule Preparation Step 2: add missing heavy atoms
-#     for mol in mols:
-#         for missing_atom in osprey.prep.inferMissingAtoms(mol):
-#             # TODO: hault if missing atoms not caught by preprocessing
-#             # TODO: if missing_atom != etc....
-#             missing_atom.add()
-#             print('added missing atom: %s' % missing_atom)
-#
-#     # Molecule Preparation Step 3: add bonds
-#     for mol in mols:
-#         bonds = osprey.prep.inferBonds(mol)
-#         for bond in bonds:
-#             mol.getBonds().add(bond)
-#         print('added %d bonds to %s' % (len(bonds), mol))
-#
-#     # Molecule Preparation Step 4: strip + add Hs
-#     # we don't know what software the PDB depositor used, so remove + add our own
-#     # protonate both chains
-#     for mol in mols:
-#         osprey.prep.deprotonate(mol)
-#         protonated_atoms = osprey.prep.inferProtonation(mol)
-#         for protonated_atom in protonated_atoms:
-#             protonated_atom.add()
-#         print('added %d hydrogens to %s' % (len(protonated_atoms), mol))
-#
-#     # Molecule Preparation Step 5: save the cleaned OMOLs
-#     omol_target = 'L-target.omol'
-#     open(omol_target, 'w').write(osprey.prep.saveOMOL([target]))
-#     print('saved prepared OMOL to %s' % omol_target)
-#
-#     omol_peptide = 'L-peptide.omol'
-#     open(omol_peptide, 'w').write(osprey.prep.saveOMOL([match4]))
-#     print('saved prepared OMOL to %s' % omol_peptide)
-#
-# print('Molecule preparation complete!')
+# target = pdb[0]
+# peptide = pdb[1]
+# mols = [target, peptide]
 
-# # rename the L-peptide.omol to be molecule.1
+# save OMOLs for the L-target and D-peptide
+
+# # rename the D-peptide.omol to be molecule.1
+# # this will be important later when we paste together the files
 # f = open('L-peptide.omol', 'r')
 # filedata = f.read()
 # f.close()
@@ -80,23 +29,6 @@ import csv
 # f = open("L-peptide.omol", 'w')
 # f.write(newpoly)
 # f.close()
-
-# let us now invert the OMOL, so we can prepare with a D-ligand
-f = open('L-peptide-back.omol', 'r')
-filedata = f.read()
-file_list = list(filedata)
-f.close()
-
-for t in range(len(filedata)):
-    if filedata[t] == 'z':
-        if filedata[t + 4] == '-':
-            file_list[t + 4] = ' '
-        # if filedata[t + 4] == ' ':
-        #     TODO
-
-f = open("L-peptide-new.omol", 'w')
-f.write(str(file_list))
-f.close()
 
 # # let's create a new conformation space from the complex OMOL file
 # mols_path = '6ov7.omol'
