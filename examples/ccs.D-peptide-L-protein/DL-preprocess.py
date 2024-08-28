@@ -85,13 +85,6 @@ for f in os.listdir(directory):
                 missing_atom.add()
                 print('added missing atom: %s' % missing_atom)
 
-        # add bonds
-        for mol in mols:
-            bonds = osprey.prep.inferBonds(mol)
-            for bond in bonds:
-                mol.getBonds().add(bond)
-            print('added %d bonds to %s' % (len(bonds), mol))
-
         # strip and add Hs
         # We don't know if the PDB depositor used reliable protonation software, so let's remove and use our own.
         # it's also very possible no H are present, but it's a good idea to check
