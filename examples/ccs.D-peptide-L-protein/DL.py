@@ -1,11 +1,10 @@
 from Bio.PDB import PDBParser, NeighborSearch
-from collections import OrderedDict
 import osprey
 osprey.start()
 import osprey.prep
 
 # TODO: for loop over prepared files
-pdb_path = "match1-D-L-complex.pdb"
+pdb_path = "test1-complex.pdb"
 
 # get target and peptide chain ids for later confspace specification
 parser = PDBParser(PERMISSIVE=1)
@@ -51,9 +50,7 @@ for p in model[peptide_chain_id].get_residues():
     pep_res = name + index
     peptide_residues.append(pep_res)
 
-print(peptide_residues)
-
-# calculate the # of IAS rounds required. -1 so we can index flex list.
+# calculate the # of IAS rounds required. -1 so we can index peptide_residues
 curr_IAS_round = 0
 num_IAS_rounds = len(flexible_set) - 1
 
@@ -70,10 +67,10 @@ target_omol_path = 'match1-target.omol'
 open(target_omol_path, 'w').write(osprey.prep.saveOMOL([target]))
 print('saved prepared OMOL to %s' % target_omol_path)
 
-# save OMOL for the D-peptide
-peptide_omol_path = 'match1-peptide.omol'
-open(peptide_omol_path, 'w').write(osprey.prep.saveOMOL([peptide]))
-print('saved prepared OMOL to %s' % peptide_omol_path)
+# # save OMOL for the D-peptide
+# peptide_omol_path = 'match1-peptide.omol'
+# open(peptide_omol_path, 'w').write(osprey.prep.saveOMOL([peptide]))
+# print('saved prepared OMOL to %s' % peptide_omol_path)
 
 # # rename the D-peptide.omol to be molecule.1
 # # this will be important later when we paste together the files
@@ -88,8 +85,6 @@ print('saved prepared OMOL to %s' % peptide_omol_path)
 # f.write(newpoly)
 # f.close()
 
-# let's now create the target conformation spaces for each IAS round
-# each element (a list w/ dictionaries) in flexible_set represents one round of IAS with a corresponding pep residue
 for s in flexible_set:
 
     # open the omol and prep the confspace for specification
@@ -117,82 +112,69 @@ for s in flexible_set:
         for mutation in target_conf_space.getMutations(pos):
             target_conf_space.addConformationsFromLibraries(pos, mutation)
 
-        # # add WT flexibility
-        # if pos.getType() in target_conf_space.getMutations(pos):
-        #     target_conf_space.addWildTypeConformation(pos)
+        # add WT flexibility
+        if pos.getType() in target_conf_space.getMutations(pos):
+            target_conf_space.addWildTypeConformation(pos)
 
-    # print current confspace
-    print('conformation space describes %s conformations:' % target_conf_space.countConformations())
-    for pos in target_conf_space.positions():
-        print('\t%6s conformations:' % pos.getName())
-        for frag in target_conf_space.getFragments(pos):
-            conf_ids = [conf_info.getConf().getId() for conf_info in target_conf_space.getConformations(pos, frag)]
-            print('\t\tfragment %10s: %s' % (frag.getId(), conf_ids))
-
-
-    # define continuous flexiblilty and trans/rot
-    dihedral_settings = osprey.prep.DihedralAngleSettings()
-    for pos in target_conf_space.positions():
-        for mutation in target_conf_space.getMutations(pos):
-            for conf_info in target_conf_space.getConformations(pos, mutation):
-                for motion in osprey.prep.conformationDihedralAngles(pos, conf_info, dihedral_settings):
-                    conf_info.getMotions().add(motion)
-
-
-    # for each round, save the target confspace w/ a descriptive filename
-    match_num = ""
-    track = 0
-    while pdb_path[track] != '-':
-        match_num += pdb_path[track]
-        track += 1
-    # path = match_num + ''
-    # open(path, 'w').write(osprey.prep.saveConfSpace(target_conf_space))
-    # print('saved complex conformation space to %s' % path)
-
-
-
-
-# # Conformation Space Preparation Step 6: compile the conformation spaces
-# # "Compilation", in this case, is the process by which Osprey transforms the
-# # conformation space(s) defined here into an optimized binary file format that
-# # will can be efficiently used later by a design algorithm.
-# # This "compilation" process does many things, but most importantly it uses
-# # AmberTools to gather the forcefield parameters for your molecules and all the mutations
-# # and conformations in the conformation space.
-# def compile(cs, name):
-#
-#     compiler = osprey.prep.ConfSpaceCompiler(cs)
-#
-#     # add the forcefields to use
-#     compiler.getForcefields().add(osprey.prep.Forcefield.Amber96)
-#     compiler.getForcefields().add(osprey.prep.Forcefield.EEF1)
-#
-#     # run the compiler and wait for it to finish
-#     print('compiling %s ...' % name)
-#     progress = compiler.compile()
-#     progress.printUntilFinish(5000)
-#     report = progress.getReport()
-#
-#     # check for compiler errors
-#     if report.getError() is not None:
-#         raise Exception('Compilation failed', report.getError())
-#
-#     # save the compiled conf space
-#     path = '%s.ccsx' % name
-#     print('saving %s to %s ...' % (name, path))
-#     open(path, 'wb').write(osprey.prep.saveCompiledConfSpace(report.getCompiled()))
-#
-#
-# # start the local service that calls AmberTools for us
-# # NOTE: this will only work on Linux machines
-# with osprey.prep.LocalService():
-#
-#     # compile all three conformation spaces
-#     compile(conf_space, 'complex')
-#     compile(conf_space_kCAL01, 'kCAL01')
-#     compile(conf_space_CALP, 'CALP')
-
-        #peptide_num_start += 1
-#
-#
-# print('Conformation space preparation complete!')
+    # # print current confspace
+    # print('conformation space describes %s conformations:' % target_conf_space.countConformations())
+    # for pos in target_conf_space.positions():
+    #     print('\t%6s conformations:' % pos.getName())
+    #     for frag in target_conf_space.getFragments(pos):
+    #         conf_ids = [conf_info.getConf().getId() for conf_info in target_conf_space.getConformations(pos, frag)]
+    #         print('\t\tfragment %10s: %s' % (frag.getId(), conf_ids))
+    #
+    #
+    # # define continuous flexiblilty and trans/rot
+    # dihedral_settings = osprey.prep.DihedralAngleSettings()
+    # for pos in target_conf_space.positions():
+    #     for mutation in target_conf_space.getMutations(pos):
+    #         for conf_info in target_conf_space.getConformations(pos, mutation):
+    #             for motion in osprey.prep.conformationDihedralAngles(pos, conf_info, dihedral_settings):
+    #                 conf_info.getMotions().add(motion)
+    #
+    #
+    # # for each round, save the target confspace w/ a descriptive filename
+    # curr_residue = peptide_residues[curr_IAS_round]
+    # print("curr res is " + curr_residue)
+    # save_confspace_path = pdb_path[:-15] + 'target-' + curr_residue + '.confspace'
+    # # open(save_confspace_path, 'w').write(osprey.prep.saveConfSpace(target_conf_space))
+    # # print('saved complex conformation space to %s' % save_confspace_path)
+    #
+    # # compile the target confspace files for each IAS round
+    # def compile(cs, name):
+    #
+    #     compiler = osprey.prep.ConfSpaceCompiler(cs)
+    #
+    #     # add the forcefields to use
+    #     compiler.getForcefields().add(osprey.prep.Forcefield.Amber96)
+    #     compiler.getForcefields().add(osprey.prep.Forcefield.EEF1)
+    #
+    #     # run the compiler and wait for it to finish
+    #     print('compiling %s ...' % name)
+    #     progress = compiler.compile()
+    #     progress.printUntilFinish(5000)
+    #     report = progress.getReport()
+    #
+    #     # check for compiler errors
+    #     if report.getError() is not None:
+    #         raise Exception('Compilation failed', report.getError())
+    #
+    #     # save the compiled conf space
+    #     path = '%s.ccsx' % name
+    #     print('saving %s to %s ...' % (name, path))
+    #     open(path, 'wb').write(osprey.prep.saveCompiledConfSpace(report.getCompiled()))
+    #
+    #
+    # # start the local service that calls AmberTools for us
+    # # NOTE: this will only work on Linux machines
+    # with osprey.prep.LocalService():
+    #
+    #     # compile all three conformation spaces
+    #     save_compile_name = pdb_path[:-15] + 'target-' + curr_residue
+    #     compile(target_conf_space, save_compile_name)
+    #
+    #     # index the current IAS round
+    #     curr_IAS_round += 1
+    #
+    # print('Conformation space preparation complete!')
