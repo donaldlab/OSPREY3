@@ -184,3 +184,5 @@ for s in flexible_set:
         curr_IAS_round += 1
 
     print('Conformation space preparation complete!')
+
+# TODO: prepare peptide confspace
