@@ -1,10 +1,11 @@
-from Bio.PDB import PDBParser, PDBIO
+from Bio.PDB import PDBParser, NeighborSearch
+from collections import OrderedDict
 import osprey
 osprey.start()
 import osprey.prep
 
 # TODO: for loop over prepared files
-pdb_path = "match1-D-L-complex.pdb"
+pdb_path = "test.pdb"
 
 # get target and peptide chain ids for later confspace specification
 parser = PDBParser(PERMISSIVE=1)
@@ -16,13 +17,37 @@ for chain in model:
 target_chain_id = chain_ids[0]
 peptide_chain_id = chain_ids[1]
 
-# TODO: create IAS mutable residues dictionaries for target
-# need: AA identity, residue number
-# https://biopython.org/docs/1.76/api/Bio.PDB.NeighborSearch.html
-thisdict = {
-    'HIS': '301',
-    'VAL': '303'
-}
+# create IAS mutable residues dictionaries for target
+# find the # of residues in our peptide. This will determine the # of IAS rounds.
+# num_IAS_rounds = 0
+# for r in model[peptide_chain_id].get_residues():
+#     num_IAS_rounds += 1
+
+# create an ordered dict of flexible residues for each IAS round
+# pair the peptide res id with the target flex set
+flexible_set = []
+for r in model[peptide_chain_id].get_residues():
+    # get the res type, id for pep res nearest neighbors
+    # we'll search within 6A of the CA of the current peptide residue
+    target_atoms = [atom for atom in model[target_chain_id].get_atoms()]
+    search_from = r['CA']
+    ns = NeighborSearch(target_atoms)
+    nearby_res = ns.search(search_from.coord, 6.0, level='R')
+
+    # create an OrderedDict list of target's flexible residues
+    # key = AA type, value = res #
+    flexing = []
+    for n in nearby_res:
+        kv = {}
+        kv[n.get_resname()] = str(n.id[1])
+        flexing.append(kv)
+
+    # output the search results
+    print('Found flexible set for peptide residue %s %s:' % (r.get_resname(), r.id[1]))
+    print(flexing)
+
+    # add to flexible set list
+    flexible_set.append(flexing)
 
 # we have our L-target and D-peptide from DL-preprocessing
 pdb = osprey.prep.loadPDB(open(pdb_path, 'r').read())
@@ -55,102 +80,67 @@ print('saved prepared OMOL to %s' % peptide_omol_path)
 # f.write(newpoly)
 # f.close()
 
-# let's create the target conformation space
-target_omol = osprey.prep.loadOMOL(open(target_omol_path, 'r').read())
-target_conf_space = osprey.prep.ConfSpace(target_omol)
-lovell2000 = next(lib for lib in osprey.prep.confLibs if lib.getId() == 'lovell2000-osprey3').load()
-target_conf_space.getConflibs().add(lovell2000)
+# let's now create the target conformation spaces for each IAS round
+# each element (a list w/ dictionaries) in flexible_set represents one round of IAS with a corresponding pep residue
+for s in flexible_set:
 
-# define mutations
-# TODO: make this a for loop for length of IAS flex dict
-for res in thisdict:
-    res_type = res
-    res_id = thisdict[res]
-    print("target chain id is " + target_chain_id)
-    print("residue type is " + res_type)
-    print("id is " + res_id)
-    # target_mut = target_conf_space.addPosition(osprey.prep.ProteinDesignPosition(target_omol, target_chain_id, res_id))
-    # target_conf_space.addMutations(target_mut, res_type)
+    # open the omol and prep the confspace for specification
+    target_omol = osprey.prep.loadOMOL(open(target_omol_path, 'r').read())
+    target_conf = target_omol[0]
+    target_conf_space = osprey.prep.ConfSpace(target_omol)
+    lovell2000 = next(lib for lib in osprey.prep.confLibs if lib.getId() == 'lovell2000-osprey3').load()
+    target_conf_space.getConflibs().add(lovell2000)
 
-target_mut = target_conf_space.addPosition(osprey.prep.ProteinDesignPosition(target_omol, 'y', '301'))
-target_conf_space.addMutations(target_mut, 'HIS')
+    # define mutations for all flexible residues in the mut scan dictionary list
+    for r in s:
+        for identity, id in r.items():
+            target_mut = target_conf_space.addPosition(osprey.prep.ProteinDesignPosition(target_conf, target_chain_id, id))
+            target_conf_space.addMutations(target_mut, identity)
 
-# now we have defined a conformation space
-print('conformation space describes %s sequences:' % target_conf_space.countSequences())
-for pos in target_conf_space.positions():
-    print('\t%6s mutations: %s' % (pos.getName(), target_conf_space.getMutations(pos)))
+    # report the target conf space for this IAS round
+    print('conformation space describes %s sequences:' % target_conf_space.countSequences())
+    for pos in target_conf_space.positions():
+        print('\t%6s mutations: %s' % (pos.getName(), target_conf_space.getMutations(pos)))
+
+    # add discrete flexibility to the round
+    for pos in target_conf_space.positions():
+
+        # add conformations from library
+        for mutation in target_conf_space.getMutations(pos):
+            target_conf_space.addConformationsFromLibraries(pos, mutation)
+
+        # # add WT flexibility
+        # if pos.getType() in target_conf_space.getMutations(pos):
+        #     target_conf_space.addWildTypeConformation(pos)
+
+    # print current confspace
+    print('conformation space describes %s conformations:' % target_conf_space.countConformations())
+    for pos in target_conf_space.positions():
+        print('\t%6s conformations:' % pos.getName())
+        for frag in target_conf_space.getFragments(pos):
+            conf_ids = [conf_info.getConf().getId() for conf_info in target_conf_space.getConformations(pos, frag)]
+            print('\t\tfragment %10s: %s' % (frag.getId(), conf_ids))
+
+
+    # define continuous flexiblilty and trans/rot
+    dihedral_settings = osprey.prep.DihedralAngleSettings()
+    for pos in target_conf_space.positions():
+        for mutation in target_conf_space.getMutations(pos):
+            for conf_info in target_conf_space.getConformations(pos, mutation):
+                for motion in osprey.prep.conformationDihedralAngles(pos, conf_info, dihedral_settings):
+                    conf_info.getMotions().add(motion)
+
+
+    # for each round, save the target confspace
+    path = 'complex.confspace'
+    open(path, 'w').write(osprey.prep.saveConfSpace(target_conf_space))
+    print('saved complex conformation space to %s' % path)
 
 
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-# # Conformation Space Preparation Step 3: define discrete flexibility using conformations
-# # Conformations tell osprey how to model structural flexibility when evaluating sequences
-# for pos in conf_space.positions():
-#
-#     # First, add conformations from the conformation libraries for our mutations.
-#     for mutation in conf_space.getMutations(pos):
-#         conf_space.addConformationsFromLibraries(pos, mutation)
-#
-#     # Next, if the design position allows the wild-type "mutation"
-#     if pos.getType() in conf_space.getMutations(pos):
-#         # Create a conformation out of the PDB structure (the "wild-type" input structure conformation) and add it
-#         # Often these "wild-type" conformations will have lower energies than the library conformations,
-#         # since the "wild-type" conformations are specifically adapted to the input structures.
-#         conf_space.addWildTypeConformation(pos)
-#
-# # now we have a larger conformation space of 32,000 conformations
-# print('conformation space describes %s conformations:' % conf_space.countConformations())
-# for pos in conf_space.positions():
-#     print('\t%6s conformations:' % pos.getName())
-#     for frag in conf_space.getFragments(pos):
-#         conf_ids = [conf_info.getConf().getId() for conf_info in conf_space.getConformations(pos, frag)]
-#         print('\t\tfragment %10s: %s' % (frag.getId(), conf_ids))
-#
-#
-# # Conformation Space Preparation Step 4: define continuous flexiblilty and trans/rot
-# # add dihedral angle motions to all the conformations at each design position
-# dihedral_settings = osprey.prep.DihedralAngleSettings()
-# for pos in conf_space.positions():
-#     for mutation in conf_space.getMutations(pos):
-#         for conf_info in conf_space.getConformations(pos, mutation):
-#             for motion in osprey.prep.conformationDihedralAngles(pos, conf_info, dihedral_settings):
-#                 conf_info.getMotions().add(motion)
-#
-# # add a translation/rotation motion to kCAL01 (adding to CALP is redundant)
-# conf_space.addMotion(osprey.prep.moleculeTranslationRotation(kCAL01))
-#
-# # Conformation Space Preparation Step 5: save the conformation space
-# # Save the complex
-# path = 'complex.confspace'
-# open(path, 'w').write(osprey.prep.saveConfSpace(conf_space))
-# print('saved complex conformation space to %s' % path)
-#
-# # Save the ligand
-# conf_space_kCAL01 = conf_space.copy(kCAL01)
-# # conf_space_kCAL01.setName('kCAL01')
-# path = 'kCAL01.confspace'
-# open(path, 'w').write(osprey.prep.saveConfSpace(conf_space_kCAL01))
-# print('saved kCAL01 conformation space to %s' % path)
-#
-# # save the target protein
-# conf_space_CALP = conf_space.copy(CALP)
-# # conf_space_CALP.setName('CALP')
-# path = 'CALP.confspace'
-# open(path, 'w').write(osprey.prep.saveConfSpace(conf_space_CALP))
-# print('saved CALP conformation space to %s' % path)
-#
 # # Conformation Space Preparation Step 6: compile the conformation spaces
 # # "Compilation", in this case, is the process by which Osprey transforms the
 # # conformation space(s) defined here into an optimized binary file format that
