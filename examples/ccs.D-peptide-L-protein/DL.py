@@ -5,7 +5,7 @@ osprey.start()
 import osprey.prep
 
 # TODO: for loop over prepared files
-pdb_path = "test.pdb"
+pdb_path = "match1-D-L-complex.pdb"
 
 # get target and peptide chain ids for later confspace specification
 parser = PDBParser(PERMISSIVE=1)
@@ -16,12 +16,6 @@ for chain in model:
     chain_ids.append(chain.id)
 target_chain_id = chain_ids[0]
 peptide_chain_id = chain_ids[1]
-
-# create IAS mutable residues dictionaries for target
-# find the # of residues in our peptide. This will determine the # of IAS rounds.
-# num_IAS_rounds = 0
-# for r in model[peptide_chain_id].get_residues():
-#     num_IAS_rounds += 1
 
 # create an ordered dict of flexible residues for each IAS round
 # pair the peptide res id with the target flex set
@@ -48,6 +42,20 @@ for r in model[peptide_chain_id].get_residues():
 
     # add to flexible set list
     flexible_set.append(flexing)
+
+# keep track of peptide atom index for later file naming
+peptide_residues = []
+for p in model[peptide_chain_id].get_residues():
+    name = p.get_resname()
+    index = str(p.id[1])
+    pep_res = name + index
+    peptide_residues.append(pep_res)
+
+print(peptide_residues)
+
+# calculate the # of IAS rounds required. -1 so we can index flex list.
+curr_IAS_round = 0
+num_IAS_rounds = len(flexible_set) - 1
 
 # we have our L-target and D-peptide from DL-preprocessing
 pdb = osprey.prep.loadPDB(open(pdb_path, 'r').read())
@@ -131,12 +139,15 @@ for s in flexible_set:
                     conf_info.getMotions().add(motion)
 
 
-    # for each round, save the target confspace
-    path = 'complex.confspace'
-    open(path, 'w').write(osprey.prep.saveConfSpace(target_conf_space))
-    print('saved complex conformation space to %s' % path)
-
-
+    # for each round, save the target confspace w/ a descriptive filename
+    match_num = ""
+    track = 0
+    while pdb_path[track] != '-':
+        match_num += pdb_path[track]
+        track += 1
+    # path = match_num + ''
+    # open(path, 'w').write(osprey.prep.saveConfSpace(target_conf_space))
+    # print('saved complex conformation space to %s' % path)
 
 
 
@@ -180,6 +191,8 @@ for s in flexible_set:
 #     compile(conf_space, 'complex')
 #     compile(conf_space_kCAL01, 'kCAL01')
 #     compile(conf_space_CALP, 'CALP')
+
+        #peptide_num_start += 1
 #
 #
 # print('Conformation space preparation complete!')
