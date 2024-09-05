@@ -6,15 +6,16 @@ from Bio.PDB import PDBParser, PDBIO
 # this handles PDB prep including atomic labelling, bonds, protonation, minimization, and inversions
 # this supposes a D-peptide in complex with an L-target, with the L-target listed 1st in the PDB (index 0)
 
-# design preprocess step one: change atomic labelling
+
+# design preprocess step one: precheck PRO + change atomic labelling
 # commonly, PDB atom labels for carbon don't match ambertools templates. Let's change this manually to avoid
 # any issues with adding missing atoms
 
 # this is the directory where the MASTER-returned D:L complexes are stored. Forward slash is required.
 directory = "scaffolds/"
-
 for f in os.listdir(directory):
     file = os.path.join(directory, f)
+
 
     # create the required BioPython modules so we can work with the PDB
     parser = PDBParser(PERMISSIVE=1)
@@ -24,6 +25,25 @@ for f in os.listdir(directory):
 
     # get 1st PDB in the ensemble
     model = structure[0]
+
+
+    # OSPREY fragments prevent designs with proteins that contain N/C-term prolines
+    # if the PDB has this N/C-term residue, skip the match file (we can't design with it)
+    need_skip = False
+    for chain in model:
+        clength = len(chain)
+        counter = 0
+        for res in chain:
+            counter += 1
+            if counter == 1 or counter == clength:
+                # check the term
+                atype = res.get_resname()
+                if atype == "PRO":
+                    print("%s has an N or C-term proline, and will not be processed." % filename)
+                    need_skip = True
+                    break
+    if need_skip:
+        continue
 
     # MOST COMMON: change CD -> CD1 labelling
     # affected residues: ILE, LEU, PHE, TRP, TYR
