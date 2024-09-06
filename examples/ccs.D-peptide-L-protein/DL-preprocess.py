@@ -6,16 +6,14 @@ from Bio.PDB import PDBParser, PDBIO
 # this handles PDB prep including atomic labelling, bonds, protonation, minimization, and inversions
 # this supposes a D-peptide in complex with an L-target, with the L-target listed 1st in the PDB (index 0)
 
-
-# design preprocess step one: precheck PRO + change atomic labelling
-# commonly, PDB atom labels for carbon don't match ambertools templates. Let's change this manually to avoid
-# any issues with adding missing atoms
-
-# this is the directory where the MASTER-returned D:L complexes are stored. Forward slash is required.
+# this is the directory where the D:L complexes are stored. Forward slash is required.
 directory = "scaffolds/"
 for f in os.listdir(directory):
     file = os.path.join(directory, f)
 
+    # design preprocess step one: precheck PRO + change atomic labelling
+    # commonly, PDB atom labels for carbon don't match ambertools templates. Let's change this manually to avoid
+    # any issues with adding missing atoms
 
     # create the required BioPython modules so we can work with the PDB
     parser = PDBParser(PERMISSIVE=1)
@@ -26,9 +24,8 @@ for f in os.listdir(directory):
     # get 1st PDB in the ensemble
     model = structure[0]
 
-
-    # OSPREY fragments prevent designs with proteins that contain N/C-term prolines
-    # if the PDB has this N/C-term residue, skip the match file (we can't design with it)
+    # OSPREY anchor coords prevent designs with proteins that contain N/C-term prolines
+    # if the PDB has this N/C-term residue, skip the match file (we can't design with it, for now)
     need_skip = False
     for chain in model:
         clength = len(chain)
@@ -106,7 +103,7 @@ for f in os.listdir(directory):
                 print('added missing atom: %s' % missing_atom)
 
         # strip and add Hs
-        # We don't know if the PDB depositor used reliable protonation software, so let's remove and use our own.
+        # We don't know if the PDB depositor used reliable protonation software, so let's remove and use our own
         # it's also very possible no H are present, but it's a good idea to check
         for mol in mols:
             osprey.prep.deprotonate(mol)
@@ -126,7 +123,7 @@ for f in os.listdir(directory):
         print('saved prepared PDB to %s' % L_peptide_file)
 
     # get the L-target chain
-    # OSPREY prep adds END to the PDB, which will throw a biopython warning. This can be safely ignored.
+    # OSPREY prep adds "END" to the PDB, which will throw a biopython warning. This can be safely ignored.
     target_structure = parser.get_structure('L_target', L_target_file)
 
     # flip the L-peptide back to D-space + add to the L-target
@@ -145,7 +142,7 @@ for f in os.listdir(directory):
     L_filename = file[:-12] + "-D-L-complex.pdb"
     io.save(L_filename)
 
-    # design preprocess step two: minimize the D-ligand wrt the L-target
+    # design preprocess step 5: minimize the D-ligand wrt the L-target
     # SANDER requires the chemical context of the D-L context for minimization, so we must pass the complex
 
     # save the minimized complex

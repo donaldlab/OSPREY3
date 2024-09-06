@@ -288,7 +288,6 @@ def combine_Confspace_posns(tposn, pposn, num_atoms):
             continue
 
         # scale atom id lists
-        # TODO: fix spacing
         asearcher = re.search(r"atoms = \[.*]", line)
         if asearcher:
             old_atoms_str = asearcher.group()
@@ -344,33 +343,30 @@ def combine_Confspace_posns(tposn, pposn, num_atoms):
     return tp_posns
 
 
-# example calls for testing
+# uses above functions to combine to confspace files
+# expects an L-space target file and D-space peptide file
+# destination is the output filepath
+def combine_Confspaces(tfile, pfile, destination):
 
-target_abp = get_Confspace_abp("match1-target-ASN1171.confspace")
-peptide_abp = get_Confspace_abp("match1-peptide-ASN1171.confspace")
-tp_abp = combine_Confspace_abp(target_abp, peptide_abp)
+    # get abp
+    target_abp = get_Confspace_abp(tfile)
+    peptide_abp = get_Confspace_abp(pfile)
+    tp_abp = combine_Confspace_abp(target_abp, peptide_abp)
 
-# with open('match1-abp.confspace', 'w') as file:
-#     file.write(tp_abp)
+    # get lovell + WT libraries
+    target_lib = get_Confspace_lib(tfile)
+    peptide_lib = get_Confspace_lib(pfile)
+    tp_lib = combine_Confspace_lib(target_lib, peptide_lib)
 
-target_lib = get_Confspace_lib("match1-target-ASN1171.confspace")
-peptide_lib = get_Confspace_lib("match1-peptide-ASN1171.confspace")
-tp_lib = combine_Confspace_lib(target_lib, peptide_lib)
+    # get design positions
+    target_posn = get_Confspace_posns(tfile)
+    peptide_posn = get_Confspace_posns(pfile)
+    num_tatoms = get_num_atoms(target_abp)
+    tp_posns = combine_Confspace_posns(target_posn, peptide_posn, num_tatoms)
 
-# with open('match1-lib.confspace', 'w') as file:
-#     file.write(tp_abp)
+    # combine with simple string addition
+    total = tp_abp + tp_lib + tp_posns
 
-target_posn = get_Confspace_posns("match1-target-ASN1171.confspace")
-peptide_posn = get_Confspace_posns("match1-peptide-ASN1171.confspace")
-num_tatoms = get_num_atoms(target_abp)
-tp_posns = combine_Confspace_posns(target_posn, peptide_posn, num_tatoms)
-
-
-# with open('match1-posn.confspace', 'w') as file:
-#     file.write(tp_posns)
-
-# combine with simple string addition
-total = tp_abp + tp_lib + tp_posns
-
-# with open('match1-all.confspace', 'w') as file:
-#     file.write(total)
+    # write to destination
+    with open(destination, 'w') as file:
+        file.write(total)
