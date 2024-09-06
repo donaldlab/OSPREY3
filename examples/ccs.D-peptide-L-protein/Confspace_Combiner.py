@@ -344,17 +344,21 @@ def combine_Confspace_posns(tposn, pposn, num_atoms):
     return tp_posns
 
 
-# TODO: delete this
+# example calls for testing
+
 target_abp = get_Confspace_abp("match1-target-ASN1171.confspace")
-# peptide_abp = get_Confspace_abp("match1-peptide-ASN1171.confspace")
-# tp_abp = combine_Confspace_abp(target_abp, peptide_abp)
-#
-# with open('match1-compare.confspace', 'w') as file:
+peptide_abp = get_Confspace_abp("match1-peptide-ASN1171.confspace")
+tp_abp = combine_Confspace_abp(target_abp, peptide_abp)
+
+# with open('match1-abp.confspace', 'w') as file:
 #     file.write(tp_abp)
 
-# target_lib = get_Confspace_lib("match1-target-ASN1171.confspace")
-# peptide_lib = get_Confspace_lib("match1-peptide-ASN1171.confspace")
-# tp_lib = combine_Confspace_lib(target_lib, peptide_lib)
+target_lib = get_Confspace_lib("match1-target-ASN1171.confspace")
+peptide_lib = get_Confspace_lib("match1-peptide-ASN1171.confspace")
+tp_lib = combine_Confspace_lib(target_lib, peptide_lib)
+
+# with open('match1-lib.confspace', 'w') as file:
+#     file.write(tp_abp)
 
 target_posn = get_Confspace_posns("match1-target-ASN1171.confspace")
 peptide_posn = get_Confspace_posns("match1-peptide-ASN1171.confspace")
@@ -362,5 +366,11 @@ num_tatoms = get_num_atoms(target_abp)
 tp_posns = combine_Confspace_posns(target_posn, peptide_posn, num_tatoms)
 
 
-with open('match1-compare.confspace', 'w') as file:
-    file.write(tp_posns)
+# with open('match1-posn.confspace', 'w') as file:
+#     file.write(tp_posns)
+
+# combine with simple string addition
+total = tp_abp + tp_lib + tp_posns
+
+# with open('match1-all.confspace', 'w') as file:
+#     file.write(total)
