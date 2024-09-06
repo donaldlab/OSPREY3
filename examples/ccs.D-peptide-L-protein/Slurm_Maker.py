@@ -27,8 +27,3 @@ def make_slurm(match_num: str, memory: int, cpus: int, partition: str, epsilon: 
     slurm_str = slurm_opener + slurm_kstar + cleanup
 
     return slurm_str
-
-
-test = make_slurm("match1", 750, 48, "grisman", 0.05)
-with open('prepared-PDBs/match1.sh', 'w') as file:
-    file.write(test)

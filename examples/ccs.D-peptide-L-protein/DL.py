@@ -316,4 +316,4 @@ for pdb_path in os.listdir(input_directory):
 
         print('\n\n' + match_name + ': Completed round %s / %s for complex\n\n' % (curr_IAS_round, num_IAS_rounds))
 
-    print('completed IAS preparations successfully')
+    print('----------- completed IAS preparations successfully -----------')
