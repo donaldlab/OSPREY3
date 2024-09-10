@@ -12,36 +12,34 @@ import warnings
 warnings.simplefilter('ignore')
 
 
-def chain_renamer(input_directory: str, output_directory: str, desired_target_id: str, desired_peptide_id: str):
+def chain_renamer(complex_pdb: str, desired_target_id: str, desired_peptide_id: str):
 
-    for f in os.listdir(input_directory):
-        input_file = os.path.join(input_directory, f)
+    print("\nRenaming %s IDs. Target ID: %s, Peptide ID: %s.\n" % (complex_pdb, desired_target_id, desired_peptide_id))
 
-        # get the old IDs
-        parser = PDBParser(PERMISSIVE=1)
-        structure = parser.get_structure("complex", input_file)
-        model = structure[0]
+    # get the old IDs
+    parser = PDBParser(PERMISSIVE=1)
+    structure = parser.get_structure("complex", complex_pdb)
+    model = structure[0]
 
-        chain_ids = []
-        for chain in model:
-            chain_ids.append(chain.id)
-        old_target_chain = chain_ids[0]
-        old_peptide_chain = chain_ids[1]
+    chain_ids = []
+    for chain in model:
+        chain_ids.append(chain.id)
+    old_target_chain = chain_ids[0]
+    old_peptide_chain = chain_ids[1]
 
-        # change both IDs
-        for chain in model:
-            if chain.id == old_target_chain:
-                chain.id = desired_target_id
-            elif chain.id == old_peptide_chain:
-                chain.id = desired_peptide_id
+    # change both IDs
+    for chain in model:
+        if chain.id == old_target_chain:
+            chain.id = desired_target_id
+        elif chain.id == old_peptide_chain:
+            chain.id = desired_peptide_id
 
-        # write out the new PDB with suffix -renamed.pdb
-        io = PDBIO()
-        io.set_structure(structure)
-        filename = f[:-4] + "-renamed.pdb"
-        outfile = os.path.join(output_directory, filename)
-        io.save(outfile)
+    # write out the new PDB with suffix -renamed.pdb
+    io = PDBIO()
+    io.set_structure(structure)
+    filename = complex_pdb[:-4] + "-renamed.pdb"
+    io.save(filename)
 
 
 # example call
-# chain_renamer("test", "test2", "z", "y")
+# chain_renamer("8gaj-trim.pdb", "z", "y")

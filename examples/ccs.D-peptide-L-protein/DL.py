@@ -1,26 +1,38 @@
+from Chain_Renamer import *
+from Scaffold_Generator import *
 from Bio.PDB import PDBParser, NeighborSearch
 from Confspace_Combiner import *
 from Slurm_Maker import *
 from pathlib import Path
 import os
+
 import osprey
 osprey.start()
 import osprey.prep
 
-# this files expects a properly-prepared D-L complex PDB file. Use DL-preprocess.py for rapid preprocessing.
+
+# this files expects a properly-prepared D-L complex PDB file. Use DL_preprocess.py for rapid preprocessing.
 # this prepares OSPREY confspace/ccsx files for 1 round of IAS for each residue on the D-peptide.
 # a new directory is created for each D-L complex PDB, with subdirectories for each IAS round.
 
-# TODO: user must provide the following settings:
-# provide the directory (with slash) where ONLY prepared D-L complex PDBs are stored
+# rename the complex pdb
+# chain_renamer("8gaj-trim.pdb", "z", "y")
+
+# create the MASTER scaffolds (D-peptide match, L-target)
+# scaffold_generator("8gaj-trim-renamed.pdb", "matches", "scaffolds")
+
+# preprocess the scaffolds
+# DL_preprocess("scaffolds", "prepared-PDBs")
+
+# provide the directory (with slash) where ONLY prepared D-L complex PDBs are stored (no OMOL, etc.)
+# this should be the output directory of DL_preprocess
 input_directory = 'prepared-PDBs/'
 
 # provide slurm settings
-slurm_mem = 750
-slurm_cpus = 48
-slurm_partition = "grisman"
-kstar_epsilon = 0.05
-
+slurm_mem = 750  # memory in GBs
+slurm_cpus = 48  # num of CPUs per task
+slurm_partition = "grisman"  # which CS partition to run on
+kstar_epsilon = 0.05  # lower epsilon = tighter bounds (and longer runtime)
 
 
 for pdb_path in os.listdir(input_directory):

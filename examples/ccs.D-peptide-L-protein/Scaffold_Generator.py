@@ -11,11 +11,13 @@ import os
 # input_directory is the MASTER matches returns (all PDBs)
 # output_directory is where to put the D-L complexes
 
-# hide warnings - throws for a lot of atom names, but ok
+# hide warnings - throws for a lot of atom names, but is ok
 warnings.simplefilter('ignore')
 
 
 def scaffold_generator(complex_pdb: str, input_directory: str, output_directory: str):
+
+    print("\n\n------ running scaffold generator ------\n\n")
 
     for pdb_path in os.listdir(input_directory):
 
@@ -23,9 +25,6 @@ def scaffold_generator(complex_pdb: str, input_directory: str, output_directory:
         parser = PDBParser(PERMISSIVE=1)
         complex_structure = parser.get_structure('complex', complex_pdb)
         complex_model = complex_structure[0]
-
-        # get the old (L-space) peptide
-        old_peptide = complex_model["y"]
 
         # get the MASTER L-peptide
         full_pdb_path = os.path.join(input_directory, pdb_path)
@@ -74,6 +73,7 @@ def scaffold_generator(complex_pdb: str, input_directory: str, output_directory:
         # update terminal
         print("------ completed %s ------" % pdb_path)
 
+    print("\n\nscaffold generation completed\n\n")
 
 # example call
 # scaffold_generator("8gaj-trim-renamed.pdb", "matches", "scaffolds")

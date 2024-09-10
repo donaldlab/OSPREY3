@@ -1,5 +1,6 @@
 import os
 from Bio.PDB import PDBParser, PDBIO
+import warnings
 
 # this handles PDB prep including atomic labelling, bonds, protonation, minimization, and inversions
 # this supposes a D-peptide in complex with an L-target, with the L-target listed 1st in the PDB (index 0)
@@ -7,10 +8,22 @@ from Bio.PDB import PDBParser, PDBIO
 # input_directory = where PDBs (from Scaffold_Generator) are located
 # output_directory = where to save the processed matches
 
+# hide construction warnings
+warnings.simplefilter('ignore')
+
 
 def DL_preprocess(input_directory: str, output_directory: str):
 
+    print("------ beginning PDB preprocessing ------")
+
+    # start OSPREY JVM
+    import osprey
+    osprey.start()
+    import osprey.prep
+
     for f in os.listdir(input_directory):
+        print("\n\npreprocessing %s\n\n" % f)
+
         input_file = os.path.join(input_directory, f)
         output_file = os.path.join(output_directory, f)
 
@@ -82,9 +95,6 @@ def DL_preprocess(input_directory: str, output_directory: str):
         # ambertools has trouble with D-peptide protonation, so we'll prepare everything in L-space, then flip back
 
         # load in the L-L complex
-        import osprey
-        osprey.start()
-        import osprey.prep
         pdb = osprey.prep.loadPDB(open(L_filename, 'r').read())
         target = pdb[0]
         peptide = pdb[1]
@@ -141,13 +151,21 @@ def DL_preprocess(input_directory: str, output_directory: str):
         # save the D-L complex
         io = PDBIO()
         io.set_structure(target_structure)
-        L_filename = output_file[:-12] + "-D-L-complex.pdb"
-        io.save(L_filename)
+        complex_filename = output_file[:-12] + "-D-L-complex.pdb"
+        io.save(complex_filename)
 
         # design preprocess step 5: minimize the D-ligand wrt the L-target
         # SANDER requires the chemical context of the D-L context for minimization, so we must pass the complex
 
         # save the minimized complex
+
+        # cleanup intermediate files
+        os.remove(L_filename)
+        os.remove(L_target_file)
+        os.remove(L_peptide_file)
+
+    print("\n\n ------ successfully completed PDB preprocessing ------\n\n")
+
 
 # example call
 # DL_preprocess("scaffolds", "prepared-PDBs")
