@@ -229,6 +229,7 @@ for pdb_path in os.listdir(input_directory):
 
     # prepare the peptide conformation spaces
     # for each residue in the peptide, create a confspace that assigns all 20 AA to the residue
+    # set all other residues to be ALA
 
     # reset the IAS rounder counter
     curr_IAS_round = 0
@@ -256,6 +257,12 @@ for pdb_path in os.listdir(input_directory):
         # add the 19 AA identities to the 'mutations' confspace (WT is not really a mutant)
         peptide_mut = peptide_conf_space.addPosition(osprey.prep.ProteinDesignPosition(peptide_conf, peptide_chain_id, s))
         peptide_conf_space.addMutations(peptide_mut, amino_acids)
+
+        # IAS: change all other residues to only ALA (no WT)
+        for other_res in peptide_set:
+            if s != other_res:
+                other_mut = peptide_conf_space.addPosition(osprey.prep.ProteinDesignPosition(peptide_conf, peptide_chain_id, other_res))
+                peptide_conf_space.addMutations(other_mut, 'ALA')
 
         # report the peptide conf space for this IAS round
         print('conformation space describes %s sequences:' % peptide_conf_space.countSequences())
