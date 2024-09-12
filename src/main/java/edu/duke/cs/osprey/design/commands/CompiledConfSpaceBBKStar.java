@@ -51,9 +51,6 @@ public class CompiledConfSpaceBBKStar implements CliCommand {
     @Parameter(names = "--stability-threshold", description = "Pruning criteria to remove sequences with unstable unbound states relative to the wild type sequence. Set to a negative number to disable.")
     public double stabilityThreshold = 5.0;
 
-    @Parameter(names = {"--max-confs"}, description = "Number of lowest energy conformations to save. Off by default.")
-    public int maxConfs = -1;
-
     @Parameter(names = "--ensemble-dir", description = "Directory to save each sequence's structural ensemble in. Defaults to current working directory.")
     public String ensembleDir = ".";
 
@@ -70,7 +67,7 @@ public class CompiledConfSpaceBBKStar implements CliCommand {
     public int NumBestSequences = 20;
 
     @Parameter(names = "--show-pfunc-prog", description = "Output the partition function progress during search?")
-    boolean showPfunc = true;
+    boolean showPfunc = false;
 
     @Override
     public String getCommandName() {
@@ -202,13 +199,12 @@ public class CompiledConfSpaceBBKStar implements CliCommand {
                     .replace(' ', '-');
 
             // set where file is saved + name
-            File ensembleFile = new File(String.format("seq.%s.pdb", seqstr));
+            File ensembleFile = new File(String.format(ensembleDir + "/seq.%s.pdb", seqstr));
 
-            // write the PDB (can also set filepath here)
+            // write the PDB
             analysis.writePdb(ensembleFile.getAbsolutePath(), String.format("Top %d conformations for sequence %s",
                     writeNConfs, sequence.sequence()));
         }
-
 
         // cleanup
         for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
