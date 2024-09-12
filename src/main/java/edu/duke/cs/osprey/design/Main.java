@@ -37,6 +37,7 @@ public class Main {
 //                CommandMakeFlexShell.CommandName, new CommandMakeFlexShell(),
 //                CommandKStar.CommandName, new CommandKStar(),
                 CompiledConfSpaceKStar.CommandName, new CompiledConfSpaceKStar(),
+                CompiledConfSpaceBBKStar.CommandName, new CompiledConfSpaceBBKStar(),
                 CommandInvert.CommandName, new CommandInvert()
         );
 
