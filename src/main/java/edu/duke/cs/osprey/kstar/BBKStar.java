@@ -331,12 +331,12 @@ public class BBKStar {
 			BigDecimal complexUpperBound = calcUpperBound(complex, sequence, numConfs);
 
 			// compute the node score
-			score = MathTools.bigDivideDivide(
+			score = exp.log10(MathTools.bigDivideDivide(
 				complexUpperBound,
 				proteinLowerBound,
 				ligandLowerBound,
 				PartitionFunction.decimalPrecision
-			).doubleValue();
+			));
 			isUnboundUnstable = false;
 		}
 
@@ -462,7 +462,7 @@ public class BBKStar {
 			}
 
 			// update the score
-			score = exp.log10(makeKStarScore().upperBound);
+			score = makeKStarScore().upperBoundLog10();
 			isUnboundUnstable = false;
 
 			// tank sequences that have no useful K* bounds, and are blocked
