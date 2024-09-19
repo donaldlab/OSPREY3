@@ -69,6 +69,9 @@ public class CompiledConfSpaceBBKStar implements CliCommand {
     @Parameter(names = "--show-pfunc-prog", description = "Output the partition function progress during search?")
     boolean showPfunc = false;
 
+    @Parameter(names = "--num-confs-batch", description = "Number of conformations per batch. Make this an even multiple of available threads.")
+    public int numConfsBatch = 8;
+
     @Override
     public String getCommandName() {
         return CommandName;
@@ -114,7 +117,7 @@ public class CompiledConfSpaceBBKStar implements CliCommand {
                  // # of best seqs before BBK* stops
                  .setNumBestSequences(NumBestSequences)
                 // make this even multiple of available threads
-                // .setNumConfsPerBatch(8)
+                .setNumConfsPerBatch(numConfsBatch)
                 .build();
         BBKStar bbkstar = new BBKStar(target, design, complex, kstarSettings, bbkstarSettings);
 
