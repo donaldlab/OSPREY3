@@ -32,6 +32,7 @@ input_directory = 'prepared-PDBs/'
 slurm_mem = 750  # memory in GBs
 slurm_cpus = 48  # num of CPUs per task
 slurm_partition = "grisman"  # which CS partition to run on
+osprey_install = "~/software/osprey3-3.3/bin/osprey3" # where osprey executable is located
 kstar_epsilon = 0.05  # lower epsilon = tighter bounds (and longer runtime)
 
 
@@ -325,7 +326,7 @@ for pdb_path in os.listdir(input_directory):
         # insert the slurm script and an empty ensemble directory (for Kstar outputs)
         ensemble_dir = target_subdirectory + 'ensembles/'
         Path(ensemble_dir).mkdir(exist_ok=True)
-        slurm_info = make_slurm(match_name, slurm_mem, slurm_cpus, slurm_partition, kstar_epsilon)
+        slurm_info = make_slurm(match_name, slurm_mem, slurm_cpus, slurm_partition, osprey_install, kstar_epsilon)
         slurm_filename = target_subdirectory + match_name + '-' + curr_residue + '.sh'
         with open(slurm_filename, 'w') as file:
             file.write(slurm_info)
