@@ -94,20 +94,6 @@ public class CompiledConfSpaceBBKStar implements CliCommand {
         var taskExecutor = new Parallelism(Runtime.getRuntime().availableProcessors(), 0, 0)
                 .makeTaskExecutor();
 
-        var end1 = System.currentTimeMillis();
-        System.out.printf("Took %f seconds to get files and start task%n", (end1 - start) / 1000.);
-
-        // format Kstar score information
-        KStarScoreWriter.Formatter testFormatter = info ->
-                String.format("%3d %s   protein: %s   ligand: %s   complex: %s   K*: %s",
-                        info.sequenceNumber,
-                        info.sequence.toString(Sequence.Renderer.ResType),
-                        info.kstarScore.protein.toString(),
-                        info.kstarScore.ligand.toString(),
-                        info.kstarScore.complex.toString(),
-                        info.kstarScore.toString()
-                );
-
         // customize Kstar and BBKstar settings
         KStarSettings kstarSettings = new KStarSettings.Builder()
                 .setEpsilon(epsilon)
@@ -116,7 +102,6 @@ public class CompiledConfSpaceBBKStar implements CliCommand {
                 .setMaxSimultaneousMutations(maxSimultaneousMutations)
                 // set false to disable lots of printouts
                 .setShowPfuncProgress(showPfunc)
-                .addScoreConsoleWriter(testFormatter)
                 .build();
         BBKStar.Settings bbkstarSettings = new BBKStar.Settings.Builder()
                  // # of best seqs before BBK* stops
@@ -124,11 +109,10 @@ public class CompiledConfSpaceBBKStar implements CliCommand {
                 // make this even multiple of available threads
                 .setNumConfsPerBatch(numConfsBatch)
                 .build();
+
+
         BBKStar bbkstar = new BBKStar(target, design, complex, kstarSettings, bbkstarSettings);
 
-
-        var end2 = System.currentTimeMillis();
-        System.out.printf("Took %f seconds to do Kstar/BBKstar settings%n", (end2 - end1) / 1000.);
 
         for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
 
@@ -189,14 +173,11 @@ public class CompiledConfSpaceBBKStar implements CliCommand {
             ).setPreciseBcalc(true);
         }
 
-        var end3 = System.currentTimeMillis();
-        System.out.printf("Took %f seconds to define confspace%n", (end3 - end2) / 1000.);
+        System.out.println("prep finished");
 
         // run BBK*
         List<ScoredSequence> sequences = bbkstar.run(taskExecutor);
 
-        var end4 = System.currentTimeMillis();
-        System.out.printf("Took %f seconds to run BBKStar%n", (end4 - end3) / 1000.);
 
         int lsize = sequences.size();
         System.out.println("Length of sequences: " + lsize);
@@ -224,8 +205,6 @@ public class CompiledConfSpaceBBKStar implements CliCommand {
                     writeNConfs, sequence.sequence()));
         }
 
-        var end5 = System.currentTimeMillis();
-        System.out.printf("Took %f seconds for sequence analyzer%n", (end5 - end4) / 1000.);
 
         // cleanup
         for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
@@ -234,9 +213,9 @@ public class CompiledConfSpaceBBKStar implements CliCommand {
             }
         }
 
-        var end6 = System.currentTimeMillis();
-        System.out.printf("Took %f seconds to cleanup%n", (end6 - end5) / 1000.);
 
+        var end = System.currentTimeMillis();
+        System.out.printf("Took %f seconds%n", (end - start) / 1000.);
 
 
         return Main.Success;

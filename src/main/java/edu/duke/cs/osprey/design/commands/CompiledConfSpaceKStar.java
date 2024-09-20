@@ -69,6 +69,9 @@ public class CompiledConfSpaceKStar implements CliCommand {
 
     @Override
     public int run(JCommander commander, String[] args) {
+
+        var start = System.currentTimeMillis();
+
         var taskExecutor = new Parallelism(Runtime.getRuntime().availableProcessors(), 0, 0)
                 .makeTaskExecutor();
 
@@ -163,6 +166,10 @@ public class CompiledConfSpaceKStar implements CliCommand {
         kstar.putSequenceComputedListener(statsWriter);
 
         List<ScoredSequence> sequences = kstar.run(taskExecutor);
+
+        var end = System.currentTimeMillis();
+        System.out.printf("Took %f seconds%n", (end - start) / 1000.);
+
         return Main.Success;
     }
 }
