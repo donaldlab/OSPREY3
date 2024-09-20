@@ -85,12 +85,17 @@ public class CompiledConfSpaceBBKStar implements CliCommand {
     @Override
     public int run(JCommander commander, String[] args) {
 
+        var start = System.currentTimeMillis();
+
         var design = ConfSpace.fromBytes(FileTools.readFileBytes(designConfSpacePath));
         var complex = ConfSpace.fromBytes(FileTools.readFileBytes(complexConfSpacePath));
         var target = ConfSpace.fromBytes(FileTools.readFileBytes(targetConfSpacePath));
 
         var taskExecutor = new Parallelism(Runtime.getRuntime().availableProcessors(), 0, 0)
                 .makeTaskExecutor();
+
+        var end1 = System.currentTimeMillis();
+        System.out.printf("Took %f seconds to get files and start task%n", (end1 - start) / 1000.);
 
         // format Kstar score information
         KStarScoreWriter.Formatter testFormatter = info ->
@@ -120,6 +125,10 @@ public class CompiledConfSpaceBBKStar implements CliCommand {
                 .setNumConfsPerBatch(numConfsBatch)
                 .build();
         BBKStar bbkstar = new BBKStar(target, design, complex, kstarSettings, bbkstarSettings);
+
+
+        var end2 = System.currentTimeMillis();
+        System.out.printf("Took %f seconds to do Kstar/BBKstar settings%n", (end2 - end1) / 1000.);
 
         for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
 
@@ -180,8 +189,15 @@ public class CompiledConfSpaceBBKStar implements CliCommand {
             ).setPreciseBcalc(true);
         }
 
+        var end3 = System.currentTimeMillis();
+        System.out.printf("Took %f seconds to define confspace%n", (end3 - end2) / 1000.);
+
         // run BBK*
         List<ScoredSequence> sequences = bbkstar.run(taskExecutor);
+
+        var end4 = System.currentTimeMillis();
+        System.out.printf("Took %f seconds to run BBKStar%n", (end4 - end3) / 1000.);
+
         int lsize = sequences.size();
         System.out.println("Length of sequences: " + lsize);
 
@@ -195,7 +211,6 @@ public class CompiledConfSpaceBBKStar implements CliCommand {
 
             // set # conformations printed in ensemble + analyze
             SequenceAnalyzer.Analysis analysis = analyzer.analyze(sequence.sequence(), writeNConfs);
-            System.out.println(analysis);
 
             // formats seqstr for file outputs (only changes filename)
             String seqstr = sequence.sequence().toString(Sequence.Renderer.ResTypeMutations)
@@ -209,14 +224,20 @@ public class CompiledConfSpaceBBKStar implements CliCommand {
                     writeNConfs, sequence.sequence()));
         }
 
+        var end5 = System.currentTimeMillis();
+        System.out.printf("Took %f seconds for sequence analyzer%n", (end5 - end4) / 1000.);
+
         // cleanup
         for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
             if (info.confEcalcMinimized != null) {
                 ((ConfEnergyCalculatorAdapter) info.confEcalcMinimized).confEcalc.close();
             }
-
-
         }
+
+        var end6 = System.currentTimeMillis();
+        System.out.printf("Took %f seconds to cleanup%n", (end6 - end5) / 1000.);
+
+
 
         return Main.Success;
     }
