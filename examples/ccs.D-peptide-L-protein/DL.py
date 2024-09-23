@@ -5,6 +5,7 @@ from Confspace_Combiner import *
 from Slurm_Maker import *
 from pathlib import Path
 import os
+import time
 
 import osprey
 osprey.start()
@@ -32,11 +33,17 @@ input_directory = 'prepared-PDBs/'
 slurm_mem = 750  # memory in GBs
 slurm_cpus = 48  # num of CPUs per task
 slurm_partition = "grisman"  # which CS partition to run on
-osprey_install = "~/software/osprey3-3.3/bin/osprey3" # where osprey executable is located
-kstar_epsilon = 0.05  # lower epsilon = tighter bounds (and longer runtime)
+osprey_install = "~/software/osprey3-3.3/bin/osprey3"  # where osprey executable is located
+kstar_epsilon = 0.683  # lower epsilon = tighter bounds (and longer runtime)
 
+# trackers
+total_time = 0
+total_matches = 0
 
 for pdb_path in os.listdir(input_directory):
+
+    start_time = time.time()
+    total_matches += 1
 
     original_pdb_path = os.path.join(input_directory, pdb_path)
 
@@ -336,4 +343,9 @@ for pdb_path in os.listdir(input_directory):
 
         print('\n\n' + match_name + ': Completed round %s / %s for complex\n\n' % (curr_IAS_round, num_IAS_rounds))
 
+        runtime = (time.time() - start_time)
+        total_time += runtime
+        print("This match took %s seconds" % runtime)
+
     print('----------- completed IAS preparations successfully -----------')
+    print("total runtime was %s seconds for %s matches" % (total_time, total_matches))
