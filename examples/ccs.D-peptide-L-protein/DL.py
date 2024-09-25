@@ -39,6 +39,7 @@ kstar_epsilon = 0.683  # lower epsilon = tighter bounds (and longer runtime)
 # trackers
 total_time = 0
 total_matches = 0
+failed_matches = []
 
 for pdb_path in os.listdir(input_directory):
 
@@ -163,11 +164,19 @@ for pdb_path in os.listdir(input_directory):
 
         # check for compiler errors
         if report.getError() is not None:
+            fail_name = ""
+            for letter in name:
+                if letter != '/':
+                    fail_name += letter
+                else:
+                    break
+            if fail_name not in failed_matches:
+                failed_matches.append(fail_name)
             raise Exception('Compilation failed', report.getError())
 
         # save the compiled conf space
         path = '%s' % name
-        print('saving %s to %s ...' % (name, path))
+        print('saving to %s ...' % path)
         open(path, 'wb').write(osprey.prep.saveCompiledConfSpace(report.getCompiled()))
 
     # prepare each round of IAS for the target (L-space)
@@ -228,7 +237,10 @@ for pdb_path in os.listdir(input_directory):
 
             # compile the target confspace
             target_ccsx_path = target_confspace_path[:-9] + 'ccsx'
-            compile(target_conf_space, target_ccsx_path)
+            try:
+                compile(target_conf_space, target_ccsx_path)
+            except:
+                print("There was a compiler error for %s. Adding to log." % target_ccsx_path)
 
             # index the current IAS round
             curr_IAS_round += 1
@@ -311,7 +323,10 @@ for pdb_path in os.listdir(input_directory):
         # compile the peptide residue confspace
         with osprey.prep.LocalService():
             peptide_ccsx_path = peptide_confspace_path[:-9] + 'ccsx'
-            compile(peptide_conf_space, peptide_ccsx_path)
+            try:
+                compile(peptide_conf_space, peptide_ccsx_path)
+            except:
+                print("There was a compiler error for %s. Adding to log." % peptide_ccsx_path)
         print('\n\n' + match_name + ': Completed round %s / %s for peptide\n\n' % ((curr_IAS_round + 1), num_IAS_rounds))
 
         # combine the pep residue with its respective target IAS round
@@ -328,7 +343,10 @@ for pdb_path in os.listdir(input_directory):
 
             # compile the complex
             complex_ccsx_path = complex_confspace_path[:-9] + 'ccsx'
-            compile(complex_confspace, complex_ccsx_path)
+            try:
+                compile(complex_confspace, complex_ccsx_path)
+            except:
+                print("There was a compiler error for %s. Adding to log." % complex_ccsx_path)
 
         # insert the slurm script and an empty ensemble directory (for Kstar outputs)
         ensemble_dir = target_subdirectory + 'ensembles/'
@@ -343,9 +361,12 @@ for pdb_path in os.listdir(input_directory):
 
         print('\n\n' + match_name + ': Completed round %s / %s for complex\n\n' % (curr_IAS_round, num_IAS_rounds))
 
-        runtime = (time.time() - start_time)
-        total_time += runtime
-        print("This match took %s seconds" % runtime)
+    runtime = (time.time() - start_time)
+    total_time += runtime
+    print("This match took %s seconds" % runtime)
 
-    print('----------- completed IAS preparations successfully -----------')
-    print("total runtime was %s seconds for %s matches" % (total_time, total_matches))
+print('\n\n----------- completed IAS preparations successfully -----------')
+print("total runtime was %s seconds for %s matches" % (total_time, total_matches))
+print("The following matches failed to compile, and should not be used for design:")
+for f in failed_matches:
+    print(f)
