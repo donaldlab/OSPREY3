@@ -1,3 +1,5 @@
+import shutil
+
 from Chain_Renamer import *
 from Scaffold_Generator import *
 from Bio.PDB import PDBParser, NeighborSearch
@@ -367,6 +369,7 @@ for pdb_path in os.listdir(input_directory):
 
 print('\n\n----------- completed IAS preparations successfully -----------')
 print("total runtime was %s seconds for %s matches" % (total_time, total_matches))
-print("The following matches failed to compile, and should not be used for design:")
+print("The following matches failed to compile and will be deleted:")
 for f in failed_matches:
-    print(f)
+    shutil.rmtree(f)
+    print("succesfully deleted %s" % f)

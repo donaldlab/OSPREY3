@@ -1,6 +1,6 @@
 package edu.duke.cs.osprey.design.commands;
 
-// from Nate (change Kstar to *)
+
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
@@ -20,6 +20,7 @@ import edu.duke.cs.osprey.energy.compiled.PosInterGen;
 import edu.duke.cs.osprey.kstar.*;
 import edu.duke.cs.osprey.kstar.pfunc.NewGradientDescentPfunc;
 import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.tools.FileTools;
 
 import java.io.File;
@@ -48,6 +49,9 @@ public class CompiledConfSpaceBBKStar implements CliCommand {
     @Parameter(names = "--target-confspace", description = "Path to the compiled target conformation space file.", required = true)
     private String targetConfSpacePath;
 
+    @Parameter(names = "--num-cpus", description = "The number of available threads.", required = true)
+    public int numcpus;
+
     @Parameter(names = "--stability-threshold", description = "Pruning criteria to remove sequences with unstable unbound states relative to the wild type sequence. Set to a negative number to disable.")
     public double stabilityThreshold = 5.0;
 
@@ -64,13 +68,16 @@ public class CompiledConfSpaceBBKStar implements CliCommand {
     double epsilon = 0.683;
 
     @Parameter(names = "--num-best-seqs", description = "The number of sequences before BBKStar stops.")
-    public int NumBestSequences = 20;
+    public int NumBestSequences = 5;
 
     @Parameter(names = "--show-pfunc-prog", description = "Output the partition function progress during search?")
     boolean showPfunc = false;
 
     @Parameter(names = "--num-confs-batch", description = "Number of conformations per batch. Make this an even multiple of available threads.")
-    public int numConfsBatch = 8;
+    public int numConfsBatch = (numcpus * 2);
+
+    @Parameter(names = "--queue-size", description = "Size of the queue for parallelism.")
+    public int qsize = 0;
 
     @Override
     public String getCommandName() {
@@ -91,9 +98,6 @@ public class CompiledConfSpaceBBKStar implements CliCommand {
         var complex = ConfSpace.fromBytes(FileTools.readFileBytes(complexConfSpacePath));
         var target = ConfSpace.fromBytes(FileTools.readFileBytes(targetConfSpacePath));
 
-        var taskExecutor = new Parallelism(Runtime.getRuntime().availableProcessors(), 0, 0)
-                .makeTaskExecutor();
-
         // customize Kstar and BBKstar settings
         KStarSettings kstarSettings = new KStarSettings.Builder()
                 .setEpsilon(epsilon)
@@ -113,6 +117,13 @@ public class CompiledConfSpaceBBKStar implements CliCommand {
 
         BBKStar bbkstar = new BBKStar(target, design, complex, kstarSettings, bbkstarSettings);
 
+        var pbuilder = new Parallelism.Builder();
+        pbuilder.setNumCpus(numcpus);
+        pbuilder.setNumGpus(0);
+        pbuilder.setNumStreamsPerGpu(0);
+        var tasks1 = pbuilder.build();
+        var tasks = tasks1.makeTaskExecutor(qsize);
+
 
         for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
 
@@ -128,10 +139,10 @@ public class CompiledConfSpaceBBKStar implements CliCommand {
             SimpleReferenceEnergies eref = new ErefCalculator.Builder(ecalc)
                     .setMinimize(true)
                     .build()
-                    .calc();
+                    .calc(tasks);
 
             // create energy calculator amenable to ccsx file format
-            info.confEcalcMinimized = new ConfEnergyCalculatorAdapter.Builder(ecalc, taskExecutor)
+            info.confEcalcMinimized = new ConfEnergyCalculatorAdapter.Builder(ecalc, tasks)
                     .setPosInterDist(posInterDist)
                     .setReferenceEnergies(eref)
                     .setMinimize(true)
@@ -145,7 +156,7 @@ public class CompiledConfSpaceBBKStar implements CliCommand {
                     .setMinimize(true)
                     .setIncludeStaticStatic(includeStaticStatic)
                     .build()
-                    .calc();
+                    .calc(tasks);
             info.confSearchFactoryMinimized = (rcs) ->
                     new ConfAStarTree.Builder(ematMinimized, rcs)
                             .setTraditional()
@@ -158,7 +169,7 @@ public class CompiledConfSpaceBBKStar implements CliCommand {
                     .setMinimize(false)
                     .setIncludeStaticStatic(includeStaticStatic)
                     .build()
-                    .calc();
+                    .calc(tasks);
             info.confSearchFactoryRigid = (rcs) ->
                     new ConfAStarTree.Builder(ematRigid, rcs)
                             .setTraditional()
@@ -173,10 +184,8 @@ public class CompiledConfSpaceBBKStar implements CliCommand {
             ).setPreciseBcalc(true);
         }
 
-        System.out.println("prep finished");
-
         // run BBK*
-        List<ScoredSequence> sequences = bbkstar.run(taskExecutor);
+        List<ScoredSequence> sequences = bbkstar.run(tasks);
 
 
         int lsize = sequences.size();
