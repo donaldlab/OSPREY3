@@ -29,7 +29,7 @@ kstar = osprey.KStar(
 
     # save the sequence results somewhere so we can find them later
     writeSequencesToConsole=True,
-    writeSequencesToFile='sequences.tsv',
+    # writeSequencesToFile='sequences.tsv',
 
     # search for up to double mutants
     maxSimultaneousMutations=1000,
@@ -77,11 +77,11 @@ scored_sequences = kstar.run(tasks)
 
 # use results
 analyzer = osprey.SequenceAnalyzer(kstar)
+counter = 1
+print("results")
 for scored_sequence in scored_sequences:
-
-    print("result:")
-    print("\tsequence: %s" % scored_sequence.sequence)
-    print("\tscore: %s" % scored_sequence.score)
+    print(" " + str(counter) + "," + str(scored_sequence.sequence) + "," + str(scored_sequence.score))
+    counter += 1
 
     # write the sequence ensemble
     numConfs = 10
