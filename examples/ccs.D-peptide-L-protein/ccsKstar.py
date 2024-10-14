@@ -1,10 +1,15 @@
 import sys
+import time
 
 import osprey
-osprey.start()
+
+# start OSPREY w/ lots of memory (in MiB)
+osprey.start(heapSizeMiB=572205, garbageSizeMiB=19074)
 
 # import the compiled conformation spaces module after starting Osprey
 import osprey.ccs
+
+start_time = time.time()
 
 
 # get CL args
@@ -35,7 +40,11 @@ kstar = osprey.KStar(
     maxSimultaneousMutations=1000,
 
     # turn this one off when you get tired of the log spam
-    showPfuncProgress=False
+    showPfuncProgress=False,
+
+    # use external memory
+    # useExternalMemory=True
+
 )
 
 # more cores is more faster
@@ -77,11 +86,7 @@ scored_sequences = kstar.run(tasks)
 
 # use results
 analyzer = osprey.SequenceAnalyzer(kstar)
-counter = 1
-print("results")
 for scored_sequence in scored_sequences:
-    print(" " + str(counter) + "," + str(scored_sequence.sequence) + "," + str(scored_sequence.score))
-    counter += 1
 
     # write the sequence ensemble
     numConfs = 10
@@ -91,3 +96,7 @@ for scored_sequence in scored_sequences:
         'ensembles/seq.%s.pdb' % scored_sequence.sequence,
         'Top %d conformations for sequence %s' % (numConfs, scored_sequence.sequence)
     )
+
+end_time = time.time()
+
+print("KStar runtime was %s seconds" % (end_time - start_time))
