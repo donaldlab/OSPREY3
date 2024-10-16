@@ -101,27 +101,27 @@ def jobs_running():
 # convert a list of dictionaries for a given residue to ddG
 def convert_ddG(s_list, fname):
 
-    wt_score = 1001
-
-    for entry in s_list:
-        if entry["RESID"].islower():
-            wt_score = entry["DDG"]
-            break
-
-    if wt_score == 1001:
-        print("ERROR! Was unable to find WT score for %s" % fname)
-        exit()
-
-    raw_wt = pow(10, wt_score)
-    dg_wt = -1 * 8.3145 * 298 * math.log(raw_wt)
-    dg_wt_kcal = dg_wt * (1 / 4184)
+    # wt_score = 1001
+    #
+    # for entry in s_list:
+    #     if entry["RESID"].islower():
+    #         wt_score = entry["DDG"]
+    #         break
+    #
+    # if wt_score == 1001:
+    #     print("ERROR! Was unable to find WT score for %s" % fname)
+    #     exit()
+    #
+    # raw_wt = pow(10, wt_score)
+    # dg_wt = -1 * 8.3145 * 298 * math.log(raw_wt)
+    # dg_wt_kcal = dg_wt * (1 / 4184)
 
     for entry in s_list:
         curr_score = entry["DDG"]
         raw_curr = pow(10, curr_score)
         dg_curr = -1 * 8.3145 * 298 * math.log(raw_curr)
         dg_curr_kcal = dg_curr * (1 / 4184)
-        entry["DDG"] = (dg_wt_kcal - dg_curr_kcal)
+        entry["DDG"] = dg_curr_kcal
 
     return s_list
 
@@ -201,23 +201,22 @@ def graph_ddG(csv_filename):
     # open the csv and load as df
     df = pd.read_csv(csv_filename, index_col=0)
 
-    # uncomment if you want to include WT in graph
-    # df['RESID'] = df["RESID"].str.isupper()
+    # make all residues uppercase, so we're not duplicating for WT (lowercase)
+    df['RESID'] = df["RESID"].str.upper()
 
     # make the directory for saving graphs
     Path("ddg_graphs").mkdir(exist_ok=True)
 
     for i in range(1, (number_residues + 1)):
 
-        # exclude the WT, so we're not ranking scores of 0 (ddG for WT is always 0)
-        res_info = df.loc[(df['RESNUM'] == i) & (df['RESID'].str.isupper())]
+        res_info = df.loc[(df['RESNUM'] == i)]
         # res_info.plot.scatter(x='RESID', y='DDG', figsize=[9, 6])
         fig = res_info.boxplot(by='RESID', column=['DDG'], figsize=[11, 6], fontsize=10)
 
         # set title as residue number
         resname = "RESIDUE_%s" % i
         fig.get_figure().suptitle(resname)
-        fig.set_ylabel("ΔΔG (kcal/mol)")
+        fig.set_ylabel("ΔG (kcal/mol)")
         fig.set_xlabel("Residue Identity")
 
         # save the figure as a png file
@@ -293,58 +292,59 @@ def find_runtime():
 # find the # residues
 number_residues = how_many_residues()
 
-# submit all jobs
-for d in glob.glob("match*/*/"):
-    os.chdir(d)
-    os.system("sbatch *sh")
-    os.chdir("../..")
 
-
-# check runtimes until all jobs finished
-start_time = time.time()
-took_too_long = []
-while jobs_running() > 1:
-    end_time = time.time()
-    elapsed_time = (end_time - start_time) / 60
-    print("Jobs running/queued: %s <elapsed time> %s minutes" % (jobs_running(), round(elapsed_time, 3)))
-    check_queue()
-    time.sleep(120)
-
-
-# delete directories that took too long
-print("\n---The following residues took too long, and will be deleted:")
-for t in took_too_long:
-    shutil.rmtree(t)
-    print("deleted: %s" % t)
-
-
-# delete any matches that had runtime errors
-print("\n---All runs complete! Now checking logs for errors---")
-check_for_errors()
-
-
-# get total runtime across all residues
-print("\n---Finding total runtime for each residue---")
-res_runtimes = find_runtime()
-total_runtime = 0
-for key, value in res_runtimes.items():
-    print(key, ":", value, "seconds")
-    total_runtime += value
-print("Total runtime was %s seconds" % total_runtime)
-
-
-# get ddg data from submit.out files
-print("\n---Fetching score data from logs---\n")
-g_data = get_ddG()
-
-
-# write all ddG to a csv
-print("\n---Writing to ddG_data.csv---\n")
-with open('ddG_data.csv', 'w', newline='') as csvfile:
-    fieldnames = ['MATCH', 'RESNUM', 'RESID', 'DDG']
-    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-    writer.writeheader()
-    writer.writerows(g_data)
+# # submit all jobs
+# for d in glob.glob("match*/*/"):
+#     os.chdir(d)
+#     os.system("sbatch *sh")
+#     os.chdir("../..")
+#
+#
+# # check runtimes until all jobs finished
+# start_time = time.time()
+# took_too_long = []
+# while jobs_running() > 1:
+#     end_time = time.time()
+#     elapsed_time = (end_time - start_time) / 60
+#     print("Jobs running/queued: %s <elapsed time> %s minutes" % (jobs_running(), round(elapsed_time, 3)))
+#     check_queue()
+#     time.sleep(120)
+#
+#
+# # delete directories that took too long
+# print("\n---The following residues took too long, and will be deleted:")
+# for t in took_too_long:
+#     shutil.rmtree(t)
+#     print("deleted: %s" % t)
+#
+#
+# # delete any matches that had runtime errors
+# print("\n---All runs complete! Now checking logs for errors---")
+# check_for_errors()
+#
+#
+# # get total runtime across all residues
+# print("\n---Finding total runtime for each residue---")
+# res_runtimes = find_runtime()
+# total_runtime = 0
+# for key, value in res_runtimes.items():
+#     print(key, ":", value, "seconds")
+#     total_runtime += value
+# print("Total runtime was %s seconds" % total_runtime)
+#
+#
+# # get ddg data from submit.out files
+# print("\n---Fetching score data from logs---\n")
+# g_data = get_ddG()
+#
+#
+# # write all ddG to a csv
+# print("\n---Writing to ddG_data.csv---\n")
+# with open('ddG_data.csv', 'w', newline='') as csvfile:
+#     fieldnames = ['MATCH', 'RESNUM', 'RESID', 'DDG']
+#     writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+#     writer.writeheader()
+#     writer.writerows(g_data)
 
 
 # get ddg for each residue + graph
