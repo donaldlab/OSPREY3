@@ -1,6 +1,9 @@
 ## Predicting Affinity Through Homology (PATH): Interpretable Binding Affinity Prediction with Persistent Homology
 
-*This repository contains the optimized inference code only. The training process and scripts for PATH are detailed [here](https://github.com/longyuxi/PATH-training). An open-source implementation of TNet-BP from TopologyNet (Cang and Wei, 2017) can be found [here](https://github.com/longyuxi/TopologyNet-2017).*
+
+Implementation of PATH+ and PATH- described in [*Predicting Affinity Through Homology (PATH): Interpretable Binding Affinity Prediction with Persistent Homology*](https://www.biorxiv.org/content/10.1101/2023.11.16.567384v3).
+
+This repository contains the optimized inference code only. The training process and scripts for PATH are detailed [here](https://github.com/longyuxi/PATH-training). An open-source implementation of TNet-BP from TopologyNet (Cang and Wei, 2017) can be found [here](https://github.com/longyuxi/TopologyNet-2017).
 
 ### Prerequisites
 
@@ -23,5 +26,21 @@ pip install giotto-tda biopython pyfunctional
 pip install scikit-learn==1.3.0 numpy pandas biopandas gudhi giotto-tda biopython pyfunctional
 ```
 
-### Running the inference algorithm
-`python inference.py`
+### Running PATH+
+`python path_plus/inference.py`
+
+### Running PATH-
+`python path_minus/pathminus_inference.py`
+
+### Cite
+
+```
+@article{long2023predicting,
+  title={Predicting Affinity Through Homology (PATH): Interpretable Binding Affinity Prediction with Persistent Homology},
+  author={Long, Yuxi and Donald, Bruce},
+  journal={bioRxiv},
+  pages={2023--11},
+  year={2023},
+  publisher={Cold Spring Harbor Laboratory}
+}
+```
