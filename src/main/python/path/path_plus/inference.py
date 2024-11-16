@@ -44,7 +44,7 @@ tiny_feature_subset_indices = [17819,  18318,  18514,  18908, 288020, 288516,  3
 
 fingerprint_sources = list(map(lambda x: (x // 30000, (x % 30000) // 10000), tiny_feature_subset_indices))  # Each element of this list is tuple(diagram index: 0-39, image index i.e. homology dimension within trio: 0-2)
 
-optimal_mini_gbr_path = Path(__file__).parent / 'regrs/optimal_mini_gbr.pkl'
+optimal_mini_gbr_path = Path(__file__).parent / 'path_plus_weights.pkl'
 with open(optimal_mini_gbr_path, 'rb') as f:
     optimal_mini_gbr = pickle.load(f)
 
@@ -118,7 +118,7 @@ def predict(protein_file, ligand_file):
     }
 
 if __name__ == '__main__':
-    protein_file = 'example/1a1e_protein.pdb'
-    ligand_file = 'example/1a1e_ligand.mol2'
+    protein_file = Path(__file__).parent / '../example/1a1e_protein.pdb'
+    ligand_file = Path(__file__).parent / '../example/1a1e_ligand.mol2'
     res = predict(protein_file, ligand_file)
     print(res)
