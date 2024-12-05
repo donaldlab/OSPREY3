@@ -74,7 +74,7 @@ setuptools.setup(
 	url='https://github.com/donaldlab/OSPREY_refactor',
 	packages=['osprey'],
 	python_requires='>=3',
-	install_requires=['JPype1>=0.7.2 and JPype1<=1.5.0'],
+	install_requires=['JPype1>=0.7.2'],
 	package_data={
 		'osprey': [
 			'lib/*.jar',
