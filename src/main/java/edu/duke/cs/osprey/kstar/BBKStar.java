@@ -242,8 +242,9 @@ public class BBKStar {
 			// get the possible assignments
 			Set<SeqSpace.ResType> resTypes = new HashSet<>(assignPos.resTypes);
 
-			// add wild-type option if mutations are limited
-			if (kstarSettings.maxSimultaneousMutations < positions.size()) {
+			// add wild-type option if wild-type identity is known and if mutations are limited
+			boolean wildtypeKnown = assignPos.wildType != null;
+			if (kstarSettings.maxSimultaneousMutations < positions.size() && wildtypeKnown) {
 				resTypes.add(assignPos.wildType);
 			}
 
