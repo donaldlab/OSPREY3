@@ -38,7 +38,7 @@ import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.confspace.TupE;
 
 import java.util.*;
-
+import java.util.concurrent.ConcurrentHashMap;
 
 public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
     // Store the seen confs in a trie with wildcards.
@@ -261,7 +261,7 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
             int position = -1;
             List<SimpleConfSpace.Position> positions;
             List<TupE> corrections = new ArrayList<>();
-            Map<Integer, TupleTrieNode> children = new HashMap<>();
+            Map<Integer, TupleTrieNode> children = new ConcurrentHashMap<>();
 
             private TupleTrieNode(List<SimpleConfSpace.Position> positions, int positionIndex) {
                 this.positions = positions;
