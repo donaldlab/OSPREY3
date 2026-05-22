@@ -1,0 +1,17 @@
+# Minimal conda env for the RESISTOR-style structure-prep pipeline
+# (scripts/prep/prep_complex.py + protonate_ligand.py + detect_rotamers.py).
+#
+# Usage:
+#   conda env create -f environment.yml
+#   conda activate resistor-prep
+#
+# External scripts still required (not in conda): RESISTOR Zenodo `p4a-undo.py`.
+name: resistor-prep
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python>=3.11
+  - ambertools>=23     # provides pdb4amber, antechamber, parmchk2
+  - openbabel>=3.1     # CLI `obabel` (used by protonate_ligand.py)
+  - rdkit>=2023.09     # used by protonate_ligand.py & detect_rotamers.py
